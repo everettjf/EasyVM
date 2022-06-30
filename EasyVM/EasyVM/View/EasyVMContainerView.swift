@@ -1,16 +1,14 @@
 //
-//  ContentView.swift
+//  EasyVMContainerView.swift
 //  EasyVM
 //
-//  Created by gipyzarc on 2022/6/24.
+//  Created by gipyzarc on 2022/6/26.
 //
 
 import SwiftUI
 
-struct ContentView: View {
-    
+struct EasyVMContainerView: View {
     @State var isStartVM = false
-    
     
     var body: some View {
         VStack {
@@ -24,7 +22,7 @@ struct ContentView: View {
                 } label: {
                     Label("Start", systemImage: "play")
                 }
-
+                
                 Spacer()
             }
             
@@ -33,8 +31,8 @@ struct ContentView: View {
     }
 }
 
-struct ContentView_Previews: PreviewProvider {
+struct EasyVMContainerView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        EasyVMContainerView()
     }
 }

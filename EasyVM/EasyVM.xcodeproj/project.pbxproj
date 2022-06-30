@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F270527F286C931A0008DCD1 /* FoodItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270527E286C931A0008DCD1 /* FoodItem.swift */; };
+		F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705281286C93AE0008DCD1 /* HeaderView.swift */; };
+		F2705284286C93EE0008DCD1 /* BodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* BodyView.swift */; };
+		F2705286286C94400008DCD1 /* VMStartItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705285286C94400008DCD1 /* VMStartItemView.swift */; };
+		F2705289286C98B60008DCD1 /* CreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705288286C98B60008DCD1 /* CreateView.swift */; };
 		F2C5DCA22866F7C800B2F41F /* EasyVMApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA12866F7C800B2F41F /* EasyVMApp.swift */; };
 		F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA32866F7C800B2F41F /* ContentView.swift */; };
 		F2C5DCA62866F7C900B2F41F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA52866F7C900B2F41F /* Assets.xcassets */; };
@@ -17,9 +22,16 @@
 		F2C5DCBA2866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCB52866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift */; };
 		F2C5DCBB2866F7DC00B2F41F /* EasyVMViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCB62866F7DC00B2F41F /* EasyVMViewController.swift */; };
 		F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */; };
+		F2C5DCC12868680000B2F41F /* EasyVMContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCC02868680000B2F41F /* EasyVMContainerView.swift */; };
+		F2C5DCC328686BF200B2F41F /* BulletinBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCC228686BF200B2F41F /* BulletinBoard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		F270527E286C931A0008DCD1 /* FoodItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodItem.swift; sourceTree = "<group>"; };
+		F2705281286C93AE0008DCD1 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
+		F2705283286C93EE0008DCD1 /* BodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyView.swift; sourceTree = "<group>"; };
+		F2705285286C94400008DCD1 /* VMStartItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMStartItemView.swift; sourceTree = "<group>"; };
+		F2705288286C98B60008DCD1 /* CreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateView.swift; sourceTree = "<group>"; };
 		F2C5DC9E2866F7C800B2F41F /* EasyVM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyVM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2C5DCA12866F7C800B2F41F /* EasyVMApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyVMApp.swift; sourceTree = "<group>"; };
 		F2C5DCA32866F7C800B2F41F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -32,6 +44,8 @@
 		F2C5DCB52866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVirtualMachineConfigurationHelper.swift; sourceTree = "<group>"; };
 		F2C5DCB62866F7DC00B2F41F /* EasyVMViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EasyVMViewController.swift; sourceTree = "<group>"; };
 		F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		F2C5DCC02868680000B2F41F /* EasyVMContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyVMContainerView.swift; sourceTree = "<group>"; };
+		F2C5DCC228686BF200B2F41F /* BulletinBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulletinBoard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +59,27 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F2705280286C93870008DCD1 /* Main */ = {
+			isa = PBXGroup;
+			children = (
+				F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */,
+				F2C5DCA12866F7C800B2F41F /* EasyVMApp.swift */,
+				F2C5DCA32866F7C800B2F41F /* ContentView.swift */,
+				F2705281286C93AE0008DCD1 /* HeaderView.swift */,
+				F2705283286C93EE0008DCD1 /* BodyView.swift */,
+				F2705285286C94400008DCD1 /* VMStartItemView.swift */,
+			);
+			path = Main;
+			sourceTree = "<group>";
+		};
+		F2705287286C98A60008DCD1 /* Create */ = {
+			isa = PBXGroup;
+			children = (
+				F2705288286C98B60008DCD1 /* CreateView.swift */,
+			);
+			path = Create;
+			sourceTree = "<group>";
+		};
 		F2C5DC952866F7C800B2F41F = {
 			isa = PBXGroup;
 			children = (
@@ -64,10 +99,11 @@
 		F2C5DCA02866F7C800B2F41F /* EasyVM */ = {
 			isa = PBXGroup;
 			children = (
+				F2705287286C98A60008DCD1 /* Create */,
+				F2705280286C93870008DCD1 /* Main */,
+				F2C5DCBF286867E400B2F41F /* View */,
+				F2C5DCBE286867C400B2F41F /* Test */,
 				F2C5DCB02866F7DC00B2F41F /* VMCore */,
-				F2C5DCA12866F7C800B2F41F /* EasyVMApp.swift */,
-				F2C5DCA32866F7C800B2F41F /* ContentView.swift */,
-				F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */,
 				F2C5DCA52866F7C900B2F41F /* Assets.xcassets */,
 				F2C5DCAA2866F7C900B2F41F /* EasyVM.entitlements */,
 				F2C5DCA72866F7C900B2F41F /* Preview Content */,
@@ -101,6 +137,23 @@
 				F2C5DCB52866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift */,
 			);
 			path = Common;
+			sourceTree = "<group>";
+		};
+		F2C5DCBE286867C400B2F41F /* Test */ = {
+			isa = PBXGroup;
+			children = (
+				F2C5DCC228686BF200B2F41F /* BulletinBoard.swift */,
+				F270527E286C931A0008DCD1 /* FoodItem.swift */,
+			);
+			path = Test;
+			sourceTree = "<group>";
+		};
+		F2C5DCBF286867E400B2F41F /* View */ = {
+			isa = PBXGroup;
+			children = (
+				F2C5DCC02868680000B2F41F /* EasyVMContainerView.swift */,
+			);
+			path = View;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -177,10 +230,17 @@
 				F2C5DCB92866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift in Sources */,
 				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
 				F2C5DCBA2866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift in Sources */,
+				F2705289286C98B60008DCD1 /* CreateView.swift in Sources */,
+				F2705284286C93EE0008DCD1 /* BodyView.swift in Sources */,
 				F2C5DCB72866F7DC00B2F41F /* EasyVMView.swift in Sources */,
+				F2705286286C94400008DCD1 /* VMStartItemView.swift in Sources */,
+				F2C5DCC328686BF200B2F41F /* BulletinBoard.swift in Sources */,
+				F2C5DCC12868680000B2F41F /* EasyVMContainerView.swift in Sources */,
+				F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */,
 				F2C5DCBB2866F7DC00B2F41F /* EasyVMViewController.swift in Sources */,
 				F2C5DCB82866F7DC00B2F41F /* Path.swift in Sources */,
 				F2C5DCA22866F7C800B2F41F /* EasyVMApp.swift in Sources */,
+				F270527F286C931A0008DCD1 /* FoodItem.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
