@@ -45,7 +45,7 @@ struct MacOSVirtualMachineConfigurationHelper {
     }
 
     static func createBlockDeviceConfiguration() -> VZVirtioBlockDeviceConfiguration {
-        guard let diskImageAttachment = try? VZDiskImageStorageDeviceAttachment(url: URL(fileURLWithPath: diskImagePath), readOnly: false) else {
+        guard let diskImageAttachment = try? VZDiskImageStorageDeviceAttachment(url: URL(fileURLWithPath: MacOSPath.diskImagePath), readOnly: false) else {
             fatalError("Failed to create Disk image.")
         }
         let disk = VZVirtioBlockDeviceConfiguration(attachment: diskImageAttachment)

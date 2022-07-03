@@ -57,7 +57,7 @@ class MacOSVirtualMachineInstaller: NSObject {
     private func createMacPlatformConfiguration(macOSConfiguration: VZMacOSConfigurationRequirements) -> VZMacPlatformConfiguration {
         let macPlatformConfiguration = VZMacPlatformConfiguration()
 
-        guard let auxiliaryStorage = try? VZMacAuxiliaryStorage(creatingStorageAt: auxiliaryStorageURL,
+        guard let auxiliaryStorage = try? VZMacAuxiliaryStorage(creatingStorageAt: MacOSPath.auxiliaryStorageURL,
                                                                     hardwareModel: macOSConfiguration.hardwareModel,
                                                                           options: []) else {
             fatalError("Failed to create auxiliary storage.")
@@ -68,8 +68,8 @@ class MacOSVirtualMachineInstaller: NSObject {
 
         // Store the hardware model and machine identifier to disk so that we
         // can retrieve them for subsequent boots.
-        try! macPlatformConfiguration.hardwareModel.dataRepresentation.write(to: hardwareModelURL)
-        try! macPlatformConfiguration.machineIdentifier.dataRepresentation.write(to: machineIdentifierURL)
+        try! macPlatformConfiguration.hardwareModel.dataRepresentation.write(to: MacOSPath.hardwareModelURL)
+        try! macPlatformConfiguration.machineIdentifier.dataRepresentation.write(to: MacOSPath.machineIdentifierURL)
 
         return macPlatformConfiguration
     }
@@ -129,7 +129,7 @@ class MacOSVirtualMachineInstaller: NSObject {
     }
 
     private func createVMBundle() {
-        let bundleFd = mkdir(vmBundlePath, S_IRWXU | S_IRWXG | S_IRWXO)
+        let bundleFd = mkdir(MacOSPath.vmBundlePath, S_IRWXU | S_IRWXG | S_IRWXO)
         if bundleFd == -1 {
             if errno == EEXIST {
                 fatalError("Failed to create VM.bundle: the base directory already exists.")
@@ -145,7 +145,7 @@ class MacOSVirtualMachineInstaller: NSObject {
 
     // Create an empty disk image for the Virtual Machine.
     private func createDiskImage() {
-        let diskFd = open(diskImagePath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)
+        let diskFd = open(MacOSPath.diskImagePath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)
         if diskFd == -1 {
             fatalError("Cannot create disk image.")
         }

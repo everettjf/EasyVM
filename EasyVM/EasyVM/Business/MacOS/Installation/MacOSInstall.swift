@@ -32,7 +32,7 @@ class MacOSInstall {
         self.restoreImage = MacOSRestoreImage()
         restoreImage?.download {
             // Install from the restore image that has been downloaded.
-            self.installer.installMacOS(ipswURL: restoreImageURL)
+            self.installer.installMacOS(ipswURL: MacOSPath.restoreImageURL)
         }
         
         

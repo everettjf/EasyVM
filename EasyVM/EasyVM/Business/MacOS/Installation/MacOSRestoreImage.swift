@@ -36,8 +36,8 @@ class MacOSRestoreImage: NSObject {
                 fatalError("Download failed. \(error.localizedDescription).")
             }
 
-            guard (try? FileManager.default.moveItem(at: localURL!, to: restoreImageURL)) != nil else {
-                fatalError("Failed to move downloaded restore image to \(restoreImageURL).")
+            guard (try? FileManager.default.moveItem(at: localURL!, to: MacOSPath.restoreImageURL)) != nil else {
+                fatalError("Failed to move downloaded restore image to \(MacOSPath.restoreImageURL).")
             }
 
             completionHandler()

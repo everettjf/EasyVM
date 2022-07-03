@@ -46,16 +46,16 @@ public class MacOSVMViewController: NSViewController {
     private func createMacPlaform() -> VZMacPlatformConfiguration {
         let macPlatform = VZMacPlatformConfiguration()
 
-        let auxiliaryStorage = VZMacAuxiliaryStorage(contentsOf: auxiliaryStorageURL)
+        let auxiliaryStorage = VZMacAuxiliaryStorage(contentsOf: MacOSPath.auxiliaryStorageURL)
         macPlatform.auxiliaryStorage = auxiliaryStorage
 
-        if !FileManager.default.fileExists(atPath: vmBundlePath) {
-            fatalError("Missing Virtual Machine Bundle at \(vmBundlePath). Run InstallationTool first to create it.")
+        if !FileManager.default.fileExists(atPath: MacOSPath.vmBundlePath) {
+            fatalError("Missing Virtual Machine Bundle at \(MacOSPath.vmBundlePath). Run InstallationTool first to create it.")
         }
 
         // Retrieve the hardware model; you should save this value to disk
         // during installation.
-        guard let hardwareModelData = try? Data(contentsOf: hardwareModelURL) else {
+        guard let hardwareModelData = try? Data(contentsOf: MacOSPath.hardwareModelURL) else {
             fatalError("Failed to retrieve hardware model data.")
         }
 
@@ -70,7 +70,7 @@ public class MacOSVMViewController: NSViewController {
 
         // Retrieve the machine identifier; you should save this value to disk
         // during installation.
-        guard let machineIdentifierData = try? Data(contentsOf: machineIdentifierURL) else {
+        guard let machineIdentifierData = try? Data(contentsOf: MacOSPath.machineIdentifierURL) else {
             fatalError("Failed to retrieve machine identifier data.")
         }
 
