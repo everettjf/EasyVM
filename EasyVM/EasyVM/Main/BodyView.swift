@@ -17,6 +17,7 @@ struct BodyView: View {
             LazyVGrid(columns: gridItemLayout) {
                 ForEach(partyFoods) { item in
                     VMStartItemView(name: "\(item.emoji) \(item.name)")
+                        .border(Color.purple, width: 1)
                 }
             }
         }
@@ -26,6 +27,6 @@ struct BodyView: View {
 struct BodyView_Previews: PreviewProvider {
     static var previews: some View {
         BodyView()
-            .frame(width: 600, height: 500)
+            .frame(width: 630, height: 400)
     }
 }

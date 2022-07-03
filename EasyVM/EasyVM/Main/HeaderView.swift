@@ -12,14 +12,24 @@ struct HeaderView: View {
     var body: some View {
         HStack {
             Button {
-                openWindow(id: "createvm")
+                openWindow(id: "create-vm")
             } label: {
-                Label("New Virtual Machine", systemImage: "plus")
+                Label("Create VM", systemImage: "plus")
+            }
+            Button {
+                openWindow(id: "demo-vm-macos")
+            } label: {
+                Label("Open macOS VM", systemImage: "tray")
+            }
+            Button {
+                openWindow(id: "demo-vm-linux")
+            } label: {
+                Label("Open Linux VM", systemImage: "scribble")
             }
             
             Spacer()
         }
-        .padding(.all)
+        .padding(.all, 5)
     }
 }
 

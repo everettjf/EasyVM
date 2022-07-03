@@ -17,22 +17,28 @@ struct EasyVMApp: App {
                 .frame(minWidth: 600, minHeight: 400)
         }
         
-        Window("Create Virtual Machine", id: "createvm") {
-            CreateView()
+        Window("Create Virtual Machine", id: "create-vm") {
+            VMCreateView()
         }
         .defaultPosition(.center)
-//        .keyboardShortcut("0")
-//        .defaultPosition(.topLeading)
-//        .defaultSize(width: 220, height: 250)
-//
-//
-//        Window("Party Budget", id: "budget2") {
-//            Text("Budget View2")
-//        }
-//        .keyboardShortcut("0")
-//        .defaultPosition(.topLeading)
-//        .defaultSize(width: 220, height: 250)
-//
+        .defaultSize(width: 400, height: 400)
+        
+        
+        
+        Window("macOS Virtual Machine", id: "demo-vm-macos") {
+            EasyVMContainerView()
+        }
+        .defaultPosition(.center)
+        .defaultSize(width: 600, height: 400)
+        
+        
+        Window("Linux Virtual Machine", id: "demo-vm-linux") {
+            EasyVMContainerView()
+        }
+        .defaultPosition(.center)
+        .defaultSize(width: 600, height: 400)
+        
+        
         MenuBarExtra("Bulletin Board", systemImage: "quote.bubble") {
             BulletinBoard()
         }

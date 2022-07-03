@@ -17,13 +17,13 @@ struct VMStartItemView: View {
                     .font(.title3)
                 Spacer()
             }
-            .padding(.all)
+            .padding(.all, 3)
             
             Rectangle()
                 .foregroundColor(Color.gray)
         }
-        .frame(width: 200, height: 200)
-        .padding(.all)
+        .frame(width: 200, height: 150)
+        .padding(.all, 2)
     }
 }
 
