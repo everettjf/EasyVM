@@ -8,13 +8,13 @@
 import SwiftUI
 
 
-struct EasyVMInternalView : NSViewControllerRepresentable {
+struct MacOSVMInternalView : NSViewControllerRepresentable {
     @Binding var isStartVM: Bool
     
     class Coordinator : NSObject {
-        var parent: EasyVMInternalView
+        var parent: MacOSVMInternalView
         
-        init(_ parent: EasyVMInternalView) {
+        init(_ parent: MacOSVMInternalView) {
             self.parent = parent
         }
     }
@@ -23,12 +23,12 @@ struct EasyVMInternalView : NSViewControllerRepresentable {
         Coordinator(self)
     }
     
-    func makeNSViewController(context: Context) -> EasyVMViewController {
-        let vc = EasyVMViewController()
+    func makeNSViewController(context: Context) -> MacOSVMViewController {
+        let vc = MacOSVMViewController()
         return vc
     }
     
-    func updateNSViewController(_ nsViewController: EasyVMViewController, context: Context) {
+    func updateNSViewController(_ nsViewController: MacOSVMViewController, context: Context) {
         
         if isStartVM {
             print("start vm ")
@@ -45,7 +45,7 @@ struct EasyVMView: View {
     
     
     var body: some View {
-        EasyVMInternalView(isStartVM: $isStartVM)
+        MacOSVMInternalView(isStartVM: $isStartVM)
     }
 }
 

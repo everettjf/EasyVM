@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct EasyVMContainerView: View {
+struct MacOSVMContainerView: View {
     @State var isStartVM = false
     
     var body: some View {
@@ -33,6 +33,6 @@ struct EasyVMContainerView: View {
 
 struct EasyVMContainerView_Previews: PreviewProvider {
     static var previews: some View {
-        EasyVMContainerView()
+        MacOSVMContainerView()
     }
 }

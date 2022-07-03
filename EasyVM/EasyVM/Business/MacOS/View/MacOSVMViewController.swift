@@ -9,7 +9,7 @@ import Cocoa
 import Foundation
 import Virtualization
 
-public class EasyVMViewController: NSViewController {
+public class MacOSVMViewController: NSViewController {
     
     private var virtualMachineView: VZVirtualMachineView!
     private var virtualMachineResponder: MacOSVirtualMachineDelegate?

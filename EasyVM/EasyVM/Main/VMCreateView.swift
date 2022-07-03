@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct VMCreateView: View {
     var body: some View {
@@ -14,7 +15,17 @@ struct VMCreateView: View {
             
             
             Button {
-                let ipswPath = ""
+                let panel = NSOpenPanel()
+                panel.allowsMultipleSelection = false
+                panel.canChooseDirectories = false
+                if panel.runModal() != .OK {
+                    return
+                }
+                    
+                guard let ipswPath = panel.url else {
+                    return
+                }
+                
                 sharedMacOSInstaller.installWithIPSW(ipswPath: ipswPath)
             } label: {
                 Label("Create macOS with ipsw", systemImage: "plus")

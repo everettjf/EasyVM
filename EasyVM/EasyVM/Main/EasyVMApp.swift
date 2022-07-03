@@ -26,14 +26,14 @@ struct EasyVMApp: App {
         
         
         Window("macOS Virtual Machine", id: "demo-vm-macos") {
-            EasyVMContainerView()
+            MacOSVMContainerView()
         }
         .defaultPosition(.center)
         .defaultSize(width: 600, height: 400)
         
         
         Window("Linux Virtual Machine", id: "demo-vm-linux") {
-            EasyVMContainerView()
+            MacOSVMContainerView()
         }
         .defaultPosition(.center)
         .defaultSize(width: 600, height: 400)

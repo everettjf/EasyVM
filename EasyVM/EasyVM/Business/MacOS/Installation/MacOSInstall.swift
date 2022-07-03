@@ -15,16 +15,13 @@ class MacOSInstall {
     var restoreImage: MacOSRestoreImage?
     
     
-    func installWithIPSW(ipswPath: String) {
-
-        let ipswPath = String(CommandLine.arguments[1])
-        let ipswURL = URL(fileURLWithPath: ipswPath)
-        guard ipswURL.isFileURL else {
+    func installWithIPSW(ipswPath: URL) {
+        guard ipswPath.isFileURL else {
             fatalError("The provided IPSW path is not a valid file URL.")
         }
 
         installer.setUpVirtualMachineArtifacts()
-        installer.installMacOS(ipswURL: ipswURL)
+        installer.installMacOS(ipswURL: ipswPath)
     }
     
     
