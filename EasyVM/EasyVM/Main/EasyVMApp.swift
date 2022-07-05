@@ -33,7 +33,7 @@ struct EasyVMApp: App {
         
         
         Window("Linux Virtual Machine", id: "demo-vm-linux") {
-            MacOSVMContainerView()
+            LinuxVMContainerView()
         }
         .defaultPosition(.center)
         .defaultSize(width: 600, height: 400)

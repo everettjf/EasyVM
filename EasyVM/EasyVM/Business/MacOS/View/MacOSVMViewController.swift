@@ -34,8 +34,6 @@ public class MacOSVMViewController: NSViewController {
             virtualMachineView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         
-        // auto start
-//        startVM()
     }
 
 #if arch(arm64)

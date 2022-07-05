@@ -36,13 +36,6 @@ struct VMCreateView: View {
                 Label("Create macOS with online download", systemImage: "plus")
             }
             
-            Button {
-                
-            } label: {
-                Label("Create Linux with ISO", systemImage: "plus")
-            }
-            
-            
             Spacer()
         }
         .padding(.all)

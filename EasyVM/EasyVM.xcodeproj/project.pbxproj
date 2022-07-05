@@ -15,6 +15,10 @@
 		F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270528E287142E10008DCD1 /* MacOSRestoreImage.swift */; };
 		F2705291287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270528F287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift */; };
 		F2705293287143050008DCD1 /* MacOSInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705292287143050008DCD1 /* MacOSInstall.swift */; };
+		F27052982871D1A20008DCD1 /* LinuxPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27052972871D1A20008DCD1 /* LinuxPath.swift */; };
+		F270529B2871D2560008DCD1 /* LinuxVMViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27052992871D2560008DCD1 /* LinuxVMViewController.swift */; };
+		F270529E2873C2550008DCD1 /* LinuxVMView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270529D2873C2550008DCD1 /* LinuxVMView.swift */; };
+		F27052A02873C31E0008DCD1 /* LinuxVMContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270529F2873C31E0008DCD1 /* LinuxVMContainerView.swift */; };
 		F2C5DCA22866F7C800B2F41F /* EasyVMApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA12866F7C800B2F41F /* EasyVMApp.swift */; };
 		F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA32866F7C800B2F41F /* ContentView.swift */; };
 		F2C5DCA62866F7C900B2F41F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA52866F7C900B2F41F /* Assets.xcassets */; };
@@ -38,6 +42,10 @@
 		F270528E287142E10008DCD1 /* MacOSRestoreImage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSRestoreImage.swift; sourceTree = "<group>"; };
 		F270528F287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVirtualMachineInstaller.swift; sourceTree = "<group>"; };
 		F2705292287143050008DCD1 /* MacOSInstall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSInstall.swift; sourceTree = "<group>"; };
+		F27052972871D1A20008DCD1 /* LinuxPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxPath.swift; sourceTree = "<group>"; };
+		F27052992871D2560008DCD1 /* LinuxVMViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxVMViewController.swift; sourceTree = "<group>"; };
+		F270529D2873C2550008DCD1 /* LinuxVMView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxVMView.swift; sourceTree = "<group>"; };
+		F270529F2873C31E0008DCD1 /* LinuxVMContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxVMContainerView.swift; sourceTree = "<group>"; };
 		F2C5DC9E2866F7C800B2F41F /* EasyVM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyVM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2C5DCA12866F7C800B2F41F /* EasyVMApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyVMApp.swift; sourceTree = "<group>"; };
 		F2C5DCA32866F7C800B2F41F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -91,6 +99,10 @@
 		F270528C287142A00008DCD1 /* Linux */ = {
 			isa = PBXGroup;
 			children = (
+				F27052972871D1A20008DCD1 /* LinuxPath.swift */,
+				F27052992871D2560008DCD1 /* LinuxVMViewController.swift */,
+				F270529D2873C2550008DCD1 /* LinuxVMView.swift */,
+				F270529F2873C31E0008DCD1 /* LinuxVMContainerView.swift */,
 			);
 			path = Linux;
 			sourceTree = "<group>";
@@ -258,14 +270,18 @@
 				F2C5DCBA2866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift in Sources */,
 				F2705289286C98B60008DCD1 /* VMCreateView.swift in Sources */,
 				F2705284286C93EE0008DCD1 /* BodyView.swift in Sources */,
+				F270529E2873C2550008DCD1 /* LinuxVMView.swift in Sources */,
 				F2C5DCB72866F7DC00B2F41F /* MacOSVMView.swift in Sources */,
 				F2705286286C94400008DCD1 /* VMStartItemView.swift in Sources */,
 				F2C5DCC328686BF200B2F41F /* BulletinBoard.swift in Sources */,
+				F27052982871D1A20008DCD1 /* LinuxPath.swift in Sources */,
 				F2C5DCC12868680000B2F41F /* MacOSVMContainerView.swift in Sources */,
 				F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */,
 				F2C5DCBB2866F7DC00B2F41F /* MacOSVMViewController.swift in Sources */,
 				F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */,
 				F2C5DCB82866F7DC00B2F41F /* MacOSPath.swift in Sources */,
+				F270529B2871D2560008DCD1 /* LinuxVMViewController.swift in Sources */,
+				F27052A02873C31E0008DCD1 /* LinuxVMContainerView.swift in Sources */,
 				F2C5DCA22866F7C800B2F41F /* EasyVMApp.swift in Sources */,
 				F2705291287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift in Sources */,
 				F270527F286C931A0008DCD1 /* FoodItem.swift in Sources */,
