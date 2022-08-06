@@ -13,7 +13,8 @@ struct EasyVMApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+//            ContentView()
+            CreateView()
                 .frame(minWidth: 600, minHeight: 400)
         }
         
@@ -22,6 +23,7 @@ struct EasyVMApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 400, height: 400)
+        
         
 
         Window("macOS Virtual Machine", id: "demo-vm-macos") {

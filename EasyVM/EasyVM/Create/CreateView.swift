@@ -11,6 +11,7 @@ struct CreateView: View {
     
     @State private var osType: VMModelOSType = .macOS
     @State private var name: String = "My New Virtual Machine"
+    @State private var remark: String = ""
     
     
     var body: some View {
@@ -23,7 +24,10 @@ struct CreateView: View {
                     }
                 }
                 DirectorySelectTextField(name: "Save Directory")
+                FileSelectTextField(name: "Image Path")
+                TextField("Description", text:$remark).lineLimit(5, reservesSpace: true)
             }
+            
         }
     }
 }

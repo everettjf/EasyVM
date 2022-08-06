@@ -27,6 +27,7 @@ struct VMModel: Identifiable {
     let createdAt: Date
     let lastStartedAt: Date?
     let rootPath: String
+    let remark: String = ""
 }
 
 
