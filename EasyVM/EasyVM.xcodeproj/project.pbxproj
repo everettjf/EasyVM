@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D133EE64289EA3E30051E751 /* DirectorySelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */; };
 		D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
 		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
 		D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A09289E9DAD00CF27D3 /* Array.swift */; };
@@ -35,6 +36,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectorySelectTextField.swift; sourceTree = "<group>"; };
 		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
 		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
 		D1E19A09289E9DAD00CF27D3 /* Array.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Array.swift; sourceTree = "<group>"; };
@@ -88,6 +90,7 @@
 			children = (
 				D1E19A09289E9DAD00CF27D3 /* Array.swift */,
 				D1E19A07289E9CFB00CF27D3 /* Date.swift */,
+				D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -289,6 +292,7 @@
 				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,
 				F2C5DCBA2866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift in Sources */,
 				F2705289286C98B60008DCD1 /* VMCreateView.swift in Sources */,
+				D133EE64289EA3E30051E751 /* DirectorySelectTextField.swift in Sources */,
 				F2705284286C93EE0008DCD1 /* BodyView.swift in Sources */,
 				F270529E2873C2550008DCD1 /* LinuxVMView.swift in Sources */,
 				F2C5DCB72866F7DC00B2F41F /* MacOSVMView.swift in Sources */,

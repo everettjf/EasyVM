@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 
-enum VMType: String, Identifiable, CaseIterable, Hashable {
+enum VMModelOSType: String, Identifiable, CaseIterable, Hashable {
     case macOS = "macOS"
     case linux = "linux"
     
@@ -21,7 +21,7 @@ enum VMType: String, Identifiable, CaseIterable, Hashable {
 struct VMModel: Identifiable {
     let id = UUID()
     
-    let type: VMType
+    let type: VMModelOSType
     let emoji: String
     let name: String
     let createdAt: Date
