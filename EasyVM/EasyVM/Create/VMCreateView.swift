@@ -42,7 +42,7 @@ struct VMCreateView: View {
     }
 }
 
-struct CreateView_Previews: PreviewProvider {
+struct VMCreateView_Previews: PreviewProvider {
     static var previews: some View {
         VMCreateView()
     }

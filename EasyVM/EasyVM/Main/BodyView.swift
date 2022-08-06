@@ -9,15 +9,16 @@ import SwiftUI
 
 struct BodyView: View {
     
-    private var gridItemLayout = [GridItem(.adaptive(minimum: 200))]
     
     var body: some View {
-        
-        ScrollView {
-            LazyVGrid(columns: gridItemLayout) {
-                ForEach(partyFoods) { item in
-                    VMStartItemView(name: "\(item.emoji) \(item.name)")
-                        .border(Color.purple, width: 1)
+        List(allVirtualMachines) { item in
+            VStack {
+                HStack {
+                    Text(item.type.name)
+                    Text(item.emoji)
+                    Text(item.name)
+                    Spacer()
+                    Text(item.rootPath)
                 }
             }
         }

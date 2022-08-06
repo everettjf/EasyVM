@@ -23,25 +23,20 @@ struct EasyVMApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 400, height: 400)
         
-        
-        
+
         Window("macOS Virtual Machine", id: "demo-vm-macos") {
             MacOSVMContainerView()
         }
         .defaultPosition(.center)
         .defaultSize(width: 600, height: 400)
-        
-        
+
+
         Window("Linux Virtual Machine", id: "demo-vm-linux") {
             LinuxVMContainerView()
         }
         .defaultPosition(.center)
         .defaultSize(width: 600, height: 400)
         
-        
-        MenuBarExtra("Bulletin Board", systemImage: "quote.bubble") {
-            BulletinBoard()
-        }
-        .menuBarExtraStyle(.window)
+
     }
 }

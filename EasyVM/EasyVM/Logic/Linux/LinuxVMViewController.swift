@@ -328,12 +328,12 @@ class LinuxVMViewController: NSViewController , VZVirtualMachineDelegate {
 
     func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
         print("Virtual machine did stop with error: \(error.localizedDescription)")
-        exit(-1)
+//        exit(-1)
     }
 
     func guestDidStop(_ virtualMachine: VZVirtualMachine) {
         print("Guest did stop virtual machine.")
-        exit(0)
+//        exit(0)
     }
 
     func virtualMachine(_ virtualMachine: VZVirtualMachine, networkDevice: VZNetworkDevice, attachmentWasDisconnectedWithError error: Error) {
