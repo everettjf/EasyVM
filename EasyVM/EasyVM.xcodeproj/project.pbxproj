@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D10BBDFD28AC700A00EF2630 /* DownloadImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */; };
 		D133EE64289EA3E30051E751 /* DirectorySelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */; };
 		D133EE66289EA6790051E751 /* FileSelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE65289EA6790051E751 /* FileSelectTextField.swift */; };
 		D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
@@ -37,6 +38,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadImageView.swift; sourceTree = "<group>"; };
 		D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectorySelectTextField.swift; sourceTree = "<group>"; };
 		D133EE65289EA6790051E751 /* FileSelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSelectTextField.swift; sourceTree = "<group>"; };
 		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
@@ -103,6 +105,7 @@
 				D1E19A0C289EA00A00CF27D3 /* CreateView.swift */,
 				D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */,
 				D133EE65289EA6790051E751 /* FileSelectTextField.swift */,
+				D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */,
 			);
 			path = Create;
 			sourceTree = "<group>";
@@ -288,6 +291,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D10BBDFD28AC700A00EF2630 /* DownloadImageView.swift in Sources */,
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				F2C5DCB92866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift in Sources */,
 				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
