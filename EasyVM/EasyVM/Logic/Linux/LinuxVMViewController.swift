@@ -185,7 +185,9 @@ class LinuxVMViewController: NSViewController , VZVirtualMachineDelegate {
     private func createGraphicsDeviceConfiguration() -> VZVirtioGraphicsDeviceConfiguration {
         let graphicsDevice = VZVirtioGraphicsDeviceConfiguration()
         graphicsDevice.scanouts = [
-            VZVirtioGraphicsScanoutConfiguration(widthInPixels: 1280, heightInPixels: 720)
+            VZVirtioGraphicsScanoutConfiguration(widthInPixels: 1280, heightInPixels: 720),
+            
+                VZVirtioGraphicsScanoutConfiguration(widthInPixels: 1280, heightInPixels: 720)
         ]
 
         return graphicsDevice

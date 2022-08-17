@@ -30,30 +30,161 @@ struct CreateView: View {
                 }
                 .pickerStyle(.inline)
                 
-                TextField("Save Directory", text: $vmDirectory)
-
-                TextField("Image Path", text: $imagePath)
+                LabeledContent("Save Directory") {
+                    HStack {
+                        Text("/Users/everettjf/EasyVirtualMachines")
+                        Button {
+                            
+                        } label: {
+                            Image(systemName: "folder.badge.plus")
+                        }
+                    }
+                }
+                LabeledContent("Image Path") {
+                    HStack {
+                        Text("/Users/everettjf/Download/macos-latest.ipsw")
+                        Button {
+                            
+                        } label: {
+                            Image(systemName: "doc.badge.plus")
+                        }
+                    }
+                }
                 
-                TextField("Description", text:$remark).lineLimit(5, reservesSpace: true)
+                TextField("Description", text:$remark).lineLimit(3, reservesSpace: true)
             }
             
             Section ("Machine Configuration") {
-                Stepper {
-                    Text("CPU Count : \(cpuCount)")
-                } onIncrement: {
-                    self.cpuCount += 1
-                } onDecrement: {
-                    self.cpuCount -= 1
+                LabeledContent("CPU Count") {
+                    Stepper {
+                        Text("\(cpuCount)")
+                    } onIncrement: {
+                        self.cpuCount += 1
+                    } onDecrement: {
+                        self.cpuCount -= 1
+                    }
+                    
                 }
                 
                 TextField("Memory Size", value: $memorySize, format: .number)
                 TextField("Disk Size", value: $memorySize, format: .number)
                 
-                List {
-                    Text("1")
-                    Text("1")
-                    Text("1")
-                    Text("1")
+                LabeledContent("Graphics Devices") {
+                    HStack(spacing:0) {
+                        List {
+                            Text("Virtio 1280 * 720")
+                            Text("Virtio 800 * 600")
+                            Text("Mac 1280 * 720 (2 PixelsPerInch)")
+                            Text("Mac 800 * 600 (2 PixelsPerInch)")
+                        }
+                        .frame(width:300)
+                        
+                        VStack {
+                            Spacer()
+                            Button {
+                                
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+
+                        }
+                    }
+                }
+                
+                LabeledContent("Storage Devices") {
+                    HStack(spacing:0) {
+                        List {
+                            Text("Block 64GB")
+                            Text("USB <path to iso file>")
+                        }
+                        .frame(width:300)
+                        
+                        VStack {
+                            Spacer()
+                            Button {
+                                
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+
+                        }
+                    }
+                }
+                LabeledContent("Network Devices") {
+                    HStack(spacing:0) {
+                        List {
+                            Text("NAT")
+                            Text("Bridged")
+                            Text("FileHandle")
+                        }
+                        .frame(width:300)
+                        
+                        VStack {
+                            Spacer()
+                            Button {
+                                
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+
+                        }
+                    }
+                }
+                LabeledContent("Pointing Devices") {
+                    HStack(spacing:0) {
+                        List {
+                            Text("USB Screeen")
+                            Text("Mac Trackpad")
+                        }
+                        .frame(width:300)
+                        
+                        VStack {
+                            Spacer()
+                            Button {
+                                
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+
+                        }
+                    }
+                }
+                LabeledContent("Keyboard Devices") {
+                    HStack(spacing:0) {
+                        List {
+                            Text("USB")
+                        }
+                        .frame(width:300)
+                        
+                        VStack {
+                            Spacer()
+                            Button {
+                                
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+
+                        }
+                    }
+                }
+                LabeledContent("Audio Devices") {
+                    HStack(spacing:0) {
+                        List {
+                            Text("Input Stream")
+                            Text("Output Stream")
+                        }
+                        .frame(width:300)
+                        
+                        VStack {
+                            Spacer()
+                            Button {
+                                
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+
+                        }
+                    }
                 }
             }
         }
@@ -64,6 +195,6 @@ struct CreateView: View {
 struct CreateView_Previews: PreviewProvider {
     static var previews: some View {
         CreateView()
-            .frame(height:600)
+            .frame(height:1500)
     }
 }
