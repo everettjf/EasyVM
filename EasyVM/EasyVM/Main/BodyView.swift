@@ -13,13 +13,6 @@ struct BodyView: View {
     var body: some View {
         List(allVirtualMachines) { item in
             VStack {
-                HStack {
-                    Text(item.type.name)
-                    Text(item.emoji)
-                    Text(item.name)
-                    Spacer()
-                    Text(item.rootPath)
-                }
             }
         }
     }

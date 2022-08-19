@@ -21,15 +21,7 @@ struct CreateView: View {
     
     var body: some View {
         Form {
-            Section ("Basic Information") {
-                TextField("Name", text: $name).lineLimit(2)
-                Picker("OS Type", selection: $osType) {
-                    ForEach(VMModelOSType.allCases) { item in
-                        Text(item.name).tag(item)
-                    }
-                }
-                .pickerStyle(.inline)
-                
+            Section ("Location & Image") {
                 LabeledContent("Save Directory") {
                     HStack {
                         Text("/Users/everettjf/EasyVirtualMachines")
@@ -50,6 +42,17 @@ struct CreateView: View {
                         }
                     }
                 }
+            }
+            
+            Section ("Basic Information") {
+                TextField("Name", text: $name).lineLimit(2)
+                Picker("OS Type", selection: $osType) {
+                    ForEach(VMModelOSType.allCases) { item in
+                        Text(item.name).tag(item)
+                    }
+                }
+                .pickerStyle(.inline)
+                
                 
                 TextField("Description", text:$remark).lineLimit(3, reservesSpace: true)
             }

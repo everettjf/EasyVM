@@ -14,6 +14,10 @@
 		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
 		D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A09289E9DAD00CF27D3 /* Array.swift */; };
 		D1E19A0D289EA00A00CF27D3 /* CreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A0C289EA00A00CF27D3 /* CreateView.swift */; };
+		D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */; };
+		D1E61F6B28AF1D8100ED98A0 /* VMModelDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */; };
+		D1E61F6D28AF1DF900ED98A0 /* VMModelBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */; };
+		D1E61F6F28AF224D00ED98A0 /* VMModelEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6E28AF224D00ED98A0 /* VMModelEncoder.swift */; };
 		F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705281286C93AE0008DCD1 /* HeaderView.swift */; };
 		F2705284286C93EE0008DCD1 /* BodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* BodyView.swift */; };
 		F2705289286C98B60008DCD1 /* VMCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705288286C98B60008DCD1 /* VMCreateView.swift */; };
@@ -45,6 +49,10 @@
 		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
 		D1E19A09289E9DAD00CF27D3 /* Array.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Array.swift; sourceTree = "<group>"; };
 		D1E19A0C289EA00A00CF27D3 /* CreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateView.swift; sourceTree = "<group>"; };
+		D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigModel.swift; sourceTree = "<group>"; };
+		D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelDecoder.swift; sourceTree = "<group>"; };
+		D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelBuilder.swift; sourceTree = "<group>"; };
+		D1E61F6E28AF224D00ED98A0 /* VMModelEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelEncoder.swift; sourceTree = "<group>"; };
 		F2705281286C93AE0008DCD1 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
 		F2705283286C93EE0008DCD1 /* BodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyView.swift; sourceTree = "<group>"; };
 		F2705288286C98B60008DCD1 /* VMCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateView.swift; sourceTree = "<group>"; };
@@ -84,7 +92,7 @@
 		D1E19A03289E999A00CF27D3 /* Model */ = {
 			isa = PBXGroup;
 			children = (
-				D1E19A04289E99AD00CF27D3 /* VMModel.swift */,
+				D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -108,6 +116,25 @@
 				D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */,
 			);
 			path = Create;
+			sourceTree = "<group>";
+		};
+		D1E61F6928AF1D2400ED98A0 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				D1E61F7028AF227100ED98A0 /* Helper */,
+				D1E19A04289E99AD00CF27D3 /* VMModel.swift */,
+				D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */,
+				D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */,
+				D1E61F6E28AF224D00ED98A0 /* VMModelEncoder.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		D1E61F7028AF227100ED98A0 /* Helper */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Helper;
 			sourceTree = "<group>";
 		};
 		F2705280286C93870008DCD1 /* Main */ = {
@@ -181,6 +208,7 @@
 		F2C5DCA02866F7C800B2F41F /* EasyVM */ = {
 			isa = PBXGroup;
 			children = (
+				D1E61F6928AF1D2400ED98A0 /* Core */,
 				D1E19A06289E9CE400CF27D3 /* Common */,
 				D1E19A0B289E9E3300CF27D3 /* Create */,
 				D1E19A03289E999A00CF27D3 /* Model */,
@@ -291,6 +319,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */,
 				D10BBDFD28AC700A00EF2630 /* DownloadImageView.swift in Sources */,
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				F2C5DCB92866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift in Sources */,
@@ -310,12 +339,15 @@
 				F2C5DCBB2866F7DC00B2F41F /* MacOSVMViewController.swift in Sources */,
 				F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */,
 				F2C5DCB82866F7DC00B2F41F /* MacOSPath.swift in Sources */,
+				D1E61F6D28AF1DF900ED98A0 /* VMModelBuilder.swift in Sources */,
 				D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */,
 				D1E19A0D289EA00A00CF27D3 /* CreateView.swift in Sources */,
 				D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */,
 				F270529B2871D2560008DCD1 /* LinuxVMViewController.swift in Sources */,
 				F27052A02873C31E0008DCD1 /* LinuxVMContainerView.swift in Sources */,
 				F2C5DCA22866F7C800B2F41F /* EasyVMApp.swift in Sources */,
+				D1E61F6F28AF224D00ED98A0 /* VMModelEncoder.swift in Sources */,
+				D1E61F6B28AF1D8100ED98A0 /* VMModelDecoder.swift in Sources */,
 				F2705291287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
