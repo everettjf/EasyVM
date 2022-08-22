@@ -20,15 +20,15 @@ enum VMModelOSType: String, Identifiable, CaseIterable, Hashable, Decodable {
 
 struct VMGraphicDeviceModel : Decodable {
     let type: String
-    let width: UInt32
-    let height: UInt32
-    let pixelsPerInch: UInt32?
+    let width: Int
+    let height: Int
+    let pixelsPerInch: Int
 }
 
 struct VMStorageDeviceModel : Decodable {
     let type: String
     let size: UInt64?
-    let isoPath: String?
+    let imagePath: String?
 }
 
 struct VMNetworkDeviceModel : Decodable {
@@ -41,19 +41,39 @@ struct VMPointingDeviceModel: Decodable {
 
 struct VMKeyboardDeviceModel: Decodable {
     let type: String
+    
+    init(type: String) {
+        self.type = type
+    }
+    
+    static func defaultModel() -> VMKeyboardDeviceModel {
+        return VMKeyboardDeviceModel(type: "usb")
+    }
+    
+    
 }
 
 struct VMAudioDeviceModel: Decodable {
     let type: String
+    
+    init(type: String) {
+        self.type = type
+    }
+    
+    static func defaultModels() -> [VMAudioDeviceModel] {
+        return [
+            VMAudioDeviceModel(type: "input"),
+            VMAudioDeviceModel(type: "output"),
+        ]
+    }
 }
 
 struct VMConfigModel : Decodable {
     let type: VMModelOSType
     let name: String
     let remark: String?
-    let cpuCount: UInt32
+    let cpuCount: Int
     let memorySize: UInt64
-    let diskSize: UInt64
     let graphicsDevices: [VMGraphicDeviceModel]
     let storageDevices: [VMStorageDeviceModel]
     let networkDevices: [VMNetworkDeviceModel]
@@ -66,6 +86,10 @@ struct VMConfigModel : Decodable {
 struct VMLocationModel : Decodable {
     let root: String
     let image: String
+    
+    func getMainDiskImage() -> String {
+        return root + "Disk.img"
+    }
 }
 
 
