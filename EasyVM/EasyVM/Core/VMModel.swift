@@ -17,69 +17,18 @@ enum VMModelOSType: String, Identifiable, CaseIterable, Hashable, Decodable {
     var id: String { rawValue }
 }
 
-
-struct VMGraphicDeviceModel : Decodable {
-    let type: String
-    let width: Int
-    let height: Int
-    let pixelsPerInch: Int
-}
-
-struct VMStorageDeviceModel : Decodable {
-    let type: String
-    let size: UInt64?
-    let imagePath: String?
-}
-
-struct VMNetworkDeviceModel : Decodable {
-    let type: String
-}
-
-struct VMPointingDeviceModel: Decodable {
-    let type: String
-}
-
-struct VMKeyboardDeviceModel: Decodable {
-    let type: String
-    
-    init(type: String) {
-        self.type = type
-    }
-    
-    static func defaultModel() -> VMKeyboardDeviceModel {
-        return VMKeyboardDeviceModel(type: "usb")
-    }
-    
-    
-}
-
-struct VMAudioDeviceModel: Decodable {
-    let type: String
-    
-    init(type: String) {
-        self.type = type
-    }
-    
-    static func defaultModels() -> [VMAudioDeviceModel] {
-        return [
-            VMAudioDeviceModel(type: "input"),
-            VMAudioDeviceModel(type: "output"),
-        ]
-    }
-}
-
 struct VMConfigModel : Decodable {
     let type: VMModelOSType
     let name: String
     let remark: String?
-    let cpuCount: Int
-    let memorySize: UInt64
-    let graphicsDevices: [VMGraphicDeviceModel]
-    let storageDevices: [VMStorageDeviceModel]
-    let networkDevices: [VMNetworkDeviceModel]
-    let pointingDevices: [VMPointingDeviceModel]
-    let keyboardDevices: [VMKeyboardDeviceModel]
-    let audioDevices: [VMAudioDeviceModel]
+    let cpu: VMModelFieldCPU
+    let memory: VMModelFieldMemory
+    let graphicsDevices: [VMModelFieldGraphicDevice]
+    let storageDevices: [VMModelFieldStorageDevice]
+    let networkDevices: [VMModelFieldNetworkDevice]
+    let pointingDevices: [VMModelFieldPointingDevice]
+    let keyboardDevices: [VMModelFieldKeyboardDevice]
+    let audioDevices: [VMModelFieldAudioDevice]
     
 }
 
