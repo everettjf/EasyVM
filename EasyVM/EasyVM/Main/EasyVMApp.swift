@@ -13,8 +13,7 @@ struct EasyVMApp: App {
     
     var body: some Scene {
         WindowGroup {
-//            ContentView()
-            CreateView()
+            ContentView()
                 .frame(minWidth: 600, minHeight: 400)
         }
         

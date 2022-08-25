@@ -47,7 +47,3 @@ struct VMModel: Identifiable {
     let location: VMLocationModel
     let config: VMConfigModel
 }
-
-
-let allVirtualMachines: [VMModel] = [
-]

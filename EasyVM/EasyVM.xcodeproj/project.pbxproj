@@ -26,6 +26,7 @@
 		D1EF707428B6657400F2D279 /* VMModelFieldPointingDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */; };
 		D1EF707628B6658A00F2D279 /* VMModelFieldKeyboardDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707528B6658A00F2D279 /* VMModelFieldKeyboardDevice.swift */; };
 		D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */; };
+		D1EF707A28B6971100F2D279 /* VMCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707928B6971100F2D279 /* VMCenter.swift */; };
 		F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705281286C93AE0008DCD1 /* HeaderView.swift */; };
 		F2705284286C93EE0008DCD1 /* BodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* BodyView.swift */; };
 		F2705289286C98B60008DCD1 /* VMCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705288286C98B60008DCD1 /* VMCreateView.swift */; };
@@ -69,6 +70,7 @@
 		D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldPointingDevice.swift; sourceTree = "<group>"; };
 		D1EF707528B6658A00F2D279 /* VMModelFieldKeyboardDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldKeyboardDevice.swift; sourceTree = "<group>"; };
 		D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldAudioDevice.swift; sourceTree = "<group>"; };
+		D1EF707928B6971100F2D279 /* VMCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCenter.swift; sourceTree = "<group>"; };
 		F2705281286C93AE0008DCD1 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
 		F2705283286C93EE0008DCD1 /* BodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyView.swift; sourceTree = "<group>"; };
 		F2705288286C98B60008DCD1 /* VMCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateView.swift; sourceTree = "<group>"; };
@@ -157,6 +159,7 @@
 				D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */,
 				D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */,
 				D1E61F6E28AF224D00ED98A0 /* VMModelEncoder.swift */,
+				D1EF707928B6971100F2D279 /* VMCenter.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -381,6 +384,7 @@
 				D1E61F6B28AF1D8100ED98A0 /* VMModelDecoder.swift in Sources */,
 				D1EF706E28B6639600F2D279 /* VMModelFieldGraphicDevice.swift in Sources */,
 				F2705291287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift in Sources */,
+				D1EF707A28B6971100F2D279 /* VMCenter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
