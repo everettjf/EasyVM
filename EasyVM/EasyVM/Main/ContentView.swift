@@ -7,62 +7,42 @@
 import Foundation
 import SwiftUI
 
-enum PartyTask: String, Identifiable, CaseIterable, Hashable {
-    case food = "Food"
-    case music = "Music"
-    case supplies = "Supplies"
-    case invitations = "Invitations"
-    case eventDetails = "Event Details"
-    case activities = "Activities"
-    case funProjection = "Fun Projection"
-    case vips = "VIPs"
-    case photosFilter = "Photos Filter"
+enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
+    case machines = "Machines"
+    case documents = "Documents"
+    case community = "Community"
+    case issues = "Issues"
+    case about = "About"
     
     var name: String { rawValue }
     
     var color: Color {
         switch self {
-        case .food:
+        case .machines:
             return globalPalettes[0]
-        case .supplies:
+        case .documents:
             return globalPalettes[1]
-        case .invitations:
+        case .community:
             return globalPalettes[2]
-        case .eventDetails:
+        case .issues:
             return globalPalettes[3]
-        case .funProjection:
+        case .about:
             return globalPalettes[4]
-        case .activities:
-            return globalPalettes[5]
-        case .vips:
-            return globalPalettes[6]
-        case .music:
-            return globalPalettes[7]
-        case .photosFilter:
-            return globalPalettes[8]
         }
     }
     
     var imageName: String {
         switch self {
-        case .food:
+        case .machines:
             return "birthday.cake"
-        case .supplies:
+        case .documents:
             return  "party.popper"
-        case .invitations:
+        case .community:
             return "envelope.open"
-        case .eventDetails:
+        case .issues:
             return "calendar.badge.clock"
-        case .funProjection:
+        case .about:
             return "gauge.medium"
-        case .activities:
-            return "bubbles.and.sparkles"
-        case .vips:
-            return "person.2"
-        case .music:
-            return  "music.mic"
-        case .photosFilter:
-            return "camera.filters"
         }
     }
     
@@ -70,60 +50,45 @@ enum PartyTask: String, Identifiable, CaseIterable, Hashable {
     
     var subtitle: String {
         switch self {
-        case .food:
-            return "Apps, 'Zerts and Cakes"
-        case .supplies:
-            return "Streamers, Plates, Cups"
-        case .invitations:
-            return "Sendable, Non-Transferable"
-        case .eventDetails:
-            return "Date, Duration, And Placement"
-        case .funProjection:
-            return "Beta — How Fun Will Your Party Be?"
-        case .activities:
-            return "Dancing, Paired Programing"
-        case .vips:
-            return "User Interactive Guests"
-        case .music:
-            return "Song Requests & Karaoke"
-        case .photosFilter:
-            return "Filtering and Mapping"
+        case .machines:
+            return "Created virtual machines"
+        case .documents:
+            return "How to create, use"
+        case .community:
+            return "Let's talk anything"
+        case .issues:
+            return "Create an issue or new ideas"
+        case .about:
+            return "All about current app"
         }
     }
     
     var emoji: String {
         switch self {
-        case .food:
+        case .machines:
             return "🎂"
-        case .music:
+        case .documents:
             return "🎤"
-        case .supplies:
+        case .community:
             return "🎉"
-        case .invitations:
+        case .issues:
             return "📨"
-        case .eventDetails:
+        case .about:
             return "🗓"
-        case .funProjection:
-            return "🧭"
-        case .activities:
-            return "💃"
-        case .vips:
-            return "⭐️"
-        case .photosFilter:
-            return "📸"
         }
     }
 }
 
 
 
-struct TaskLabel: View {
-    let task: PartyTask
+struct SidebarItemLabel: View {
+    let task: SidebarMenu
 
     var body: some View {
         Label {
             VStack(alignment: .leading) {
                 Text(task.name)
+                    .padding(.bottom, 2)
                 Text(task.subtitle)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -132,22 +97,24 @@ struct TaskLabel: View {
             Image(systemName: task.imageName)
                 .symbolVariant(.circle.fill)
         }
+        .padding(.top, 7)
+        .padding(.bottom, 7)
     }
 }
 
 struct ContentView: View {
-    @State private var selectedTask: PartyTask = .food
+    @State private var selectedTask: SidebarMenu = .machines
     
     var body: some View {
         NavigationSplitView {
-            List(PartyTask.allCases, selection: $selectedTask) { task in
+            List(SidebarMenu.allCases, selection: $selectedTask) { task in
                 NavigationLink(value: task) {
-                    TaskLabel(task: task)
+                    SidebarItemLabel(task: task)
                 }
                 .listItemTint(task.color)
             }
         } detail: {
-            if case .food = selectedTask {
+            if case .machines = selectedTask {
                 BodyView()
             } else {
                 selectedTask.color
