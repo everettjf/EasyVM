@@ -2,7 +2,7 @@
 //  LinuxVMViewController.swift
 //  EasyVM
 //
-//  Created by gipyzarc on 2022/7/3.
+//  Created by everettjf on 2022/7/3.
 //
 
 import Cocoa

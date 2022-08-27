@@ -2,7 +2,7 @@
 //  BodyView.swift
 //  EasyVM
 //
-//  Created by gipyzarc on 2022/6/29.
+//  Created by everettjf on 2022/6/29.
 //
 
 import SwiftUI
@@ -77,7 +77,7 @@ struct AttendeeToken: Identifiable, Equatable, Hashable {
     static let status: AttendeeToken = .init(guts: .status)
 }
 
-struct BodyView: View {
+struct MachinesDetailView: View {
     @StateObject private var vmStore = MyVMStore()
     @State private var selection = Set<MyVM.ID>()
     
@@ -193,9 +193,9 @@ struct BodyView: View {
     }
 }
 
-struct BodyView_Previews: PreviewProvider {
+struct MachinesDetailView_Previews: PreviewProvider {
     static var previews: some View {
-        BodyView()
+        MachinesDetailView()
             .frame(width: 630, height: 400)
     }
 }

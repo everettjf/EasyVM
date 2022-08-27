@@ -2,13 +2,13 @@
 //  EasyVMApp.swift
 //  EasyVM
 //
-//  Created by gipyzarc on 2022/6/24.
+//  Created by everettjf on 2022/6/24.
 //
 
 import SwiftUI
 
 @main
-struct EasyVMApp: App {
+struct MainApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {

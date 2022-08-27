@@ -2,7 +2,7 @@
 //  EasyVMView.swift
 //  EasyVM
 //
-//  Created by gipyzarc on 2022/6/24.
+//  Created by everettjf on 2022/6/24.
 //
 
 import SwiftUI
