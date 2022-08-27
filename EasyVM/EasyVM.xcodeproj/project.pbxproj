@@ -11,6 +11,7 @@
 		D133EE64289EA3E30051E751 /* DirectorySelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */; };
 		D133EE66289EA6790051E751 /* FileSelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE65289EA6790051E751 /* FileSelectTextField.swift */; };
 		D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
+		D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */; };
 		D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
 		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
 		D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A09289E9DAD00CF27D3 /* Array.swift */; };
@@ -55,6 +56,7 @@
 		D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectorySelectTextField.swift; sourceTree = "<group>"; };
 		D133EE65289EA6790051E751 /* FileSelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSelectTextField.swift; sourceTree = "<group>"; };
 		D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldCPU.swift; sourceTree = "<group>"; };
+		D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palettes.swift; sourceTree = "<group>"; };
 		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
 		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
 		D1E19A09289E9DAD00CF27D3 /* Array.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Array.swift; sourceTree = "<group>"; };
@@ -135,6 +137,7 @@
 			children = (
 				D1E19A09289E9DAD00CF27D3 /* Array.swift */,
 				D1E19A07289E9CFB00CF27D3 /* Date.swift */,
+				D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -365,6 +368,7 @@
 				D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */,
 				F2C5DCB72866F7DC00B2F41F /* MacOSVMView.swift in Sources */,
 				F27052982871D1A20008DCD1 /* LinuxPath.swift in Sources */,
+				D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */,
 				D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */,
 				F2C5DCC12868680000B2F41F /* MacOSVMContainerView.swift in Sources */,
 				F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */,
