@@ -21,6 +21,11 @@ struct MachineDetailCardView: View {
                 Text(vm.osType == .linux ? "Linux" : "macOS")
                     .font(.footnote)
                     .fontWeight(.bold)
+                    .padding(3)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(.gray, lineWidth: 1)
+                    )
             }
             
             Rectangle()
@@ -86,8 +91,8 @@ struct MachineDetailCardView: View {
         }
         .padding(.all, 10)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(.blue, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(.gray, lineWidth: 1)
         )
         .shadow(radius: 16)
         .frame(width: 230, height: 330)
