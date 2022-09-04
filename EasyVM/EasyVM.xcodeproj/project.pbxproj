@@ -10,6 +10,7 @@
 		D10BBDFD28AC700A00EF2630 /* DownloadImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */; };
 		D133EE64289EA3E30051E751 /* DirectorySelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */; };
 		D133EE66289EA6790051E751 /* FileSelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE65289EA6790051E751 /* FileSelectTextField.swift */; };
+		D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
 		D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
 		D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */; };
 		D1A6A5E228BA7AD500CBE80A /* DocumentsDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E128BA7AD500CBE80A /* DocumentsDetailView.swift */; };
@@ -60,6 +61,7 @@
 		D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadImageView.swift; sourceTree = "<group>"; };
 		D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectorySelectTextField.swift; sourceTree = "<group>"; };
 		D133EE65289EA6790051E751 /* FileSelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSelectTextField.swift; sourceTree = "<group>"; };
+		D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailCardView.swift; sourceTree = "<group>"; };
 		D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldCPU.swift; sourceTree = "<group>"; };
 		D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palettes.swift; sourceTree = "<group>"; };
 		D1A6A5E128BA7AD500CBE80A /* DocumentsDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentsDetailView.swift; sourceTree = "<group>"; };
@@ -137,6 +139,7 @@
 		D1A6A5E028BA7A9200CBE80A /* DetailView */ = {
 			isa = PBXGroup;
 			children = (
+				D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */,
 				F2705283286C93EE0008DCD1 /* MachinesDetailView.swift */,
 				D1A6A5E128BA7AD500CBE80A /* DocumentsDetailView.swift */,
 				D1A6A5E328BA7AEC00CBE80A /* CommunityDetailView.swift */,
@@ -403,6 +406,7 @@
 				F27052982871D1A20008DCD1 /* LinuxPath.swift in Sources */,
 				D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */,
 				D1A6A5E428BA7AEC00CBE80A /* CommunityDetailView.swift in Sources */,
+				D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */,
 				D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */,
 				F2C5DCC12868680000B2F41F /* MacOSVMContainerView.swift in Sources */,
 				D1A6A5EB28BA7B9B00CBE80A /* Sidebar.swift in Sources */,
