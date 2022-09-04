@@ -62,6 +62,18 @@ struct MachineDetailCardView: View {
             }
             
             HStack {
+                Button {
+                    
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "play")
+                        Text("Run")
+                    }
+                    .fontWeight(.bold)
+                }
+                .buttonStyle(.borderless)
+
+                
                 Spacer()
                 Button {
                     

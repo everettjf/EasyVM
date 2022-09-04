@@ -79,6 +79,6 @@ struct MachinesDetailView: View {
 struct MachinesDetailView_Previews: PreviewProvider {
     static var previews: some View {
         MachinesDetailView()
-            .frame(width: 630, height: 400)
+            .frame(width: 500, height: 400)
     }
 }

@@ -60,7 +60,7 @@ enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
         case .issues:
             return "Create an issue or new ideas"
         case .about:
-            return "All about current app"
+            return "All about the app"
         }
     }
     
