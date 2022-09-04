@@ -138,56 +138,25 @@ struct MachinesDetailView: View {
                 .navigationTitle("Virtual Machines")
                 .contextMenu(forSelectionType: MyVM.ID.self, menu: { selection in
                     if selection.isEmpty {
-                        Button("New Invitation") {  }
+                        Button("No selection") {  }
                     } else if selection.count == 1 {
-                        Button("Mark as VIP") {  }
+                        Button("select 1") {  }
                     } else {
-                        Button("Mark as VIPs") {  }
+                        Button("Select > 1") {  }
                     }
                 })
-                .searchable(
-                    text: $query, tokens: $tokens, scope: $scope
-                ) { token in
-                    Label(
-                        token.query,
-                        systemImage: token.systemImage)
-                } scopes: {
-                    Text("In Person").tag(AttendanceScope.inPerson)
-                    Text("Online").tag(AttendanceScope.online)
-                } suggestions: {
-                    Text("suggestions")
-                        .foregroundColor(.black)
-                }
                 .toolbar(id: "toolbar") {
-                    ToolbarItem(id: "new", placement: .secondaryAction) {
+                    ToolbarItem(id: "new", placement: .primaryAction) {
                         Button(action: {}) {
-                            Label("New Invitation", systemImage: "envelope")
+                            Label("New Virutal Machine", systemImage: "plus.diamond")
                         }
                     }
-                    ToolbarItem(id: "edit", placement: .secondaryAction) {
-                        Button(action: {}) {
-                            Label("Edit", systemImage: "pencil.circle")
-                        }
-                    }
-                    ToolbarItem(id: "share", placement: .secondaryAction) {
+                    ToolbarItem(id: "share", placement: .automatic) {
                         Button(action: {}) {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
                     }
-                    ToolbarItem(id: "tag", placement: .secondaryAction) {
-                        Button(action: {}) {
-                            Label("Tags", systemImage: "tag")
-                        }
-                    }
-                    ToolbarItem(
-                        id: "reminder", placement: .secondaryAction, showsByDefault: false
-                    ) {
-                        Button(action: {}) {
-                            Label("Set reminder", systemImage: "bell")
-                        }
-                    }
                 }
-                .toolbarRole(.automatic)
         }
         
     }
