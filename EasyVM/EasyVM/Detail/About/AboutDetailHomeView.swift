@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-struct AboutDetailView: View {
+struct AboutDetailHomeView: View {
     var body: some View {
         Text("About!")
     }
 }
 
-struct AboutDetailView_Previews: PreviewProvider {
+struct AboutDetailHomeView_Previews: PreviewProvider {
     static var previews: some View {
-        AboutDetailView()
+        AboutDetailHomeView()
     }
 }

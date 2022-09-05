@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-struct IssuesDetailView: View {
+struct IssuesDetailHomeView: View {
     var body: some View {
         Text("Issues!")
     }
 }
 
-struct IssuesDetailView_Previews: PreviewProvider {
+struct IssuesDetailHomeView_Previews: PreviewProvider {
     static var previews: some View {
-        IssuesDetailView()
+        IssuesDetailHomeView()
     }
 }

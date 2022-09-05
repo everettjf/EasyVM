@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-struct CommunityDetailView: View {
+struct CommunityDetailHomeView: View {
     var body: some View {
         Text("Community!")
     }
 }
 
-struct CommunityDetailView_Previews: PreviewProvider {
+struct CommunityDetailHomeView_Previews: PreviewProvider {
     static var previews: some View {
-        CommunityDetailView()
+        CommunityDetailHomeView()
     }
 }

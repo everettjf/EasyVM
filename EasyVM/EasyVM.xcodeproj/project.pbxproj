@@ -13,10 +13,10 @@
 		D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
 		D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
 		D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */; };
-		D1A6A5E228BA7AD500CBE80A /* DocumentsDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E128BA7AD500CBE80A /* DocumentsDetailView.swift */; };
-		D1A6A5E428BA7AEC00CBE80A /* CommunityDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E328BA7AEC00CBE80A /* CommunityDetailView.swift */; };
-		D1A6A5E628BA7B0300CBE80A /* IssuesDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E528BA7B0300CBE80A /* IssuesDetailView.swift */; };
-		D1A6A5E828BA7B2100CBE80A /* AboutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E728BA7B2100CBE80A /* AboutDetailView.swift */; };
+		D1A6A5E228BA7AD500CBE80A /* DocumentsDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E128BA7AD500CBE80A /* DocumentsDetailHomeView.swift */; };
+		D1A6A5E428BA7AEC00CBE80A /* CommunityDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */; };
+		D1A6A5E628BA7B0300CBE80A /* IssuesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */; };
+		D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */; };
 		D1A6A5EB28BA7B9B00CBE80A /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */; };
 		D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
 		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
@@ -35,7 +35,7 @@
 		D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */; };
 		D1EF707A28B6971100F2D279 /* VMCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707928B6971100F2D279 /* VMCenter.swift */; };
 		F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705281286C93AE0008DCD1 /* HeaderView.swift */; };
-		F2705284286C93EE0008DCD1 /* MachinesDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* MachinesDetailView.swift */; };
+		F2705284286C93EE0008DCD1 /* MachinesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */; };
 		F2705289286C98B60008DCD1 /* VMCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705288286C98B60008DCD1 /* VMCreateView.swift */; };
 		F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270528E287142E10008DCD1 /* MacOSRestoreImage.swift */; };
 		F2705291287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270528F287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift */; };
@@ -64,10 +64,10 @@
 		D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailCardView.swift; sourceTree = "<group>"; };
 		D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldCPU.swift; sourceTree = "<group>"; };
 		D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palettes.swift; sourceTree = "<group>"; };
-		D1A6A5E128BA7AD500CBE80A /* DocumentsDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentsDetailView.swift; sourceTree = "<group>"; };
-		D1A6A5E328BA7AEC00CBE80A /* CommunityDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityDetailView.swift; sourceTree = "<group>"; };
-		D1A6A5E528BA7B0300CBE80A /* IssuesDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuesDetailView.swift; sourceTree = "<group>"; };
-		D1A6A5E728BA7B2100CBE80A /* AboutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutDetailView.swift; sourceTree = "<group>"; };
+		D1A6A5E128BA7AD500CBE80A /* DocumentsDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentsDetailHomeView.swift; sourceTree = "<group>"; };
+		D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityDetailHomeView.swift; sourceTree = "<group>"; };
+		D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuesDetailHomeView.swift; sourceTree = "<group>"; };
+		D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutDetailHomeView.swift; sourceTree = "<group>"; };
 		D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
 		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
 		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
@@ -86,7 +86,7 @@
 		D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldAudioDevice.swift; sourceTree = "<group>"; };
 		D1EF707928B6971100F2D279 /* VMCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCenter.swift; sourceTree = "<group>"; };
 		F2705281286C93AE0008DCD1 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
-		F2705283286C93EE0008DCD1 /* MachinesDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesDetailView.swift; sourceTree = "<group>"; };
+		F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesDetailHomeView.swift; sourceTree = "<group>"; };
 		F2705288286C98B60008DCD1 /* VMCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateView.swift; sourceTree = "<group>"; };
 		F270528E287142E10008DCD1 /* MacOSRestoreImage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSRestoreImage.swift; sourceTree = "<group>"; };
 		F270528F287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVirtualMachineInstaller.swift; sourceTree = "<group>"; };
@@ -136,17 +136,16 @@
 			path = ModelFields;
 			sourceTree = "<group>";
 		};
-		D1A6A5E028BA7A9200CBE80A /* DetailView */ = {
+		D1A6A5E028BA7A9200CBE80A /* Detail */ = {
 			isa = PBXGroup;
 			children = (
-				D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */,
-				F2705283286C93EE0008DCD1 /* MachinesDetailView.swift */,
-				D1A6A5E128BA7AD500CBE80A /* DocumentsDetailView.swift */,
-				D1A6A5E328BA7AEC00CBE80A /* CommunityDetailView.swift */,
-				D1A6A5E528BA7B0300CBE80A /* IssuesDetailView.swift */,
-				D1A6A5E728BA7B2100CBE80A /* AboutDetailView.swift */,
+				D1AF34F728C5804D00317D05 /* Machines */,
+				D1AF34F828C5805600317D05 /* Documents */,
+				D1AF34F928C5805D00317D05 /* Community */,
+				D1AF34FA28C5806500317D05 /* Issues */,
+				D1AF34FB28C5806D00317D05 /* About */,
 			);
-			path = DetailView;
+			path = Detail;
 			sourceTree = "<group>";
 		};
 		D1A6A5E928BA7B3B00CBE80A /* Temp */ = {
@@ -155,6 +154,47 @@
 				F2705281286C93AE0008DCD1 /* HeaderView.swift */,
 			);
 			path = Temp;
+			sourceTree = "<group>";
+		};
+		D1AF34F728C5804D00317D05 /* Machines */ = {
+			isa = PBXGroup;
+			children = (
+				D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */,
+				F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */,
+			);
+			path = Machines;
+			sourceTree = "<group>";
+		};
+		D1AF34F828C5805600317D05 /* Documents */ = {
+			isa = PBXGroup;
+			children = (
+				D1A6A5E128BA7AD500CBE80A /* DocumentsDetailHomeView.swift */,
+			);
+			path = Documents;
+			sourceTree = "<group>";
+		};
+		D1AF34F928C5805D00317D05 /* Community */ = {
+			isa = PBXGroup;
+			children = (
+				D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */,
+			);
+			path = Community;
+			sourceTree = "<group>";
+		};
+		D1AF34FA28C5806500317D05 /* Issues */ = {
+			isa = PBXGroup;
+			children = (
+				D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */,
+			);
+			path = Issues;
+			sourceTree = "<group>";
+		};
+		D1AF34FB28C5806D00317D05 /* About */ = {
+			isa = PBXGroup;
+			children = (
+				D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */,
+			);
+			path = About;
 			sourceTree = "<group>";
 		};
 		D1E19A03289E999A00CF27D3 /* Model */ = {
@@ -208,7 +248,6 @@
 				D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */,
 				F2C5DCA32866F7C800B2F41F /* ContentView.swift */,
 				D1A6A5E928BA7B3B00CBE80A /* Temp */,
-				D1A6A5E028BA7A9200CBE80A /* DetailView */,
 			);
 			path = Main;
 			sourceTree = "<group>";
@@ -277,6 +316,7 @@
 				D1E19A0B289E9E3300CF27D3 /* Create */,
 				D1E19A03289E999A00CF27D3 /* Model */,
 				F270528A287141730008DCD1 /* Logic */,
+				D1A6A5E028BA7A9200CBE80A /* Detail */,
 				F2705280286C93870008DCD1 /* Main */,
 				F2C5DCA52866F7C900B2F41F /* Assets.xcassets */,
 				F2C5DCAA2866F7C900B2F41F /* EasyVM.entitlements */,
@@ -384,14 +424,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */,
-				D1A6A5E228BA7AD500CBE80A /* DocumentsDetailView.swift in Sources */,
+				D1A6A5E228BA7AD500CBE80A /* DocumentsDetailHomeView.swift in Sources */,
 				D10BBDFD28AC700A00EF2630 /* DownloadImageView.swift in Sources */,
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				F2C5DCB92866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift in Sources */,
 				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
 				F2705293287143050008DCD1 /* MacOSInstall.swift in Sources */,
 				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,
-				D1A6A5E628BA7B0300CBE80A /* IssuesDetailView.swift in Sources */,
+				D1A6A5E628BA7B0300CBE80A /* IssuesDetailHomeView.swift in Sources */,
 				F2C5DCBA2866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift in Sources */,
 				D1EF707628B6658A00F2D279 /* VMModelFieldKeyboardDevice.swift in Sources */,
 				D1EF707228B6656500F2D279 /* VMModelFieldNetworkDevice.swift in Sources */,
@@ -399,13 +439,13 @@
 				D133EE66289EA6790051E751 /* FileSelectTextField.swift in Sources */,
 				F2705289286C98B60008DCD1 /* VMCreateView.swift in Sources */,
 				D133EE64289EA3E30051E751 /* DirectorySelectTextField.swift in Sources */,
-				F2705284286C93EE0008DCD1 /* MachinesDetailView.swift in Sources */,
+				F2705284286C93EE0008DCD1 /* MachinesDetailHomeView.swift in Sources */,
 				F270529E2873C2550008DCD1 /* LinuxVMView.swift in Sources */,
 				D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */,
 				F2C5DCB72866F7DC00B2F41F /* MacOSVMView.swift in Sources */,
 				F27052982871D1A20008DCD1 /* LinuxPath.swift in Sources */,
 				D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */,
-				D1A6A5E428BA7AEC00CBE80A /* CommunityDetailView.swift in Sources */,
+				D1A6A5E428BA7AEC00CBE80A /* CommunityDetailHomeView.swift in Sources */,
 				D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */,
 				D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */,
 				F2C5DCC12868680000B2F41F /* MacOSVMContainerView.swift in Sources */,
@@ -414,7 +454,7 @@
 				F2C5DCBB2866F7DC00B2F41F /* MacOSVMViewController.swift in Sources */,
 				D1EF707028B6654500F2D279 /* VMModelFieldStorageDevice.swift in Sources */,
 				F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */,
-				D1A6A5E828BA7B2100CBE80A /* AboutDetailView.swift in Sources */,
+				D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */,
 				F2C5DCB82866F7DC00B2F41F /* MacOSPath.swift in Sources */,
 				D1E61F6D28AF1DF900ED98A0 /* VMModelBuilder.swift in Sources */,
 				D1EF706C28B65EEE00F2D279 /* VMModelFieldMemory.swift in Sources */,

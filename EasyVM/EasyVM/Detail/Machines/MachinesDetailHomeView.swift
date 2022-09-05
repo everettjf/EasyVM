@@ -36,7 +36,7 @@ class MyVMStore: ObservableObject {
 
 
 
-struct MachinesDetailView: View {
+struct MachinesDetailHomeView: View {
     @StateObject private var vmStore = MyVMStore()
     
     let columns = [GridItem(.adaptive(minimum: 230, maximum: 230))]
@@ -76,9 +76,9 @@ struct MachinesDetailView: View {
     }
 }
 
-struct MachinesDetailView_Previews: PreviewProvider {
+struct MachinesDetailHomeView_Previews: PreviewProvider {
     static var previews: some View {
-        MachinesDetailView()
+        MachinesDetailHomeView()
             .frame(width: 500, height: 400)
     }
 }

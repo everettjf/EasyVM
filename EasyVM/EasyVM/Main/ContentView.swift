@@ -22,15 +22,15 @@ struct ContentView: View {
         } detail: {
             switch selectedMenuItem {
             case .machines:
-                MachinesDetailView()
+                MachinesDetailHomeView()
             case .documents:
-                DocumentsDetailView()
+                DocumentsDetailHomeView()
             case .community:
-                CommunityDetailView()
+                CommunityDetailHomeView()
             case .issues:
-                IssuesDetailView()
+                IssuesDetailHomeView()
             case .about:
-                AboutDetailView()
+                AboutDetailHomeView()
             }
         }
     }

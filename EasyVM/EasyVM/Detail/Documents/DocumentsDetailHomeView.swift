@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-struct DocumentsDetailView: View {
+struct DocumentsDetailHomeView: View {
     var body: some View {
         Text("Documents")
     }
 }
 
-struct DocumentsDetailView_Previews: PreviewProvider {
+struct DocumentsDetailHomeView_Previews: PreviewProvider {
     static var previews: some View {
-        DocumentsDetailView()
+        DocumentsDetailHomeView()
     }
 }
