@@ -21,7 +21,7 @@
 		D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
 		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
 		D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A09289E9DAD00CF27D3 /* Array.swift */; };
-		D1E19A0D289EA00A00CF27D3 /* CreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A0C289EA00A00CF27D3 /* CreateView.swift */; };
+		D1E19A0D289EA00A00CF27D3 /* CreateMachineGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A0C289EA00A00CF27D3 /* CreateMachineGuideView.swift */; };
 		D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */; };
 		D1E61F6B28AF1D8100ED98A0 /* VMModelDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */; };
 		D1E61F6D28AF1DF900ED98A0 /* VMModelBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */; };
@@ -72,7 +72,7 @@
 		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
 		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
 		D1E19A09289E9DAD00CF27D3 /* Array.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Array.swift; sourceTree = "<group>"; };
-		D1E19A0C289EA00A00CF27D3 /* CreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateView.swift; sourceTree = "<group>"; };
+		D1E19A0C289EA00A00CF27D3 /* CreateMachineGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateMachineGuideView.swift; sourceTree = "<group>"; };
 		D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigModel.swift; sourceTree = "<group>"; };
 		D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelDecoder.swift; sourceTree = "<group>"; };
 		D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelBuilder.swift; sourceTree = "<group>"; };
@@ -219,7 +219,7 @@
 			isa = PBXGroup;
 			children = (
 				F2705288286C98B60008DCD1 /* VMCreateView.swift */,
-				D1E19A0C289EA00A00CF27D3 /* CreateView.swift */,
+				D1E19A0C289EA00A00CF27D3 /* CreateMachineGuideView.swift */,
 				D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */,
 				D133EE65289EA6790051E751 /* FileSelectTextField.swift */,
 				D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */,
@@ -312,8 +312,8 @@
 			isa = PBXGroup;
 			children = (
 				D1E61F6928AF1D2400ED98A0 /* Core */,
-				D1E19A06289E9CE400CF27D3 /* Common */,
 				D1E19A0B289E9E3300CF27D3 /* Create */,
+				D1E19A06289E9CE400CF27D3 /* Common */,
 				D1E19A03289E999A00CF27D3 /* Model */,
 				F270528A287141730008DCD1 /* Logic */,
 				D1A6A5E028BA7A9200CBE80A /* Detail */,
@@ -459,7 +459,7 @@
 				D1E61F6D28AF1DF900ED98A0 /* VMModelBuilder.swift in Sources */,
 				D1EF706C28B65EEE00F2D279 /* VMModelFieldMemory.swift in Sources */,
 				D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */,
-				D1E19A0D289EA00A00CF27D3 /* CreateView.swift in Sources */,
+				D1E19A0D289EA00A00CF27D3 /* CreateMachineGuideView.swift in Sources */,
 				D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */,
 				F270529B2871D2560008DCD1 /* LinuxVMViewController.swift in Sources */,
 				F27052A02873C31E0008DCD1 /* LinuxVMContainerView.swift in Sources */,

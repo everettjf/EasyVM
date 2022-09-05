@@ -7,9 +7,9 @@
 
 import SwiftUI
 
-struct CreateView: View {
+struct CreateMachineGuideView: View {
+    let osType: VMModelOSType = .macOS
     
-    @State private var osType: VMModelOSType = .macOS
     @State private var name: String = "My New Virtual Machine"
     @State private var remark: String = ""
     @State private var vmDirectory: String = ""
@@ -46,12 +46,6 @@ struct CreateView: View {
             
             Section ("Basic Information") {
                 TextField("Name", text: $name).lineLimit(2)
-                Picker("OS Type", selection: $osType) {
-                    ForEach(VMModelOSType.allCases) { item in
-                        Text(item.name).tag(item)
-                    }
-                }
-                .pickerStyle(.inline)
                 
                 
                 TextField("Description", text:$remark).lineLimit(3, reservesSpace: true)
@@ -197,7 +191,7 @@ struct CreateView: View {
 
 struct CreateView_Previews: PreviewProvider {
     static var previews: some View {
-        CreateView()
+        CreateMachineGuideView()
             .frame(height:1500)
     }
 }

@@ -37,6 +37,8 @@ class MyVMStore: ObservableObject {
 
 
 struct MachinesDetailHomeView: View {
+    @Environment(\.openWindow) var openWindow
+    
     @StateObject private var vmStore = MyVMStore()
     
     let columns = [GridItem(.adaptive(minimum: 230, maximum: 230))]
@@ -61,7 +63,9 @@ struct MachinesDetailHomeView: View {
             .navigationTitle("Virtual Machines - EasyVM")
             .toolbar(id: "toolbar") {
                 ToolbarItem(id: "new", placement: .primaryAction) {
-                    Button(action: {}) {
+                    Button(action: {
+                        openWindow(id: "create-machine-guide")
+                    }) {
                         Label("New Virutal Machine", systemImage: "plus.diamond")
                     }
                 }

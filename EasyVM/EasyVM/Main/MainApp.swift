@@ -17,26 +17,25 @@ struct MainApp: App {
                 .frame(minWidth: 600, minHeight: 400)
         }
         
-        Window("Create Virtual Machine", id: "create-vm") {
-            VMCreateView()
+        Window("Create Virtual Machine Guide", id: "create-machine-guide") {
+            CreateMachineGuideView()
         }
         .defaultPosition(.center)
-        .defaultSize(width: 400, height: 400)
+        .defaultSize(width: 800, height: 700)
         
-        
 
-        Window("macOS Virtual Machine", id: "demo-vm-macos") {
-            MacOSVMContainerView()
-        }
-        .defaultPosition(.center)
-        .defaultSize(width: 600, height: 400)
-
-
-        Window("Linux Virtual Machine", id: "demo-vm-linux") {
-            LinuxVMContainerView()
-        }
-        .defaultPosition(.center)
-        .defaultSize(width: 600, height: 400)
+//        Window("macOS Virtual Machine", id: "demo-vm-macos") {
+//            MacOSVMContainerView()
+//        }
+//        .defaultPosition(.center)
+//        .defaultSize(width: 600, height: 400)
+//
+//
+//        Window("Linux Virtual Machine", id: "demo-vm-linux") {
+//            LinuxVMContainerView()
+//        }
+//        .defaultPosition(.center)
+//        .defaultSize(width: 600, height: 400)
         
 
     }
