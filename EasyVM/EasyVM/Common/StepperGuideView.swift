@@ -129,8 +129,9 @@ struct StepperGuideView: View {
                         state.moveNextStep()
                     } label: {
                         Text(state.getNextButtonText())
+                            .frame(width: 60)
+                        Image(systemName: "chevron.forward.2")
                     }
-                    
                 }
             }
             .padding()

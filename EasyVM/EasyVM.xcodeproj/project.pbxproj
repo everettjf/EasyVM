@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		D10BBDFD28AC700A00EF2630 /* DownloadImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */; };
 		D11A80E928C8ECDD004C1AC4 /* StepperGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11A80E828C8ECDD004C1AC4 /* StepperGuideView.swift */; };
+		D127FD0128C904CC0034DC5A /* CreateStepperGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D127FD0028C904CC0034DC5A /* CreateStepperGuideView.swift */; };
 		D133EE64289EA3E30051E751 /* DirectorySelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */; };
 		D133EE66289EA6790051E751 /* FileSelectTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = D133EE65289EA6790051E751 /* FileSelectTextField.swift */; };
 		D142CA2928C82DDA004F86E9 /* CreateSelectSystemTypeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D142CA2828C82DDA004F86E9 /* CreateSelectSystemTypeView.swift */; };
@@ -62,6 +63,7 @@
 /* Begin PBXFileReference section */
 		D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadImageView.swift; sourceTree = "<group>"; };
 		D11A80E828C8ECDD004C1AC4 /* StepperGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StepperGuideView.swift; sourceTree = "<group>"; };
+		D127FD0028C904CC0034DC5A /* CreateStepperGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateStepperGuideView.swift; sourceTree = "<group>"; };
 		D133EE63289EA3E30051E751 /* DirectorySelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectorySelectTextField.swift; sourceTree = "<group>"; };
 		D133EE65289EA6790051E751 /* FileSelectTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSelectTextField.swift; sourceTree = "<group>"; };
 		D142CA2828C82DDA004F86E9 /* CreateSelectSystemTypeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateSelectSystemTypeView.swift; sourceTree = "<group>"; };
@@ -229,6 +231,7 @@
 				D133EE65289EA6790051E751 /* FileSelectTextField.swift */,
 				D10BBDFC28AC700A00EF2630 /* DownloadImageView.swift */,
 				D142CA2828C82DDA004F86E9 /* CreateSelectSystemTypeView.swift */,
+				D127FD0028C904CC0034DC5A /* CreateStepperGuideView.swift */,
 			);
 			path = Create;
 			sourceTree = "<group>";
@@ -435,6 +438,7 @@
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				F2C5DCB92866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift in Sources */,
 				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
+				D127FD0128C904CC0034DC5A /* CreateStepperGuideView.swift in Sources */,
 				F2705293287143050008DCD1 /* MacOSInstall.swift in Sources */,
 				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,
 				D1A6A5E628BA7B0300CBE80A /* IssuesDetailHomeView.swift in Sources */,
