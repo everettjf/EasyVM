@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct CreatePhaseChooseSaveDirectoryView: View {
+struct CreatePhaseSaveDirectoryView: View {
     
     @State private var saveDirectory: String = ""
     
@@ -51,8 +51,8 @@ struct CreatePhaseChooseSaveDirectoryView: View {
     }
 }
 
-struct CreatePhaseChooseSaveDirectoryView_Previews: PreviewProvider {
+struct CreatePhaseSaveDirectoryView_Previews: PreviewProvider {
     static var previews: some View {
-        CreatePhaseChooseSaveDirectoryView()
+        CreatePhaseSaveDirectoryView()
     }
 }

@@ -40,7 +40,7 @@ struct SystemCardView: View {
 
 
 
-struct CreatePhaseChooseSystemTypeView: View {
+struct CreatePhaseSystemTypeView: View {
     
     @State var current: VMModelOSType = .macOS
     
@@ -72,9 +72,9 @@ struct CreatePhaseChooseSystemTypeView: View {
     }
 }
 
-struct CreatePhasechooseSystemTypeView_Previews: PreviewProvider {
+struct CreatePhaseSystemTypeView_Previews: PreviewProvider {
     static var previews: some View {
-        CreatePhaseChooseSystemTypeView()
+        CreatePhaseSystemTypeView()
             .frame(width:500, height: 500)
     }
 }

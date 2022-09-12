@@ -7,22 +7,22 @@
 
 import SwiftUI
 
-struct CreatePhaseChooseSystemImage: View {
+struct CreatePhaseSystemImageView: View {
     @State var imagePath: String = ""
     
     
     var body: some View {
         VStack {
             
-            Text("Choose one of the method below : ")
+            Text("Select System Image: ")
                 .font(.title3)
                 .padding(.all)
             
             Form {
-                Section("Method 1 : Select System Image From Disk") {
+                Section("Select system image from file system") {
                     VStack(alignment: .leading) {
                         HStack {
-                            Text("System Image Path:")
+                            Text("System image path:")
                             Spacer()
                             Text(imagePath)
                                 .lineLimit(4)
@@ -45,12 +45,12 @@ struct CreatePhaseChooseSystemImage: View {
                     }
                 }
                 
-                Section("Method 2 : Download System Image From Apple Server") {
+                Section("Or you can download system image directly from apple server") {
                     
                     VStack(alignment: .leading) {
                         ProgressView(value: 250, total: 1000)
-                        
                         Text("25% - 250MB / 1000GB").font(.caption)
+                        Text("Download not started").font(.caption)
                         
                         HStack {
                             Spacer()
@@ -70,9 +70,9 @@ struct CreatePhaseChooseSystemImage: View {
     }
 }
 
-struct CreatePhaseChooseSystemImage_Previews: PreviewProvider {
+struct CreatePhaseSystemImage_Previews: PreviewProvider {
     static var previews: some View {
-        CreatePhaseChooseSystemImage()
+        CreatePhaseSystemImageView()
             .frame(width: 600, height:400)
     }
 }
