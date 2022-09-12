@@ -1,13 +1,14 @@
 //
-//  CreateView.swift
+//  VMConfigurationView.swift
 //  EasyVM
 //
-//  Created by everettjf on 2022/8/6.
+//  Created by everettjf on 2022/9/12.
 //
 
 import SwiftUI
 
-struct CreateMachineGuideView: View {
+struct VMConfigurationView: View {
+    
     let osType: VMModelOSType = .macOS
     
     @State private var name: String = "My New Virtual Machine"
@@ -21,19 +22,6 @@ struct CreateMachineGuideView: View {
     
     var body: some View {
         Form {
-            Section ("Location & Image") {
-                LabeledContent("Save Directory") {
-                    HStack {
-                        Text("/Users/everettjf/EasyVirtualMachines")
-                        Button {
-                            
-                        } label: {
-                            Image(systemName: "folder.badge.plus")
-                        }
-                    }
-                }
-            }
-            
             Section ("Basic Information") {
                 TextField("Name", text: $name).lineLimit(2)
                 
@@ -179,9 +167,9 @@ struct CreateMachineGuideView: View {
     }
 }
 
-struct CreateView_Previews: PreviewProvider {
+struct VMConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
-        CreateMachineGuideView()
-            .frame(height:1500)
+        VMConfigurationView()
+            .frame(height:1000)
     }
 }

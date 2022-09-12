@@ -15,14 +15,14 @@ struct MainApp: App {
         WindowGroup {
 //            ContentView()
             CreateStepperGuideView()
-                .frame(minWidth: 600, minHeight: 400)
+                .frame(minWidth: 700, minHeight: 500)
         }
         
         Window("Create Virtual Machine Guide", id: "create-machine-guide") {
-            CreateMachineGuideView()
+            CreateStepperGuideView()
         }
         .defaultPosition(.center)
-        .defaultSize(width: 800, height: 700)
+        .defaultSize(width: 700, height: 500)
         
 
 //        Window("macOS Virtual Machine", id: "demo-vm-macos") {

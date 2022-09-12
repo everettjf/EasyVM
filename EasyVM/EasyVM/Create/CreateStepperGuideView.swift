@@ -103,9 +103,9 @@ struct CreateStepperGuideView: View {
             CreateStepperGuideItem(systemImage: "1.circle", name: "OS Type", subtitle: "Create macOS or Linux ?", content: AnyView(CreatePhaseChooseSystemTypeView())),
             CreateStepperGuideItem(systemImage: "2.circle", name: "Location", subtitle: "Where the machine will store ?", content: AnyView(CreatePhaseChooseStorageDirectoryView())),
             CreateStepperGuideItem(systemImage: "3.circle", name: "System Image", subtitle: "Download or choose ipsw/iso file ?", content: AnyView(CreatePhaseChooseSystemImage())),
-            CreateStepperGuideItem(systemImage: "4.circle", name: "Configuration", subtitle: "Config virtual devices such as size of disk, network type...", content: AnyView(Text("confir system type"))),
-            CreateStepperGuideItem(systemImage: "5.circle", name: "Creating", subtitle: "Start creating virtual machines...", content: AnyView(Text("completion"))),
-            CreateStepperGuideItem(systemImage: "6.circle", name: "Completion", subtitle: "Congratulations", content: AnyView(Text("completion"))),
+            CreateStepperGuideItem(systemImage: "4.circle", name: "Configuration", subtitle: "Config virtual devices such as size of disk, network type...", content: AnyView(CreatePhaseConfigurationView())),
+            CreateStepperGuideItem(systemImage: "5.circle", name: "Creating", subtitle: "Start creating virtual machines...", content: AnyView(CreatePhaseCreatingView())),
+            CreateStepperGuideItem(systemImage: "6.circle", name: "Completion", subtitle: "Congratulations", content: AnyView(CreatePhaseCompleteView())),
         ]
         
         self.state.stepCount = self.steps.count
