@@ -49,7 +49,7 @@ struct CreatePhaseSystemTypeView: View {
             Text("Choose one of the operating systems.")
                 .font(.title3)
                 .padding(.all)
-            
+            Spacer()
             HStack(spacing: 30) {
                 SystemCardView(image: "macpro.gen3", name: "macOS", selected: current == .macOS)
                     .onTapGesture {
@@ -68,7 +68,10 @@ struct CreatePhaseSystemTypeView: View {
                 }
             }
             .padding(.all)
+            
+            Spacer()
         }
+        
     }
 }
 

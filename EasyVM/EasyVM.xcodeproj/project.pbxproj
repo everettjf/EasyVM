@@ -131,6 +131,26 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D120BD5428CF463A009297E8 /* VMKit */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = VMKit;
+			sourceTree = "<group>";
+		};
+		D120BD5528CF4644009297E8 /* VMLogic */ = {
+			isa = PBXGroup;
+			children = (
+				D18E522D28B3D15C00508D8A /* ModelFields */,
+				D1E19A04289E99AD00CF27D3 /* VMModel.swift */,
+				D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */,
+				D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */,
+				D1E61F6E28AF224D00ED98A0 /* VMModelEncoder.swift */,
+				D1EF707928B6971100F2D279 /* VMCenter.swift */,
+			);
+			path = VMLogic;
+			sourceTree = "<group>";
+		};
 		D18E522D28B3D15C00508D8A /* ModelFields */ = {
 			isa = PBXGroup;
 			children = (
@@ -252,12 +272,8 @@
 		D1E61F6928AF1D2400ED98A0 /* Core */ = {
 			isa = PBXGroup;
 			children = (
-				D18E522D28B3D15C00508D8A /* ModelFields */,
-				D1E19A04289E99AD00CF27D3 /* VMModel.swift */,
-				D1E61F6A28AF1D8100ED98A0 /* VMModelDecoder.swift */,
-				D1E61F6C28AF1DF900ED98A0 /* VMModelBuilder.swift */,
-				D1E61F6E28AF224D00ED98A0 /* VMModelEncoder.swift */,
-				D1EF707928B6971100F2D279 /* VMCenter.swift */,
+				D120BD5528CF4644009297E8 /* VMLogic */,
+				D120BD5428CF463A009297E8 /* VMKit */,
 			);
 			path = Core;
 			sourceTree = "<group>";
