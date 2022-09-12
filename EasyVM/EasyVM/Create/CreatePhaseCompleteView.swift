@@ -11,6 +11,7 @@ struct CreatePhaseCompleteView: View {
     var body: some View {
         Text("Congratulations :)")
             .font(.title)
+            .padding(.all)
     }
 }
 

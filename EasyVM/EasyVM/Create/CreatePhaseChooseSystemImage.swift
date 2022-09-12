@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct CreatePhaseChooseSystemImage: View {
+    @State var imagePath: String = ""
+    
+    
     var body: some View {
         VStack {
             
@@ -16,14 +19,27 @@ struct CreatePhaseChooseSystemImage: View {
                 .padding(.all)
             
             Form {
-                Section("Method 1 : Choose System Image From Disk") {
-                    LabeledContent("Image Path") {
+                Section("Method 1 : Select System Image From Disk") {
+                    VStack(alignment: .leading) {
                         HStack {
-                            Text("/Users/everettjf/Download/macos-latest.ipsw")
+                            Text("System Image Path:")
+                            Spacer()
+                            Text(imagePath)
+                                .lineLimit(4)
+                        }
+                        HStack {
+                            Spacer()
                             Button {
-                                
+                                MacKitUtil.selectFile(title: "Choose system image file(.ipsw/.iso)") { path in
+                                    print("choose : \(String(describing: path))")
+                                    
+                                    if let path = path {
+                                        imagePath = path.absoluteString
+                                    }
+                                }
                             } label: {
                                 Image(systemName: "doc.badge.plus")
+                                Text("Select")
                             }
                         }
                     }
@@ -38,9 +54,13 @@ struct CreatePhaseChooseSystemImage: View {
                         
                         HStack {
                             Spacer()
-                            Button("Download") {
+                            Button {
                                 
+                            } label: {
+                                Image(systemName: "icloud.and.arrow.down")
+                                Text("Download")
                             }
+
                         }
                     }
                 }

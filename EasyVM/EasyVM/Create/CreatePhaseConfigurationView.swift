@@ -9,7 +9,12 @@ import SwiftUI
 
 struct CreatePhaseConfigurationView: View {
     var body: some View {
-        VMConfigurationView()
+        VStack {
+            Text("Config Virtual Hardwares")
+                .font(.title3)
+                .padding(.all)
+            VMConfigurationView()
+        }
     }
 }
 

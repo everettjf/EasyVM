@@ -101,11 +101,12 @@ struct CreateStepperGuideView: View {
     init() {
         self.steps = [
             CreateStepperGuideItem(systemImage: "1.circle", name: "OS Type", subtitle: "Create macOS or Linux ?", content: AnyView(CreatePhaseChooseSystemTypeView())),
-            CreateStepperGuideItem(systemImage: "2.circle", name: "Location", subtitle: "Where the machine will store ?", content: AnyView(CreatePhaseChooseSaveDirectoryView())),
-            CreateStepperGuideItem(systemImage: "3.circle", name: "System Image", subtitle: "Download or choose ipsw/iso file ?", content: AnyView(CreatePhaseChooseSystemImage())),
-            CreateStepperGuideItem(systemImage: "4.circle", name: "Configuration", subtitle: "Config virtual devices such as size of disk, network type...", content: AnyView(CreatePhaseConfigurationView())),
-            CreateStepperGuideItem(systemImage: "5.circle", name: "Creating", subtitle: "Start creating virtual machines...", content: AnyView(CreatePhaseCreatingView())),
-            CreateStepperGuideItem(systemImage: "6.circle", name: "Completion", subtitle: "Congratulations", content: AnyView(CreatePhaseCompleteView())),
+            CreateStepperGuideItem(systemImage: "2.circle", name: "Name", subtitle: "Name the machine", content: AnyView(CreatePhaseNameConfigView())),
+            CreateStepperGuideItem(systemImage: "3.circle", name: "Location", subtitle: "Where the machine will store ?", content: AnyView(CreatePhaseChooseSaveDirectoryView())),
+            CreateStepperGuideItem(systemImage: "4.circle", name: "System Image", subtitle: "Download or choose ipsw/iso file ?", content: AnyView(CreatePhaseChooseSystemImage())),
+            CreateStepperGuideItem(systemImage: "5.circle", name: "Configuration", subtitle: "Config virtual devices such as size of disk, network type...", content: AnyView(CreatePhaseConfigurationView())),
+            CreateStepperGuideItem(systemImage: "6.circle", name: "Creating", subtitle: "Start creating virtual machines...", content: AnyView(CreatePhaseCreatingView())),
+            CreateStepperGuideItem(systemImage: "7.circle", name: "Completion", subtitle: "Congratulations", content: AnyView(CreatePhaseCompleteView())),
         ]
         
         self.state.stepCount = self.steps.count
@@ -113,7 +114,7 @@ struct CreateStepperGuideView: View {
     
     var body: some View {
         HStack(alignment:.top) {
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(0..<steps.count, id: \.self) { index in
                     CreateStepperGuideStepItemView(systemImage: steps[index].systemImage, name: steps[index].name, subtitle: steps[index].subtitle, pointing: index == state.current)
                 }

@@ -9,33 +9,38 @@ import SwiftUI
 
 struct CreatePhaseChooseSaveDirectoryView: View {
     
-    @State private var name: String = "My New Virtual Machine"
-    @State private var remark: String = ""
-    
+    @State private var saveDirectory: String = ""
     
     var body: some View {
         
         VStack {
-            
             Text("Choose the location for virtual machine:")
                 .font(.title3)
                 .padding(.all)
             
             Form {
                 
-                Section ("Basic") {
-                    TextField("Name", text: $name).lineLimit(2)
-                    
-                    TextField("Description", text:$remark).lineLimit(3, reservesSpace: true)
-                }
                 Section("Location") {
-                    LabeledContent("Where Machine Files Save") {
+                    VStack(alignment: .leading) {
                         HStack {
-                            Text("/Users/everettjf/EasyVirtualMachines")
+                            Text("Select where machine files save :")
+                            Spacer()
+                            Text(saveDirectory)
+                                .lineLimit(4)
+                        }
+                        
+                        HStack {
+                            Spacer()
                             Button {
-                                
+                                MacKitUtil.selectDirectory(title: "Select a direcotry") { path in
+                                    print("directory = \(String(describing: path))")
+                                    if let path = path {
+                                        self.saveDirectory = path.absoluteString
+                                    }
+                                }
                             } label: {
                                 Image(systemName: "folder.badge.plus")
+                                Text("Select")
                             }
                         }
                     }

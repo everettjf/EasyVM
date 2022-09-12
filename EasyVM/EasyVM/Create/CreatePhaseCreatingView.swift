@@ -12,6 +12,8 @@ struct CreatePhaseCreatingView: View {
         
         VStack {
             Text("Creating")
+                .font(.title3)
+                .padding(.all)
             ProgressView(value: 250, total: 1000)
             
             List{
