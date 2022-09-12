@@ -32,16 +32,6 @@ struct CreateMachineGuideView: View {
                         }
                     }
                 }
-                LabeledContent("Image Path") {
-                    HStack {
-                        Text("/Users/everettjf/Download/macos-latest.ipsw")
-                        Button {
-                            
-                        } label: {
-                            Image(systemName: "doc.badge.plus")
-                        }
-                    }
-                }
             }
             
             Section ("Basic Information") {

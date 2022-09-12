@@ -14,7 +14,7 @@ struct MainApp: App {
     var body: some Scene {
         WindowGroup {
 //            ContentView()
-            StepperGuideView()
+            CreateStepperGuideView()
                 .frame(minWidth: 600, minHeight: 400)
         }
         
