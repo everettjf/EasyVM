@@ -9,25 +9,12 @@ import SwiftUI
 
 struct VMConfigurationView: View {
     
-    let osType: VMModelOSType = .macOS
-    
-    @State private var name: String = "My New Virtual Machine"
-    @State private var remark: String = ""
-    @State private var vmDirectory: String = ""
-    @State private var imagePath: String = ""
-    
     @State private var cpuCount: Int = 1
     @State private var memorySize: Int = 1024 * 1024 * 2
 
     
     var body: some View {
         Form {
-            Section ("Basic Information") {
-                TextField("Name", text: $name).lineLimit(2)
-                
-                
-                TextField("Description", text:$remark).lineLimit(3, reservesSpace: true)
-            }
             
             Section ("Machine Configuration") {
                 LabeledContent("CPU Count") {
