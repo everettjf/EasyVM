@@ -53,7 +53,7 @@ struct CreateStepperGuideItem : Identifiable {
     let content: AnyView
 }
 
-class CreateStepperGuideDataObject: ObservableObject {
+class CreateStepperGuideStateObject: ObservableObject {
     @Published var current: Int = 0
     @Published var stepCount: Int = 0
     
@@ -89,8 +89,9 @@ class CreateStepperGuideDataObject: ObservableObject {
 }
 
 struct CreateStepperGuideView: View {
+    @StateObject var formData = CreateFormModel()
     
-    @ObservedObject var state = CreateStepperGuideDataObject()
+    @ObservedObject var state = CreateStepperGuideStateObject()
     let steps: [CreateStepperGuideItem]
     
     init(steps: [CreateStepperGuideItem]) {
@@ -113,6 +114,11 @@ struct CreateStepperGuideView: View {
     }
     
     var body: some View {
+        content
+            .environmentObject(formData)
+    }
+    
+    var content: some View {
         HStack(alignment:.top) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(0..<steps.count, id: \.self) { index in

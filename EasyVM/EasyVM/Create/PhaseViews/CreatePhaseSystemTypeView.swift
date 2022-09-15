@@ -41,8 +41,7 @@ struct SystemCardView: View {
 
 
 struct CreatePhaseSystemTypeView: View {
-    
-    @State var current: VMModelOSType = .macOS
+    @EnvironmentObject var formData: CreateFormModel
     
     var body: some View {
         VStack {
@@ -51,17 +50,17 @@ struct CreatePhaseSystemTypeView: View {
                 .padding(.all)
             Spacer()
             HStack(spacing: 30) {
-                SystemCardView(image: "macpro.gen3", name: "macOS", selected: current == .macOS)
+                SystemCardView(image: "macpro.gen3", name: "macOS", selected: formData.osType == .macOS)
                     .onTapGesture {
-                        current = .macOS
+                        formData.osType = .macOS
                     }
-                SystemCardView(image: "pc", name: "Linux", selected: current == .linux)
+                SystemCardView(image: "pc", name: "Linux", selected: formData.osType == .linux)
                     .onTapGesture {
-                        current = .linux
+                        formData.osType = .linux
                     }
             }
             VStack {
-                if current == .macOS {
+                if formData.osType == .macOS {
                     Text("You choose macOS now :)")
                 } else {
                     Text("You choose linux now :)")
@@ -77,7 +76,9 @@ struct CreatePhaseSystemTypeView: View {
 
 struct CreatePhaseSystemTypeView_Previews: PreviewProvider {
     static var previews: some View {
+        let formData = CreateFormModel()
         CreatePhaseSystemTypeView()
             .frame(width:500, height: 500)
+            .environmentObject(formData)
     }
 }

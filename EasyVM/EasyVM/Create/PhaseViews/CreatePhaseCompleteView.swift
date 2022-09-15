@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct CreatePhaseCompleteView: View {
+    @EnvironmentObject var formData: CreateFormModel
     var body: some View {
         Text("Congratulations :)")
             .font(.title)
@@ -17,6 +18,8 @@ struct CreatePhaseCompleteView: View {
 
 struct CreatePhaseCompleteView_Previews: PreviewProvider {
     static var previews: some View {
+        let formData = CreateFormModel()
         CreatePhaseCompleteView()
+            .environmentObject(formData)
     }
 }

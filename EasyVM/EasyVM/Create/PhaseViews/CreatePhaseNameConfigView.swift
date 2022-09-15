@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct CreatePhaseNameConfigView: View {
+    @EnvironmentObject var formData: CreateFormModel
     
     @State private var name: String = "My New Virtual Machine"
     @State private var remark: String = ""
@@ -34,6 +35,8 @@ struct CreatePhaseNameConfigView: View {
 
 struct CreatePhaseNameConfigView_Previews: PreviewProvider {
     static var previews: some View {
+        let formData = CreateFormModel()
         CreatePhaseNameConfigView()
+            .environmentObject(formData)
     }
 }

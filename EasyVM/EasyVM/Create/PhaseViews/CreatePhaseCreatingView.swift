@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct CreatePhaseCreatingView: View {
+    @EnvironmentObject var formData: CreateFormModel
     var body: some View {
         
         VStack {
@@ -31,6 +32,8 @@ struct CreatePhaseCreatingView: View {
 
 struct CreatePhaseCreatingView_Previews: PreviewProvider {
     static var previews: some View {
+        let formData = CreateFormModel()
         CreatePhaseCreatingView()
+            .environmentObject(formData)
     }
 }

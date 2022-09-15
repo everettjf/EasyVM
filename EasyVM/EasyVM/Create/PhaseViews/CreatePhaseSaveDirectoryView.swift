@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct CreatePhaseSaveDirectoryView: View {
+    @EnvironmentObject var formData: CreateFormModel
     
     @State private var saveDirectory: String = ""
     
@@ -53,6 +54,8 @@ struct CreatePhaseSaveDirectoryView: View {
 
 struct CreatePhaseSaveDirectoryView_Previews: PreviewProvider {
     static var previews: some View {
+        let formData = CreateFormModel()
         CreatePhaseSaveDirectoryView()
+            .environmentObject(formData)
     }
 }

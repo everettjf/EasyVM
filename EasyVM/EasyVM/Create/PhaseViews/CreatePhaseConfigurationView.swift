@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct CreatePhaseConfigurationView: View {
+    @EnvironmentObject var formData: CreateFormModel
     var body: some View {
         VStack {
             Text("Config Virtual Hardwares")
@@ -20,6 +21,8 @@ struct CreatePhaseConfigurationView: View {
 
 struct CreatePhaseConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
+        let formData = CreateFormModel()
         CreatePhaseConfigurationView()
+            .environmentObject(formData)
     }
 }
