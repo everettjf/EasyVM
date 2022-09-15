@@ -9,13 +9,16 @@ import SwiftUI
 
 
 struct DownloadButtonView : View {
+    let name: String
+    let image: String
+    
     @State private var borderColor: Color = .gray
     var body: some View {
         VStack {
-            Image(systemName: "icloud.and.arrow.down")
+            Image(systemName: image)
                 .font(.system(size: 40))
                 .frame(width:50,height: 50)
-            Text("Download")
+            Text(name)
         }
         .padding(.all, 5)
         .overlay(
@@ -33,6 +36,9 @@ struct DownloadButtonView : View {
 }
 
 struct SystemImageDownloadView: View {
+    
+    @Environment(\.presentationMode) var presentationMode
+    
     enum ImageSource {
         case latest_avaliable, input_url
     }
@@ -73,17 +79,32 @@ struct SystemImageDownloadView: View {
             
             HStack {
                 Spacer()
-                DownloadButtonView()
+                DownloadButtonView(name: "Start Download", image: "icloud.and.arrow.down")
                     .onTapGesture {
                         
                     }
                 Spacer()
             }
             
-            Spacer()
+            HStack {
+                
+                Spacer()
+
+                Button {
+                    presentationMode.wrappedValue.dismiss()
+                } label: {
+                    Text("Cancel")
+                }
+                Button {
+                    presentationMode.wrappedValue.dismiss()
+                } label: {
+                    Text("Confirm")
+                }
+                
+            }
         }
         .padding()
-        .frame(width: 400, height:260)
+        .frame(width: 600, height:260)
     }
 }
 
