@@ -39,6 +39,12 @@ struct SystemImageSourceTypeView: View {
 }
 
 
+class CreatePhaseSystemImageViewHandler: CreateStepperGuidePhaseHandler {
+    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+        return .success
+    }
+}
+
 
 struct CreatePhaseSystemImageView: View {
     @EnvironmentObject var formData: CreateFormModel

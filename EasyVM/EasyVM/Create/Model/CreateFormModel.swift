@@ -14,7 +14,7 @@ class CreateFormModel: ObservableObject {
     
     // phase
     @Published var name: String = "My New Virtual Machine"
-    @Published var remark: String = "The amazing new virtual machine created by EasyVM"
+    @Published var remark: String = "" // "The amazing new virtual machine created by EasyVM"
     
     // phase
     @Published var saveDirectory: String = ""

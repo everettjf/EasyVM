@@ -45,12 +45,25 @@ struct CreateStepperGuideSeparatorView: View {
     }
 }
 
+
+enum CreateStepperGuidePhaseVerifyResult {
+    case success
+    case failure(_ error:String)
+}
+
+protocol CreateStepperGuidePhaseHandler {
+    
+    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult
+}
+
+
 struct CreateStepperGuideItem : Identifiable {
     let id = UUID()
     let systemImage: String
     let name: String
     let subtitle: String
     let content: AnyView
+    let verifier: any CreateStepperGuidePhaseHandler
 }
 
 class CreateStepperGuideStateObject: ObservableObject {
@@ -96,6 +109,8 @@ class CreateStepperGuideStateObject: ObservableObject {
 struct CreateStepperGuideView: View {
     @ObservedObject var formData: CreateFormModel
     @ObservedObject var stepperState: CreateStepperGuideStateObject
+    @State var showingAlert = false
+    @State var alertMessage = ""
     
     let steps: [CreateStepperGuideItem]
     
@@ -105,37 +120,51 @@ struct CreateStepperGuideView: View {
                 systemImage: "1.circle",
                 name: "OS Type",
                 subtitle: "Create macOS or Linux ?",
-                content: AnyView(CreatePhaseSystemTypeView())),
+                content: AnyView(CreatePhaseSystemTypeView()),
+                verifier: CreatePhaseSystemTypeViewHandler()
+            ),
             CreateStepperGuideItem(
                 systemImage: "2.circle",
                 name: "Name",
                 subtitle: "Name the machine",
-                content: AnyView(CreatePhaseNameConfigView())),
+                content: AnyView(CreatePhaseNameConfigView()),
+                verifier: CreatePhaseNameConfigViewHandler()
+            ),
             CreateStepperGuideItem(
                 systemImage: "3.circle",
                 name: "Location",
                 subtitle: "Where the machine will store ?",
-                content: AnyView(CreatePhaseSaveDirectoryView())),
+                content: AnyView(CreatePhaseSaveDirectoryView()),
+                verifier: CreatePhaseSaveDirectoryViewHandler()
+            ),
             CreateStepperGuideItem(
                 systemImage: "4.circle",
                 name: "System Image",
                 subtitle: "Download or choose ipsw/iso file ?",
-                content: AnyView(CreatePhaseSystemImageView())),
+                content: AnyView(CreatePhaseSystemImageView()),
+                verifier: CreatePhaseSystemImageViewHandler()
+            ),
             CreateStepperGuideItem(
                 systemImage: "5.circle",
                 name: "Configuration",
                 subtitle: "Config virtual devices such as size of disk, network type...",
-                content: AnyView(CreatePhaseConfigurationView())),
+                content: AnyView(CreatePhaseConfigurationView()),
+                verifier: CreatePhaseConfigurationViewHandler()
+            ),
             CreateStepperGuideItem(
                 systemImage: "6.circle",
                 name: "Creating",
                 subtitle: "Start creating virtual machines...",
-                content: AnyView(CreatePhaseCreatingView())),
+                content: AnyView(CreatePhaseCreatingView()),
+                verifier: CreatePhaseCreatingViewHandler()
+            ),
             CreateStepperGuideItem(
                 systemImage: "7.circle",
                 name: "Completion",
                 subtitle: "Congratulations",
-                content: AnyView(CreatePhaseCompleteView())),
+                content: AnyView(CreatePhaseCompleteView()),
+                verifier: CreatePhaseCompleteViewHandler()
+            ),
         ]
         
         self.steps = steps
@@ -147,10 +176,21 @@ struct CreateStepperGuideView: View {
         content
             .environmentObject(formData)
             .environmentObject(stepperState)
+            .alert("Tips", isPresented: $showingAlert) {
+                Button {
+                    showingAlert.toggle()
+                } label: {
+                    Text("OK")
+                }
+            } message: {
+                Text(alertMessage)
+            }
+
     }
     
     var content: some View {
         HStack(alignment:.top) {
+            // body
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(0..<steps.count, id: \.self) { index in
                     CreateStepperGuideStepItemView(systemImage: steps[index].systemImage, name: steps[index].name, subtitle: steps[index].subtitle, pointing: index == stepperState.current)
@@ -159,43 +199,66 @@ struct CreateStepperGuideView: View {
             }
             .frame(width: 160)
             .padding()
-            
+
+            // bottom
             CreateStepperGuideSeparatorView()
             
-            VStack {
-                ZStack {
-                    ForEach(0..<steps.count, id: \.self) { index in
-                        steps[index].content
-                            .opacity(index == stepperState.current ? 1 : 0)
-                    }
-                }
-                
-                Spacer()
-                
-                HStack {
-                    Spacer()
-                    
-                    if stepperState.isPreviousAvaliable() {
-                        Button {
-                            stepperState.movePreviousStep()
-                        } label: {
-                            Image(systemName: "chevron.backward.2")
-                            Text(stepperState.getPreviousButtonText())
-                                .frame(width: 60)
-                        }
-                    }
-                    
-                    Button {
-                        stepperState.moveNextStep()
-                    } label: {
-                        Text(stepperState.getNextButtonText())
-                            .frame(width: 60)
-                        Image(systemName: "chevron.forward.2")
-                    }
+            bottom
+        }
+    }
+    
+    var bottom: some View {
+        
+        VStack {
+            ZStack {
+                ForEach(0..<steps.count, id: \.self) { index in
+                    steps[index].content
+                        .opacity(index == stepperState.current ? 1 : 0)
                 }
             }
-            .padding()
+            
+            Spacer()
+            
+            HStack {
+                Spacer()
+                
+                if stepperState.isPreviousAvaliable() {
+                    Button {
+                        stepperState.movePreviousStep()
+                    } label: {
+                        Image(systemName: "chevron.backward.2")
+                        Text(stepperState.getPreviousButtonText())
+                            .frame(width: 60)
+                    }
+                }
+                
+                Button {
+                    tryMoveNextStep()
+                } label: {
+                    Text(stepperState.getNextButtonText())
+                        .frame(width: 60)
+                    Image(systemName: "chevron.forward.2")
+                }
+            }
         }
+        .padding()
+    }
+    
+    
+    func tryMoveNextStep() {
+        let currentItem = steps[stepperState.current]
+        let verifyResult = currentItem.verifier.verifyForm(formData: formData)
+        if case let .failure(error) = verifyResult {
+            showAlert(error)
+            return
+        }
+        
+        stepperState.moveNextStep()
+    }
+    
+    func showAlert(_ message: String) {
+        alertMessage = message
+        showingAlert.toggle()
     }
 }
 

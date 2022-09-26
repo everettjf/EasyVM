@@ -38,7 +38,11 @@ struct SystemCardView: View {
     }
 }
 
-
+class CreatePhaseSystemTypeViewHandler: CreateStepperGuidePhaseHandler {
+    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+        return .success
+    }
+}
 
 struct CreatePhaseSystemTypeView: View {
     @EnvironmentObject var formData: CreateFormModel

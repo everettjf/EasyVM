@@ -7,6 +7,16 @@
 
 import SwiftUI
 
+
+class CreatePhaseNameConfigViewHandler: CreateStepperGuidePhaseHandler {
+    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+        if formData.name.isEmpty {
+            return .failure("Name is empty")
+        }
+        return .success
+    }
+}
+
 struct CreatePhaseNameConfigView: View {
     @EnvironmentObject var formData: CreateFormModel
     

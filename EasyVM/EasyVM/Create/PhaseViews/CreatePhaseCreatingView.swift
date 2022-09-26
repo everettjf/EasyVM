@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+
+class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
+    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+        return .success
+    }
+}
+
+
 struct CreatePhaseCreatingView: View {
     @EnvironmentObject var formData: CreateFormModel
     var body: some View {
