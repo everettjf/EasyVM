@@ -8,6 +8,7 @@
 import SwiftUI
 
 class CreateFormModel: ObservableObject {
+    // --- Form ---
     // phase
     @Published var osType: VMModelOSType = .macOS
     
@@ -22,7 +23,5 @@ class CreateFormModel: ObservableObject {
     @Published var imagePath: String = ""
     
     // phase - confirguration
-    
-    
     
 }

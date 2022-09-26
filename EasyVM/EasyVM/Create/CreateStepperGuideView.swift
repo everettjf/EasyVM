@@ -54,8 +54,13 @@ struct CreateStepperGuideItem : Identifiable {
 }
 
 class CreateStepperGuideStateObject: ObservableObject {
-    @Published var current: Int = 0
-    @Published var stepCount: Int = 0
+    @Published var current: Int
+    @Published var stepCount: Int
+    
+    init(stepCount: Int) {
+        self.current = 0
+        self.stepCount = stepCount
+    }
     
     func moveNextStep() {
         if current >= stepCount - 1 {
@@ -89,18 +94,13 @@ class CreateStepperGuideStateObject: ObservableObject {
 }
 
 struct CreateStepperGuideView: View {
-    @StateObject var formData = CreateFormModel()
+    @ObservedObject var formData: CreateFormModel
+    @ObservedObject var stepperState: CreateStepperGuideStateObject
     
-    @ObservedObject var state = CreateStepperGuideStateObject()
     let steps: [CreateStepperGuideItem]
     
-    init(steps: [CreateStepperGuideItem]) {
-        self.steps = steps
-        self.state.stepCount = self.steps.count
-    }
-    
     init() {
-        self.steps = [
+        let steps = [
             CreateStepperGuideItem(
                 systemImage: "1.circle",
                 name: "OS Type",
@@ -138,19 +138,22 @@ struct CreateStepperGuideView: View {
                 content: AnyView(CreatePhaseCompleteView())),
         ]
         
-        self.state.stepCount = self.steps.count
+        self.steps = steps
+        self.formData = CreateFormModel()
+        self.stepperState = CreateStepperGuideStateObject(stepCount: steps.count)
     }
     
     var body: some View {
         content
             .environmentObject(formData)
+            .environmentObject(stepperState)
     }
     
     var content: some View {
         HStack(alignment:.top) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(0..<steps.count, id: \.self) { index in
-                    CreateStepperGuideStepItemView(systemImage: steps[index].systemImage, name: steps[index].name, subtitle: steps[index].subtitle, pointing: index == state.current)
+                    CreateStepperGuideStepItemView(systemImage: steps[index].systemImage, name: steps[index].name, subtitle: steps[index].subtitle, pointing: index == stepperState.current)
                 }
                 Spacer()
             }
@@ -163,7 +166,7 @@ struct CreateStepperGuideView: View {
                 ZStack {
                     ForEach(0..<steps.count, id: \.self) { index in
                         steps[index].content
-                            .opacity(index == state.current ? 1 : 0)
+                            .opacity(index == stepperState.current ? 1 : 0)
                     }
                 }
                 
@@ -172,20 +175,20 @@ struct CreateStepperGuideView: View {
                 HStack {
                     Spacer()
                     
-                    if state.isPreviousAvaliable() {
+                    if stepperState.isPreviousAvaliable() {
                         Button {
-                            state.movePreviousStep()
+                            stepperState.movePreviousStep()
                         } label: {
                             Image(systemName: "chevron.backward.2")
-                            Text(state.getPreviousButtonText())
+                            Text(stepperState.getPreviousButtonText())
                                 .frame(width: 60)
                         }
                     }
                     
                     Button {
-                        state.moveNextStep()
+                        stepperState.moveNextStep()
                     } label: {
-                        Text(state.getNextButtonText())
+                        Text(stepperState.getNextButtonText())
                             .frame(width: 60)
                         Image(systemName: "chevron.forward.2")
                     }
