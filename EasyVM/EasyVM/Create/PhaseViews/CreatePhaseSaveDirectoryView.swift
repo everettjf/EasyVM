@@ -10,8 +10,6 @@ import SwiftUI
 struct CreatePhaseSaveDirectoryView: View {
     @EnvironmentObject var formData: CreateFormModel
     
-    @State private var saveDirectory: String = ""
-    
     var body: some View {
         
         VStack {
@@ -26,7 +24,7 @@ struct CreatePhaseSaveDirectoryView: View {
                         HStack {
                             Text("Select where machine files save :")
                             Spacer()
-                            Text(saveDirectory)
+                            Text(formData.saveDirectory)
                                 .lineLimit(4)
                         }
                         
@@ -36,7 +34,7 @@ struct CreatePhaseSaveDirectoryView: View {
                                 MacKitUtil.selectDirectory(title: "Select a direcotry") { path in
                                     print("directory = \(String(describing: path))")
                                     if let path = path {
-                                        self.saveDirectory = path.absoluteString
+                                        self.formData.saveDirectory = path.absoluteString
                                     }
                                 }
                             } label: {

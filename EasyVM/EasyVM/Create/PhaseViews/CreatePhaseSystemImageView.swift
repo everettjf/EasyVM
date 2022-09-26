@@ -43,8 +43,6 @@ struct SystemImageSourceTypeView: View {
 struct CreatePhaseSystemImageView: View {
     @EnvironmentObject var formData: CreateFormModel
     
-    @State var imagePath: String = "<Not selected>"
-    
     @State var isShowDownload: Bool = false
     
     var body: some View {
@@ -81,7 +79,7 @@ struct CreatePhaseSystemImageView: View {
                     HStack {
                         Text("System Image Path:")
                         Spacer()
-                        Text(imagePath)
+                        Text(formData.imagePath)
                             .lineLimit(4)
                     }
                 }
@@ -98,7 +96,7 @@ struct CreatePhaseSystemImageView: View {
             print("choose : \(String(describing: path))")
             
             if let path = path {
-                imagePath = path.absoluteString
+                self.formData.imagePath = path.absoluteString
             }
         }
     }

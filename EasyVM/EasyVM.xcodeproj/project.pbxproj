@@ -155,6 +155,14 @@
 			path = VMLogic;
 			sourceTree = "<group>";
 		};
+		D132336828E19C26002C26A2 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				D18AE4D828D2B0F600B5C3E2 /* CreateFormModel.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
 		D18AE4DA28D2B62B00B5C3E2 /* PhaseViews */ = {
 			isa = PBXGroup;
 			children = (
@@ -265,7 +273,6 @@
 			isa = PBXGroup;
 			children = (
 				D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */,
-				D18AE4D828D2B0F600B5C3E2 /* CreateFormModel.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -284,6 +291,7 @@
 		D1E19A0B289E9E3300CF27D3 /* Create */ = {
 			isa = PBXGroup;
 			children = (
+				D132336828E19C26002C26A2 /* Model */,
 				D18AE4DB28D2B66300B5C3E2 /* OtherViews */,
 				D11A80E828C8ECDD004C1AC4 /* CreateStepperGuideView.swift */,
 				D18AE4DA28D2B62B00B5C3E2 /* PhaseViews */,

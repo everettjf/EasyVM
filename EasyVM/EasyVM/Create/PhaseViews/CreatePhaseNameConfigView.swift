@@ -10,9 +10,6 @@ import SwiftUI
 struct CreatePhaseNameConfigView: View {
     @EnvironmentObject var formData: CreateFormModel
     
-    @State private var name: String = "My New Virtual Machine"
-    @State private var remark: String = ""
-    
     var body: some View {
         VStack {
             Text("Choose the location for virtual machine:")
@@ -22,9 +19,9 @@ struct CreatePhaseNameConfigView: View {
             Form {
                 
                 Section ("Basic") {
-                    TextField("Name", text: $name).lineLimit(2)
+                    TextField("Name", text: $formData.name).lineLimit(1)
                     
-                    TextField("Description", text:$remark).lineLimit(3, reservesSpace: true)
+                    TextField("Description", text:$formData.remark).lineLimit(3, reservesSpace: true)
                 }
                 
             }
