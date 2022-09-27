@@ -30,6 +30,11 @@ class SystemImageDownloadViewState : ObservableObject {
     
     private var downloader: (any VMOSImageDownloader)?
     
+    func cancelDownload() {
+        self.downloader?.cancelDownload()
+        self.downloader = nil
+    }
+    
     func startDownload(vmOSType: VMOSType, localPath: URL) {
         
         downloadStatus = .downloading
@@ -59,6 +64,7 @@ class SystemImageDownloadViewState : ObservableObject {
             }
         } else {
             guard let imageURL = URL(string: downloadInputUrl) else {
+                downloadStatus = .initial
                 return
             }
             downloader?.downloadURL(imageURL: imageURL, toLocalPath: localPath) { result in
@@ -83,11 +89,6 @@ class SystemImageDownloadViewState : ObservableObject {
                 }
             }
         }
-    }
-    
-    
-    func cancelDownload() {
-        downloader = nil
     }
     
     func getDownloadButtonText() -> String {
@@ -189,7 +190,7 @@ struct SystemImageDownloadView: View {
                 Spacer()
             }
             HStack {
-                Text("\(Int(state.current))%")
+                Text("\(String(format: "%.2f", state.current))%")
                     .font(.caption)
                 ProgressView(value: state.current, total: 100)
             }
@@ -217,7 +218,6 @@ struct SystemImageDownloadView: View {
         .padding()
         .frame(width: 600, height:260)
     }
-    
     
     func startDownload() {
         if state.downloadStatus == .initial || state.downloadStatus == .downloadFailed {

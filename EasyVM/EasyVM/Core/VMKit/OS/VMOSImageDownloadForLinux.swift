@@ -20,4 +20,7 @@ class VMOSImageDownloadForLinux : VMOSImageDownloader {
         
     }
     
+    func cancelDownload() {
+        
+    }
 }

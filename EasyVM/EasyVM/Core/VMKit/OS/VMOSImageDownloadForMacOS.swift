@@ -10,6 +10,7 @@ import Virtualization
 
 class VMOSImageDownloadForMacOS : VMOSImageDownloader {
     private var downloadObserver: NSKeyValueObservation?
+    private var downloadTask: URLSessionDownloadTask?
     
     func isSupport() -> Bool {
         true
@@ -33,7 +34,7 @@ class VMOSImageDownloadForMacOS : VMOSImageDownloader {
     }
     
     private func downloadRestoreImage(toLocalPath: URL, imageURL: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
-        let downloadTask = URLSession.shared.downloadTask(with: imageURL) { localURL, response, error in
+        downloadTask = URLSession.shared.downloadTask(with: imageURL) { localURL, response, error in
             if let error = error {
                 completionHandler(.failure("Download failed. \(error.localizedDescription)."))
                 return
@@ -51,10 +52,15 @@ class VMOSImageDownloadForMacOS : VMOSImageDownloader {
             completionHandler(.success)
         }
 
-        downloadObserver = downloadTask.progress.observe(\.fractionCompleted, options: [.initial, .new]) { (progress, change) in
+        downloadObserver = downloadTask?.progress.observe(\.fractionCompleted, options: [.initial, .new]) { (progress, change) in
             NSLog("Restore image download progress: \(change.newValue! * 100).")
             downloadProgressHandler(change.newValue!)
         }
-        downloadTask.resume()
+        downloadTask?.resume()
+    }
+    
+    func cancelDownload() {
+        downloadTask?.cancel()
+        downloadTask = nil
     }
 }
