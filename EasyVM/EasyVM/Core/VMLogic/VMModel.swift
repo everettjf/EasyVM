@@ -9,16 +9,9 @@ import Foundation
 import SwiftUI
 
 
-enum VMModelOSType: String, Identifiable, CaseIterable, Hashable, Decodable {
-    case macOS = "macOS"
-    case linux = "linux"
-    
-    var name: String { rawValue }
-    var id: String { rawValue }
-}
 
 struct VMConfigModel : Decodable {
-    let type: VMModelOSType
+    let type: VMOSType
     let name: String
     let remark: String?
     let cpu: VMModelFieldCPU

@@ -9,7 +9,7 @@ import SwiftUI
 
 struct MyVM : Identifiable, Hashable {
     let id = UUID()
-    let osType: VMModelOSType
+    let osType: VMOSType
     let name: String
     let color: Color
     let remark: String
