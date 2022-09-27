@@ -97,7 +97,7 @@ class SystemImageDownloadViewState : ObservableObject {
         case .downloading:
             return "Downloading"
         case .downloadSuccess:
-            return "Download success"
+            return "Confirm, use the downloaded image"
         case .downloadFailed:
             return "Download failed"
         }
@@ -153,12 +153,15 @@ struct SystemImageDownloadView: View {
     var body: some View {
         
         VStack {
-            
+            HStack {
+                Text("Download System Image")
+                    .fontWeight(.bold)
+            }
             Spacer()
             
             Picker("Image Source", selection: $state.downloadMethod) {
-                Text("Latest Avaliable Image").tag(SystemImageDownloadViewState.ImageSource.latest_avaliable)
-                Text("Image URL Input Below").tag(SystemImageDownloadViewState.ImageSource.input_url)
+                Text("Latest available image").tag(SystemImageDownloadViewState.ImageSource.latest_avaliable)
+                Text("System image url").tag(SystemImageDownloadViewState.ImageSource.input_url)
             }
             .pickerStyle(.menu)
             
@@ -208,6 +211,7 @@ struct SystemImageDownloadView: View {
                 } label: {
                     Text(state.getDownloadButtonText())
                 }
+                .disabled(state.downloadStatus == .downloading)
             }
         }
         .padding()
@@ -216,11 +220,20 @@ struct SystemImageDownloadView: View {
     
     
     func startDownload() {
-        if state.downloadStatus == .initial {
+        if state.downloadStatus == .initial || state.downloadStatus == .downloadFailed {
             guard let localPath = formData.getSystemImagePath() else {
                 return
             }
             state.startDownload(vmOSType: formData.osType, localPath: localPath)
+        }
+        
+        if state.downloadStatus == .downloadSuccess {
+            guard let localPath = formData.getSystemImagePath() else {
+                return
+            }
+            formData.imagePath = localPath.path()
+            
+            presentationMode.wrappedValue.dismiss()
         }
     }
 }

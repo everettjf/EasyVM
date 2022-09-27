@@ -17,8 +17,8 @@ struct SystemImageSourceTypeView: View {
     var body: some View {
         VStack {
             Image(systemName: image)
-                .font(.system(size: 70))
-                .frame(width:100,height: 120)
+                .font(.system(size: 50))
+                .frame(width:70,height: 70)
             
             Text(name)
         }
@@ -73,14 +73,20 @@ struct CreatePhaseSystemImageView: View {
             
             
             HStack {
+                Spacer()
                 SystemImageSourceTypeView(image: "opticaldiscdrive", name: "From local file system")
                     .onTapGesture {
                         selectFromFileSystem()
                     }
-                SystemImageSourceTypeView(image: "cloud", name: "Download from network")
-                    .onTapGesture {
-                        selectFromNetwork()
-                    }
+                
+                if formData.osType == .macOS {
+                    SystemImageSourceTypeView(image: "cloud", name: "Download from network")
+                        .onTapGesture {
+                            selectFromNetwork()
+                        }
+                }
+                
+                Spacer()
             }
             
             Form {
@@ -116,10 +122,17 @@ struct CreatePhaseSystemImageView: View {
 }
 
 struct CreatePhaseSystemImage_Previews: PreviewProvider {
+    
+    static let formData = CreateFormModel()
+    static let formDataLinux = CreateFormModel(osType: .linux)
+    
     static var previews: some View {
-        let formData = CreateFormModel()
+        
         CreatePhaseSystemImageView()
             .frame(width: 600, height:400)
             .environmentObject(formData)
+        CreatePhaseSystemImageView()
+            .frame(width: 600, height:400)
+            .environmentObject(formDataLinux)
     }
 }

@@ -25,6 +25,21 @@ class CreateFormModel: ObservableObject {
     // phase - confirguration
     
     
+    init() {
+    }
+    init(osType: VMOSType, name: String, remark: String, saveDirectory: String, imagePath: String) {
+        self.osType = osType
+        self.name = name
+        self.remark = remark
+        self.saveDirectory = saveDirectory
+        self.imagePath = imagePath
+    }
+    
+    init(osType: VMOSType) {
+        self.osType = osType
+    }
+    
+    
     func getSystemImagePath() -> URL? {
         guard let path = URL(string: saveDirectory) else {
             return nil
