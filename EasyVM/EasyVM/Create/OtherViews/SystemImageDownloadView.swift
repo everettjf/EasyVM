@@ -159,7 +159,7 @@ struct SystemImageDownloadView: View {
             }
             Spacer()
             
-            Picker("Image Source", selection: $state.downloadMethod) {
+            Picker("Source of system image", selection: $state.downloadMethod) {
                 Text("Latest available image").tag(SystemImageDownloadViewState.ImageSource.latest_avaliable)
                 Text("System image url").tag(SystemImageDownloadViewState.ImageSource.input_url)
             }
