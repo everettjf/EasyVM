@@ -13,7 +13,7 @@ class VMModelBuilder {
     
     
     static func buildDefaultModel(location: VMLocationModel) -> VMModel {
-        let name = "My Virtual Machine"
+        let basic = VMBasicModel(name: "New Virtual Machine", remark: "")
 
         let cpu = VMModelFieldCPU.default()
         let memory = VMModelFieldMemory.default()
@@ -23,9 +23,8 @@ class VMModelBuilder {
         let pointingDevice = VMModelFieldPointingDevice.default()
         let keyboardDevice = VMModelFieldKeyboardDevice.default()
         let audioDevices = VMModelFieldAudioDevice.defaults()
+        let config = VMConfigModel(type: .macOS, cpu: cpu, memory: memory, graphicsDevices: [graphicDevice], storageDevices: [storageDevice], networkDevices: [networkDevice], pointingDevices: [pointingDevice], keyboardDevices: [keyboardDevice], audioDevices: audioDevices)
         
-        let config = VMConfigModel(type: .macOS, name: name, remark: nil, cpu: cpu, memory: memory, graphicsDevices: [graphicDevice], storageDevices: [storageDevice], networkDevices: [networkDevice], pointingDevices: [pointingDevice], keyboardDevices: [keyboardDevice], audioDevices: audioDevices)
-        
-        return VMModel(location: location, config: config)
+        return VMModel(basic: basic, location: location, config: config)
     }
 }

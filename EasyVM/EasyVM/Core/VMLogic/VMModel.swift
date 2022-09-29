@@ -10,19 +10,9 @@ import SwiftUI
 
 
 
-struct VMConfigModel : Decodable {
-    let type: VMOSType
+struct VMBasicModel: Decodable {
     let name: String
-    let remark: String?
-    let cpu: VMModelFieldCPU
-    let memory: VMModelFieldMemory
-    let graphicsDevices: [VMModelFieldGraphicDevice]
-    let storageDevices: [VMModelFieldStorageDevice]
-    let networkDevices: [VMModelFieldNetworkDevice]
-    let pointingDevices: [VMModelFieldPointingDevice]
-    let keyboardDevices: [VMModelFieldKeyboardDevice]
-    let audioDevices: [VMModelFieldAudioDevice]
-    
+    let remark: String
 }
 
 struct VMLocationModel : Decodable {
@@ -34,9 +24,22 @@ struct VMLocationModel : Decodable {
     }
 }
 
+struct VMConfigModel : Decodable {
+    let type: VMOSType
+    let cpu: VMModelFieldCPU
+    let memory: VMModelFieldMemory
+    let graphicsDevices: [VMModelFieldGraphicDevice]
+    let storageDevices: [VMModelFieldStorageDevice]
+    let networkDevices: [VMModelFieldNetworkDevice]
+    let pointingDevices: [VMModelFieldPointingDevice]
+    let keyboardDevices: [VMModelFieldKeyboardDevice]
+    let audioDevices: [VMModelFieldAudioDevice]
+}
+
 
 struct VMModel: Identifiable {
     let id = UUID()
+    let basic: VMBasicModel
     let location: VMLocationModel
     let config: VMConfigModel
 }
