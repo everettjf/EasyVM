@@ -13,18 +13,35 @@ struct VMModelFieldGraphicDeviceItemModel: Identifiable {
     let data: VMModelFieldGraphicDevice
 }
 
+struct VMModelFieldStorageDeviceItemModel: Identifiable {
+    let id = UUID()
+    let data: VMModelFieldStorageDevice
+}
+
 class VMConfigurationViewState: ObservableObject {
     @Published var cpuCount: Int = 1
     @Published var memorySize: UInt64 = 1024 * 1024 * 1024 * 2
     @Published var diskSize: UInt64 = 1024 * 1024 * 1024 * 64
-    
+
     @Published var graphicDevices: [VMModelFieldGraphicDeviceItemModel] = []
+    @Published var storageDevices: [VMModelFieldStorageDeviceItemModel] = []
+    
+    init(location: VMLocationModel) {
+        self.cpuCount = VMModelFieldCPU.defaultCount()
+        self.graphicDevices = [
+            VMModelFieldGraphicDeviceItemModel(data: VMModelFieldGraphicDevice.default())
+        ]
+        self.storageDevices = [
+            VMModelFieldStorageDeviceItemModel(data: VMModelFieldStorageDevice.default(location: location))
+        ]
+        
+    }
     
     init() {
         self.cpuCount = VMModelFieldCPU.defaultCount()
         self.graphicDevices = [
             VMModelFieldGraphicDeviceItemModel(data: VMModelFieldGraphicDevice.default())
         ]
-
+        self.storageDevices = []
     }
 }

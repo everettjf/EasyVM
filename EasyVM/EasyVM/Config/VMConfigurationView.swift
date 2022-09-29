@@ -12,8 +12,8 @@ import SwiftUI
 struct VMConfigurationView: View {
     @ObservedObject var state: VMConfigurationViewState
     
-    init() {
-        self.state = VMConfigurationViewState()
+    init(location: VMLocationModel) {
+        self.state = VMConfigurationViewState(location: location)
     }
     
     var body: some View {
@@ -23,38 +23,16 @@ struct VMConfigurationView: View {
     
     var content: some View {
         Form {
-            
             Section ("CPU / Memory / Disk") {
                 VMConfigurationCPUView()
                 VMConfigurationMemoryView()
                 VMConfigurationDiskView()
             }
             
-            
             Section ("Display / Storage / Network") {
-                
                 VMConfigurationGraphicDevicesView()
+                VMConfigurationStorageDevicesView()
                 
-                
-                LabeledContent("Storage Devices") {
-                    HStack(spacing:0) {
-                        List {
-                            Text("Block 64GB")
-                            Text("USB <path to iso file>")
-                        }
-                        .frame(width:300)
-                        
-                        VStack {
-                            Spacer()
-                            Button {
-                                
-                            } label: {
-                                Image(systemName: "plus")
-                            }
-                            
-                        }
-                    }
-                }
                 LabeledContent("Network Devices") {
                     HStack(spacing:0) {
                         List {
@@ -144,7 +122,7 @@ struct VMConfigurationView: View {
 
 struct VMConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
-        VMConfigurationView()
+        VMConfigurationView(location: VMLocationModel(root: "", image: ""))
             .frame(width: 700, height:1000)
     }
 }

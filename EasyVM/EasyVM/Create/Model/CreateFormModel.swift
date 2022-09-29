@@ -40,6 +40,10 @@ class CreateFormModel: ObservableObject {
     }
     
     
+    func getLocationModel() -> VMLocationModel {
+        return VMLocationModel(root: saveDirectory, image: imagePath)
+    }
+    
     func getSystemImagePath() -> URL? {
         guard let path = URL(string: saveDirectory) else {
             return nil

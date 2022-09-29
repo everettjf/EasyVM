@@ -13,6 +13,8 @@
 		D1196EA728E5E2EA00CCC04D /* VMConfigurationDiskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA628E5E2EA00CCC04D /* VMConfigurationDiskView.swift */; };
 		D1196EA928E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA828E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift */; };
 		D1196EAC28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */; };
+		D1196EAE28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EAD28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift */; };
+		D1196EB128E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EB028E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift */; };
 		D11A80E928C8ECDD004C1AC4 /* CreateStepperGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11A80E828C8ECDD004C1AC4 /* CreateStepperGuideView.swift */; };
 		D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = D120BD5028CF25E3009297E8 /* MacKitUtil.swift */; };
 		D120BD5328CF2B8B009297E8 /* CreatePhaseNameConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D120BD5228CF2B8B009297E8 /* CreatePhaseNameConfigView.swift */; };
@@ -82,6 +84,8 @@
 		D1196EA628E5E2EA00CCC04D /* VMConfigurationDiskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationDiskView.swift; sourceTree = "<group>"; };
 		D1196EA828E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationGraphicDevicesView.swift; sourceTree = "<group>"; };
 		D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationGraphicDevicesEditView.swift; sourceTree = "<group>"; };
+		D1196EAD28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationStorageDevicesView.swift; sourceTree = "<group>"; };
+		D1196EB028E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationStorageDevicesEditView.swift; sourceTree = "<group>"; };
 		D11A80E828C8ECDD004C1AC4 /* CreateStepperGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateStepperGuideView.swift; sourceTree = "<group>"; };
 		D120BD5028CF25E3009297E8 /* MacKitUtil.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacKitUtil.swift; sourceTree = "<group>"; };
 		D120BD5228CF2B8B009297E8 /* CreatePhaseNameConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseNameConfigView.swift; sourceTree = "<group>"; };
@@ -161,8 +165,17 @@
 			isa = PBXGroup;
 			children = (
 				D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */,
+				D1196EB028E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift */,
 			);
 			path = ChildViews;
+			sourceTree = "<group>";
+		};
+		D1196EAF28E5F53A00CCC04D /* State */ = {
+			isa = PBXGroup;
+			children = (
+				D1196EA028E5E2A300CCC04D /* VMConfigurationViewState.swift */,
+			);
+			path = State;
 			sourceTree = "<group>";
 		};
 		D120BD5428CF463A009297E8 /* VMKit */ = {
@@ -263,12 +276,13 @@
 			isa = PBXGroup;
 			children = (
 				D1196EAA28E5E5A400CCC04D /* ChildViews */,
-				D1196EA028E5E2A300CCC04D /* VMConfigurationViewState.swift */,
+				D1196EAF28E5F53A00CCC04D /* State */,
 				D19EC93628CEEA44004564B7 /* VMConfigurationView.swift */,
 				D1196EA228E5E2BE00CCC04D /* VMConfigurationCPUView.swift */,
 				D1196EA428E5E2D600CCC04D /* VMConfigurationMemoryView.swift */,
 				D1196EA628E5E2EA00CCC04D /* VMConfigurationDiskView.swift */,
 				D1196EA828E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift */,
+				D1196EAD28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -597,6 +611,7 @@
 				F2705282286C93AE0008DCD1 /* HeaderView.swift in Sources */,
 				F2C5DCBB2866F7DC00B2F41F /* MacOSVMViewController.swift in Sources */,
 				D1EF707028B6654500F2D279 /* VMModelFieldStorageDevice.swift in Sources */,
+				D1196EB128E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift in Sources */,
 				F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */,
 				D1196EA928E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift in Sources */,
 				D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */,
@@ -621,6 +636,7 @@
 				D19EC93728CEEA44004564B7 /* VMConfigurationView.swift in Sources */,
 				D1EF707A28B6971100F2D279 /* VMCenter.swift in Sources */,
 				D1196EA728E5E2EA00CCC04D /* VMConfigurationDiskView.swift in Sources */,
+				D1196EAE28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

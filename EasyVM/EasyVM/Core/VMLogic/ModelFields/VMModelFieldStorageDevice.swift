@@ -8,10 +8,23 @@
 import Foundation
 import Virtualization
 
-struct VMModelFieldStorageDevice : Decodable {
-    let type: String
+struct VMModelFieldStorageDevice : Decodable, CustomStringConvertible {
+    enum DeviceType : String, CaseIterable, Identifiable, Decodable {
+        case Block, USB
+        var id: Self { self }
+    }
+    
+    let type: DeviceType
     let size: UInt64?
     let imagePath: String?
+    
+    var description: String {
+        if type == .Block {
+            return "\(type) \(size! / 1024 / 1024 / 1024)GB"
+        } else {
+            return "\(type) \(imagePath!)"
+        }
+    }
     
     static func defaultDiskSize() -> UInt64 {
         // 64GB
@@ -28,6 +41,6 @@ struct VMModelFieldStorageDevice : Decodable {
     }
     
     static func `default`(location: VMLocationModel) -> VMModelFieldStorageDevice {
-        return VMModelFieldStorageDevice(type: "disk", size: Self.defaultDiskSize(), imagePath: location.getMainDiskImage())
+        return VMModelFieldStorageDevice(type: .Block, size: Self.defaultDiskSize(), imagePath: location.getMainDiskImage())
     }
 }
