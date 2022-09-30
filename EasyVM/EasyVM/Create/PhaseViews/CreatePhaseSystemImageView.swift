@@ -40,11 +40,14 @@ struct SystemImageSourceTypeView: View {
 
 
 class CreatePhaseSystemImageViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
-        if formData.imagePath.isEmpty {
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
+        if context.formData.imagePath.isEmpty {
             return .failure("Please select system image")
         }
         return .success
+    }
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) -> Bool {
+        return true
     }
 }
 

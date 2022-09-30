@@ -51,11 +51,14 @@ enum CreateStepperGuidePhaseVerifyResult {
     case failure(_ error:String)
 }
 
-protocol CreateStepperGuidePhaseHandler {
-    
-    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult
+struct CreateStepperGuidePhaseContext {
+    let formData: CreateFormStateObject
+    let configData: VMConfigurationViewStateObject
 }
-
+protocol CreateStepperGuidePhaseHandler {
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) -> Bool
+}
 
 struct CreateStepperGuideItem : Identifiable {
     let id = UUID()
@@ -252,13 +255,17 @@ struct CreateStepperGuideView: View {
     
     func tryMoveNextStep() {
         let currentItem = steps[stepperState.current]
-        let verifyResult = currentItem.verifier.verifyForm(formData: formData)
+        let verifyResult = currentItem.verifier.verifyForm(context: CreateStepperGuidePhaseContext(formData: formData, configData: configData))
         if case let .failure(error) = verifyResult {
             showAlert(error)
             return
         }
         
         stepperState.moveNextStep()
+        
+        let nextItem = steps[stepperState.current]
+        // todo
+        
     }
     
     func showAlert(_ message: String) {

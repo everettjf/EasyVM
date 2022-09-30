@@ -39,8 +39,12 @@ struct SystemCardView: View {
 }
 
 class CreatePhaseSystemTypeViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
+    
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
         return .success
+    }
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) -> Bool {
+        return true
     }
 }
 

@@ -10,8 +10,12 @@ import SwiftUI
 
 
 class CreatePhaseCompleteViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
+    
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
         return .success
+    }
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) -> Bool {
+        return true
     }
 }
 
