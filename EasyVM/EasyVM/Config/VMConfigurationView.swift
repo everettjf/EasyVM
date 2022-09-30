@@ -32,28 +32,7 @@ struct VMConfigurationView: View {
             Section ("Display / Storage / Network") {
                 VMConfigurationGraphicDevicesView()
                 VMConfigurationStorageDevicesView()
-                
-                LabeledContent("Network Devices") {
-                    HStack(spacing:0) {
-                        List {
-                            Text("NAT")
-                            Text("Bridged")
-                            Text("FileHandle")
-                        }
-                        .frame(width:300)
-                        
-                        VStack {
-                            Spacer()
-                            Button {
-                                
-                            } label: {
-                                Image(systemName: "plus")
-                            }
-                            
-                        }
-                    }
-                }
-                
+                VMConfigurationNetworkDevicesView()
                 
             }
             Section ("Control / Audio") {
