@@ -1,5 +1,5 @@
 //
-//  VMConfigurationNetworkDevicesEditView.swift
+//  VMConfigurationAudioDevicesEditView.swift
 //  EasyVM
 //
 //  Created by everettjf on 2022/9/30.
@@ -7,20 +7,19 @@
 
 import SwiftUI
 
-struct VMConfigurationNetworkDevicesEditView: View {
+struct VMConfigurationAudioDevicesEditView: View {
     @EnvironmentObject var state: VMConfigurationViewState
     
     @Environment(\.presentationMode) var presentationMode
     
-    @State var inputType: VMModelFieldNetworkDevice.DeviceType = .NAT
-
+    @State var inputType: VMModelFieldAudioDevice.DeviceType = .InputStream
     
     var body: some View {
         VStack(alignment: .leading) {
             Form {
-                Section("Add Network Device") {
+                Section("Add Audio Device") {
                     Picker("Type", selection: $inputType) {
-                        ForEach(VMModelFieldNetworkDevice.DeviceType.allCases) { item in
+                        ForEach(VMModelFieldAudioDevice.DeviceType.allCases) { item in
                             Text(item.rawValue)
                         }
                     }
@@ -37,14 +36,14 @@ struct VMConfigurationNetworkDevicesEditView: View {
                     }
                 }
                 Section("Current Devices") {
-                    List (state.networkDevices) { item in
+                    List (state.audioDevices) { item in
                         HStack {
                             Text("\(String(describing: item.data))")
                             Spacer()
                             Button {
                                 // remove
-                                if let found = state.networkDevices.firstIndex(where: {$0.id == item.id}) {
-                                    state.networkDevices.remove(at: found)
+                                if let found = state.audioDevices.firstIndex(where: {$0.id == item.id}) {
+                                    state.audioDevices.remove(at: found)
                                 }
                                 
                             } label: {
@@ -72,14 +71,14 @@ struct VMConfigurationNetworkDevicesEditView: View {
     
     
     func addDevice() {
-        let device = VMModelFieldNetworkDevice(type: inputType)
-        state.networkDevices.append(VMModelFieldNetworkDeviceItemModel(data: device))
+        let device = VMModelFieldAudioDevice(type: inputType)
+        state.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: device))
     }
 }
 
-struct VMConfigurationNetworkDevicesEditView_Previews: PreviewProvider {
+struct VMConfigurationAudioDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
-        VMConfigurationNetworkDevicesEditView()
+        VMConfigurationAudioDevicesEditView()
             .environmentObject(VMConfigurationViewState())
             .frame(height: 600)
     }

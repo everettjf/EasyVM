@@ -21,9 +21,8 @@ class VMModelBuilder {
         let storageDevice = VMModelFieldStorageDevice.default(location: location)
         let networkDevice = VMModelFieldNetworkDevice.default()
         let pointingDevice = VMModelFieldPointingDevice.default()
-        let keyboardDevice = VMModelFieldKeyboardDevice.default()
         let audioDevices = VMModelFieldAudioDevice.defaults()
-        let config = VMConfigModel(type: .macOS, cpu: cpu, memory: memory, graphicsDevices: [graphicDevice], storageDevices: [storageDevice], networkDevices: [networkDevice], pointingDevices: [pointingDevice], keyboardDevices: [keyboardDevice], audioDevices: audioDevices)
+        let config = VMConfigModel(type: .macOS, cpu: cpu, memory: memory, graphicsDevices: [graphicDevice], storageDevices: [storageDevice], networkDevices: [networkDevice], pointingDevices: [pointingDevice], audioDevices: audioDevices)
         
         return VMModel(basic: basic, location: location, config: config)
     }

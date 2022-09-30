@@ -7,17 +7,22 @@
 
 import Foundation
 
-struct VMModelFieldAudioDevice: Decodable {
-    let type: String
+struct VMModelFieldAudioDevice: Decodable, CustomStringConvertible {
     
-    init(type: String) {
-        self.type = type
+    enum DeviceType : String, CaseIterable, Identifiable, Decodable {
+        case InputStream, OutputStream
+        var id: Self { self }
+    }
+    let type: DeviceType
+    
+    var description: String {
+        return "\(type)"
     }
     
     static func `defaults`() -> [VMModelFieldAudioDevice] {
         return [
-            VMModelFieldAudioDevice(type: "input"),
-            VMModelFieldAudioDevice(type: "output"),
+            VMModelFieldAudioDevice(type:.InputStream),
+            VMModelFieldAudioDevice(type:.OutputStream),
         ]
     }
 }

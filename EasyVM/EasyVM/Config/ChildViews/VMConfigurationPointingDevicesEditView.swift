@@ -1,5 +1,5 @@
 //
-//  VMConfigurationNetworkDevicesEditView.swift
+//  VMConfigurationPointingDevicesEditView.swift
 //  EasyVM
 //
 //  Created by everettjf on 2022/9/30.
@@ -7,20 +7,21 @@
 
 import SwiftUI
 
-struct VMConfigurationNetworkDevicesEditView: View {
+struct VMConfigurationPointingDevicesEditView: View {
+    
     @EnvironmentObject var state: VMConfigurationViewState
     
     @Environment(\.presentationMode) var presentationMode
     
-    @State var inputType: VMModelFieldNetworkDevice.DeviceType = .NAT
+    @State var inputType: VMModelFieldPointingDevice.DeviceType = .USBScreenCoordinatePointing
 
     
     var body: some View {
         VStack(alignment: .leading) {
             Form {
-                Section("Add Network Device") {
+                Section("Add Pointing Device") {
                     Picker("Type", selection: $inputType) {
-                        ForEach(VMModelFieldNetworkDevice.DeviceType.allCases) { item in
+                        ForEach(VMModelFieldPointingDevice.DeviceType.allCases) { item in
                             Text(item.rawValue)
                         }
                     }
@@ -37,14 +38,17 @@ struct VMConfigurationNetworkDevicesEditView: View {
                     }
                 }
                 Section("Current Devices") {
-                    List (state.networkDevices) { item in
+                    List (state.pointingDevices) { item in
                         HStack {
                             Text("\(String(describing: item.data))")
                             Spacer()
                             Button {
                                 // remove
-                                if let found = state.networkDevices.firstIndex(where: {$0.id == item.id}) {
-                                    state.networkDevices.remove(at: found)
+                                if state.pointingDevices.count == 1 {
+                                    return
+                                }
+                                if let found = state.pointingDevices.firstIndex(where: {$0.id == item.id}) {
+                                    state.pointingDevices.remove(at: found)
                                 }
                                 
                             } label: {
@@ -72,14 +76,14 @@ struct VMConfigurationNetworkDevicesEditView: View {
     
     
     func addDevice() {
-        let device = VMModelFieldNetworkDevice(type: inputType)
-        state.networkDevices.append(VMModelFieldNetworkDeviceItemModel(data: device))
+        let device = VMModelFieldPointingDevice(type: inputType)
+        state.pointingDevices.append(VMModelFieldPointingDeviceItemModel(data: device))
     }
 }
 
-struct VMConfigurationNetworkDevicesEditView_Previews: PreviewProvider {
+struct VMConfigurationPointingDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
-        VMConfigurationNetworkDevicesEditView()
+        VMConfigurationPointingDevicesEditView()
             .environmentObject(VMConfigurationViewState())
             .frame(height: 600)
     }

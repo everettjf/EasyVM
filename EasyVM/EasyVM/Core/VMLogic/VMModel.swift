@@ -32,7 +32,6 @@ struct VMConfigModel : Decodable {
     let storageDevices: [VMModelFieldStorageDevice]
     let networkDevices: [VMModelFieldNetworkDevice]
     let pointingDevices: [VMModelFieldPointingDevice]
-    let keyboardDevices: [VMModelFieldKeyboardDevice]
     let audioDevices: [VMModelFieldAudioDevice]
 }
 

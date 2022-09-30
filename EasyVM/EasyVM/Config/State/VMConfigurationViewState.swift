@@ -23,6 +23,16 @@ struct VMModelFieldNetworkDeviceItemModel: Identifiable {
     let data: VMModelFieldNetworkDevice
 }
 
+struct VMModelFieldPointingDeviceItemModel: Identifiable {
+    let id = UUID()
+    let data: VMModelFieldPointingDevice
+}
+
+struct VMModelFieldAudioDeviceItemModel: Identifiable {
+    let id = UUID()
+    let data: VMModelFieldAudioDevice
+}
+
 
 
 class VMConfigurationViewState: ObservableObject {
@@ -34,22 +44,33 @@ class VMConfigurationViewState: ObservableObject {
     @Published var storageDevices: [VMModelFieldStorageDeviceItemModel] = []
     @Published var networkDevices: [VMModelFieldNetworkDeviceItemModel] = []
     
+    @Published var pointingDevices: [VMModelFieldPointingDeviceItemModel] = []
+    @Published var audioDevices: [VMModelFieldAudioDeviceItemModel] = []
+    
     init(location: VMLocationModel) {
+        self.cpuCount = VMModelFieldCPU.defaultCount()
+        
         self.storageDevices = [
             VMModelFieldStorageDeviceItemModel(data: VMModelFieldStorageDevice.default(location: location))
         ]
-        self.cpuCount = VMModelFieldCPU.defaultCount()
         self.graphicDevices = [
             VMModelFieldGraphicDeviceItemModel(data: VMModelFieldGraphicDevice.default())
         ]
         self.networkDevices = [
             VMModelFieldNetworkDeviceItemModel(data: VMModelFieldNetworkDevice.default())
         ]
+        self.pointingDevices = [
+            VMModelFieldPointingDeviceItemModel(data: VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing))
+        ]
+        self.audioDevices = [
+            VMModelFieldAudioDeviceItemModel(data: VMModelFieldAudioDevice(type: .InputStream)),
+            VMModelFieldAudioDeviceItemModel(data: VMModelFieldAudioDevice(type: .OutputStream))
+        ]
     }
     
     init() {
-        self.storageDevices = []
         self.cpuCount = VMModelFieldCPU.defaultCount()
+        self.storageDevices = []
         self.graphicDevices = [
             VMModelFieldGraphicDeviceItemModel(data: VMModelFieldGraphicDevice.default())
         ]

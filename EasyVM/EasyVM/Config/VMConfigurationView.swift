@@ -35,64 +35,9 @@ struct VMConfigurationView: View {
                 VMConfigurationNetworkDevicesView()
                 
             }
-            Section ("Control / Audio") {
-                    
-                LabeledContent("Pointing Devices") {
-                    HStack(spacing:0) {
-                        List {
-                            Text("USB Screeen")
-                            Text("Mac Trackpad")
-                        }
-                        .frame(width:300)
-                        
-                        VStack {
-                            Spacer()
-                            Button {
-                                
-                            } label: {
-                                Image(systemName: "plus")
-                            }
-
-                        }
-                    }
-                }
-                LabeledContent("Keyboard Devices") {
-                    HStack(spacing:0) {
-                        List {
-                            Text("USB")
-                        }
-                        .frame(width:300)
-                        
-                        VStack {
-                            Spacer()
-                            Button {
-                                
-                            } label: {
-                                Image(systemName: "plus")
-                            }
-
-                        }
-                    }
-                }
-                LabeledContent("Audio Devices") {
-                    HStack(spacing:0) {
-                        List {
-                            Text("Input Stream")
-                            Text("Output Stream")
-                        }
-                        .frame(width:300)
-                        
-                        VStack {
-                            Spacer()
-                            Button {
-                                
-                            } label: {
-                                Image(systemName: "plus")
-                            }
-
-                        }
-                    }
-                }
+            Section ("Pointing / Audio") {
+                VMConfigurationPointingDevicesView()
+                VMConfigurationAudioDevicesView()
             }
         }
         .formStyle(.grouped)

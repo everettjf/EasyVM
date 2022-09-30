@@ -9,15 +9,27 @@ import Foundation
 import Virtualization
 
 
-struct VMModelFieldPointingDevice: Decodable {
-    let type: String
+struct VMModelFieldPointingDevice: Decodable, CustomStringConvertible {
     
+    enum DeviceType : String, CaseIterable, Identifiable, Decodable {
+        case USBScreenCoordinatePointing, MacTrackpad
+        var id: Self { self }
+    }
+    
+    let type: DeviceType
+    
+    var description: String {
+        return "\(type)"
+    }
     
     static func `default`() -> VMModelFieldPointingDevice {
-        return VMModelFieldPointingDevice(type: "usbscreen")
+        return VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)
     }
     
     static func createConfiguration(model: VMModelFieldPointingDevice) -> VZPointingDeviceConfiguration {
-        return VZUSBScreenCoordinatePointingDeviceConfiguration()
+        if model.type == .USBScreenCoordinatePointing {
+            return VZUSBScreenCoordinatePointingDeviceConfiguration()
+        }
+        return VZMacTrackpadConfiguration()
     }
 }
