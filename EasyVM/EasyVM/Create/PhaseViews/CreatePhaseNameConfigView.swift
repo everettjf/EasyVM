@@ -9,7 +9,7 @@ import SwiftUI
 
 
 class CreatePhaseNameConfigViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
         if formData.name.isEmpty {
             return .failure("Name is empty")
         }
@@ -18,7 +18,7 @@ class CreatePhaseNameConfigViewHandler: CreateStepperGuidePhaseHandler {
 }
 
 struct CreatePhaseNameConfigView: View {
-    @EnvironmentObject var formData: CreateFormModel
+    @EnvironmentObject var formData: CreateFormStateObject
     
     var body: some View {
         VStack {
@@ -42,7 +42,7 @@ struct CreatePhaseNameConfigView: View {
 
 struct CreatePhaseNameConfigView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormModel()
+        let formData = CreateFormStateObject()
         CreatePhaseNameConfigView()
             .environmentObject(formData)
     }

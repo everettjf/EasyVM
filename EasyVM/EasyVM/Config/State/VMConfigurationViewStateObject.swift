@@ -35,7 +35,7 @@ struct VMModelFieldAudioDeviceItemModel: Identifiable {
 
 
 
-class VMConfigurationViewState: ObservableObject {
+class VMConfigurationViewStateObject: ObservableObject {
     @Published var cpuCount: Int = 1
     @Published var memorySize: UInt64 = 1024 * 1024 * 1024 * 2
     @Published var diskSize: UInt64 = 1024 * 1024 * 1024 * 64
@@ -47,11 +47,11 @@ class VMConfigurationViewState: ObservableObject {
     @Published var pointingDevices: [VMModelFieldPointingDeviceItemModel] = []
     @Published var audioDevices: [VMModelFieldAudioDeviceItemModel] = []
     
-    init(location: VMLocationModel) {
+    init() {
         self.cpuCount = VMModelFieldCPU.defaultCount()
         
         self.storageDevices = [
-            VMModelFieldStorageDeviceItemModel(data: VMModelFieldStorageDevice.default(location: location))
+            VMModelFieldStorageDeviceItemModel(data: VMModelFieldStorageDevice.default())
         ]
         self.graphicDevices = [
             VMModelFieldGraphicDeviceItemModel(data: VMModelFieldGraphicDevice.default())
@@ -68,14 +68,4 @@ class VMConfigurationViewState: ObservableObject {
         ]
     }
     
-    init() {
-        self.cpuCount = VMModelFieldCPU.defaultCount()
-        self.storageDevices = []
-        self.graphicDevices = [
-            VMModelFieldGraphicDeviceItemModel(data: VMModelFieldGraphicDevice.default())
-        ]
-        self.networkDevices = [
-            VMModelFieldNetworkDeviceItemModel(data: VMModelFieldNetworkDevice.default())
-        ]
-    }
 }

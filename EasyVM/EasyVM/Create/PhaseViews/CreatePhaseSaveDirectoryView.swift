@@ -8,7 +8,7 @@
 import SwiftUI
 
 class CreatePhaseSaveDirectoryViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
         if formData.saveDirectory.isEmpty {
             return .failure("Directory can not be empty")
         }
@@ -17,7 +17,7 @@ class CreatePhaseSaveDirectoryViewHandler: CreateStepperGuidePhaseHandler {
 }
 
 struct CreatePhaseSaveDirectoryView: View {
-    @EnvironmentObject var formData: CreateFormModel
+    @EnvironmentObject var formData: CreateFormStateObject
     
     var body: some View {
         
@@ -61,7 +61,7 @@ struct CreatePhaseSaveDirectoryView: View {
 
 struct CreatePhaseSaveDirectoryView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormModel()
+        let formData = CreateFormStateObject()
         CreatePhaseSaveDirectoryView()
             .environmentObject(formData)
     }

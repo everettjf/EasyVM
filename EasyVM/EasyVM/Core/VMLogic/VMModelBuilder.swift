@@ -18,7 +18,7 @@ class VMModelBuilder {
         let cpu = VMModelFieldCPU.default()
         let memory = VMModelFieldMemory.default()
         let graphicDevice = VMModelFieldGraphicDevice.default()
-        let storageDevice = VMModelFieldStorageDevice.default(location: location)
+        let storageDevice = VMModelFieldStorageDevice.default()
         let networkDevice = VMModelFieldNetworkDevice.default()
         let pointingDevice = VMModelFieldPointingDevice.default()
         let audioDevices = VMModelFieldAudioDevice.defaults()

@@ -53,7 +53,7 @@ enum CreateStepperGuidePhaseVerifyResult {
 
 protocol CreateStepperGuidePhaseHandler {
     
-    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult
+    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult
 }
 
 
@@ -107,8 +107,11 @@ class CreateStepperGuideStateObject: ObservableObject {
 }
 
 struct CreateStepperGuideView: View {
-    @ObservedObject var formData: CreateFormModel
+    @ObservedObject var formData: CreateFormStateObject
     @ObservedObject var stepperState: CreateStepperGuideStateObject
+    @ObservedObject var configData: VMConfigurationViewStateObject
+    
+    
     @State var showingAlert = false
     @State var alertMessage = ""
     
@@ -168,13 +171,15 @@ struct CreateStepperGuideView: View {
         ]
         
         self.steps = steps
-        self.formData = CreateFormModel()
+        self.formData = CreateFormStateObject()
+        self.configData = VMConfigurationViewStateObject()
         self.stepperState = CreateStepperGuideStateObject(stepCount: steps.count)
     }
     
     var body: some View {
         content
             .environmentObject(formData)
+            .environmentObject(configData)
             .environmentObject(stepperState)
             .alert("Tips", isPresented: $showingAlert) {
                 Button {

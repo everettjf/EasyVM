@@ -39,13 +39,13 @@ struct SystemCardView: View {
 }
 
 class CreatePhaseSystemTypeViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
         return .success
     }
 }
 
 struct CreatePhaseSystemTypeView: View {
-    @EnvironmentObject var formData: CreateFormModel
+    @EnvironmentObject var formData: CreateFormStateObject
     
     var body: some View {
         VStack {
@@ -80,7 +80,7 @@ struct CreatePhaseSystemTypeView: View {
 
 struct CreatePhaseSystemTypeView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormModel()
+        let formData = CreateFormStateObject()
         CreatePhaseSystemTypeView()
             .frame(width:500, height: 500)
             .environmentObject(formData)

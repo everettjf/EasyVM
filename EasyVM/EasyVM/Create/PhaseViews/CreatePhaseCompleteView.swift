@@ -10,14 +10,14 @@ import SwiftUI
 
 
 class CreatePhaseCompleteViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
         return .success
     }
 }
 
 
 struct CreatePhaseCompleteView: View {
-    @EnvironmentObject var formData: CreateFormModel
+    @EnvironmentObject var formData: CreateFormStateObject
     var body: some View {
         Text("Congratulations :)")
             .font(.title)
@@ -27,7 +27,7 @@ struct CreatePhaseCompleteView: View {
 
 struct CreatePhaseCompleteView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormModel()
+        let formData = CreateFormStateObject()
         CreatePhaseCompleteView()
             .environmentObject(formData)
     }

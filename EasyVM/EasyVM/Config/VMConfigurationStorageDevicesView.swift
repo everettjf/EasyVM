@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationStorageDevicesView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     @State var showingEditView = false
     
     
@@ -22,7 +22,7 @@ struct VMConfigurationStorageDevicesView: View {
     var content: some View {
         LabeledContent("Storage Devices") {
             VStack(alignment: .trailing) {
-                List(state.storageDevices) { item in
+                List(configData.storageDevices) { item in
                     HStack {
                         Spacer()
                         Text("\(String(describing: item.data))")
@@ -47,6 +47,6 @@ struct VMConfigurationStorageDevicesView: View {
 struct VMConfigurationStorageDevicesView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationStorageDevicesView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
     }
 }

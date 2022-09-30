@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-class CreateFormModel: ObservableObject {
+class CreateFormStateObject: ObservableObject {
     // --- Form ---
     // phase
     @Published var osType: VMOSType = .macOS
@@ -22,11 +22,10 @@ class CreateFormModel: ObservableObject {
     // phase
     @Published var imagePath: String = "file:///Users/everettjf/Downloads/UniversalMac_13.0_22A5295h_Restore.ipsw"
     
-    // phase - confirguration
-    
     
     init() {
     }
+    
     init(osType: VMOSType, name: String, remark: String, saveDirectory: String, imagePath: String) {
         self.osType = osType
         self.name = name

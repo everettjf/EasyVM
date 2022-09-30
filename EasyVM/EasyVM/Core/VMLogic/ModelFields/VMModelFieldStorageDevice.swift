@@ -15,14 +15,14 @@ struct VMModelFieldStorageDevice : Decodable, CustomStringConvertible {
     }
     
     let type: DeviceType
-    let size: UInt64?
-    let imagePath: String?
+    let size: UInt64
+    let imagePath: String
     
     var description: String {
         if type == .Block {
-            return "\(type) \(size! / 1024 / 1024 / 1024)GB"
+            return "\(type) \(size / 1024 / 1024 / 1024)GB"
         } else {
-            return "\(type) \(imagePath!)"
+            return "\(type) \(imagePath)"
         }
     }
     
@@ -40,7 +40,7 @@ struct VMModelFieldStorageDevice : Decodable, CustomStringConvertible {
         return 10 * 1024 * 1024 * 1024 * 1024
     }
     
-    static func `default`(location: VMLocationModel) -> VMModelFieldStorageDevice {
-        return VMModelFieldStorageDevice(type: .Block, size: Self.defaultDiskSize(), imagePath: location.getMainDiskImage())
+    static func `default`() -> VMModelFieldStorageDevice {
+        return VMModelFieldStorageDevice(type: .Block, size: Self.defaultDiskSize(), imagePath: "Disk.img")
     }
 }

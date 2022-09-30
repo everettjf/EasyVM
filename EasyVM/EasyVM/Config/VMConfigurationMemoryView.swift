@@ -8,49 +8,49 @@
 import SwiftUI
 
 struct VMConfigurationMemoryView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     let _1GB: UInt64 = 1024 * 1024 * 1024
     let maxMemory = VMModelFieldMemory.maxSize()
     let minMemory = VMModelFieldMemory.minSize()
  
     func increase(_ value: UInt64) {
-        if state.memorySize >= maxMemory {
-            state.memorySize = maxMemory
+        if configData.memorySize >= maxMemory {
+            configData.memorySize = maxMemory
             return
         }
-        var result = state.memorySize + value
+        var result = configData.memorySize + value
         if result > maxMemory {
             result = maxMemory
         }
-        state.memorySize = result
+        configData.memorySize = result
     }
     
     func decrease(_ value: UInt64) {
-        if state.memorySize < minMemory {
-            state.memorySize = minMemory
+        if configData.memorySize < minMemory {
+            configData.memorySize = minMemory
             return
         }
-        if state.memorySize < value {
-            state.memorySize = minMemory
+        if configData.memorySize < value {
+            configData.memorySize = minMemory
             return
         }
-        var result = state.memorySize - value
+        var result = configData.memorySize - value
         if result < minMemory {
             result = minMemory
         }
-        state.memorySize = result
+        configData.memorySize = result
     }
     
     var body: some View {
         LabeledContent("Memory Size") {
             VStack(alignment: .trailing) {
-                TextField("", value: $state.memorySize, format: .number)
+                TextField("", value: $configData.memorySize, format: .number)
 
                 HStack {
                     Text("MAX:\(maxMemory / _1GB)GB MIN:\(minMemory / _1GB)GB")
-                    Button("2GB") {state.memorySize = 2 * _1GB}
-                    Button("6GB") {state.memorySize = 6 * _1GB}
+                    Button("2GB") {configData.memorySize = 2 * _1GB}
+                    Button("6GB") {configData.memorySize = 6 * _1GB}
                     Button("+1GB") {increase(_1GB)}
                     Button("-1GB") {decrease(_1GB)}
                 }
@@ -65,6 +65,6 @@ struct VMConfigurationMemoryView: View {
 struct VMConfigurationMemoryView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationMemoryView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
     }
 }

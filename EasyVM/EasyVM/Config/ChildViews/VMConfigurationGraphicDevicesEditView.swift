@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationGraphicDevicesEditView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -48,17 +48,17 @@ struct VMConfigurationGraphicDevicesEditView: View {
                 }
                 
                 Section("Current Devices") {
-                    List (state.graphicDevices) { item in
+                    List (configData.graphicDevices) { item in
                         HStack {
                             Text("\(String(describing: item.data))")
                             Spacer()
                             Button {
                                 // remove
-                                if state.graphicDevices.count == 1 {
+                                if configData.graphicDevices.count == 1 {
                                     return
                                 }
-                                if let found = state.graphicDevices.firstIndex(where: {$0.id == item.id}) {
-                                    state.graphicDevices.remove(at: found)
+                                if let found = configData.graphicDevices.firstIndex(where: {$0.id == item.id}) {
+                                    configData.graphicDevices.remove(at: found)
                                 }
                                 
                             } label: {
@@ -88,14 +88,14 @@ struct VMConfigurationGraphicDevicesEditView: View {
     func addDevice() {
         let device = VMModelFieldGraphicDevice(type: inputType, width: inputWidth, height: inputHeight, pixelsPerInch: inputPixelsPerInch)
         
-        state.graphicDevices.append(VMModelFieldGraphicDeviceItemModel(data: device))
+        configData.graphicDevices.append(VMModelFieldGraphicDeviceItemModel(data: device))
     }
 }
 
 struct VMConfigurationGraphicDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationGraphicDevicesEditView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

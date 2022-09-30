@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationAudioDevicesEditView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -36,14 +36,14 @@ struct VMConfigurationAudioDevicesEditView: View {
                     }
                 }
                 Section("Current Devices") {
-                    List (state.audioDevices) { item in
+                    List (configData.audioDevices) { item in
                         HStack {
                             Text("\(String(describing: item.data))")
                             Spacer()
                             Button {
                                 // remove
-                                if let found = state.audioDevices.firstIndex(where: {$0.id == item.id}) {
-                                    state.audioDevices.remove(at: found)
+                                if let found = configData.audioDevices.firstIndex(where: {$0.id == item.id}) {
+                                    configData.audioDevices.remove(at: found)
                                 }
                                 
                             } label: {
@@ -72,14 +72,14 @@ struct VMConfigurationAudioDevicesEditView: View {
     
     func addDevice() {
         let device = VMModelFieldAudioDevice(type: inputType)
-        state.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: device))
+        configData.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: device))
     }
 }
 
 struct VMConfigurationAudioDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationAudioDevicesEditView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

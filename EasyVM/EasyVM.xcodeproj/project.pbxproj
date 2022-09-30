@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D1196EA128E5E2A300CCC04D /* VMConfigurationViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA028E5E2A300CCC04D /* VMConfigurationViewState.swift */; };
+		D1196EA128E5E2A300CCC04D /* VMConfigurationViewStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA028E5E2A300CCC04D /* VMConfigurationViewStateObject.swift */; };
 		D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA228E5E2BE00CCC04D /* VMConfigurationCPUView.swift */; };
 		D1196EA528E5E2D600CCC04D /* VMConfigurationMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA428E5E2D600CCC04D /* VMConfigurationMemoryView.swift */; };
 		D1196EA728E5E2EA00CCC04D /* VMConfigurationDiskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA628E5E2EA00CCC04D /* VMConfigurationDiskView.swift */; };
@@ -31,7 +31,7 @@
 		D132337728E28453002C26A2 /* VMOSResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337628E28453002C26A2 /* VMOSResult.swift */; };
 		D142CA2928C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D142CA2828C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift */; };
 		D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
-		D18AE4D928D2B0F600B5C3E2 /* CreateFormModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4D828D2B0F600B5C3E2 /* CreateFormModel.swift */; };
+		D18AE4D928D2B0F600B5C3E2 /* CreateFormStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4D828D2B0F600B5C3E2 /* CreateFormStateObject.swift */; };
 		D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */; };
 		D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
 		D19EC92F28CEE58C004564B7 /* CreatePhaseSystemImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */; };
@@ -83,7 +83,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		D1196EA028E5E2A300CCC04D /* VMConfigurationViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationViewState.swift; sourceTree = "<group>"; };
+		D1196EA028E5E2A300CCC04D /* VMConfigurationViewStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationViewStateObject.swift; sourceTree = "<group>"; };
 		D1196EA228E5E2BE00CCC04D /* VMConfigurationCPUView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationCPUView.swift; sourceTree = "<group>"; };
 		D1196EA428E5E2D600CCC04D /* VMConfigurationMemoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationMemoryView.swift; sourceTree = "<group>"; };
 		D1196EA628E5E2EA00CCC04D /* VMConfigurationDiskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationDiskView.swift; sourceTree = "<group>"; };
@@ -107,7 +107,7 @@
 		D132337628E28453002C26A2 /* VMOSResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSResult.swift; sourceTree = "<group>"; };
 		D142CA2828C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemTypeView.swift; sourceTree = "<group>"; };
 		D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailCardView.swift; sourceTree = "<group>"; };
-		D18AE4D828D2B0F600B5C3E2 /* CreateFormModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateFormModel.swift; sourceTree = "<group>"; };
+		D18AE4D828D2B0F600B5C3E2 /* CreateFormStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateFormStateObject.swift; sourceTree = "<group>"; };
 		D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemImageDownloadView.swift; sourceTree = "<group>"; };
 		D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldCPU.swift; sourceTree = "<group>"; };
 		D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemImageView.swift; sourceTree = "<group>"; };
@@ -186,7 +186,7 @@
 		D1196EAF28E5F53A00CCC04D /* State */ = {
 			isa = PBXGroup;
 			children = (
-				D1196EA028E5E2A300CCC04D /* VMConfigurationViewState.swift */,
+				D1196EA028E5E2A300CCC04D /* VMConfigurationViewStateObject.swift */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -218,7 +218,7 @@
 		D132336828E19C26002C26A2 /* Model */ = {
 			isa = PBXGroup;
 			children = (
-				D18AE4D828D2B0F600B5C3E2 /* CreateFormModel.swift */,
+				D18AE4D828D2B0F600B5C3E2 /* CreateFormStateObject.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -638,10 +638,10 @@
 				D1EF706C28B65EEE00F2D279 /* VMModelFieldMemory.swift in Sources */,
 				D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */,
 				D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */,
-				D1196EA128E5E2A300CCC04D /* VMConfigurationViewState.swift in Sources */,
+				D1196EA128E5E2A300CCC04D /* VMConfigurationViewStateObject.swift in Sources */,
 				F270529B2871D2560008DCD1 /* LinuxVMViewController.swift in Sources */,
 				D132337728E28453002C26A2 /* VMOSResult.swift in Sources */,
-				D18AE4D928D2B0F600B5C3E2 /* CreateFormModel.swift in Sources */,
+				D18AE4D928D2B0F600B5C3E2 /* CreateFormStateObject.swift in Sources */,
 				F27052A02873C31E0008DCD1 /* LinuxVMContainerView.swift in Sources */,
 				F2C5DCA22866F7C800B2F41F /* MainApp.swift in Sources */,
 				D1E61F6F28AF224D00ED98A0 /* VMModelEncoder.swift in Sources */,

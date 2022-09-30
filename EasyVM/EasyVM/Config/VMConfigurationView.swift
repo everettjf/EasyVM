@@ -8,20 +8,9 @@
 import SwiftUI
 
 
-
 struct VMConfigurationView: View {
-    @ObservedObject var state: VMConfigurationViewState
-    
-    init(location: VMLocationModel) {
-        self.state = VMConfigurationViewState(location: location)
-    }
     
     var body: some View {
-        content
-            .environmentObject(state)
-    }
-    
-    var content: some View {
         Form {
             Section ("CPU / Memory / Disk") {
                 VMConfigurationCPUView()
@@ -46,7 +35,7 @@ struct VMConfigurationView: View {
 
 struct VMConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
-        VMConfigurationView(location: VMLocationModel(root: "", image: ""))
+        VMConfigurationView()
             .frame(width: 700, height:1000)
     }
 }

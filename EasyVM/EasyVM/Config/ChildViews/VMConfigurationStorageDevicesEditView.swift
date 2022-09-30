@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationStorageDevicesEditView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -63,17 +63,17 @@ struct VMConfigurationStorageDevicesEditView: View {
                     }
                 }
                 Section("Current Devices") {
-                    List (state.storageDevices) { item in
+                    List (configData.storageDevices) { item in
                         HStack {
                             Text("\(String(describing: item.data))")
                             Spacer()
                             Button {
                                 // remove
-                                if state.storageDevices.count == 1 {
+                                if configData.storageDevices.count == 1 {
                                     return
                                 }
-                                if let found = state.storageDevices.firstIndex(where: {$0.id == item.id}) {
-                                    state.storageDevices.remove(at: found)
+                                if let found = configData.storageDevices.firstIndex(where: {$0.id == item.id}) {
+                                    configData.storageDevices.remove(at: found)
                                 }
                                 
                             } label: {
@@ -109,14 +109,14 @@ struct VMConfigurationStorageDevicesEditView: View {
         
         let device = VMModelFieldStorageDevice(type: inputType, size: inputSize, imagePath: inputPath)
         
-        state.storageDevices.append(VMModelFieldStorageDeviceItemModel(data: device))
+        configData.storageDevices.append(VMModelFieldStorageDeviceItemModel(data: device))
     }
 }
 
 struct VMConfigurationStorageDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationStorageDevicesEditView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

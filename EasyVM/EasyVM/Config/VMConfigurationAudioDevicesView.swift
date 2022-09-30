@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationAudioDevicesView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     @State var showingEditView = false
     
     var body: some View {
@@ -21,7 +21,7 @@ struct VMConfigurationAudioDevicesView: View {
         
         LabeledContent("Audio Devices") {
             VStack(alignment: .trailing) {
-                List(state.audioDevices) { item in
+                List(configData.audioDevices) { item in
                     HStack {
                         Spacer()
                         Text("\(String(describing: item.data))")
@@ -45,6 +45,6 @@ struct VMConfigurationAudioDevicesView: View {
 struct VMConfigurationAudioDevicesView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationAudioDevicesView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
     }
 }

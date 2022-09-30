@@ -40,7 +40,7 @@ struct SystemImageSourceTypeView: View {
 
 
 class CreatePhaseSystemImageViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
         if formData.imagePath.isEmpty {
             return .failure("Please select system image")
         }
@@ -50,7 +50,7 @@ class CreatePhaseSystemImageViewHandler: CreateStepperGuidePhaseHandler {
 
 
 struct CreatePhaseSystemImageView: View {
-    @EnvironmentObject var formData: CreateFormModel
+    @EnvironmentObject var formData: CreateFormStateObject
     
     @State var isShowDownload: Bool = false
     
@@ -123,8 +123,8 @@ struct CreatePhaseSystemImageView: View {
 
 struct CreatePhaseSystemImage_Previews: PreviewProvider {
     
-    static let formData = CreateFormModel()
-    static let formDataLinux = CreateFormModel(osType: .linux)
+    static let formData = CreateFormStateObject()
+    static let formDataLinux = CreateFormStateObject(osType: .linux)
     
     static var previews: some View {
         

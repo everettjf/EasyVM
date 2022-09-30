@@ -9,14 +9,14 @@ import SwiftUI
 
 
 class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(formData: CreateFormModel) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(formData: CreateFormStateObject) -> CreateStepperGuidePhaseVerifyResult {
         return .success
     }
 }
 
 
 struct CreatePhaseCreatingView: View {
-    @EnvironmentObject var formData: CreateFormModel
+    @EnvironmentObject var formData: CreateFormStateObject
     var body: some View {
         
         VStack {
@@ -40,7 +40,7 @@ struct CreatePhaseCreatingView: View {
 
 struct CreatePhaseCreatingView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormModel()
+        let formData = CreateFormStateObject()
         CreatePhaseCreatingView()
             .environmentObject(formData)
     }

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationPointingDevicesView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     @State var showingEditView = false
     
     var body: some View {
@@ -21,7 +21,7 @@ struct VMConfigurationPointingDevicesView: View {
         
         LabeledContent("Pointing Devices") {
             VStack(alignment: .trailing) {
-                List(state.pointingDevices) { item in
+                List(configData.pointingDevices) { item in
                     HStack {
                         Spacer()
                         Text("\(String(describing: item.data))")
@@ -45,6 +45,6 @@ struct VMConfigurationPointingDevicesView: View {
 struct VMConfigurationPointingDevicesView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationPointingDevicesView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
     }
 }

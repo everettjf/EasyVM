@@ -9,7 +9,7 @@ import SwiftUI
 
 struct VMConfigurationPointingDevicesEditView: View {
     
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -38,17 +38,17 @@ struct VMConfigurationPointingDevicesEditView: View {
                     }
                 }
                 Section("Current Devices") {
-                    List (state.pointingDevices) { item in
+                    List (configData.pointingDevices) { item in
                         HStack {
                             Text("\(String(describing: item.data))")
                             Spacer()
                             Button {
                                 // remove
-                                if state.pointingDevices.count == 1 {
+                                if configData.pointingDevices.count == 1 {
                                     return
                                 }
-                                if let found = state.pointingDevices.firstIndex(where: {$0.id == item.id}) {
-                                    state.pointingDevices.remove(at: found)
+                                if let found = configData.pointingDevices.firstIndex(where: {$0.id == item.id}) {
+                                    configData.pointingDevices.remove(at: found)
                                 }
                                 
                             } label: {
@@ -77,14 +77,14 @@ struct VMConfigurationPointingDevicesEditView: View {
     
     func addDevice() {
         let device = VMModelFieldPointingDevice(type: inputType)
-        state.pointingDevices.append(VMModelFieldPointingDeviceItemModel(data: device))
+        configData.pointingDevices.append(VMModelFieldPointingDeviceItemModel(data: device))
     }
 }
 
 struct VMConfigurationPointingDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationPointingDevicesEditView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

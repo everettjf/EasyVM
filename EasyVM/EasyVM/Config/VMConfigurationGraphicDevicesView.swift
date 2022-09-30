@@ -9,7 +9,7 @@ import SwiftUI
 
 struct VMConfigurationGraphicDevicesView: View {
     
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @State var showingEditView = false
     
@@ -25,7 +25,7 @@ struct VMConfigurationGraphicDevicesView: View {
         LabeledContent("Graphics Devices") {
             VStack(alignment: .trailing) {
                 
-                List (state.graphicDevices) { item in
+                List (configData.graphicDevices) { item in
                     HStack {
                         Spacer()
                         Text("\(String(describing: item.data))")
@@ -54,6 +54,6 @@ struct VMConfigurationGraphicDevicesView_Previews: PreviewProvider {
                 VMConfigurationGraphicDevicesView()
             }
         }
-        .environmentObject(VMConfigurationViewState())
+        .environmentObject(VMConfigurationViewStateObject())
     }
 }

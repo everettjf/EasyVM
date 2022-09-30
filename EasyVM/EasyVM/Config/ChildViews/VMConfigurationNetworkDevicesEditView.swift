@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationNetworkDevicesEditView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -37,14 +37,14 @@ struct VMConfigurationNetworkDevicesEditView: View {
                     }
                 }
                 Section("Current Devices") {
-                    List (state.networkDevices) { item in
+                    List (configData.networkDevices) { item in
                         HStack {
                             Text("\(String(describing: item.data))")
                             Spacer()
                             Button {
                                 // remove
-                                if let found = state.networkDevices.firstIndex(where: {$0.id == item.id}) {
-                                    state.networkDevices.remove(at: found)
+                                if let found = configData.networkDevices.firstIndex(where: {$0.id == item.id}) {
+                                    configData.networkDevices.remove(at: found)
                                 }
                                 
                             } label: {
@@ -73,14 +73,14 @@ struct VMConfigurationNetworkDevicesEditView: View {
     
     func addDevice() {
         let device = VMModelFieldNetworkDevice(type: inputType)
-        state.networkDevices.append(VMModelFieldNetworkDeviceItemModel(data: device))
+        configData.networkDevices.append(VMModelFieldNetworkDeviceItemModel(data: device))
     }
 }
 
 struct VMConfigurationNetworkDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationNetworkDevicesEditView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct VMConfigurationNetworkDevicesView: View {
-    @EnvironmentObject var state: VMConfigurationViewState
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     @State var showingEditView = false
     
     var body: some View {
@@ -21,7 +21,7 @@ struct VMConfigurationNetworkDevicesView: View {
         
         LabeledContent("Network Devices") {
             VStack(alignment: .trailing) {
-                List(state.networkDevices) { item in
+                List(configData.networkDevices) { item in
                     HStack {
                         Spacer()
                         Text("\(String(describing: item.data))")
@@ -46,6 +46,6 @@ struct VMConfigurationNetworkDevicesView: View {
 struct VMConfigurationNetworkView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationNetworkDevicesView()
-            .environmentObject(VMConfigurationViewState())
+            .environmentObject(VMConfigurationViewStateObject())
     }
 }
