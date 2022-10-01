@@ -14,8 +14,8 @@ class CreatePhaseCompleteViewHandler: CreateStepperGuidePhaseHandler {
     func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) -> Bool {
-        return true
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> CreateStepperGuidePhaseVerifyResult {
+        return .success
     }
 }
 

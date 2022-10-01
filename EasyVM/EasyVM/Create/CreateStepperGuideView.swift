@@ -55,9 +55,10 @@ struct CreateStepperGuidePhaseContext {
     let formData: CreateFormStateObject
     let configData: VMConfigurationViewStateObject
 }
+
 protocol CreateStepperGuidePhaseHandler {
     func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) -> Bool
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> CreateStepperGuidePhaseVerifyResult
 }
 
 struct CreateStepperGuideItem : Identifiable {
@@ -66,7 +67,7 @@ struct CreateStepperGuideItem : Identifiable {
     let name: String
     let subtitle: String
     let content: AnyView
-    let verifier: any CreateStepperGuidePhaseHandler
+    let handler: any CreateStepperGuidePhaseHandler
 }
 
 class CreateStepperGuideStateObject: ObservableObject {
@@ -118,6 +119,10 @@ struct CreateStepperGuideView: View {
     @State var showingAlert = false
     @State var alertMessage = ""
     
+    @State var isStepInitializing = false
+    @State var stepStatusMessage = ""
+    @State var disableNext = false
+    
     let steps: [CreateStepperGuideItem]
     
     init() {
@@ -127,49 +132,49 @@ struct CreateStepperGuideView: View {
                 name: "OS Type",
                 subtitle: "Create macOS or Linux ?",
                 content: AnyView(CreatePhaseSystemTypeView()),
-                verifier: CreatePhaseSystemTypeViewHandler()
+                handler: CreatePhaseSystemTypeViewHandler()
             ),
             CreateStepperGuideItem(
                 systemImage: "2.circle",
                 name: "Name",
                 subtitle: "Name the machine",
                 content: AnyView(CreatePhaseNameConfigView()),
-                verifier: CreatePhaseNameConfigViewHandler()
+                handler: CreatePhaseNameConfigViewHandler()
             ),
             CreateStepperGuideItem(
                 systemImage: "3.circle",
                 name: "Location",
                 subtitle: "Where the machine will store ?",
                 content: AnyView(CreatePhaseSaveDirectoryView()),
-                verifier: CreatePhaseSaveDirectoryViewHandler()
+                handler: CreatePhaseSaveDirectoryViewHandler()
             ),
             CreateStepperGuideItem(
                 systemImage: "4.circle",
                 name: "System Image",
                 subtitle: "Download or choose ipsw/iso file ?",
                 content: AnyView(CreatePhaseSystemImageView()),
-                verifier: CreatePhaseSystemImageViewHandler()
+                handler: CreatePhaseSystemImageViewHandler()
             ),
             CreateStepperGuideItem(
                 systemImage: "5.circle",
                 name: "Configuration",
                 subtitle: "Config virtual devices such as size of disk, network type...",
                 content: AnyView(CreatePhaseConfigurationView()),
-                verifier: CreatePhaseConfigurationViewHandler()
+                handler: CreatePhaseConfigurationViewHandler()
             ),
             CreateStepperGuideItem(
                 systemImage: "6.circle",
                 name: "Creating",
                 subtitle: "Start creating virtual machines...",
                 content: AnyView(CreatePhaseCreatingView()),
-                verifier: CreatePhaseCreatingViewHandler()
+                handler: CreatePhaseCreatingViewHandler()
             ),
             CreateStepperGuideItem(
                 systemImage: "7.circle",
                 name: "Completion",
                 subtitle: "Congratulations",
                 content: AnyView(CreatePhaseCompleteView()),
-                verifier: CreatePhaseCompleteViewHandler()
+                handler: CreatePhaseCompleteViewHandler()
             ),
         ]
         
@@ -228,16 +233,21 @@ struct CreateStepperGuideView: View {
             Spacer()
             
             HStack {
+                Text(stepStatusMessage)
+                    .font(.caption)
+                
                 Spacer()
                 
                 if stepperState.isPreviousAvaliable() {
                     Button {
                         stepperState.movePreviousStep()
+                        disableNext = false
                     } label: {
                         Image(systemName: "chevron.backward.2")
                         Text(stepperState.getPreviousButtonText())
                             .frame(width: 60)
                     }
+                    .disabled(isStepInitializing)
                 }
                 
                 Button {
@@ -247,6 +257,7 @@ struct CreateStepperGuideView: View {
                         .frame(width: 60)
                     Image(systemName: "chevron.forward.2")
                 }
+                .disabled(isStepInitializing || disableNext)
             }
         }
         .padding()
@@ -254,8 +265,9 @@ struct CreateStepperGuideView: View {
     
     
     func tryMoveNextStep() {
+        let context = CreateStepperGuidePhaseContext(formData: formData, configData: configData)
         let currentItem = steps[stepperState.current]
-        let verifyResult = currentItem.verifier.verifyForm(context: CreateStepperGuidePhaseContext(formData: formData, configData: configData))
+        let verifyResult = currentItem.handler.verifyForm(context: context)
         if case let .failure(error) = verifyResult {
             showAlert(error)
             return
@@ -264,8 +276,27 @@ struct CreateStepperGuideView: View {
         stepperState.moveNextStep()
         
         let nextItem = steps[stepperState.current]
-        // todo
+        // disable button
+        self.isStepInitializing = true
+        self.stepStatusMessage = ""
+        self.disableNext = true
         
+        // call onStepMovedIn
+        Task {
+            let result = await nextItem.handler.onStepMovedIn(context: context)
+
+            DispatchQueue.main.async {
+                // enable button
+                self.isStepInitializing = false
+                
+                if case let .failure(error) = result {
+                    self.stepStatusMessage = error
+                    self.disableNext = true
+                } else {
+                    self.disableNext = false
+                }
+            }
+        }
     }
     
     func showAlert(_ message: String) {

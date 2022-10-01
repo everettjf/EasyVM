@@ -13,8 +13,8 @@ class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
     func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) -> Bool {
-        return true
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> CreateStepperGuidePhaseVerifyResult {
+        return .failure("test")
     }
 }
 
@@ -22,7 +22,6 @@ class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
 struct CreatePhaseCreatingView: View {
     @EnvironmentObject var formData: CreateFormStateObject
     var body: some View {
-        
         VStack {
             Text("Creating")
                 .font(.title3)
