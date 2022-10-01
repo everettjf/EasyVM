@@ -16,7 +16,7 @@ class VMOSImageDownloadForMacOS : VMOSImageDownloader {
         true
     }
     
-    func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
+    func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
         
         VZMacOSRestoreImage.fetchLatestSupported { [self](result: Result<VZMacOSRestoreImage, Error>) in
             switch result {
@@ -29,11 +29,11 @@ class VMOSImageDownloadForMacOS : VMOSImageDownloader {
         }
     }
     
-    func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
+    func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
         downloadRestoreImage(toLocalPath: toLocalPath, imageURL: imageURL, completionHandler: completionHandler, downloadProgressHandler: downloadProgressHandler)
     }
     
-    private func downloadRestoreImage(toLocalPath: URL, imageURL: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
+    private func downloadRestoreImage(toLocalPath: URL, imageURL: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
         downloadTask = URLSession.shared.downloadTask(with: imageURL) { localURL, response, error in
             if let error = error {
                 completionHandler(.failure("Download failed. \(error.localizedDescription)."))

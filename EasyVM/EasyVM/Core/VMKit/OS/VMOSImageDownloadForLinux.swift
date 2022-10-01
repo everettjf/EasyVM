@@ -13,10 +13,10 @@ class VMOSImageDownloadForLinux : VMOSImageDownloader {
         false
     }
     
-    func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
+    func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
         
     }
-    func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
+    func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
         
     }
     

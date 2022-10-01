@@ -8,7 +8,7 @@
 import Foundation
 
 protocol VMOSCreator {
-    func create(vmModel: VMModel) async -> VMOSResult
+    func create(vmModel: VMModel) async -> VMOSResultVoid
 }
 
 class VMOSCreateFactory {

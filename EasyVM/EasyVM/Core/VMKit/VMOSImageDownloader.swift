@@ -9,8 +9,8 @@ import Foundation
 
 protocol VMOSImageDownloader {
     func isSupport() -> Bool
-    func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) -> Void
-    func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResult) -> Void, downloadProgressHandler: @escaping (Double) -> Void) -> Void
+    func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) -> Void
+    func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) -> Void
     func cancelDownload()
 }
 

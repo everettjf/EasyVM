@@ -33,7 +33,14 @@ struct VMConfigModel : Decodable {
 
 struct VMModel: Identifiable {
     let id = UUID()
-    let path: URL
+    let rootPath: URL
+    let imagePath: URL
     let basic: VMBasicModel
     let config: VMConfigModel
+    
+    
+    func getRootPath() -> URL {
+        return rootPath
+    }
+    
 }

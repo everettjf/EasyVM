@@ -51,8 +51,8 @@ struct CreateStepperGuidePhaseContext {
 }
 
 protocol CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResult
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResult
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid
 }
 
 struct CreateStepperGuideItem : Identifiable {

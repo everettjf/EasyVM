@@ -11,10 +11,10 @@ import SwiftUI
 
 class CreatePhaseCompleteViewHandler: CreateStepperGuidePhaseHandler {
     
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResult {
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResult {
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }
 }

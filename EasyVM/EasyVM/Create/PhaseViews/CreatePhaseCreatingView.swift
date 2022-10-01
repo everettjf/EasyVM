@@ -10,18 +10,22 @@ import SwiftUI
 
 class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
     
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResult {
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResult {
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         // fill from form
         guard let rootPath = URL(string:context.formData.saveDirectory) else {
             return .failure("invalid save directory")
         }
+        guard let imagePath = URL(string:context.formData.imagePath) else {
+            return .failure("invalid image path")
+        }
+        
         let osType = context.formData.osType
         let basicModel = context.formData.getBasicModel()
         let configModel = context.configData.getConfigModel(osType: osType)
-        let vmModel = VMModel(path: rootPath, basic: basicModel, config: configModel)
+        let vmModel = VMModel(rootPath: rootPath, imagePath: imagePath, basic: basicModel, config: configModel)
         
         // create vm from vmmodel
         let creator = VMOSCreateFactory.getCreator(osType)
