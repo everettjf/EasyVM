@@ -93,7 +93,7 @@ class MacOSVirtualMachineInstaller: NSObject {
         // Create a 64 GB disk image.
         createDiskImage()
 
-        virtualMachineConfiguration.bootLoader = MacOSVirtualMachineConfigurationHelper.createBootLoader()
+        virtualMachineConfiguration.bootLoader =   MacOSVirtualMachineConfigurationHelper.createBootLoader()
         virtualMachineConfiguration.graphicsDevices = [MacOSVirtualMachineConfigurationHelper.createGraphicsDeviceConfiguration()]
         virtualMachineConfiguration.storageDevices = [MacOSVirtualMachineConfigurationHelper.createBlockDeviceConfiguration()]
         virtualMachineConfiguration.networkDevices = [MacOSVirtualMachineConfigurationHelper.createNetworkDeviceConfiguration()]

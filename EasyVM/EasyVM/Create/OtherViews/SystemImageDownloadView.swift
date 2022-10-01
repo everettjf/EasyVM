@@ -149,6 +149,7 @@ struct SystemImageDownloadView: View {
     
     @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     @ObservedObject var state = SystemImageDownloadViewState()
     
     var body: some View {
@@ -220,19 +221,16 @@ struct SystemImageDownloadView: View {
     }
     
     func startDownload() {
+        guard let localPath = formData.getSystemImagePath(osType: configData.osType) else {
+            return
+        }
+        
         if state.downloadStatus == .initial || state.downloadStatus == .downloadFailed {
-            guard let localPath = formData.getSystemImagePath() else {
-                return
-            }
-            state.startDownload(vmOSType: formData.osType, localPath: localPath)
+            state.startDownload(vmOSType: configData.osType, localPath: localPath)
         }
         
         if state.downloadStatus == .downloadSuccess {
-            guard let localPath = formData.getSystemImagePath() else {
-                return
-            }
-            formData.imagePath = localPath.path()
-            
+            formData.imagePath = localPath.path(percentEncoded: false)
             presentationMode.wrappedValue.dismiss()
         }
     }

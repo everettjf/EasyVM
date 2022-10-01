@@ -50,6 +50,7 @@ class CreatePhaseSystemTypeViewHandler: CreateStepperGuidePhaseHandler {
 
 struct CreatePhaseSystemTypeView: View {
     @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     var body: some View {
         VStack {
@@ -58,17 +59,17 @@ struct CreatePhaseSystemTypeView: View {
                 .padding(.all)
             Spacer()
             HStack(spacing: 30) {
-                SystemCardView(image: "macpro.gen3", name: "macOS", selected: formData.osType == .macOS)
+                SystemCardView(image: "macpro.gen3", name: "macOS", selected: configData.osType == .macOS)
                     .onTapGesture {
-                        formData.osType = .macOS
+                        configData.osType = .macOS
                     }
-                SystemCardView(image: "pc", name: "Linux", selected: formData.osType == .linux)
+                SystemCardView(image: "pc", name: "Linux", selected: configData.osType == .linux)
                     .onTapGesture {
-                        formData.osType = .linux
+                        configData.osType = .linux
                     }
             }
             VStack {
-                if formData.osType == .macOS {
+                if configData.osType == .macOS {
                     Text("You choose macOS now :)")
                 } else {
                     Text("You choose linux now :)")

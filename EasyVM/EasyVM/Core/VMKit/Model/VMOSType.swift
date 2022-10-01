@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum VMOSType: String, Identifiable, CaseIterable, Hashable, Decodable {
+enum VMOSType: String, Identifiable, CaseIterable, Hashable, Decodable, Encodable {
     case macOS = "macOS"
     case linux = "linux"
     

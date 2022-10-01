@@ -10,7 +10,7 @@ import SwiftUI
 import Virtualization
 
 
-struct VMModelFieldCPU: Decodable {
+struct VMModelFieldCPU: Decodable, Encodable {
     let count: Int
     
     static func `default`() -> VMModelFieldCPU {

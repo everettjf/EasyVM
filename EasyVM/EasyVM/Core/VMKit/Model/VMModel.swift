@@ -8,15 +8,11 @@
 import Foundation
 import SwiftUI
 
-
-
-struct VMBasicModel: Decodable {
+struct VMConfigModel : Decodable, Encodable {
+    let type: VMOSType
     let name: String
     let remark: String
-}
-
-struct VMConfigModel : Decodable {
-    let type: VMOSType
+    
     let cpu: VMModelFieldCPU
     let memory: VMModelFieldMemory
     let graphicsDevices: [VMModelFieldGraphicDevice]
@@ -25,8 +21,8 @@ struct VMConfigModel : Decodable {
     let pointingDevices: [VMModelFieldPointingDevice]
     let audioDevices: [VMModelFieldAudioDevice]
     
-    static func create(osType: VMOSType) -> VMConfigModel {
-        return VMConfigModel(type: osType, cpu: VMModelFieldCPU.default(), memory: VMModelFieldMemory.default(), graphicsDevices: [VMModelFieldGraphicDevice.default()], storageDevices: [VMModelFieldStorageDevice.default()], networkDevices: [VMModelFieldNetworkDevice.default()], pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)], audioDevices: VMModelFieldAudioDevice.defaults())
+    static func create(osType: VMOSType, name: String, remark: String) -> VMConfigModel {
+        return VMConfigModel(type: osType, name: name, remark: remark, cpu: VMModelFieldCPU.default(), memory: VMModelFieldMemory.default(), graphicsDevices: [VMModelFieldGraphicDevice.default()], storageDevices: [VMModelFieldStorageDevice.default()], networkDevices: [VMModelFieldNetworkDevice.default()], pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)], audioDevices: [VMModelFieldAudioDevice.default()])
     }
 }
 
@@ -35,12 +31,59 @@ struct VMModel: Identifiable {
     let id = UUID()
     let rootPath: URL
     let imagePath: URL
-    let basic: VMBasicModel
     let config: VMConfigModel
-    
     
     func getRootPath() -> URL {
         return rootPath
     }
     
+    var auxiliaryStorageURL: URL {
+        rootPath.appending(path: "AuxiliaryStorage")
+    }
+    var machineIdentifierURL: URL {
+        rootPath.appending(path: "MachineIdentifier")
+    }
+    var hardwareModelURL: URL {
+        rootPath.appending(path: "HardwareModel")
+    }
+    var diskImageURL: URL {
+        rootPath.appending(path: "diskImagePath")
+    }
+//    var restoreImageURL: URL {
+//        if config.type == .macOS {
+//            return rootPath.appending(path: "RestoreImage.ipsw")
+//        } else {
+//            return rootPath.appending(path: "RestoreImage.iso")
+//        }
+//    }
+    var configURL: URL {
+        rootPath.appending(path: "config.json")
+    }
+    
+    func writeConfigToFile(path: URL) -> VMOSResultVoid {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let data = try encoder.encode(self.config)
+            guard let content = String(data: data, encoding: .utf8) else {
+                return .failure("failed to parse to utf8")
+            }
+            try content.write(toFile: path.path(percentEncoded: false), atomically: true, encoding: .utf8)
+            return .success
+        } catch {
+            return .failure("\(error)")
+        }
+    }
+    
+    func writeConfigToFile(path: URL) async throws {
+        return try await withCheckedThrowingContinuation({ continuation in
+            let result = writeConfigToFile(path: path)
+            if case let .failure(error) = result {
+                continuation.resume(throwing: VMOSError.regularFailure(error))
+                return
+            }
+            continuation.resume(returning: ())
+        })
+    }
+
 }

@@ -9,9 +9,14 @@ import SwiftUI
 
 class CreatePhaseSaveDirectoryViewHandler: CreateStepperGuidePhaseHandler {
     func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        if context.formData.saveDirectory.isEmpty {
+        if context.formData.rootPath.isEmpty {
             return .failure("Directory can not be empty")
         }
+        
+        if FileManager.default.fileExists(atPath: context.formData.rootPath) {
+            return .failure("Directory already existed : \(context.formData.rootPath)")
+        }
+        
         return .success
     }
     func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
@@ -21,6 +26,8 @@ class CreatePhaseSaveDirectoryViewHandler: CreateStepperGuidePhaseHandler {
 
 struct CreatePhaseSaveDirectoryView: View {
     @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    
     
     var body: some View {
         
@@ -36,7 +43,7 @@ struct CreatePhaseSaveDirectoryView: View {
                         HStack {
                             Text("Select where machine files save :")
                             Spacer()
-                            Text(formData.saveDirectory)
+                            Text(formData.rootPath)
                                 .lineLimit(4)
                         }
                         
@@ -45,9 +52,11 @@ struct CreatePhaseSaveDirectoryView: View {
                             Button {
                                 MacKitUtil.selectDirectory(title: "Select a direcotry") { path in
                                     print("directory = \(String(describing: path))")
-                                    if let path = path {
-                                        self.formData.saveDirectory = path.absoluteString
+                                    guard let path = path else {
+                                        return
                                     }
+                                    let vmDir = path.appending(path: configData.name)
+                                    self.formData.rootPath = vmDir.path(percentEncoded: false)
                                 }
                             } label: {
                                 Image(systemName: "folder.badge.plus")

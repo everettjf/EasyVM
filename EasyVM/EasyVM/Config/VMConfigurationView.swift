@@ -12,10 +12,9 @@ struct VMConfigurationView: View {
     
     var body: some View {
         Form {
-            Section ("CPU / Memory / Disk") {
+            Section ("CPU / Memory") {
                 VMConfigurationCPUView()
                 VMConfigurationMemoryView()
-                VMConfigurationDiskView()
             }
             
             Section ("Display / Storage / Network") {

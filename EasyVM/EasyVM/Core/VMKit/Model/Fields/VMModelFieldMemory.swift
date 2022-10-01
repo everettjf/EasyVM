@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import Virtualization
 
-struct VMModelFieldMemory: Decodable {
+struct VMModelFieldMemory: Decodable, Encodable {
     let size: UInt64
     
     static func `default`() -> VMModelFieldMemory {

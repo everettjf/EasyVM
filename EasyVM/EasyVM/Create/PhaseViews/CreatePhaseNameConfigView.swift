@@ -10,7 +10,7 @@ import SwiftUI
 
 class CreatePhaseNameConfigViewHandler: CreateStepperGuidePhaseHandler {
     func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        if context.formData.name.isEmpty {
+        if context.configData.name.isEmpty {
             return .failure("Name is empty")
         }
         return .success
@@ -22,6 +22,7 @@ class CreatePhaseNameConfigViewHandler: CreateStepperGuidePhaseHandler {
 
 struct CreatePhaseNameConfigView: View {
     @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     var body: some View {
         VStack {
@@ -32,9 +33,9 @@ struct CreatePhaseNameConfigView: View {
             Form {
                 
                 Section ("Basic") {
-                    TextField("Name", text: $formData.name).lineLimit(1)
+                    TextField("Name", text: $configData.name).lineLimit(1)
                     
-                    TextField("Description", text:$formData.remark).lineLimit(3, reservesSpace: true)
+                    TextField("Description", text:$configData.remark).lineLimit(3, reservesSpace: true)
                 }
                 
             }

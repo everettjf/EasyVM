@@ -8,47 +8,31 @@
 import SwiftUI
 
 class CreateFormStateObject: ObservableObject {
-    // --- Form ---
     // phase
-    @Published var osType: VMOSType = .macOS
-    
-    // phase
-    @Published var name: String = "My New Virtual Machine"
-    @Published var remark: String = ""
-    
-    // phase
-    @Published var saveDirectory: String = "file:///Users/everettjf/Downloads/"
+    @Published var rootPath: String = "/Users/everettjf/Downloads/NewVirtualMachine"
 
     // phase
-    @Published var imagePath: String = "file:///Users/everettjf/Downloads/UniversalMac_13.0_22A5295h_Restore.ipsw"
+    @Published var imagePath: String = "/Users/everettjf/Downloads/UniversalMac_13.0_22A5295h_Restore.ipsw"
     
     
     init() {
     }
     
-    init(osType: VMOSType, name: String, remark: String, saveDirectory: String, imagePath: String) {
-        self.osType = osType
-        self.name = name
-        self.remark = remark
-        self.saveDirectory = saveDirectory
+    init(saveDirectory: String, imagePath: String) {
+        self.rootPath = saveDirectory
         self.imagePath = imagePath
     }
     
-    init(osType: VMOSType) {
-        self.osType = osType
-    }
-    
-    
-    func getSystemImagePath() -> URL? {
-        guard let path = URL(string: saveDirectory) else {
+
+    func getSystemImagePath(osType: VMOSType) -> URL? {
+        guard let vmDir = URL(string: rootPath) else {
             return nil
         }
-        
-        let vmDir = path.appending(path: name)
+
         if !FileManager.default.fileExists(atPath: vmDir.path) {
             try? FileManager.default.createDirectory(at: vmDir, withIntermediateDirectories: true)
         }
-        
+
         var localPath = vmDir.appending(path: "SystemImage.ipsw")
         if osType == .linux {
             localPath = vmDir.appending(path: "SystemImage.iso")
@@ -56,9 +40,6 @@ class CreateFormStateObject: ObservableObject {
         return localPath
     }
     
-    func getBasicModel() -> VMBasicModel {
-        return VMBasicModel(name: name, remark: remark)
-    }
     
     
 }

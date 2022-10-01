@@ -41,7 +41,7 @@ struct VMConfigurationStorageDevicesEditView: View {
                                         return
                                     }
                                     print("\(path)")
-                                    inputPath = path.path()
+                                    inputPath = path.path(percentEncoded: false)
                                 }
                             } label: {
                                 Image(systemName: "folder")

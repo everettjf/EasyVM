@@ -36,9 +36,13 @@ struct VMModelFieldAudioDeviceItemModel: Identifiable {
 
 
 class VMConfigurationViewStateObject: ObservableObject {
+    @Published var osType: VMOSType = .macOS
+    
+    @Published var name: String = "My New Virtual Machine"
+    @Published var remark: String = ""
+    
     @Published var cpuCount: Int = 1
-    @Published var memorySize: UInt64 = 1024 * 1024 * 1024 * 2
-    @Published var diskSize: UInt64 = 1024 * 1024 * 1024 * 64
+    @Published var memorySize: UInt64 = 1024 * 1024 * 1024 * 4
 
     @Published var graphicDevices: [VMModelFieldGraphicDeviceItemModel] = []
     @Published var storageDevices: [VMModelFieldStorageDeviceItemModel] = []
@@ -49,11 +53,17 @@ class VMConfigurationViewStateObject: ObservableObject {
     
     convenience init() {
         // default
-        self.init(configModel: VMConfigModel.create(osType: .macOS))
+        self.init(configModel: VMConfigModel.create(osType: .macOS,name: "Easy Virtual Machine", remark: ""))
     }
 
     init(configModel: VMConfigModel) {
+        self.osType = configModel.type
+        self.name = configModel.name
+        self.remark = configModel.remark
+        
         self.cpuCount = configModel.cpu.count
+        self.memorySize = configModel.memory.size
+        
         for item in configModel.storageDevices {
             self.storageDevices.append(VMModelFieldStorageDeviceItemModel(data: item))
         }
@@ -71,7 +81,7 @@ class VMConfigurationViewStateObject: ObservableObject {
         }
     }
     
-    func getConfigModel(osType: VMOSType) -> VMConfigModel {
+    func getConfigModel() -> VMConfigModel {
         
         let cpu = VMModelFieldCPU(count: self.cpuCount)
         let memory = VMModelFieldMemory(size: self.memorySize)
@@ -81,7 +91,7 @@ class VMConfigurationViewStateObject: ObservableObject {
         let pointingDevices = self.pointingDevices.map({$0.data})
         let audioDevices = self.audioDevices.map({$0.data})
         
-        return VMConfigModel(type: osType, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices)
+        return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices)
     }
     
 }

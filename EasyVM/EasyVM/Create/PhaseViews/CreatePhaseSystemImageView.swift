@@ -54,6 +54,7 @@ class CreatePhaseSystemImageViewHandler: CreateStepperGuidePhaseHandler {
 
 struct CreatePhaseSystemImageView: View {
     @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @State var isShowDownload: Bool = false
     
@@ -82,7 +83,7 @@ struct CreatePhaseSystemImageView: View {
                         selectFromFileSystem()
                     }
                 
-                if formData.osType == .macOS {
+                if configData.osType == .macOS {
                     SystemImageSourceTypeView(image: "cloud", name: "Download from network")
                         .onTapGesture {
                             selectFromNetwork()
@@ -112,10 +113,11 @@ struct CreatePhaseSystemImageView: View {
     func selectFromFileSystem() {
         MacKitUtil.selectFile(title: "Choose system image file(.ipsw/.iso)") { path in
             print("choose : \(String(describing: path))")
-            
-            if let path = path {
-                self.formData.imagePath = path.absoluteString
+            guard let path = path else {
+                return
             }
+            
+            self.formData.imagePath = path.path(percentEncoded: false)
         }
     }
     
@@ -127,15 +129,13 @@ struct CreatePhaseSystemImageView: View {
 struct CreatePhaseSystemImage_Previews: PreviewProvider {
     
     static let formData = CreateFormStateObject()
-    static let formDataLinux = CreateFormStateObject(osType: .linux)
+    static let configData = VMConfigurationViewStateObject()
     
     static var previews: some View {
         
         CreatePhaseSystemImageView()
             .frame(width: 600, height:400)
             .environmentObject(formData)
-        CreatePhaseSystemImageView()
-            .frame(width: 600, height:400)
-            .environmentObject(formDataLinux)
+            .environmentObject(configData)
     }
 }

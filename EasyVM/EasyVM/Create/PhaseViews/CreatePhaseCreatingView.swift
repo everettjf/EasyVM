@@ -15,21 +15,19 @@ class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
     }
     func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         // fill from form
-        guard let rootPath = URL(string:context.formData.saveDirectory) else {
-            return .failure("invalid save directory")
-        }
-        guard let imagePath = URL(string:context.formData.imagePath) else {
-            return .failure("invalid image path")
-        }
+        let rootPath = URL(filePath:context.formData.rootPath)
+        let imagePath = URL(filePath:context.formData.imagePath)
+        print("root path : \(rootPath)")
+        print("image path : \(rootPath)")
         
-        let osType = context.formData.osType
-        let basicModel = context.formData.getBasicModel()
-        let configModel = context.configData.getConfigModel(osType: osType)
-        let vmModel = VMModel(rootPath: rootPath, imagePath: imagePath, basic: basicModel, config: configModel)
+        let configModel = context.configData.getConfigModel()
+        let vmModel = VMModel(rootPath: rootPath, imagePath: imagePath, config: configModel)
         
         // create vm from vmmodel
-        let creator = VMOSCreateFactory.getCreator(osType)
+        print("!! Start create virtual machine")
+        let creator = VMOSCreateFactory.getCreator(configModel.type)
         let result = await creator.create(vmModel: vmModel)
+        print("!! End create virtual machine")
         
         return result
     }
