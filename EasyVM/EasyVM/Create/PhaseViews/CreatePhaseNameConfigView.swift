@@ -9,13 +9,13 @@ import SwiftUI
 
 
 class CreatePhaseNameConfigViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResult {
         if context.formData.name.isEmpty {
             return .failure("Name is empty")
         }
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> CreateStepperGuidePhaseVerifyResult {
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResult {
         return .success
     }
 }

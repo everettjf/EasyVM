@@ -39,10 +39,6 @@ class CreateFormStateObject: ObservableObject {
     }
     
     
-    func getLocationModel() -> VMLocationModel {
-        return VMLocationModel(root: saveDirectory, image: imagePath)
-    }
-    
     func getSystemImagePath() -> URL? {
         guard let path = URL(string: saveDirectory) else {
             return nil
@@ -59,4 +55,10 @@ class CreateFormStateObject: ObservableObject {
         }
         return localPath
     }
+    
+    func getBasicModel() -> VMBasicModel {
+        return VMBasicModel(name: name, remark: remark)
+    }
+    
+    
 }

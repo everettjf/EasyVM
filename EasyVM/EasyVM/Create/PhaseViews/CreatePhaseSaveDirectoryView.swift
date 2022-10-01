@@ -8,13 +8,13 @@
 import SwiftUI
 
 class CreatePhaseSaveDirectoryViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResult {
         if context.formData.saveDirectory.isEmpty {
             return .failure("Directory can not be empty")
         }
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> CreateStepperGuidePhaseVerifyResult {
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResult {
         return .success
     }
 }

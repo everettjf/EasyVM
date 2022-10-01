@@ -45,20 +45,14 @@ struct CreateStepperGuideSeparatorView: View {
     }
 }
 
-
-enum CreateStepperGuidePhaseVerifyResult {
-    case success
-    case failure(_ error:String)
-}
-
 struct CreateStepperGuidePhaseContext {
     let formData: CreateFormStateObject
     let configData: VMConfigurationViewStateObject
 }
 
 protocol CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> CreateStepperGuidePhaseVerifyResult
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResult
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResult
 }
 
 struct CreateStepperGuideItem : Identifiable {

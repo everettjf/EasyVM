@@ -10,11 +10,24 @@ import SwiftUI
 
 class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
     
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> CreateStepperGuidePhaseVerifyResult {
+    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResult {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> CreateStepperGuidePhaseVerifyResult {
-        return .failure("test")
+    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResult {
+        // fill from form
+        guard let rootPath = URL(string:context.formData.saveDirectory) else {
+            return .failure("invalid save directory")
+        }
+        let osType = context.formData.osType
+        let basicModel = context.formData.getBasicModel()
+        let configModel = context.configData.getConfigModel(osType: osType)
+        let vmModel = VMModel(path: rootPath, basic: basicModel, config: configModel)
+        
+        // create vm from vmmodel
+        let creator = VMOSCreateFactory.getCreator(osType)
+        let result = await creator.create(vmModel: vmModel)
+        
+        return result
     }
 }
 

@@ -15,15 +15,6 @@ struct VMBasicModel: Decodable {
     let remark: String
 }
 
-struct VMLocationModel : Decodable {
-    let root: String
-    let image: String
-    
-    func getMainDiskImage() -> String {
-        return root + "Disk.img"
-    }
-}
-
 struct VMConfigModel : Decodable {
     let type: VMOSType
     let cpu: VMModelFieldCPU
@@ -33,12 +24,16 @@ struct VMConfigModel : Decodable {
     let networkDevices: [VMModelFieldNetworkDevice]
     let pointingDevices: [VMModelFieldPointingDevice]
     let audioDevices: [VMModelFieldAudioDevice]
+    
+    static func create(osType: VMOSType) -> VMConfigModel {
+        return VMConfigModel(type: osType, cpu: VMModelFieldCPU.default(), memory: VMModelFieldMemory.default(), graphicsDevices: [VMModelFieldGraphicDevice.default()], storageDevices: [VMModelFieldStorageDevice.default()], networkDevices: [VMModelFieldNetworkDevice.default()], pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)], audioDevices: VMModelFieldAudioDevice.defaults())
+    }
 }
 
 
 struct VMModel: Identifiable {
     let id = UUID()
+    let path: URL
     let basic: VMBasicModel
-    let location: VMLocationModel
     let config: VMConfigModel
 }

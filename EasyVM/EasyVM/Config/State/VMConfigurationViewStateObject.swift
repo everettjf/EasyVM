@@ -47,25 +47,41 @@ class VMConfigurationViewStateObject: ObservableObject {
     @Published var pointingDevices: [VMModelFieldPointingDeviceItemModel] = []
     @Published var audioDevices: [VMModelFieldAudioDeviceItemModel] = []
     
-    init() {
-        self.cpuCount = VMModelFieldCPU.defaultCount()
+    convenience init() {
+        // default
+        self.init(configModel: VMConfigModel.create(osType: .macOS))
+    }
+
+    init(configModel: VMConfigModel) {
+        self.cpuCount = configModel.cpu.count
+        for item in configModel.storageDevices {
+            self.storageDevices.append(VMModelFieldStorageDeviceItemModel(data: item))
+        }
+        for item in configModel.graphicsDevices {
+            self.graphicDevices.append(VMModelFieldGraphicDeviceItemModel(data: item))
+        }
+        for item in configModel.networkDevices {
+            self.networkDevices.append(VMModelFieldNetworkDeviceItemModel(data: item))
+        }
+        for item in configModel.pointingDevices {
+            self.pointingDevices.append(VMModelFieldPointingDeviceItemModel(data: item))
+        }
+        for item in configModel.audioDevices {
+            self.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: item))
+        }
+    }
+    
+    func getConfigModel(osType: VMOSType) -> VMConfigModel {
         
-        self.storageDevices = [
-            VMModelFieldStorageDeviceItemModel(data: VMModelFieldStorageDevice.default())
-        ]
-        self.graphicDevices = [
-            VMModelFieldGraphicDeviceItemModel(data: VMModelFieldGraphicDevice.default())
-        ]
-        self.networkDevices = [
-            VMModelFieldNetworkDeviceItemModel(data: VMModelFieldNetworkDevice.default())
-        ]
-        self.pointingDevices = [
-            VMModelFieldPointingDeviceItemModel(data: VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing))
-        ]
-        self.audioDevices = [
-            VMModelFieldAudioDeviceItemModel(data: VMModelFieldAudioDevice(type: .InputStream)),
-            VMModelFieldAudioDeviceItemModel(data: VMModelFieldAudioDevice(type: .OutputStream))
-        ]
+        let cpu = VMModelFieldCPU(count: self.cpuCount)
+        let memory = VMModelFieldMemory(size: self.memorySize)
+        let graphicDevices = self.graphicDevices.map({$0.data})
+        let storageDevices = self.storageDevices.map({$0.data})
+        let networkDevices = self.networkDevices.map({$0.data})
+        let pointingDevices = self.pointingDevices.map({$0.data})
+        let audioDevices = self.audioDevices.map({$0.data})
+        
+        return VMConfigModel(type: osType, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices)
     }
     
 }
