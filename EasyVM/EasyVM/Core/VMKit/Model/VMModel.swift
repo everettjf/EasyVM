@@ -61,12 +61,25 @@ struct VMModel: Identifiable {
     }
 
     static func getConfigURL(rootPath: URL) -> URL {
-        
         rootPath.appending(path: "config.json")
     }
     
     var displayDiskInfo: String {
         config.storageDevices.map({$0.shortDescription}).joined(separator: " ")
+    }
+    
+    var displayMemoryInfo: String {
+        "\(config.memory)"
+    }
+    
+    var displayAttributeInfo: String {
+        var info = ""
+        info += "Graphics : " + config.graphicsDevices.map({$0.description}).joined(separator: " , ")
+        info += " | "
+        info += "Network : " + config.networkDevices.map({$0.description}).joined(separator: " , ")
+        info += " | "
+        info += "Audio : " + config.audioDevices.map({$0.description}).joined(separator: " , ")
+        return info
     }
     
     static func loadConfigFromFile(rootPath: URL) -> VMOSResult<VMModel, String> {

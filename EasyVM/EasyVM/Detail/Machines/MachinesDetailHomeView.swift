@@ -30,7 +30,6 @@ class MachinesHomeStateObject: ObservableObject {
     }
     
     func reload() {
-        
         sharedAppConfigManager.loadConfig()
         vmItems.removeAll()
         let rootPaths = sharedAppConfigManager.appConfig.rootPaths
@@ -60,8 +59,6 @@ class MachinesHomeStateObject: ObservableObject {
             }
         }
     }
-    
-    
 }
 
 struct MachinesDetailCardWarpView: View {
@@ -94,9 +91,30 @@ struct MachinesDetailHomeView: View {
             LazyVGrid(columns: columns, alignment: .listRowSeparatorLeading) {
                 ForEach(vmStore.vmItems) { item in
                     MachinesDetailCardWarpView(item: item)
+                        .onTapGesture(count: 2, perform: {
+                            print("open machine")
+                        })
                         .contextMenu {
-                            Button("Remove") {
+                            Button {
+                                print("open")
+                            } label: {
+                                Image(systemName: "play")
+                                Text("Run")
+                            }
+                            
+                            Button {
+                                print("edit")
+                            } label: {
+                                Image(systemName: "slider.horizontal.3")
+                                Text("Edit")
+                            }
+                            
+                            Button {
+                                print("remove")
                                 sharedAppConfigManager.removeVMPathWithReload(url: item.rootPath)
+                            } label: {
+                                Image(systemName: "delete.left")
+                                Text("Remove")
                             }
                         }
                 }

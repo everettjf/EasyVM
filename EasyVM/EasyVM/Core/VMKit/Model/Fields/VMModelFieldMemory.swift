@@ -14,7 +14,7 @@ struct VMModelFieldMemory: Decodable, Encodable, CustomStringConvertible {
     
     
     var description: String {
-        "\(String(format: "%.0f", size / 1024 / 1024 / 1024))GB"
+        "\(String(format: "%.0f", Double(size / 1024 / 1024 / 1024)))GB"
     }
     
     

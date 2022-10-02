@@ -46,16 +46,16 @@ struct MachineDetailCardView: View {
                 .font(.caption2)
                 HStack(spacing: 2) {
                     Image(systemName: "memorychip")
-                    Text("Memory: \(model.config.memory.description)")
+                    Text("Memory: \(model.displayMemoryInfo)")
                 }
                 .font(.caption2)
                 
-//                HStack(alignment: .top, spacing: 2) {
-//                    Image(systemName: "circle.hexagonpath")
-//                    Text("Attributes: \(vm.attributes)")
-//                        .lineLimit(3)
-//                }
-//                .font(.caption2)
+                HStack(alignment: .top, spacing: 2) {
+                    Image(systemName: "circle.hexagonpath")
+                    Text("Attributes: \(model.displayAttributeInfo)")
+                        .lineLimit(3)
+                }
+                .font(.caption2)
                 
                 HStack(alignment: .top, spacing: 2) {
                     Image(systemName: "captions.bubble")
