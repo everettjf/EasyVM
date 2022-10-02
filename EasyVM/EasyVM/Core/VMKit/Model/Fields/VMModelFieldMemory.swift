@@ -9,8 +9,14 @@ import Foundation
 import SwiftUI
 import Virtualization
 
-struct VMModelFieldMemory: Decodable, Encodable {
+struct VMModelFieldMemory: Decodable, Encodable, CustomStringConvertible {
     let size: UInt64
+    
+    
+    var description: String {
+        "\(String(format: "%.0f", size / 1024 / 1024 / 1024))GB"
+    }
+    
     
     static func `default`() -> VMModelFieldMemory {
         return VMModelFieldMemory(size: Self.defaultSize())

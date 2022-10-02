@@ -60,6 +60,21 @@ struct VMModel: Identifiable {
         rootPath.appending(path: "config.json")
     }
     
+    var displayDiskInfo: String {
+        config.storageDevices.map({$0.shortDescription}).joined(separator: " ")
+    }
+    
+    static func loadConfigFromFile(path: URL) -> VMOSResult<VMModel, String> {
+        do {
+            let data = try Data(contentsOf: path)
+            let config: VMConfigModel = try JSONDecoder().decode(VMConfigModel.self, from: data)
+            let model = VMModel(rootPath: path, imagePath: URL(filePath: ""), config: config)
+            return .success(model)
+        } catch {
+            return .failure("\(error)")
+        }
+    }
+    
     func writeConfigToFile(path: URL) -> VMOSResultVoid {
         do {
             let encoder = JSONEncoder()

@@ -31,6 +31,15 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
         }
     }
     
+    
+    var shortDescription: String {
+        if type == .Block {
+            return "\(type) \(size / 1024 / 1024 / 1024)GB"
+        } else {
+            return "\(type)"
+        }
+    }
+    
     static func defaultDiskSize() -> UInt64 {
         // 64GB
         return 64 * 1024 * 1024 * 1024

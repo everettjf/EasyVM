@@ -7,18 +7,17 @@
 
 import SwiftUI
 
-
 struct MachineDetailCardView: View {
     
-    let vm: MyVM
+    let model: VMModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(vm.name)
+                Text(model.config.name)
                     .font(.headline)
                 Spacer()
-                Text(vm.osType == .linux ? "Linux" : "macOS")
+                Text(model.config.type == .linux ? "Linux" : "macOS")
                     .font(.footnote)
                     .fontWeight(.bold)
                     .padding(3)
@@ -29,7 +28,7 @@ struct MachineDetailCardView: View {
             }
             
             Rectangle()
-                .foregroundColor(vm.color)
+                .foregroundColor(Color.blue)
                 .frame(height:120)
                 .cornerRadius(5)
             
@@ -37,30 +36,30 @@ struct MachineDetailCardView: View {
             Group {
                 HStack(spacing: 2) {
                     Image(systemName: "doc.viewfinder.fill")
-                    Text("Disk: \(vm.disk)")
+                    Text("Disk: \(model.displayDiskInfo)")
                 }
                 .font(.caption2)
                 HStack(spacing: 2) {
                     Image(systemName: "cpu")
-                    Text("CPU: \(vm.cpu)")
+                    Text("CPU: \(model.config.cpu.count)")
                 }
                 .font(.caption2)
                 HStack(spacing: 2) {
                     Image(systemName: "memorychip")
-                    Text("Memory: \(vm.memory)")
+                    Text("Memory: \(model.config.memory.description)")
                 }
                 .font(.caption2)
                 
-                HStack(alignment: .top, spacing: 2) {
-                    Image(systemName: "circle.hexagonpath")
-                    Text("Attributes: \(vm.attributes)")
-                        .lineLimit(3)
-                }
-                .font(.caption2)
+//                HStack(alignment: .top, spacing: 2) {
+//                    Image(systemName: "circle.hexagonpath")
+//                    Text("Attributes: \(vm.attributes)")
+//                        .lineLimit(3)
+//                }
+//                .font(.caption2)
                 
                 HStack(alignment: .top, spacing: 2) {
                     Image(systemName: "captions.bubble")
-                    Text("Description: \(vm.remark)")
+                    Text("Description: \(model.config.remark)")
                         .lineLimit(3)
                 }
                 .font(.caption2)
@@ -97,19 +96,18 @@ struct MachineDetailCardView: View {
         .shadow(radius: 16)
         .frame(width: 230, height: 330)
     }
-    
 }
 
-struct MachineDetailCardView_Previews: PreviewProvider {
-    static let width: CGFloat = 500
-    
-    static var previews: some View {
-        MachineDetailCardView(vm: MyVM(osType: .macOS, name: "My first macOS", color: .indigo, remark: "This is my first macOS virutal machine created from EasyVM from EasyVM which is super easy", disk: "64GB", cpu: 1, memory: "4GB", attributes: "NAT Network, from EasyVM from EasyVM Input/Output Audio Stream, ..."))
-            .preferredColorScheme(.dark)
-            .frame(width: width, height: width)
-        
-        MachineDetailCardView(vm: MyVM(osType: .macOS, name: "My first macOS", color: .pink, remark: "This is my first macOS virutal", disk: "64GB", cpu: 1, memory: "4GB", attributes: "NAT Network, Input/Output Audio Stream, ..."))
-            .preferredColorScheme(.light)
-            .frame(width: width, height: width)
-    }
-}
+//struct MachineDetailCardView_Previews: PreviewProvider {
+//    static let width: CGFloat = 500
+//
+//    static var previews: some View {
+//        MachineDetailCardView(vm: MyVM(osType: .macOS, name: "My first macOS", color: .indigo, remark: "This is my first macOS virutal machine created from EasyVM from EasyVM which is super easy", disk: "64GB", cpu: 1, memory: "4GB", attributes: "NAT Network, from EasyVM from EasyVM Input/Output Audio Stream, ..."))
+//            .preferredColorScheme(.dark)
+//            .frame(width: width, height: width)
+//
+//        MachineDetailCardView(vm: MyVM(osType: .macOS, name: "My first macOS", color: .pink, remark: "This is my first macOS virutal", disk: "64GB", cpu: 1, memory: "4GB", attributes: "NAT Network, Input/Output Audio Stream, ..."))
+//            .preferredColorScheme(.light)
+//            .frame(width: width, height: width)
+//    }
+//}

@@ -7,31 +7,43 @@
 
 import SwiftUI
 
-struct MyVM : Identifiable, Hashable {
+struct HomeItemVMModel : Identifiable {
     let id = UUID()
-    let osType: VMOSType
-    let name: String
-    let color: Color
-    let remark: String
-    let disk: String
-    let cpu: Int
-    let memory: String
-    let attributes: String
+    let model: VMModel?
 }
 
-class MyVMStore: ObservableObject {
-    @Published var vms: [MyVM] = [
-        MyVM(osType: .macOS, name: "My first macOS", color: .pink, remark: "This is my first macOS virutal machine created from EasyVM which is super easy", disk: "64GB", cpu: 1, memory: "4GB", attributes: "NAT Network, Input/Output Audio Stream, ..."),
-        
-        MyVM(osType: .linux, name: "My first linux", color: .blue, remark: "This is my first linux virutal machine created from EasyVM which is super easy", disk: "64GB", cpu: 2, memory: "4GB", attributes: "NAT Network, Input/Output Audio Stream, ..."),
-        
-        MyVM(osType: .macOS, name: "Her first macOS", color: .indigo, remark: "This is her first macOS virutal machine created from EasyVM which is super easy", disk: "32GB", cpu: 2, memory: "4GB", attributes: "NAT Network, Input/Output Audio Stream, ..."),
-        
-        MyVM(osType: .macOS, name: "Her second macOS", color: .yellow, remark: "This is her second macOS virutal machine created from EasyVM which is super easy", disk: "16GB", cpu: 1, memory: "4GB", attributes: "NAT Network, Input/Output Audio Stream, ..."),
-        
-        MyVM(osType: .linux, name: "Her first linux", color: .green, remark: "This is her first linux virutal machine created from EasyVM which is super easy", disk: "32GB", cpu: 2, memory: "6GB", attributes: "NAT Network, Input/Output Audio Stream, ..."),
-        
-    ]
+class MachinesHomeStateObject: ObservableObject {
+    @Published var vmItems: [HomeItemVMModel] = []
+    
+    init() {
+        sharedAppConfigManager.loadConfig()
+        let rootPaths = sharedAppConfigManager.appConfig.rootPaths
+        for rootPath in rootPaths {
+            let rootURL = URL(filePath: rootPath)
+            
+            var isDirectory: ObjCBool = false
+            if !FileManager.default.fileExists(atPath: rootURL.path(percentEncoded: false), isDirectory: &isDirectory) {
+                // not existed
+                vmItems.append(HomeItemVMModel(model: nil))
+                continue
+            }
+            if !isDirectory.boolValue {
+                // not directory
+                vmItems.append(HomeItemVMModel(model: nil))
+                continue
+            }
+            
+            let loadModelResult = VMModel.loadConfigFromFile(path: rootURL)
+            switch loadModelResult {
+            case .failure(let error):
+                print("load vm error : \(error)")
+                vmItems.append(HomeItemVMModel(model: nil))
+                continue
+            case .success(let model):
+                vmItems.append(HomeItemVMModel(model: model))
+            }
+        }
+    }
 }
 
 
@@ -39,14 +51,18 @@ class MyVMStore: ObservableObject {
 struct MachinesDetailHomeView: View {
     @Environment(\.openWindow) var openWindow
     
-    @StateObject private var vmStore = MyVMStore()
+    @StateObject private var vmStore = MachinesHomeStateObject()
     
     let columns = [GridItem(.adaptive(minimum: 230, maximum: 230))]
     
     var grid: some View {
         LazyVGrid(columns: columns, alignment: .listRowSeparatorLeading) {
-            ForEach(vmStore.vms) { item in
-                MachineDetailCardView(vm: item)
+            ForEach(vmStore.vmItems) { item in
+                if let model = item.model {
+                    MachineDetailCardView(model: model)
+                } else {
+                    Text("Invalid")
+                }
             }
         }
     }
