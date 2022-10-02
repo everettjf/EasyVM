@@ -55,7 +55,9 @@ struct CreatePhaseSaveDirectoryView: View {
                                     guard let path = path else {
                                         return
                                     }
-                                    let vmDir = path.appending(path: configData.name)
+                                    
+                                    let bundleName = "\(configData.name).ezvm"
+                                    let vmDir = path.appending(path: bundleName)
                                     self.formData.rootPath = vmDir.path(percentEncoded: false)
                                 }
                             } label: {

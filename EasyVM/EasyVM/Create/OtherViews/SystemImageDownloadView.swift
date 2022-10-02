@@ -221,7 +221,7 @@ struct SystemImageDownloadView: View {
     }
     
     func startDownload() {
-        guard let localPath = formData.getSystemImagePath(osType: configData.osType) else {
+        guard let localPath = formData.getSystemImagePathForDownload(osType: configData.osType) else {
             return
         }
         

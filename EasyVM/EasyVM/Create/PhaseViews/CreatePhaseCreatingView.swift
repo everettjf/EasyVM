@@ -26,7 +26,20 @@ class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
         // create vm from vmmodel
         print("!! Start create virtual machine")
         let creator = VMOSCreateFactory.getCreator(configModel.type)
-        let result = await creator.create(vmModel: vmModel)
+        let result = await creator.create(model: vmModel, progress: { progressInfo in
+            switch progressInfo {
+            case .info(let log):
+                print("LOG INFO : \(log)")
+                context.formData.addLog(log)
+            case .error(let log):
+                print("LOG ERROR : \(log)")
+                context.formData.addLog("❌ ERROR : \(log)")
+            case .progress(let percent):
+                print("Progress : \(percent)")
+                context.formData.addLog("- Progress : \(String(format: "%.2f", percent * 100))")
+                context.formData.changeProgress(percent)
+            }
+        })
         print("!! End create virtual machine")
         
         return result
@@ -36,21 +49,28 @@ class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
 
 struct CreatePhaseCreatingView: View {
     @EnvironmentObject var formData: CreateFormStateObject
+    
     var body: some View {
         VStack {
-            Text("Creating")
+            Text("Creating Virtual Machine")
                 .font(.title3)
                 .padding(.all)
-            ProgressView(value: 250, total: 1000)
             
-            List{
-                Text("Creating...").font(.caption)
-                Text("Creating...").font(.caption)
-                Text("Creating...").font(.caption)
-                Text("Creating...").font(.caption)
-                Text("Creating...").font(.caption)
-                Text("Creating...").font(.caption)
-                Text("Creating...").font(.caption)
+            HStack {
+                Text("\(String(format: "%.2f", 100 * formData.installingProgress))%")
+                    .font(.caption)
+                ProgressView(value: 100 * formData.installingProgress, total: 100)
+            }
+            
+            List {
+                ForEach(formData.logs) { item in
+                    HStack {
+                        Text(item.time)
+                        Text(item.log)
+                            .lineLimit(0)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
             }
         }
     }

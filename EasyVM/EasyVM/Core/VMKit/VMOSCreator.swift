@@ -7,8 +7,14 @@
 
 import Foundation
 
+enum VMOSCreatorProgressInfo {
+    case info(String)
+    case error(String)
+    case progress(Double)
+}
+
 protocol VMOSCreator {
-    func create(vmModel: VMModel) async -> VMOSResultVoid
+    func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid
 }
 
 class VMOSCreateFactory {
