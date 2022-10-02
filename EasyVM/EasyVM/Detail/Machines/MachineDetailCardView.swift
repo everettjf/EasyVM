@@ -97,17 +97,3 @@ struct MachineDetailCardView: View {
         .frame(width: 230, height: 330)
     }
 }
-
-//struct MachineDetailCardView_Previews: PreviewProvider {
-//    static let width: CGFloat = 500
-//
-//    static var previews: some View {
-//        MachineDetailCardView(vm: MyVM(osType: .macOS, name: "My first macOS", color: .indigo, remark: "This is my first macOS virutal machine created from EasyVM from EasyVM which is super easy", disk: "64GB", cpu: 1, memory: "4GB", attributes: "NAT Network, from EasyVM from EasyVM Input/Output Audio Stream, ..."))
-//            .preferredColorScheme(.dark)
-//            .frame(width: width, height: width)
-//
-//        MachineDetailCardView(vm: MyVM(osType: .macOS, name: "My first macOS", color: .pink, remark: "This is my first macOS virutal", disk: "64GB", cpu: 1, memory: "4GB", attributes: "NAT Network, Input/Output Audio Stream, ..."))
-//            .preferredColorScheme(.light)
-//            .frame(width: width, height: width)
-//    }
-//}

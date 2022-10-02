@@ -57,6 +57,11 @@ struct VMModel: Identifiable {
 //        }
 //    }
     var configURL: URL {
+        Self.getConfigURL(rootPath: rootPath)
+    }
+
+    static func getConfigURL(rootPath: URL) -> URL {
+        
         rootPath.appending(path: "config.json")
     }
     
@@ -64,11 +69,12 @@ struct VMModel: Identifiable {
         config.storageDevices.map({$0.shortDescription}).joined(separator: " ")
     }
     
-    static func loadConfigFromFile(path: URL) -> VMOSResult<VMModel, String> {
+    static func loadConfigFromFile(rootPath: URL) -> VMOSResult<VMModel, String> {
         do {
+            let path = Self.getConfigURL(rootPath: rootPath)
             let data = try Data(contentsOf: path)
             let config: VMConfigModel = try JSONDecoder().decode(VMConfigModel.self, from: data)
-            let model = VMModel(rootPath: path, imagePath: URL(filePath: ""), config: config)
+            let model = VMModel(rootPath: rootPath, imagePath: URL(filePath: ""), config: config)
             return .success(model)
         } catch {
             return .failure("\(error)")
