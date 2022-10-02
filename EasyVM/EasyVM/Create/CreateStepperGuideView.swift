@@ -109,6 +109,7 @@ struct CreateStepperGuideView: View {
     @ObservedObject var stepperState: CreateStepperGuideStateObject
     @ObservedObject var configData: VMConfigurationViewStateObject
     
+    @Environment(\.presentationMode) var presentationMode
     
     @State var showingAlert = false
     @State var alertMessage = ""
@@ -241,7 +242,7 @@ struct CreateStepperGuideView: View {
                         Text(stepperState.getPreviousButtonText())
                             .frame(width: 60)
                     }
-                    .disabled(isStepInitializing)
+                    .disabled(isStepInitializing || formData.disablePreviousButton)
                 }
                 
                 Button {
@@ -259,6 +260,14 @@ struct CreateStepperGuideView: View {
     
     
     func tryMoveNextStep() {
+        if stepperState.isStepCompletion() {
+            // done , notify main list
+            // TODO
+            // close
+            presentationMode.wrappedValue.dismiss()
+            return
+        }
+        
         let context = CreateStepperGuidePhaseContext(formData: formData, configData: configData)
         let currentItem = steps[stepperState.current]
         let verifyResult = currentItem.handler.verifyForm(context: context)

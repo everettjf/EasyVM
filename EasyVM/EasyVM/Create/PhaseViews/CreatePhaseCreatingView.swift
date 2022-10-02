@@ -36,11 +36,20 @@ class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
                 context.formData.addLog("❌ ERROR : \(log)")
             case .progress(let percent):
                 print("Progress : \(percent)")
-                context.formData.addLog("- Progress : \(String(format: "%.2f", percent * 100))")
+                context.formData.addLog("- Progress : \(String(format: "%.0f", percent * 100))%")
                 context.formData.changeProgress(percent)
             }
         })
         print("!! End create virtual machine")
+        
+        switch result {
+        case .failure(let error):
+            print("Failed to create : \(error)")
+        case .success:
+            DispatchQueue.main.async {
+                context.formData.disablePreviousButton = true
+            }
+        }
         
         return result
     }
@@ -57,7 +66,7 @@ struct CreatePhaseCreatingView: View {
                 .padding(.all)
             
             HStack {
-                Text("\(String(format: "%.2f", 100 * formData.installingProgress))%")
+                Text("\(String(format: "%.0f", 100 * formData.installingProgress))%")
                     .font(.caption)
                 ProgressView(value: 100 * formData.installingProgress, total: 100)
             }

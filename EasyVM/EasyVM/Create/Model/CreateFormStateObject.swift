@@ -34,6 +34,8 @@ class CreateFormStateObject: ObservableObject {
     
     @Published var installingProgress: Double = 0.0
     
+    @Published var disablePreviousButton = false
+    
     
     init() {
     }
