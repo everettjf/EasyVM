@@ -25,10 +25,10 @@ class CreateFormStateObject: ObservableObject {
     
     
     // phase
-    @Published var rootPath: String = "/Users/everettjf/Downloads/NewVirtualMachine.ezvm"
+    @Published var rootPath: String = ""
 
     // phase
-    @Published var imagePath: String = "/Users/everettjf/Downloads/UniversalMac_13.0_22A5295h_Restore.ipsw"
+    @Published var imagePath: String = ""
     
     @Published var logs: [LogModel] = []
     
