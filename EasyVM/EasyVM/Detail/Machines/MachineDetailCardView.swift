@@ -89,11 +89,11 @@ struct MachineDetailCardView: View {
             }
         }
         .padding(.all, 10)
+        .frame(width: 230, height: 330)
         .overlay(
             RoundedRectangle(cornerRadius: 5)
                 .stroke(.gray, lineWidth: 1)
         )
-        .shadow(radius: 16)
-        .frame(width: 230, height: 330)
+        .padding(.all, 5)
     }
 }

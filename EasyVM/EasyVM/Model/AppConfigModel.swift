@@ -20,11 +20,19 @@ class AppConfigManager {
     init() {
 
     }
-    
-    func getConfigPath() -> URL {
+
+    func getRootPath() -> URL {
         let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         let url = urls.first!
-        return url.appending(path: "config.json")
+        return url.appending(path: "EasyVM")
+    }
+    func getConfigPath() -> URL {
+        let rootDir = getRootPath()
+        if !FileManager.default.fileExists(atPath: rootDir.path(percentEncoded: false)) {
+            try? FileManager.default.createDirectory(at: rootDir, withIntermediateDirectories: true)
+        }
+        
+        return rootDir.appending(path: "config.json")
     }
 
     func loadConfig() {
@@ -32,6 +40,8 @@ class AppConfigManager {
             self.appConfig.rootPaths.removeAll()
             
             let path = getConfigPath()
+            print("config path : \(path.path(percentEncoded: false))")
+            
             let data = try Data(contentsOf: path)
             self.appConfig = try JSONDecoder().decode(AppConfigModel.self, from: data)
         } catch {

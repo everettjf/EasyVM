@@ -65,15 +65,31 @@ struct MachinesDetailCardWarpView: View {
     
     let item: HomeItemVMModel
     
+    
+    var invalid: some View {
+        VStack {
+            Text("Invalid")
+                .font(.title)
+                .padding(.all)
+            Text(item.rootPath.path(percentEncoded: false))
+                .font(.caption)
+                .lineLimit(5)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(.all, 10)
+        .frame(width: 230, height: 330)
+        .overlay(
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(.gray, lineWidth: 1)
+        )
+        .padding(.all, 5)
+    }
+    
     var body: some View {
         if let model = item.model {
             MachineDetailCardView(model: model)
         } else {
-            VStack {
-                Text("Invalid")
-                    .font(.title)
-            }
-            .frame(width: 230, height: 330)
+            invalid
         }
     }
 }
@@ -100,6 +116,12 @@ struct MachinesDetailHomeView: View {
                             } label: {
                                 Image(systemName: "play")
                                 Text("Run")
+                            }
+                            Button {
+                                print("open")
+                            } label: {
+                                Image(systemName: "folder")
+                                Text("Reveal in Finder")
                             }
                             
                             Button {
