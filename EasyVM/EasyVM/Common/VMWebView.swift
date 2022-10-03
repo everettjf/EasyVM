@@ -10,20 +10,29 @@ import WebKit
 
 
 class VMInternalWebView: WKWebView {
+    var observation: NSKeyValueObservation? = nil
+    
     required init?(coder: NSCoder) {
         super.init(coder: coder)
     }
     
     init() {
         super.init(frame: .zero, configuration: WKWebViewConfiguration())
-        
         self.setValue(false, forKey: "drawsBackground")
+        observation = self.observe(\.estimatedProgress, options: [.new]) { _, change in
+            print("loading : \(String(describing: change.newValue))")
+        }
     }
+    
+    deinit {
+        self.observation = nil
+    }
+    
 }
 
 struct VMInternalWebWrapView: NSViewRepresentable {
     let url: URL
-
+    
     func makeNSView(context: Context) -> VMInternalWebView {
         let webView = VMInternalWebView()
         return webView
