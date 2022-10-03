@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct MacOSVMContainerView: View {
+    
     @State var isStartVM = false
     
     var body: some View {

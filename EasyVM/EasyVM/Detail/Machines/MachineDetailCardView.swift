@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MachineDetailCardView: View {
     
+    let item: HomeItemVMModel
     let model: VMModel
     
     var body: some View {

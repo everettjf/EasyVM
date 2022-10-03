@@ -87,7 +87,7 @@ struct MachinesDetailCardWarpView: View {
     
     var body: some View {
         if let model = item.model {
-            MachineDetailCardView(model: model)
+            MachineDetailCardView(item: item, model: model)
         } else {
             invalid
         }
@@ -109,6 +109,7 @@ struct MachinesDetailHomeView: View {
                     MachinesDetailCardWarpView(item: item)
                         .onTapGesture(count: 2, perform: {
                             print("open machine")
+                            openWindow(value: item.rootPath)
                         })
                         .contextMenu {
                             Button {
