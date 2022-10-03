@@ -114,12 +114,14 @@ struct MachinesDetailHomeView: View {
                         .contextMenu {
                             Button {
                                 print("open")
+                                openWindow(id: "start-machine", value: item.rootPath)
                             } label: {
                                 Image(systemName: "play")
                                 Text("Run")
                             }
                             Button {
                                 print("open")
+                                MacKitUtil.revealInFinder(item.rootPath.path(percentEncoded: false))
                             } label: {
                                 Image(systemName: "folder")
                                 Text("Reveal in Finder")

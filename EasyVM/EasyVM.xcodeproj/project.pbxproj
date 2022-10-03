@@ -63,9 +63,6 @@
 		D1EF707428B6657400F2D279 /* VMModelFieldPointingDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */; };
 		D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */; };
 		F2705284286C93EE0008DCD1 /* MachinesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */; };
-		F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270528E287142E10008DCD1 /* MacOSRestoreImage.swift */; };
-		F2705291287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270528F287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift */; };
-		F2705293287143050008DCD1 /* MacOSInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705292287143050008DCD1 /* MacOSInstall.swift */; };
 		F27052982871D1A20008DCD1 /* LinuxPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27052972871D1A20008DCD1 /* LinuxPath.swift */; };
 		F270529B2871D2560008DCD1 /* LinuxVMViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F27052992871D2560008DCD1 /* LinuxVMViewController.swift */; };
 		F270529E2873C2550008DCD1 /* LinuxVMView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270529D2873C2550008DCD1 /* LinuxVMView.swift */; };
@@ -74,13 +71,7 @@
 		F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA32866F7C800B2F41F /* ContentView.swift */; };
 		F2C5DCA62866F7C900B2F41F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA52866F7C900B2F41F /* Assets.xcassets */; };
 		F2C5DCA92866F7C900B2F41F /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */; };
-		F2C5DCB72866F7DC00B2F41F /* MacOSVMView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCB12866F7DC00B2F41F /* MacOSVMView.swift */; };
-		F2C5DCB82866F7DC00B2F41F /* MacOSPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCB32866F7DC00B2F41F /* MacOSPath.swift */; };
-		F2C5DCB92866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCB42866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift */; };
-		F2C5DCBA2866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCB52866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift */; };
-		F2C5DCBB2866F7DC00B2F41F /* MacOSVMViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCB62866F7DC00B2F41F /* MacOSVMViewController.swift */; };
 		F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */; };
-		F2C5DCC12868680000B2F41F /* MacOSVMContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCC02868680000B2F41F /* MacOSVMContainerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -140,9 +131,6 @@
 		D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldPointingDevice.swift; sourceTree = "<group>"; };
 		D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldAudioDevice.swift; sourceTree = "<group>"; };
 		F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesDetailHomeView.swift; sourceTree = "<group>"; };
-		F270528E287142E10008DCD1 /* MacOSRestoreImage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSRestoreImage.swift; sourceTree = "<group>"; };
-		F270528F287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVirtualMachineInstaller.swift; sourceTree = "<group>"; };
-		F2705292287143050008DCD1 /* MacOSInstall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSInstall.swift; sourceTree = "<group>"; };
 		F27052972871D1A20008DCD1 /* LinuxPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxPath.swift; sourceTree = "<group>"; };
 		F27052992871D2560008DCD1 /* LinuxVMViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxVMViewController.swift; sourceTree = "<group>"; };
 		F270529D2873C2550008DCD1 /* LinuxVMView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinuxVMView.swift; sourceTree = "<group>"; };
@@ -153,13 +141,7 @@
 		F2C5DCA52866F7C900B2F41F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		F2C5DCAA2866F7C900B2F41F /* EasyVM.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EasyVM.entitlements; sourceTree = "<group>"; };
-		F2C5DCB12866F7DC00B2F41F /* MacOSVMView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVMView.swift; sourceTree = "<group>"; };
-		F2C5DCB32866F7DC00B2F41F /* MacOSPath.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSPath.swift; sourceTree = "<group>"; };
-		F2C5DCB42866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVirtualMachineDelegate.swift; sourceTree = "<group>"; };
-		F2C5DCB52866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVirtualMachineConfigurationHelper.swift; sourceTree = "<group>"; };
-		F2C5DCB62866F7DC00B2F41F /* MacOSVMViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacOSVMViewController.swift; sourceTree = "<group>"; };
 		F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		F2C5DCC02868680000B2F41F /* MacOSVMContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacOSVMContainerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -413,7 +395,6 @@
 			isa = PBXGroup;
 			children = (
 				F270528C287142A00008DCD1 /* Linux */,
-				F2C5DCB02866F7DC00B2F41F /* MacOS */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -427,26 +408,6 @@
 				F270529F2873C31E0008DCD1 /* LinuxVMContainerView.swift */,
 			);
 			path = Linux;
-			sourceTree = "<group>";
-		};
-		F270528D287142D40008DCD1 /* Installation */ = {
-			isa = PBXGroup;
-			children = (
-				F270528E287142E10008DCD1 /* MacOSRestoreImage.swift */,
-				F270528F287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift */,
-				F2705292287143050008DCD1 /* MacOSInstall.swift */,
-			);
-			path = Installation;
-			sourceTree = "<group>";
-		};
-		F2705294287147310008DCD1 /* View */ = {
-			isa = PBXGroup;
-			children = (
-				F2C5DCB12866F7DC00B2F41F /* MacOSVMView.swift */,
-				F2C5DCB62866F7DC00B2F41F /* MacOSVMViewController.swift */,
-				F2C5DCC02868680000B2F41F /* MacOSVMContainerView.swift */,
-			);
-			path = View;
 			sourceTree = "<group>";
 		};
 		F2C5DC952866F7C800B2F41F = {
@@ -489,26 +450,6 @@
 				F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
-			sourceTree = "<group>";
-		};
-		F2C5DCB02866F7DC00B2F41F /* MacOS */ = {
-			isa = PBXGroup;
-			children = (
-				F270528D287142D40008DCD1 /* Installation */,
-				F2C5DCB22866F7DC00B2F41F /* Common */,
-				F2705294287147310008DCD1 /* View */,
-			);
-			path = MacOS;
-			sourceTree = "<group>";
-		};
-		F2C5DCB22866F7DC00B2F41F /* Common */ = {
-			isa = PBXGroup;
-			children = (
-				F2C5DCB32866F7DC00B2F41F /* MacOSPath.swift */,
-				F2C5DCB42866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift */,
-				F2C5DCB52866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift */,
-			);
-			path = Common;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -586,23 +527,19 @@
 				D1A6A5E228BA7AD500CBE80A /* DocumentsDetailHomeView.swift in Sources */,
 				D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */,
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
-				F2C5DCB92866F7DC00B2F41F /* MacOSVirtualMachineDelegate.swift in Sources */,
 				D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */,
 				D132337028E27C6B002C26A2 /* VMOSType.swift in Sources */,
 				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
-				F2705293287143050008DCD1 /* MacOSInstall.swift in Sources */,
 				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,
 				D19EC92F28CEE58C004564B7 /* CreatePhaseSystemImageView.swift in Sources */,
 				D1A6A5E628BA7B0300CBE80A /* IssuesDetailHomeView.swift in Sources */,
 				D132337328E282AF002C26A2 /* VMOSImageDownloadForMacOS.swift in Sources */,
 				D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */,
-				F2C5DCBA2866F7DC00B2F41F /* MacOSVirtualMachineConfigurationHelper.swift in Sources */,
 				D1EF707228B6656500F2D279 /* VMModelFieldNetworkDevice.swift in Sources */,
 				D1EF707428B6657400F2D279 /* VMModelFieldPointingDevice.swift in Sources */,
 				F2705284286C93EE0008DCD1 /* MachinesDetailHomeView.swift in Sources */,
 				F270529E2873C2550008DCD1 /* LinuxVMView.swift in Sources */,
 				D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */,
-				F2C5DCB72866F7DC00B2F41F /* MacOSVMView.swift in Sources */,
 				D1196EBD28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift in Sources */,
 				F27052982871D1A20008DCD1 /* LinuxPath.swift in Sources */,
 				D19EC93B28CEEB49004564B7 /* CreatePhaseCompleteView.swift in Sources */,
@@ -614,24 +551,20 @@
 				D184CB0428EA8A4F001E3664 /* VMOSMainViewForMacOS.swift in Sources */,
 				D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */,
 				D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */,
-				F2C5DCC12868680000B2F41F /* MacOSVMContainerView.swift in Sources */,
 				D1196EC028E7D65000CCC04D /* VMOSCreator.swift in Sources */,
 				D1A6A5EB28BA7B9B00CBE80A /* Sidebar.swift in Sources */,
 				D19EC93128CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift in Sources */,
 				D1196EAC28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift in Sources */,
 				D120BD5328CF2B8B009297E8 /* CreatePhaseNameConfigView.swift in Sources */,
-				F2C5DCBB2866F7DC00B2F41F /* MacOSVMViewController.swift in Sources */,
 				D1196EB528E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift in Sources */,
 				D1EF707028B6654500F2D279 /* VMModelFieldStorageDevice.swift in Sources */,
 				D1196EC228E7D8D500CCC04D /* VMOSCreatorForMacOS.swift in Sources */,
 				D1196EB128E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift in Sources */,
 				D1196EB928E6DB8D00CCC04D /* VMConfigurationPointingDevicesEditView.swift in Sources */,
-				F2705290287142E10008DCD1 /* MacOSRestoreImage.swift in Sources */,
 				D184CB0828EA8DC9001E3664 /* VMOSInternalView.swift in Sources */,
 				D1196EA928E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift in Sources */,
 				D1196EB328E68C9300CCC04D /* VMConfigurationNetworkDevicesView.swift in Sources */,
 				D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */,
-				F2C5DCB82866F7DC00B2F41F /* MacOSPath.swift in Sources */,
 				D1EF706C28B65EEE00F2D279 /* VMModelFieldMemory.swift in Sources */,
 				D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */,
 				D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */,
@@ -647,7 +580,6 @@
 				D1EF706E28B6639600F2D279 /* VMModelFieldGraphicDevice.swift in Sources */,
 				D19EC93928CEEAEB004564B7 /* CreatePhaseCreatingView.swift in Sources */,
 				D11A80E928C8ECDD004C1AC4 /* CreateStepperGuideView.swift in Sources */,
-				F2705291287142E10008DCD1 /* MacOSVirtualMachineInstaller.swift in Sources */,
 				D1196EC428E868BC00CCC04D /* VMOSHelper.swift in Sources */,
 				D132336D28E27C2E002C26A2 /* VMOSImageDownloader.swift in Sources */,
 				D19EC93728CEEA44004564B7 /* VMConfigurationView.swift in Sources */,
