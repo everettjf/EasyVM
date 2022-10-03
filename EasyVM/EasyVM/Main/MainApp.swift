@@ -25,7 +25,11 @@ struct MainApp: App {
         
 
         WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
-            VMOSMainViewForMacOS(rootPath: modelRootPath!)
+            if let rootPath = modelRootPath {
+                VMOSMainViewForMacOS(rootPath: rootPath)
+            } else {
+                Text("Invalid , just close")
+            }
         }
         .defaultPosition(.center)
         .defaultSize(width: 700, height: 500)

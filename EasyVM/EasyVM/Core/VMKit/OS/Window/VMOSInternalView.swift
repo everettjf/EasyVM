@@ -22,12 +22,15 @@ struct VMOSInternalView : NSViewControllerRepresentable {
         Coordinator(self)
     }
     
-    func makeNSViewController(context: Context) -> MacOSVMViewController {
-        let vc = MacOSVMViewController()
+    func makeNSViewController(context: Context) -> VMOSInternalViewController {
+        print("make ns view controller")
+        let vc = VMOSInternalViewController()
+        vc.rootPath = rootPath
         return vc
     }
     
-    func updateNSViewController(_ nsViewController: MacOSVMViewController, context: Context) {
+    func updateNSViewController(_ nsViewController: VMOSInternalViewController, context: Context) {
+        print("update ns view controller")
         
     }
 }

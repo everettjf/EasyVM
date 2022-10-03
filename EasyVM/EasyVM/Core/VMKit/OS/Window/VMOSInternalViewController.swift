@@ -25,7 +25,7 @@ class VMOSVirtualMachineDelegate: NSObject, VZVirtualMachineDelegate {
 
 public class VMOSInternalViewController: NSViewController {
     // parameters
-    let rootPath: URL? = nil
+    var rootPath: URL? = nil
     
     // internal
     private var virtualMachineView: VZVirtualMachineView!
