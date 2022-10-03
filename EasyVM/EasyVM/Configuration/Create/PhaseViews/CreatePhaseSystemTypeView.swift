@@ -38,18 +38,18 @@ struct SystemCardView: View {
     }
 }
 
-class CreatePhaseSystemTypeViewHandler: CreateStepperGuidePhaseHandler {
+class CreatePhaseSystemTypeViewHandler: VMCreateStepperGuidePhaseHandler {
     
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }
 }
 
 struct CreatePhaseSystemTypeView: View {
-    @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var formData: VMCreateViewStateObject
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     var body: some View {
@@ -85,7 +85,7 @@ struct CreatePhaseSystemTypeView: View {
 
 struct CreatePhaseSystemTypeView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormStateObject()
+        let formData = VMCreateViewStateObject()
         CreatePhaseSystemTypeView()
             .frame(width:500, height: 500)
             .environmentObject(formData)

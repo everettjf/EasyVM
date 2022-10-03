@@ -39,21 +39,21 @@ struct SystemImageSourceTypeView: View {
 }
 
 
-class CreatePhaseSystemImageViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
+class CreatePhaseSystemImageViewHandler: VMCreateStepperGuidePhaseHandler {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         if context.formData.imagePath.isEmpty {
             return .failure("Please select system image")
         }
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }
 }
 
 
 struct CreatePhaseSystemImageView: View {
-    @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var formData: VMCreateViewStateObject
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     @State var isShowDownload: Bool = false
@@ -128,7 +128,7 @@ struct CreatePhaseSystemImageView: View {
 
 struct CreatePhaseSystemImage_Previews: PreviewProvider {
     
-    static let formData = CreateFormStateObject()
+    static let formData = VMCreateViewStateObject()
     static let configData = VMConfigurationViewStateObject()
     
     static var previews: some View {

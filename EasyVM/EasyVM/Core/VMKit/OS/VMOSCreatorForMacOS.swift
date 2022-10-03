@@ -50,7 +50,7 @@ class VMOSCreatorForMacOS : VMOSCreator {
             
             // write json
             progress(.info("Begin write config : \(model.configURL.path(percentEncoded: false))"))
-            try await model.writeConfigToFile(path: model.configURL)
+            try await model.config.writeConfigToFile(path: model.configURL)
             progress(.info("Succeed write config"))
 
             // load image

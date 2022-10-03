@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct CreateStepperGuideStepItemView: View {
+struct VMCreateStepperGuideStepItemView: View {
     let systemImage: String
     let name: String
     let subtitle: String
@@ -38,33 +38,33 @@ struct CreateStepperGuideStepItemView: View {
     }
 }
 
-struct CreateStepperGuideSeparatorView: View {
+struct VMCreateStepperGuideSeparatorView: View {
     var body: some View {
         Color.gray
             .frame(width: 1)
     }
 }
 
-struct CreateStepperGuidePhaseContext {
-    let formData: CreateFormStateObject
+struct VMCreateStepperGuidePhaseContext {
+    let formData: VMCreateViewStateObject
     let configData: VMConfigurationViewStateObject
 }
 
-protocol CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid
+protocol VMCreateStepperGuidePhaseHandler {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid
 }
 
-struct CreateStepperGuideItem : Identifiable {
+struct VMCreateStepperGuideItem : Identifiable {
     let id = UUID()
     let systemImage: String
     let name: String
     let subtitle: String
     let content: AnyView
-    let handler: any CreateStepperGuidePhaseHandler
+    let handler: any VMCreateStepperGuidePhaseHandler
 }
 
-class CreateStepperGuideStateObject: ObservableObject {
+class VMCreateStepperGuideStateObject: ObservableObject {
     @Published var current: Int
     @Published var stepCount: Int
     
@@ -104,9 +104,9 @@ class CreateStepperGuideStateObject: ObservableObject {
     }
 }
 
-struct CreateStepperGuideView: View {
-    @ObservedObject var formData: CreateFormStateObject
-    @ObservedObject var stepperState: CreateStepperGuideStateObject
+struct VMCreateStepperGuideView: View {
+    @ObservedObject var stepperState: VMCreateStepperGuideStateObject
+    @ObservedObject var formData: VMCreateViewStateObject
     @ObservedObject var configData: VMConfigurationViewStateObject
     
     @Environment(\.presentationMode) var presentationMode
@@ -118,53 +118,53 @@ struct CreateStepperGuideView: View {
     @State var stepStatusMessage = ""
     @State var disableNext = false
     
-    let steps: [CreateStepperGuideItem]
+    let steps: [VMCreateStepperGuideItem]
     
     init() {
         let steps = [
-            CreateStepperGuideItem(
+            VMCreateStepperGuideItem(
                 systemImage: "1.circle",
                 name: "OS Type",
                 subtitle: "Create macOS or Linux ?",
                 content: AnyView(CreatePhaseSystemTypeView()),
                 handler: CreatePhaseSystemTypeViewHandler()
             ),
-            CreateStepperGuideItem(
+            VMCreateStepperGuideItem(
                 systemImage: "2.circle",
                 name: "Name",
                 subtitle: "Name the machine",
                 content: AnyView(CreatePhaseNameConfigView()),
                 handler: CreatePhaseNameConfigViewHandler()
             ),
-            CreateStepperGuideItem(
+            VMCreateStepperGuideItem(
                 systemImage: "3.circle",
                 name: "Location",
                 subtitle: "Where the machine will store ?",
                 content: AnyView(CreatePhaseSaveDirectoryView()),
                 handler: CreatePhaseSaveDirectoryViewHandler()
             ),
-            CreateStepperGuideItem(
+            VMCreateStepperGuideItem(
                 systemImage: "4.circle",
                 name: "System Image",
                 subtitle: "Download or choose ipsw/iso file ?",
                 content: AnyView(CreatePhaseSystemImageView()),
                 handler: CreatePhaseSystemImageViewHandler()
             ),
-            CreateStepperGuideItem(
+            VMCreateStepperGuideItem(
                 systemImage: "5.circle",
                 name: "Configuration",
                 subtitle: "Config virtual devices such as size of disk, network type...",
                 content: AnyView(CreatePhaseConfigurationView()),
                 handler: CreatePhaseConfigurationViewHandler()
             ),
-            CreateStepperGuideItem(
+            VMCreateStepperGuideItem(
                 systemImage: "6.circle",
                 name: "Creating",
                 subtitle: "Start creating virtual machines...",
                 content: AnyView(CreatePhaseCreatingView()),
                 handler: CreatePhaseCreatingViewHandler()
             ),
-            CreateStepperGuideItem(
+            VMCreateStepperGuideItem(
                 systemImage: "7.circle",
                 name: "Completion",
                 subtitle: "Congratulations",
@@ -174,9 +174,9 @@ struct CreateStepperGuideView: View {
         ]
         
         self.steps = steps
-        self.formData = CreateFormStateObject()
+        self.stepperState = VMCreateStepperGuideStateObject(stepCount: steps.count)
+        self.formData = VMCreateViewStateObject()
         self.configData = VMConfigurationViewStateObject()
-        self.stepperState = CreateStepperGuideStateObject(stepCount: steps.count)
     }
     
     var body: some View {
@@ -201,7 +201,7 @@ struct CreateStepperGuideView: View {
             // body
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(0..<steps.count, id: \.self) { index in
-                    CreateStepperGuideStepItemView(systemImage: steps[index].systemImage, name: steps[index].name, subtitle: steps[index].subtitle, pointing: index == stepperState.current)
+                    VMCreateStepperGuideStepItemView(systemImage: steps[index].systemImage, name: steps[index].name, subtitle: steps[index].subtitle, pointing: index == stepperState.current)
                 }
                 Spacer()
             }
@@ -209,7 +209,7 @@ struct CreateStepperGuideView: View {
             .padding()
 
             // bottom
-            CreateStepperGuideSeparatorView()
+            VMCreateStepperGuideSeparatorView()
             
             bottom
         }
@@ -268,7 +268,7 @@ struct CreateStepperGuideView: View {
             return
         }
         
-        let context = CreateStepperGuidePhaseContext(formData: formData, configData: configData)
+        let context = VMCreateStepperGuidePhaseContext(formData: formData, configData: configData)
         let currentItem = steps[stepperState.current]
         let verifyResult = currentItem.handler.verifyForm(context: context)
         if case let .failure(error) = verifyResult {
@@ -308,9 +308,9 @@ struct CreateStepperGuideView: View {
     }
 }
 
-struct CreateStepperGuideView_Previews: PreviewProvider {
+struct VMCreateStepperGuideView_Previews: PreviewProvider {
     static var previews: some View {
-        CreateStepperGuideView()
+        VMCreateStepperGuideView()
             .frame(width: 600, height: 400)
     }
 }

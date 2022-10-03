@@ -8,19 +8,18 @@
 import SwiftUI
 
 
-class CreatePhaseConfigurationViewHandler: CreateStepperGuidePhaseHandler {
+class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
     
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }
 }
 
 
 struct CreatePhaseConfigurationView: View {
-    @EnvironmentObject var formData: CreateFormStateObject
     var body: some View {
         VStack {
             Text("Config Virtual Hardwares")
@@ -33,8 +32,6 @@ struct CreatePhaseConfigurationView: View {
 
 struct CreatePhaseConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormStateObject()
         CreatePhaseConfigurationView()
-            .environmentObject(formData)
     }
 }

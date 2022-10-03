@@ -9,19 +9,19 @@ import SwiftUI
 
 
 
-class CreatePhaseCompleteViewHandler: CreateStepperGuidePhaseHandler {
+class CreatePhaseCompleteViewHandler: VMCreateStepperGuidePhaseHandler {
     
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }
 }
 
 
 struct CreatePhaseCompleteView: View {
-    @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var formData: VMCreateViewStateObject
     var body: some View {
         Text("Congratulations :)")
             .font(.title)
@@ -31,7 +31,7 @@ struct CreatePhaseCompleteView: View {
 
 struct CreatePhaseCompleteView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormStateObject()
+        let formData = VMCreateViewStateObject()
         CreatePhaseCompleteView()
             .environmentObject(formData)
     }

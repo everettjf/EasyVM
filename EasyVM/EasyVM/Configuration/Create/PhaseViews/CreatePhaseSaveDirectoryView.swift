@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-class CreatePhaseSaveDirectoryViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
+class CreatePhaseSaveDirectoryViewHandler: VMCreateStepperGuidePhaseHandler {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         if context.formData.rootPath.isEmpty {
             return .failure("Directory can not be empty")
         }
@@ -19,13 +19,13 @@ class CreatePhaseSaveDirectoryViewHandler: CreateStepperGuidePhaseHandler {
         
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }
 }
 
 struct CreatePhaseSaveDirectoryView: View {
-    @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var formData: VMCreateViewStateObject
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     
@@ -75,7 +75,7 @@ struct CreatePhaseSaveDirectoryView: View {
 
 struct CreatePhaseSaveDirectoryView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormStateObject()
+        let formData = VMCreateViewStateObject()
         CreatePhaseSaveDirectoryView()
             .environmentObject(formData)
     }

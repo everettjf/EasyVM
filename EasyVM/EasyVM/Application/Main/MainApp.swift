@@ -18,7 +18,7 @@ struct MainApp: App {
         }
         
         Window("Create Virtual Machine Guide", id: "create-machine-guide") {
-            CreateStepperGuideView()
+            VMCreateStepperGuideView()
         }
         .defaultPosition(.center)
         .defaultSize(width: 700, height: 500)

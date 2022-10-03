@@ -7,10 +7,17 @@
 
 import SwiftUI
 
+
+struct MachineDetailCardAction {
+    let onPlay: () -> Void
+    let onEdit: () -> Void
+}
+
 struct MachineDetailCardView: View {
     
     let item: HomeItemVMModel
     let model: VMModel
+    let action: MachineDetailCardAction
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -68,7 +75,7 @@ struct MachineDetailCardView: View {
             
             HStack {
                 Button {
-                    
+                    action.onPlay()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "play")
@@ -81,7 +88,7 @@ struct MachineDetailCardView: View {
                 
                 Spacer()
                 Button {
-                    
+                    action.onEdit()
                 } label: {
                     Image(systemName: "slider.vertical.3")
                 }

@@ -148,7 +148,7 @@ struct DownloadButtonView : View {
 struct SystemImageDownloadView: View {
     
     @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var formData: VMCreateViewStateObject
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     @ObservedObject var state = SystemImageDownloadViewState()
     

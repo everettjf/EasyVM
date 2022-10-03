@@ -8,12 +8,12 @@
 import SwiftUI
 
 
-class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
+class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
     
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         // fill from form
         let rootPath = URL(filePath:context.formData.rootPath)
         let imagePath = URL(filePath:context.formData.imagePath)
@@ -57,7 +57,7 @@ class CreatePhaseCreatingViewHandler: CreateStepperGuidePhaseHandler {
 
 
 struct CreatePhaseCreatingView: View {
-    @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var formData: VMCreateViewStateObject
     
     var body: some View {
         VStack {
@@ -87,7 +87,7 @@ struct CreatePhaseCreatingView: View {
 
 struct CreatePhaseCreatingView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormStateObject()
+        let formData = VMCreateViewStateObject()
         CreatePhaseCreatingView()
             .environmentObject(formData)
     }

@@ -24,6 +24,33 @@ struct VMConfigModel : Decodable, Encodable {
     static func create(osType: VMOSType, name: String, remark: String) -> VMConfigModel {
         return VMConfigModel(type: osType, name: name, remark: remark, cpu: VMModelFieldCPU.default(), memory: VMModelFieldMemory.default(), graphicsDevices: [VMModelFieldGraphicDevice.default()], storageDevices: [VMModelFieldStorageDevice.default()], networkDevices: [VMModelFieldNetworkDevice.default()], pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)], audioDevices: [VMModelFieldAudioDevice.default()])
     }
+    
+    
+    func writeConfigToFile(path: URL) -> VMOSResultVoid {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let data = try encoder.encode(self)
+            guard let content = String(data: data, encoding: .utf8) else {
+                return .failure("failed to parse to utf8")
+            }
+            try content.write(toFile: path.path(percentEncoded: false), atomically: true, encoding: .utf8)
+            return .success
+        } catch {
+            return .failure("\(error)")
+        }
+    }
+    
+    func writeConfigToFile(path: URL) async throws {
+        return try await withCheckedThrowingContinuation({ continuation in
+            let result = writeConfigToFile(path: path)
+            if case let .failure(error) = result {
+                continuation.resume(throwing: VMOSError.regularFailure(error))
+                return
+            }
+            continuation.resume(returning: ())
+        })
+    }
 }
 
 
@@ -94,30 +121,5 @@ struct VMModel: Identifiable {
         }
     }
     
-    func writeConfigToFile(path: URL) -> VMOSResultVoid {
-        do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = .prettyPrinted
-            let data = try encoder.encode(self.config)
-            guard let content = String(data: data, encoding: .utf8) else {
-                return .failure("failed to parse to utf8")
-            }
-            try content.write(toFile: path.path(percentEncoded: false), atomically: true, encoding: .utf8)
-            return .success
-        } catch {
-            return .failure("\(error)")
-        }
-    }
-    
-    func writeConfigToFile(path: URL) async throws {
-        return try await withCheckedThrowingContinuation({ continuation in
-            let result = writeConfigToFile(path: path)
-            if case let .failure(error) = result {
-                continuation.resume(throwing: VMOSError.regularFailure(error))
-                return
-            }
-            continuation.resume(returning: ())
-        })
-    }
 
 }

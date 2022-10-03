@@ -8,20 +8,20 @@
 import SwiftUI
 
 
-class CreatePhaseNameConfigViewHandler: CreateStepperGuidePhaseHandler {
-    func verifyForm(context: CreateStepperGuidePhaseContext) -> VMOSResultVoid {
+class CreatePhaseNameConfigViewHandler: VMCreateStepperGuidePhaseHandler {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         if context.configData.name.isEmpty {
             return .failure("Name is empty")
         }
         return .success
     }
-    func onStepMovedIn(context: CreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }
 }
 
 struct CreatePhaseNameConfigView: View {
-    @EnvironmentObject var formData: CreateFormStateObject
+    @EnvironmentObject var formData: VMCreateViewStateObject
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
     var body: some View {
@@ -46,7 +46,7 @@ struct CreatePhaseNameConfigView: View {
 
 struct CreatePhaseNameConfigView_Previews: PreviewProvider {
     static var previews: some View {
-        let formData = CreateFormStateObject()
+        let formData = VMCreateViewStateObject()
         CreatePhaseNameConfigView()
             .environmentObject(formData)
     }

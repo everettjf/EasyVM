@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-class CreateFormStateObject: ObservableObject {
+class VMCreateViewStateObject: ObservableObject {
     struct LogModel : Identifiable {
         let id = UUID()
         let time: String
