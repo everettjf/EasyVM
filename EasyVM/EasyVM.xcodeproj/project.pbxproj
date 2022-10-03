@@ -37,6 +37,7 @@
 		D184CB0428EA8A4F001E3664 /* VMOSMainViewForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0328EA8A4F001E3664 /* VMOSMainViewForMacOS.swift */; };
 		D184CB0628EA8DAF001E3664 /* VMOSInternalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0528EA8DAF001E3664 /* VMOSInternalViewController.swift */; };
 		D184CB0828EA8DC9001E3664 /* VMOSInternalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0728EA8DC9001E3664 /* VMOSInternalView.swift */; };
+		D184CB0A28EACB83001E3664 /* VMWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0928EACB83001E3664 /* VMWebView.swift */; };
 		D18AE4D928D2B0F600B5C3E2 /* CreateFormStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4D828D2B0F600B5C3E2 /* CreateFormStateObject.swift */; };
 		D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */; };
 		D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
@@ -105,6 +106,7 @@
 		D184CB0328EA8A4F001E3664 /* VMOSMainViewForMacOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSMainViewForMacOS.swift; sourceTree = "<group>"; };
 		D184CB0528EA8DAF001E3664 /* VMOSInternalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSInternalViewController.swift; sourceTree = "<group>"; };
 		D184CB0728EA8DC9001E3664 /* VMOSInternalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSInternalView.swift; sourceTree = "<group>"; };
+		D184CB0928EACB83001E3664 /* VMWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMWebView.swift; sourceTree = "<group>"; };
 		D18AE4D828D2B0F600B5C3E2 /* CreateFormStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateFormStateObject.swift; sourceTree = "<group>"; };
 		D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemImageDownloadView.swift; sourceTree = "<group>"; };
 		D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldCPU.swift; sourceTree = "<group>"; };
@@ -357,6 +359,7 @@
 				D1E19A09289E9DAD00CF27D3 /* Array.swift */,
 				D1E19A07289E9CFB00CF27D3 /* Date.swift */,
 				D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */,
+				D184CB0928EACB83001E3664 /* VMWebView.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -528,6 +531,7 @@
 				D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */,
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */,
+				D184CB0A28EACB83001E3664 /* VMWebView.swift in Sources */,
 				D132337028E27C6B002C26A2 /* VMOSType.swift in Sources */,
 				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
 				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,

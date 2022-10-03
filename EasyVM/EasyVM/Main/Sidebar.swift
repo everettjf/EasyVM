@@ -10,8 +10,8 @@ import SwiftUI
 
 enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
     case machines = "Machines"
-    case documents = "Documents"
     case community = "Community"
+    case documents = "Documents"
     case issues = "Issues"
     case about = "About"
     
@@ -35,15 +35,15 @@ enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
     var imageName: String {
         switch self {
         case .machines:
-            return "birthday.cake"
+            return "box.truck"
         case .documents:
             return  "party.popper"
         case .community:
             return "envelope.open"
         case .issues:
-            return "calendar.badge.clock"
+            return "ladybug"
         case .about:
-            return "gauge.medium"
+            return "face.smiling"
         }
     }
     
@@ -64,20 +64,6 @@ enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
         }
     }
     
-    var emoji: String {
-        switch self {
-        case .machines:
-            return "🎂"
-        case .documents:
-            return "🎤"
-        case .community:
-            return "🎉"
-        case .issues:
-            return "📨"
-        case .about:
-            return "🗓"
-        }
-    }
 }
 
 

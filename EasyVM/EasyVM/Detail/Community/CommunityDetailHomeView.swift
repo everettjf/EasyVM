@@ -9,7 +9,8 @@ import SwiftUI
 
 struct CommunityDetailHomeView: View {
     var body: some View {
-        Text("Community!")
+        VMWebView(url: URL(string:"https://discord.gg/uxuy3vVtWs")!)
+            .navigationTitle("Community - EasyVM")
     }
 }
 
