@@ -59,12 +59,12 @@ class VMOSCreatorForMacOS : VMOSCreator {
             progress(.info("Succeed load system image"))
             
             progress(.info("Begin check image"))
-            let macOSConfiguration = try await checkSystemImage(restoreImage: restoreImage)
+            let macOSConfigurationRequirements = try await checkSystemImage(restoreImage: restoreImage)
             progress(.info("Succeed check image"))
             
             // setup
             progress(.info("Begin setup virtual machine"))
-            try await setupVirtualMachine(model: model, macOSConfiguration: macOSConfiguration, progress: progress)
+            try await setupVirtualMachine(model: model, macOSConfigurationRequirements: macOSConfigurationRequirements, progress: progress)
             progress(.info("Succeed setup virtual machine"))
             
             // install
@@ -112,17 +112,17 @@ class VMOSCreatorForMacOS : VMOSCreator {
     }
     
     
-    private func setupVirtualMachine(model: VMModel, macOSConfiguration: VZMacOSConfigurationRequirements, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
+    private func setupVirtualMachine(model: VMModel, macOSConfigurationRequirements: VZMacOSConfigurationRequirements, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
         return try await withCheckedThrowingContinuation({ continuation in
             let virtualMachineConfiguration = VZVirtualMachineConfiguration()
 
             // platform
             do {
                 let macPlatformConfiguration = VZMacPlatformConfiguration()
-                let auxiliaryStorage = try VZMacAuxiliaryStorage(creatingStorageAt: model.auxiliaryStorageURL, hardwareModel: macOSConfiguration.hardwareModel, options: [])
+                let auxiliaryStorage = try VZMacAuxiliaryStorage(creatingStorageAt: model.auxiliaryStorageURL, hardwareModel: macOSConfigurationRequirements.hardwareModel, options: [])
                 
                 macPlatformConfiguration.auxiliaryStorage = auxiliaryStorage
-                macPlatformConfiguration.hardwareModel = macOSConfiguration.hardwareModel
+                macPlatformConfiguration.hardwareModel = macOSConfigurationRequirements.hardwareModel
                 macPlatformConfiguration.machineIdentifier = VZMacMachineIdentifier()
     
                 // Store the hardware model and machine identifier to disk so that we
@@ -139,7 +139,7 @@ class VMOSCreatorForMacOS : VMOSCreator {
             
             // cpu
             virtualMachineConfiguration.cpuCount = model.config.cpu.count
-            if virtualMachineConfiguration.cpuCount < macOSConfiguration.minimumSupportedCPUCount {
+            if virtualMachineConfiguration.cpuCount < macOSConfigurationRequirements.minimumSupportedCPUCount {
                 continuation.resume(throwing: VMOSError.regularFailure("CPUCount isn't supported by the macOS configuration."))
                 return
             }
@@ -147,8 +147,8 @@ class VMOSCreatorForMacOS : VMOSCreator {
             
             // memory
             virtualMachineConfiguration.memorySize = model.config.memory.size
-            if virtualMachineConfiguration.memorySize < macOSConfiguration.minimumSupportedMemorySize {
-                continuation.resume(throwing: VMOSError.regularFailure("memorySize isn't supported by the macOS configuration. required \(virtualMachineConfiguration.memorySize) , minimum \(macOSConfiguration.minimumSupportedMemorySize)"))
+            if virtualMachineConfiguration.memorySize < macOSConfigurationRequirements.minimumSupportedMemorySize {
+                continuation.resume(throwing: VMOSError.regularFailure("memorySize isn't supported by the macOS configuration. required \(virtualMachineConfiguration.memorySize) , minimum \(macOSConfigurationRequirements.minimumSupportedMemorySize)"))
                 return
             }
             progress(.info("- Memory OK"))

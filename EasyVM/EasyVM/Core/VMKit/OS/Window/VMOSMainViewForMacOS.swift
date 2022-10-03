@@ -7,12 +7,22 @@
 
 import SwiftUI
 
+
+
+
+
 struct VMOSMainViewForMacOS: View {
     let rootPath: URL
     
     var body: some View {
         VStack {
-            Text("root path : \(rootPath.path(percentEncoded: false))")
+            HStack {
+                Spacer()
+                Text("root path : \(rootPath.path(percentEncoded: false))")
+            }
+            .frame(height: 20)
+            
+            VMOSInternalView(rootPath: rootPath)
         }
     }
 }

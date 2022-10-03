@@ -27,20 +27,8 @@ struct MainApp: App {
         WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
             VMOSMainViewForMacOS(rootPath: modelRootPath!)
         }
+        .defaultPosition(.center)
+        .defaultSize(width: 700, height: 500)
         
-//        Window("macOS Virtual Machine", id: "demo-vm-macos") {
-//            MacOSVMContainerView()
-//        }
-//        .defaultPosition(.center)
-//        .defaultSize(width: 600, height: 400)
-//
-//
-//        Window("Linux Virtual Machine", id: "demo-vm-linux") {
-//            LinuxVMContainerView()
-//        }
-//        .defaultPosition(.center)
-//        .defaultSize(width: 600, height: 400)
-        
-
     }
 }

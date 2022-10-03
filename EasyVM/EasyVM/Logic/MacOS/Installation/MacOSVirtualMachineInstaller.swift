@@ -47,23 +47,23 @@ class MacOSVirtualMachineInstaller: NSObject {
         }
 
         DispatchQueue.main.async { [self] in
-            setupVirtualMachine(macOSConfiguration: macOSConfiguration)
+            setupVirtualMachine(macOSConfigurationRequirements: macOSConfiguration)
             startInstallation(restoreImageURL: restoreImage.url)
         }
     }
 
     // MARK: Create the Mac Platform Configuration
 
-    private func createMacPlatformConfiguration(macOSConfiguration: VZMacOSConfigurationRequirements) -> VZMacPlatformConfiguration {
+    private func createMacPlatformConfiguration(macOSConfigurationRequirements: VZMacOSConfigurationRequirements) -> VZMacPlatformConfiguration {
         let macPlatformConfiguration = VZMacPlatformConfiguration()
 
         guard let auxiliaryStorage = try? VZMacAuxiliaryStorage(creatingStorageAt: MacOSPath.auxiliaryStorageURL,
-                                                                    hardwareModel: macOSConfiguration.hardwareModel,
+                                                                    hardwareModel: macOSConfigurationRequirements.hardwareModel,
                                                                           options: []) else {
             fatalError("Failed to create auxiliary storage.")
         }
         macPlatformConfiguration.auxiliaryStorage = auxiliaryStorage
-        macPlatformConfiguration.hardwareModel = macOSConfiguration.hardwareModel
+        macPlatformConfiguration.hardwareModel = macOSConfigurationRequirements.hardwareModel
         macPlatformConfiguration.machineIdentifier = VZMacMachineIdentifier()
 
         // Store the hardware model and machine identifier to disk so that we
@@ -76,17 +76,17 @@ class MacOSVirtualMachineInstaller: NSObject {
 
     // MARK: Create the Virtual Machine Configuration and instantiate the Virtual Machine
 
-    private func setupVirtualMachine(macOSConfiguration: VZMacOSConfigurationRequirements) {
+    private func setupVirtualMachine(macOSConfigurationRequirements: VZMacOSConfigurationRequirements) {
         let virtualMachineConfiguration = VZVirtualMachineConfiguration()
 
-        virtualMachineConfiguration.platform = createMacPlatformConfiguration(macOSConfiguration: macOSConfiguration)
+        virtualMachineConfiguration.platform = createMacPlatformConfiguration(macOSConfigurationRequirements: macOSConfigurationRequirements)
         virtualMachineConfiguration.cpuCount = MacOSVirtualMachineConfigurationHelper.computeCPUCount()
-        if virtualMachineConfiguration.cpuCount < macOSConfiguration.minimumSupportedCPUCount {
+        if virtualMachineConfiguration.cpuCount < macOSConfigurationRequirements.minimumSupportedCPUCount {
             fatalError("CPUCount isn't supported by the macOS configuration.")
         }
 
         virtualMachineConfiguration.memorySize = MacOSVirtualMachineConfigurationHelper.computeMemorySize()
-        if virtualMachineConfiguration.memorySize < macOSConfiguration.minimumSupportedMemorySize {
+        if virtualMachineConfiguration.memorySize < macOSConfigurationRequirements.minimumSupportedMemorySize {
             fatalError("memorySize isn't supported by the macOS configuration.")
         }
 
