@@ -109,7 +109,7 @@ struct MachinesDetailHomeView: View {
                     MachinesDetailCardWarpView(item: item)
                         .onTapGesture(count: 2, perform: {
                             print("open machine")
-                            openWindow(value: item.rootPath)
+                            openWindow(id: "start-machine", value: item.rootPath)
                         })
                         .contextMenu {
                             Button {

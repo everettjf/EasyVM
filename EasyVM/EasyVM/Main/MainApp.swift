@@ -24,7 +24,7 @@ struct MainApp: App {
         .defaultSize(width: 700, height: 500)
         
 
-        WindowGroup(for: URL.self) { $modelRootPath in
+        WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
             VMOSMainViewForMacOS(rootPath: modelRootPath!)
         }
         
