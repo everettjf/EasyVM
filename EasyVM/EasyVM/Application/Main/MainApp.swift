@@ -26,7 +26,7 @@ struct MainApp: App {
 
         WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
             if let rootPath = modelRootPath {
-                VMOSMainViewForMacOS(rootPath: rootPath)
+                VMOSMainVirtualMachineView(rootPath: rootPath)
             } else {
                 Text("Invalid , just close")
             }

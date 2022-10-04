@@ -10,7 +10,7 @@ import Foundation
 import Virtualization
 
 
-class VMOSVirtualMachineDelegate: NSObject, VZVirtualMachineDelegate {
+class VMOSInternalVirtualMachineDelegate: NSObject, VZVirtualMachineDelegate {
     
     func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
         let info = "!! Virtual machine did stop with error: \(error.localizedDescription)"
@@ -23,13 +23,13 @@ class VMOSVirtualMachineDelegate: NSObject, VZVirtualMachineDelegate {
     }
 }
 
-public class VMOSInternalViewController: NSViewController {
+public class VMOSInternalVirtualMachineViewController: NSViewController {
     // parameters
     var rootPath: URL? = nil
     
     // internal
     private var virtualMachineView: VZVirtualMachineView!
-    private var virtualMachineResponder: VMOSVirtualMachineDelegate?
+    private var virtualMachineResponder: VMOSInternalVirtualMachineDelegate?
     private var virtualMachine: VZVirtualMachine!
     
 
@@ -91,7 +91,7 @@ public class VMOSInternalViewController: NSViewController {
         }
         
         virtualMachine = VZVirtualMachine(configuration: virtualMachineConfiguration)
-        virtualMachineResponder = VMOSVirtualMachineDelegate()
+        virtualMachineResponder = VMOSInternalVirtualMachineDelegate()
         virtualMachine.delegate = virtualMachineResponder
         virtualMachineView.virtualMachine = virtualMachine
         

@@ -11,7 +11,7 @@ import SwiftUI
 
 
 
-struct VMOSMainViewForMacOS: View {
+struct VMOSMainVirtualMachineView: View {
     let rootPath: URL
     
     var body: some View {
@@ -22,13 +22,13 @@ struct VMOSMainViewForMacOS: View {
             }
             .frame(height: 20)
             
-            VMOSInternalView(rootPath: rootPath)
+            VMOSInternalVirtualMachineView(rootPath: rootPath)
         }
     }
 }
 
 struct VMOSMainViewForMacOS_Previews: PreviewProvider {
     static var previews: some View {
-        VMOSMainViewForMacOS(rootPath: URL(filePath: "/Users/everettjf/Downloads/MyVirtualMachine"))
+        VMOSMainVirtualMachineView(rootPath: URL(filePath: "/Users/everettjf/Downloads/MyVirtualMachine"))
     }
 }

@@ -7,13 +7,13 @@
 
 import SwiftUI
 
-struct VMOSInternalView : NSViewControllerRepresentable {
+struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
     let rootPath: URL
     
     class Coordinator : NSObject {
-        var parent: VMOSInternalView
+        var parent: VMOSInternalVirtualMachineView
         
-        init(_ parent: VMOSInternalView) {
+        init(_ parent: VMOSInternalVirtualMachineView) {
             self.parent = parent
         }
     }
@@ -22,14 +22,14 @@ struct VMOSInternalView : NSViewControllerRepresentable {
         Coordinator(self)
     }
     
-    func makeNSViewController(context: Context) -> VMOSInternalViewController {
+    func makeNSViewController(context: Context) -> VMOSInternalVirtualMachineViewController {
         print("make ns view controller")
-        let vc = VMOSInternalViewController()
+        let vc = VMOSInternalVirtualMachineViewController()
         vc.rootPath = rootPath
         return vc
     }
     
-    func updateNSViewController(_ nsViewController: VMOSInternalViewController, context: Context) {
+    func updateNSViewController(_ nsViewController: VMOSInternalVirtualMachineViewController, context: Context) {
         print("update ns view controller")
         
     }
