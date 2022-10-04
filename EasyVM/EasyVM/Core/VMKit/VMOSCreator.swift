@@ -23,3 +23,28 @@ class VMOSCreateFactory {
     }
 }
 
+
+class VMOSCreatorUtil {
+    
+    static func createVMBundle(path: URL) async throws {
+        return try await withCheckedThrowingContinuation { continuation in
+            let bundleFd = mkdir(path.path(percentEncoded: false), S_IRWXU | S_IRWXG | S_IRWXO)
+            if bundleFd == -1 {
+                if errno == EEXIST {
+                    let error = "Failed to create VM.bundle: the base directory already exists."
+                    continuation.resume(throwing: VMOSError.regularFailure(error))
+                    return
+                }
+                continuation.resume(throwing: VMOSError.regularFailure("Failed to create VM.bundle."))
+                return
+            }
+
+            let result = close(bundleFd)
+            if result != 0 {
+                continuation.resume(throwing: VMOSError.regularFailure("Failed to close VM.bundle."))
+                return
+            }
+            continuation.resume(returning: ())
+        }
+    }
+}

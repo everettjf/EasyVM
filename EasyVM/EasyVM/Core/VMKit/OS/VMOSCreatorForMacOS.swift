@@ -9,32 +9,11 @@ import Foundation
 import Virtualization
 
 
-
-class VMOSCreatorForMacOSDelegate: NSObject, VZVirtualMachineDelegate {
-    let progress: (VMOSCreatorProgressInfo) -> Void
-    
-    init(progress: @escaping (VMOSCreatorProgressInfo) -> Void) {
-        self.progress = progress
-    }
-    
-    func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
-        let info = "!! Virtual machine did stop with error: \(error.localizedDescription)"
-        progress(.error(info))
-    }
-
-    func guestDidStop(_ virtualMachine: VZVirtualMachine) {
-        let info = "!! Guest did stop virtual machine."
-        progress(.error(info))
-    }
-}
-
-
 class VMOSCreatorForMacOS : VMOSCreator {
     
     
     private var installationObserver: NSKeyValueObservation?
     private var virtualMachine: VZVirtualMachine!
-    private var virtualMachineResponder: VMOSCreatorForMacOSDelegate?
     
     deinit {
         print("de init")
@@ -45,7 +24,7 @@ class VMOSCreatorForMacOS : VMOSCreator {
             // create bundle
             let rootPath = model.getRootPath()
             progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
-            try await createVMBundle(path: rootPath)
+            try await VMOSCreatorUtil.createVMBundle(path: rootPath)
             progress(.info("Succeed create bundle path"))
             
             // write json
@@ -201,8 +180,6 @@ class VMOSCreatorForMacOS : VMOSCreator {
             // Create
             progress(.info("Begin create virtual machine instance"))
             virtualMachine = VZVirtualMachine(configuration: virtualMachineConfiguration)
-            virtualMachineResponder = VMOSCreatorForMacOSDelegate(progress: progress)
-            virtualMachine.delegate = virtualMachineResponder
             progress(.info("Succeed create virtual machine instance"))
 
             continuation.resume(returning: ())
@@ -240,25 +217,4 @@ class VMOSCreatorForMacOS : VMOSCreator {
     }
     
     
-    private func createVMBundle(path: URL) async throws {
-        return try await withCheckedThrowingContinuation { continuation in
-            let bundleFd = mkdir(path.path(percentEncoded: false), S_IRWXU | S_IRWXG | S_IRWXO)
-            if bundleFd == -1 {
-                if errno == EEXIST {
-                    let error = "Failed to create VM.bundle: the base directory already exists."
-                    continuation.resume(throwing: VMOSError.regularFailure(error))
-                    return
-                }
-                continuation.resume(throwing: VMOSError.regularFailure("Failed to create VM.bundle."))
-                return
-            }
-
-            let result = close(bundleFd)
-            if result != 0 {
-                continuation.resume(throwing: VMOSError.regularFailure("Failed to close VM.bundle."))
-                return
-            }
-            continuation.resume(returning: ())
-        }
-    }
 }

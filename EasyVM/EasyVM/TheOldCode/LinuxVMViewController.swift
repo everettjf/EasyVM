@@ -251,6 +251,7 @@ class LinuxVMViewController: NSViewController , VZVirtualMachineDelegate {
             bootloader.variableStore = createEFIVariableStore()
             disksArray.add(createUSBMassStorageDeviceConfiguration())
         } else {
+            // TODO::::::
             // The VM is booting from a disk image that already has the OS installed.
             // Retrieve the machine identifier and EFI variable store that were saved to
             // disk during installation.

@@ -107,6 +107,9 @@ struct VMModel: Identifiable {
     var diskImageURL: URL {
         rootPath.appending(path: "diskImagePath")
     }
+    var efiVariableStoreURL : URL {
+        rootPath.appending(path: "NVRAM")
+    }
     
     var stateURL: URL {
         Self.getStateURL(rootPath: rootPath)
