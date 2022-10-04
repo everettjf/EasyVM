@@ -20,8 +20,9 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         print("root path : \(rootPath)")
         print("image path : \(rootPath)")
         
+        let stateModel = VMStateModel(imagePath: imagePath)
         let configModel = context.configData.getConfigModel()
-        let vmModel = VMModel(rootPath: rootPath, imagePath: imagePath, config: configModel)
+        let vmModel = VMModel(rootPath: rootPath, state: stateModel, config: configModel)
         
         // create vm from vmmodel
         print("!! Start create virtual machine")

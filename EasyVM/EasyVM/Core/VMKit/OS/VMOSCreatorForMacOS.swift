@@ -51,11 +51,12 @@ class VMOSCreatorForMacOS : VMOSCreator {
             // write json
             progress(.info("Begin write config : \(model.configURL.path(percentEncoded: false))"))
             try await model.config.writeConfigToFile(path: model.configURL)
+            try await model.state.writeStateToFile(path: model.stateURL)
             progress(.info("Succeed write config"))
 
             // load image
-            progress(.info("Begin load system image : \(model.imagePath.path(percentEncoded: false))"))
-            let restoreImage = try await loadSystemImage(ipswURL: model.imagePath)
+            progress(.info("Begin load system image : \(model.state.imagePath.path(percentEncoded: false))"))
+            let restoreImage = try await loadSystemImage(ipswURL: model.state.imagePath)
             progress(.info("Succeed load system image"))
             
             progress(.info("Begin check image"))
@@ -69,7 +70,7 @@ class VMOSCreatorForMacOS : VMOSCreator {
             
             // install
             progress(.info("Begin install"))
-            try await startInstallation(restoreImageURL: model.imagePath, progress: progress)
+            try await startInstallation(restoreImageURL: model.state.imagePath, progress: progress)
             progress(.info("Succeed install"))
             
         } catch {

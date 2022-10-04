@@ -54,10 +54,41 @@ struct VMConfigModel : Decodable, Encodable {
 }
 
 
+struct VMStateModel : Decodable, Encodable  {
+    let imagePath: URL
+    
+    
+    func writeStateToFile(path: URL) -> VMOSResultVoid {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let data = try encoder.encode(self)
+            guard let content = String(data: data, encoding: .utf8) else {
+                return .failure("failed to parse to utf8")
+            }
+            try content.write(toFile: path.path(percentEncoded: false), atomically: true, encoding: .utf8)
+            return .success
+        } catch {
+            return .failure("\(error)")
+        }
+    }
+    
+    func writeStateToFile(path: URL) async throws {
+        return try await withCheckedThrowingContinuation({ continuation in
+            let result = writeStateToFile(path: path)
+            if case let .failure(error) = result {
+                continuation.resume(throwing: VMOSError.regularFailure(error))
+                return
+            }
+            continuation.resume(returning: ())
+        })
+    }
+}
+
 struct VMModel: Identifiable {
     let id = UUID()
     let rootPath: URL
-    let imagePath: URL
+    let state: VMStateModel
     let config: VMConfigModel
     
     func getRootPath() -> URL {
@@ -76,13 +107,13 @@ struct VMModel: Identifiable {
     var diskImageURL: URL {
         rootPath.appending(path: "diskImagePath")
     }
-//    var restoreImageURL: URL {
-//        if config.type == .macOS {
-//            return rootPath.appending(path: "RestoreImage.ipsw")
-//        } else {
-//            return rootPath.appending(path: "RestoreImage.iso")
-//        }
-//    }
+    
+    var stateURL: URL {
+        Self.getStateURL(rootPath: rootPath)
+    }
+    static func getStateURL(rootPath: URL) -> URL {
+        rootPath.appending(path: "state.json")
+    }
     var configURL: URL {
         Self.getConfigURL(rootPath: rootPath)
     }
@@ -111,10 +142,21 @@ struct VMModel: Identifiable {
     
     static func loadConfigFromFile(rootPath: URL) -> VMOSResult<VMModel, String> {
         do {
-            let path = Self.getConfigURL(rootPath: rootPath)
-            let data = try Data(contentsOf: path)
-            let config: VMConfigModel = try JSONDecoder().decode(VMConfigModel.self, from: data)
-            let model = VMModel(rootPath: rootPath, imagePath: URL(filePath: ""), config: config)
+            // config is required
+            let configPath = Self.getConfigURL(rootPath: rootPath)
+            let configData = try Data(contentsOf: configPath)
+            let config: VMConfigModel = try JSONDecoder().decode(VMConfigModel.self, from: configData)
+            
+            // state is optional
+            var state = VMStateModel(imagePath: URL(filePath: ""))
+            let statePath = Self.getStateURL(rootPath: rootPath)
+            if let stateData = try? Data(contentsOf: statePath) {
+                if let stateRead: VMStateModel = try? JSONDecoder().decode(VMStateModel.self, from: stateData) {
+                    state = stateRead
+                }
+            }
+
+            let model = VMModel(rootPath: rootPath, state: state, config: config)
             return .success(model)
         } catch {
             return .failure("\(error)")
