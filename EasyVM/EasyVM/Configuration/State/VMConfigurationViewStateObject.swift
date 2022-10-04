@@ -38,7 +38,7 @@ struct VMModelFieldAudioDeviceItemModel: Identifiable {
 class VMConfigurationViewStateObject: ObservableObject {
     @Published var osType: VMOSType = .macOS
     
-    @Published var name: String = "My New Virtual Machine"
+    @Published var name: String = ""
     @Published var remark: String = ""
     
     @Published var cpuCount: Int = 1
@@ -53,7 +53,7 @@ class VMConfigurationViewStateObject: ObservableObject {
     
     convenience init() {
         // default
-        self.init(configModel: VMConfigModel.create(osType: .macOS,name: "Easy Virtual Machine", remark: ""))
+        self.init(configModel: VMConfigModel.create(osType: .macOS,name: "", remark: ""))
     }
 
     init(configModel: VMConfigModel) {
