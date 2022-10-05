@@ -49,6 +49,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         case .success:
             DispatchQueue.main.async {
                 context.formData.disablePreviousButton = true
+                
+                sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
             }
         }
         

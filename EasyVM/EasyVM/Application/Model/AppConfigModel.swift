@@ -88,6 +88,13 @@ class AppConfigManager {
         }
     }
     
+    func addVMPathWithRefresh(url: URL) {
+        addVMPath(url: url)
+        
+        NotificationCenter.default.post(name: Self.NewVMChangedNotification, object: nil)
+    }
+    
+    
     public func removeVMPathWithReload(url: URL) {
         removeVMPath(url: url)
         NotificationCenter.default.post(name: Self.NewVMChangedNotification, object: nil)

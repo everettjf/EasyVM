@@ -19,7 +19,12 @@ protocol VMOSCreator {
 
 class VMOSCreateFactory {
     static func getCreator(_ osType: VMOSType) -> VMOSCreator {
-        return VMOSCreatorForMacOS()
+        switch osType {
+        case .macOS:
+            return VMOSCreatorForMacOS()
+        case .linux:
+            return VMOSCreatorForLinux()
+        }
     }
 }
 

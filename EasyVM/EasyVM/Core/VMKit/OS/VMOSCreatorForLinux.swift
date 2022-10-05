@@ -18,6 +18,8 @@ class VMOSCreatorForLinux: VMOSCreator {
     func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {
         
         do {
+            progress(.progress(0.1))
+            
             // create bundle
             let rootPath = model.getRootPath()
             progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
@@ -29,11 +31,15 @@ class VMOSCreatorForLinux: VMOSCreator {
             try await model.config.writeConfigToFile(path: model.configURL)
             try await model.state.writeStateToFile(path: model.stateURL)
             progress(.info("Succeed write config"))
+            
+            progress(.progress(0.3))
 
             // setup
             progress(.info("Begin setup virtual machine"))
             try await setupVirtualMachine(model: model, progress: progress)
             progress(.info("Succeed setup virtual machine"))
+            
+            progress(.progress(1.0))
             
         } catch {
             progress(.error("\(error)"))
