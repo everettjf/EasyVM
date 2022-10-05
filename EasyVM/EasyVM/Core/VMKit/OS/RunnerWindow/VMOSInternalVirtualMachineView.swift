@@ -9,6 +9,7 @@ import SwiftUI
 
 struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
     let rootPath: URL
+    let recoveryMode: Bool
     
     class Coordinator : NSObject {
         var parent: VMOSInternalVirtualMachineView
@@ -26,6 +27,7 @@ struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
         print("make ns view controller")
         let vc = VMOSInternalVirtualMachineViewController()
         vc.rootPath = rootPath
+        vc.recoveryMode = recoveryMode
         return vc
     }
     

@@ -58,14 +58,25 @@ struct MachinesDetailHomeView: View {
                     })
                     .contextMenu {
                         Button {
-                            print("open")
+                            print("run")
                             openWindow(id: "start-machine", value: item.rootPath)
                         } label: {
                             Image(systemName: "play")
                             Text("Run")
                         }
+                        
+                        if item.model != nil && item.model!.config.type == .macOS {
+                            Button {
+                                print("run")
+                                openWindow(id: "start-machine-recovery", value: item.rootPath)
+                            } label: {
+                                Image(systemName: "play")
+                                Text("Run into Recovery Mode")
+                            }
+                        }
+                        
                         Button {
-                            print("open")
+                            print("reveal")
                             MacKitUtil.revealInFinder(item.rootPath.path(percentEncoded: false))
                         } label: {
                             Image(systemName: "folder")

@@ -7,28 +7,17 @@
 
 import SwiftUI
 
-
-
-
-
 struct VMOSMainVirtualMachineView: View {
     let rootPath: URL
+    let recoveryMode: Bool
     
     var body: some View {
-        VStack {
-            HStack {
-                Spacer()
-                Text("root path : \(rootPath.path(percentEncoded: false))")
-            }
-            .frame(height: 20)
-            
-            VMOSInternalVirtualMachineView(rootPath: rootPath)
-        }
+        VMOSInternalVirtualMachineView(rootPath: rootPath, recoveryMode: recoveryMode)
     }
 }
 
 struct VMOSMainViewForMacOS_Previews: PreviewProvider {
     static var previews: some View {
-        VMOSMainVirtualMachineView(rootPath: URL(filePath: "/Users/everettjf/Downloads/MyVirtualMachine"))
+        VMOSMainVirtualMachineView(rootPath: URL(filePath: "/Users/everettjf/Downloads/MyVirtualMachine"), recoveryMode: false)
     }
 }

@@ -13,6 +13,7 @@ import Virtualization
 public class VMOSInternalVirtualMachineViewController: NSViewController {
     // parameters
     var rootPath: URL? = nil
+    var recoveryMode: Bool = false
     
     // internal
     private var virtualMachineView: VZVirtualMachineView!
@@ -85,18 +86,28 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         virtualMachineView.virtualMachine = virtualMachine
         
         
-        // todo
-        let startOptions = VZMacOSVirtualMachineStartOptions()
-        startOptions.startUpFromMacOSRecovery = false
-        
-        virtualMachine.start(options: startOptions) { error in
-            if let error = error {
-                print("error start : \(error)")
-                return
-            }
+        if recoveryMode {
+            let startOptions = VZMacOSVirtualMachineStartOptions()
+            startOptions.startUpFromMacOSRecovery = true
+            virtualMachine.start(options: startOptions) { error in
+                if let error = error {
+                    print("error start : \(error)")
+                    return
+                }
 
-            // succeed start
-            print("Virtual machine successfully started.")
+                // succeed start
+                print("Virtual machine successfully started.")
+            }
+        } else {
+            virtualMachine.start { result in
+                if case let .failure(error) = result {
+                    print("error start : \(error)")
+                    return
+                }
+                
+                // succeed start
+                print("Virtual machine successfully started.")
+            }
         }
     }
     
