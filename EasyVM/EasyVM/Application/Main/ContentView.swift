@@ -23,8 +23,6 @@ struct ContentView: View {
             switch selectedMenuItem {
             case .machines:
                 MachinesDetailHomeView()
-            case .documents:
-                DocumentsDetailHomeView()
             case .community:
                 CommunityDetailHomeView()
             case .issues:

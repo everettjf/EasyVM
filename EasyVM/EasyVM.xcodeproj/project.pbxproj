@@ -55,7 +55,6 @@
 		D19EC93928CEEAEB004564B7 /* CreatePhaseCreatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */; };
 		D19EC93B28CEEB49004564B7 /* CreatePhaseCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93A28CEEB49004564B7 /* CreatePhaseCompleteView.swift */; };
 		D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */; };
-		D1A6A5E228BA7AD500CBE80A /* DocumentsDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E128BA7AD500CBE80A /* DocumentsDetailHomeView.swift */; };
 		D1A6A5E428BA7AEC00CBE80A /* CommunityDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */; };
 		D1A6A5E628BA7B0300CBE80A /* IssuesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */; };
 		D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */; };
@@ -127,7 +126,6 @@
 		D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseCreatingView.swift; sourceTree = "<group>"; };
 		D19EC93A28CEEB49004564B7 /* CreatePhaseCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseCompleteView.swift; sourceTree = "<group>"; };
 		D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palettes.swift; sourceTree = "<group>"; };
-		D1A6A5E128BA7AD500CBE80A /* DocumentsDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentsDetailHomeView.swift; sourceTree = "<group>"; };
 		D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityDetailHomeView.swift; sourceTree = "<group>"; };
 		D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuesDetailHomeView.swift; sourceTree = "<group>"; };
 		D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutDetailHomeView.swift; sourceTree = "<group>"; };
@@ -325,7 +323,6 @@
 			isa = PBXGroup;
 			children = (
 				D1AF34F728C5804D00317D05 /* Machines */,
-				D1AF34F828C5805600317D05 /* Documents */,
 				D1AF34F928C5805D00317D05 /* Community */,
 				D1AF34FA28C5806500317D05 /* Issues */,
 				D1AF34FB28C5806D00317D05 /* About */,
@@ -343,14 +340,6 @@
 				D166803328E93DA300F70110 /* MachinesEmptyView.swift */,
 			);
 			path = Machines;
-			sourceTree = "<group>";
-		};
-		D1AF34F828C5805600317D05 /* Documents */ = {
-			isa = PBXGroup;
-			children = (
-				D1A6A5E128BA7AD500CBE80A /* DocumentsDetailHomeView.swift */,
-			);
-			path = Documents;
 			sourceTree = "<group>";
 		};
 		D1AF34F928C5805D00317D05 /* Community */ = {
@@ -537,7 +526,6 @@
 				D184CB1628EBE106001E3664 /* VMOSCreatorForLinux.swift in Sources */,
 				D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */,
 				D1196EA528E5E2D600CCC04D /* VMConfigurationMemoryView.swift in Sources */,
-				D1A6A5E228BA7AD500CBE80A /* DocumentsDetailHomeView.swift in Sources */,
 				D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */,
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */,

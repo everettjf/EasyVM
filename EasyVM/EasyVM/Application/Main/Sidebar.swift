@@ -11,7 +11,6 @@ import SwiftUI
 enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
     case machines = "Machines"
     case community = "Community"
-    case documents = "Documents"
     case issues = "Issues"
     case about = "About"
     
@@ -21,23 +20,19 @@ enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
         switch self {
         case .machines:
             return globalPalettes[0]
-        case .documents:
-            return globalPalettes[1]
         case .community:
-            return globalPalettes[2]
+            return globalPalettes[1]
         case .issues:
-            return globalPalettes[3]
+            return globalPalettes[2]
         case .about:
-            return globalPalettes[4]
+            return globalPalettes[3]
         }
     }
     
     var imageName: String {
         switch self {
         case .machines:
-            return "box.truck"
-        case .documents:
-            return  "party.popper"
+            return "party.popper"
         case .community:
             return "envelope.open"
         case .issues:
@@ -53,8 +48,6 @@ enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
         switch self {
         case .machines:
             return "Created virtual machines"
-        case .documents:
-            return "How to create, use"
         case .community:
             return "Let's talk anything"
         case .issues:
