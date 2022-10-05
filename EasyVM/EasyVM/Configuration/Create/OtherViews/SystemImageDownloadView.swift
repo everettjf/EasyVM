@@ -28,7 +28,7 @@ class SystemImageDownloadViewState : ObservableObject {
     @Published var downloadStatus: DownloadStatus = .initial
     @Published var downloadMessage: String = ""
     
-    private var downloader: (any VMOSImageDownloader)?
+    private var downloader: (any VMOSDownloader)?
     
     func cancelDownload() {
         self.downloader?.cancelDownload()
@@ -39,7 +39,7 @@ class SystemImageDownloadViewState : ObservableObject {
         
         downloadStatus = .downloading
         
-        self.downloader = VMOSImageDownloadFactory.getDownloader(vmOSType)
+        self.downloader = VMOSDownloaderFactory.getDownloader(vmOSType)
         if downloadMethod == .latest_avaliable {
             downloader?.downloadLatest(toLocalPath: localPath) { result in
                 

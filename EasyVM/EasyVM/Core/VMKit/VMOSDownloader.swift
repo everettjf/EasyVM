@@ -7,7 +7,7 @@
 
 import Foundation
 
-protocol VMOSImageDownloader {
+protocol VMOSDownloader {
     func isSupport() -> Bool
     func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) -> Void
     func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) -> Void
@@ -15,9 +15,9 @@ protocol VMOSImageDownloader {
 }
 
 
-class VMOSImageDownloadFactory {
-    static func getDownloader(_ osType: VMOSType) -> VMOSImageDownloader {
-        return VMOSImageDownloadForMacOS()
+class VMOSDownloaderFactory {
+    static func getDownloader(_ osType: VMOSType) -> VMOSDownloader {
+        return VMOSDownloaderForMacOS()
     }
 }
 

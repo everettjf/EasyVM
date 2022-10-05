@@ -8,7 +8,7 @@
 import Foundation
 import Virtualization
 
-class VMOSImageDownloadForMacOS : VMOSImageDownloader {
+class VMOSDownloaderForMacOS : VMOSDownloader {
     private var downloadObserver: NSKeyValueObservation?
     private var downloadTask: URLSessionDownloadTask?
     
