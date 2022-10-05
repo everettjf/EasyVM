@@ -32,7 +32,7 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
         case .macOS:
             return VMModelFieldGraphicDevice(type: .Mac, width: 1920, height: 1200, pixelsPerInch: 80)
         case .linux:
-            return VMModelFieldGraphicDevice(type: .Virtio, width: 1920, height: 1200, pixelsPerInch: 0)
+            return VMModelFieldGraphicDevice(type: .Virtio, width: 1280, height: 720, pixelsPerInch: 0)
         }
     }
     
