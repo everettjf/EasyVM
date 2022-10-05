@@ -84,6 +84,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         virtualMachine.delegate = virtualMachineResponder
         virtualMachineView.virtualMachine = virtualMachine
         
+        
+        // todo
         let startOptions = VZMacOSVirtualMachineStartOptions()
         startOptions.startUpFromMacOSRecovery = false
         
@@ -99,3 +101,23 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
     
 }
+
+extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
+    
+    public func guestDidStop(_ virtualMachine: VZVirtualMachine) {
+        
+        print("guest did stop")
+    }
+    
+    
+    public func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
+        
+        print("did stop with error : \(error)")
+    }
+    
+    public func virtualMachine(_ virtualMachine: VZVirtualMachine, networkDevice: VZNetworkDevice, attachmentWasDisconnectedWithError error: Error) {
+        
+        print("network device \(networkDevice) error : \(error)")
+    }
+}
+

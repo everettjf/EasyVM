@@ -203,7 +203,7 @@
 		D132337128E282A0002C26A2 /* OS */ = {
 			isa = PBXGroup;
 			children = (
-				D184CB0228EA8A13001E3664 /* Window */,
+				D184CB0228EA8A13001E3664 /* RunnerWindow */,
 				D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */,
 				D1196EC128E7D8D500CCC04D /* VMOSCreatorForMacOS.swift */,
 				D184CB1528EBE106001E3664 /* VMOSCreatorForLinux.swift */,
@@ -222,7 +222,7 @@
 			path = Common;
 			sourceTree = "<group>";
 		};
-		D184CB0228EA8A13001E3664 /* Window */ = {
+		D184CB0228EA8A13001E3664 /* RunnerWindow */ = {
 			isa = PBXGroup;
 			children = (
 				D184CB0328EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift */,
@@ -230,7 +230,7 @@
 				D184CB1728ED20F7001E3664 /* VMOSInternalVirtualMachineDelegate.swift */,
 				D184CB0528EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift */,
 			);
-			path = Window;
+			path = RunnerWindow;
 			sourceTree = "<group>";
 		};
 		D184CB0B28EB23F0001E3664 /* Edit */ = {
