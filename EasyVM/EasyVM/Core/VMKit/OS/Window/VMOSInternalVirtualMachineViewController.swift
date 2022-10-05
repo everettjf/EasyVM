@@ -193,6 +193,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // audioDevices
         virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
         
+        // keyboards
+        virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
+        
         // Validate
         do {
             try virtualMachineConfiguration.validate()

@@ -53,10 +53,14 @@ class VMConfigurationViewStateObject: ObservableObject {
     
     convenience init() {
         // default
-        self.init(configModel: VMConfigModel.create(osType: .macOS,name: "", remark: ""))
+        self.init(configModel: VMConfigModel.createWithDefaultValues(osType: .macOS))
     }
 
     init(configModel: VMConfigModel) {
+        self.setValuesWithConfigModel(configModel: configModel)
+    }
+    
+    func setValuesWithConfigModel(configModel: VMConfigModel) {
         self.osType = configModel.type
         self.name = configModel.name
         self.remark = configModel.remark
@@ -64,21 +68,31 @@ class VMConfigurationViewStateObject: ObservableObject {
         self.cpuCount = configModel.cpu.count
         self.memorySize = configModel.memory.size
         
+        self.storageDevices.removeAll()
         for item in configModel.storageDevices {
             self.storageDevices.append(VMModelFieldStorageDeviceItemModel(data: item))
         }
+        self.graphicDevices.removeAll()
         for item in configModel.graphicsDevices {
             self.graphicDevices.append(VMModelFieldGraphicDeviceItemModel(data: item))
         }
+        self.networkDevices.removeAll()
         for item in configModel.networkDevices {
             self.networkDevices.append(VMModelFieldNetworkDeviceItemModel(data: item))
         }
+        self.pointingDevices.removeAll()
         for item in configModel.pointingDevices {
             self.pointingDevices.append(VMModelFieldPointingDeviceItemModel(data: item))
         }
+        self.audioDevices.removeAll()
         for item in configModel.audioDevices {
             self.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: item))
         }
+    }
+    
+    func resetDefaultConfig() {
+        let defaultConfig = VMConfigModel.createWithDefaultValues(osType: osType)
+        setValuesWithConfigModel(configModel: defaultConfig)
     }
     
     func getConfigModel() -> VMConfigModel {

@@ -17,25 +17,6 @@ class CreatePhaseNameConfigViewHandler: VMCreateStepperGuidePhaseHandler {
     }
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         
-        let defaultMacOSName = "Easy Virtual Machine (macOS)"
-        let defaultLinuxName = "Easy Virtual Machine (Linux)"
-        
-        if context.configData.name.isEmpty
-            || context.configData.name == defaultMacOSName
-            || context.configData.name == defaultLinuxName
-        {
-            switch context.configData.osType {
-            case .macOS:
-                DispatchQueue.main.async {
-                    context.configData.name = defaultMacOSName
-                }
-            case .linux:
-                DispatchQueue.main.async {
-                    context.configData.name = defaultLinuxName
-                }
-            }
-        }
-        
         return .success
     }
 }

@@ -261,7 +261,7 @@ struct VMCreateStepperGuideView: View {
     
     func tryMoveNextStep() {
         if stepperState.isStepCompletion() {
-            // done , notify main list
+            // done , notify main list when changed value
             // TODO
             // close
             presentationMode.wrappedValue.dismiss()

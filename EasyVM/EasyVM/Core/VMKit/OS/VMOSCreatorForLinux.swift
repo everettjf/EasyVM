@@ -49,7 +49,7 @@ class VMOSCreatorForLinux: VMOSCreator {
         return try await withCheckedThrowingContinuation({ continuation in
             let virtualMachineConfiguration = VZVirtualMachineConfiguration()
 
-            // platform
+            // platform (DIFF)
             do {
                 let platform = VZGenericPlatformConfiguration()
                 
@@ -74,7 +74,7 @@ class VMOSCreatorForLinux: VMOSCreator {
             virtualMachineConfiguration.memorySize = model.config.memory.size
             progress(.info("- Memory OK"))
             
-            // bootLoader
+            // bootLoader (DIFF)
             do {
                 let bootloader = VZEFIBootLoader()
                 let efiVariableStore = try VZEFIVariableStore(creatingVariableStoreAt: model.efiVariableStoreURL)
@@ -115,6 +115,13 @@ class VMOSCreatorForLinux: VMOSCreator {
             // audioDevices
             virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
             progress(.info("- Audio Devices OK"))
+
+            // keyboards
+            virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
+            
+            // consoleDevices
+            virtualMachineConfiguration.consoleDevices = [createSpiceAgentConsoleDeviceConfiguration()]
+
             
             // Validate
             progress(.info("Begin validate"))
@@ -135,4 +142,14 @@ class VMOSCreatorForLinux: VMOSCreator {
         })
     }
     
+    private func createSpiceAgentConsoleDeviceConfiguration() -> VZVirtioConsoleDeviceConfiguration {
+        let consoleDevice = VZVirtioConsoleDeviceConfiguration()
+
+        let spiceAgentPort = VZVirtioConsolePortConfiguration()
+        spiceAgentPort.name = VZSpiceAgentPortAttachment.spiceAgentPortName
+        spiceAgentPort.attachment = VZSpiceAgentPortAttachment()
+        consoleDevice.ports[0] = spiceAgentPort
+
+        return consoleDevice
+    }
 }

@@ -27,8 +27,13 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
         }
     }
     
-    static func `default`() -> VMModelFieldGraphicDevice {
-        return VMModelFieldGraphicDevice(type: .Mac, width: 1920, height: 1200, pixelsPerInch: 80)
+    static func `default`(osType: VMOSType) -> VMModelFieldGraphicDevice {
+        switch osType {
+        case .macOS:
+            return VMModelFieldGraphicDevice(type: .Mac, width: 1920, height: 1200, pixelsPerInch: 80)
+        case .linux:
+            return VMModelFieldGraphicDevice(type: .Virtio, width: 1920, height: 1200, pixelsPerInch: 0)
+        }
     }
     
     func createConfiguration() -> VZGraphicsDeviceConfiguration {

@@ -41,6 +41,10 @@ struct SystemCardView: View {
 class CreatePhaseSystemTypeViewHandler: VMCreateStepperGuidePhaseHandler {
     
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
+        
+        // set defaults
+        context.configData.resetDefaultConfig()
+        
         return .success
     }
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {

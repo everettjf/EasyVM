@@ -167,6 +167,9 @@ class VMOSCreatorForMacOS : VMOSCreator {
             virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
             progress(.info("- Audio Devices OK"))
             
+            // keyboards
+            virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
+            
             // Validate
             progress(.info("Begin validate"))
             do {

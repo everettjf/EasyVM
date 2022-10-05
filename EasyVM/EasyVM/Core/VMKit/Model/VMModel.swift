@@ -21,8 +21,35 @@ struct VMConfigModel : Decodable, Encodable {
     let pointingDevices: [VMModelFieldPointingDevice]
     let audioDevices: [VMModelFieldAudioDevice]
     
-    static func create(osType: VMOSType, name: String, remark: String) -> VMConfigModel {
-        return VMConfigModel(type: osType, name: name, remark: remark, cpu: VMModelFieldCPU.default(), memory: VMModelFieldMemory.default(), graphicsDevices: [VMModelFieldGraphicDevice.default()], storageDevices: [VMModelFieldStorageDevice.default()], networkDevices: [VMModelFieldNetworkDevice.default()], pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)], audioDevices: [VMModelFieldAudioDevice.default()])
+    static func createWithDefaultValues(osType: VMOSType) -> VMConfigModel {
+        switch osType {
+        case .macOS:
+            return VMConfigModel(
+                type: osType,
+                name: "Easy Virtual Machine (macOS)",
+                remark: "",
+                cpu: VMModelFieldCPU.default(),
+                memory: VMModelFieldMemory.default(),
+                graphicsDevices: [VMModelFieldGraphicDevice.default(osType: osType)],
+                storageDevices: [VMModelFieldStorageDevice.default()],
+                networkDevices: [VMModelFieldNetworkDevice.default()],
+                pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)],
+                audioDevices: [VMModelFieldAudioDevice.default()]
+            )
+        case .linux:
+            return VMConfigModel(
+                type: osType,
+                name: "Easy Virtual Machine (Linux)",
+                remark: "",
+                cpu: VMModelFieldCPU.default(),
+                memory: VMModelFieldMemory.default(),
+                graphicsDevices: [VMModelFieldGraphicDevice.default(osType: osType)],
+                storageDevices: [VMModelFieldStorageDevice.default()],
+                networkDevices: [VMModelFieldNetworkDevice.default()],
+                pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)],
+                audioDevices: [VMModelFieldAudioDevice.default()]
+            )
+        }
     }
     
     
