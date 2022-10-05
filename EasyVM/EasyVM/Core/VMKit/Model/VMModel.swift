@@ -20,6 +20,7 @@ struct VMConfigModel : Decodable, Encodable {
     let networkDevices: [VMModelFieldNetworkDevice]
     let pointingDevices: [VMModelFieldPointingDevice]
     let audioDevices: [VMModelFieldAudioDevice]
+    let directorySharingDevices: [VMModelFieldDirectorySharingDevice]
     
     static func createWithDefaultValues(osType: VMOSType) -> VMConfigModel {
         switch osType {
@@ -34,7 +35,8 @@ struct VMConfigModel : Decodable, Encodable {
                 storageDevices: [VMModelFieldStorageDevice.default()],
                 networkDevices: [VMModelFieldNetworkDevice.default()],
                 pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)],
-                audioDevices: [VMModelFieldAudioDevice.default()]
+                audioDevices: [VMModelFieldAudioDevice.default()],
+                directorySharingDevices: []
             )
         case .linux:
             return VMConfigModel(
@@ -47,7 +49,8 @@ struct VMConfigModel : Decodable, Encodable {
                 storageDevices: [VMModelFieldStorageDevice.default()],
                 networkDevices: [VMModelFieldNetworkDevice.default()],
                 pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)],
-                audioDevices: [VMModelFieldAudioDevice.default()]
+                audioDevices: [VMModelFieldAudioDevice.default()],
+                directorySharingDevices: []
             )
         }
     }

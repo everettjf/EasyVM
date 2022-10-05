@@ -33,6 +33,10 @@ struct VMModelFieldAudioDeviceItemModel: Identifiable {
     let data: VMModelFieldAudioDevice
 }
 
+struct VMModelFieldDirectorySharingDeviceItemModel: Identifiable {
+    let id = UUID()
+    let data: VMModelFieldDirectorySharingDevice
+}
 
 
 class VMConfigurationViewStateObject: ObservableObject {
@@ -50,6 +54,8 @@ class VMConfigurationViewStateObject: ObservableObject {
     
     @Published var pointingDevices: [VMModelFieldPointingDeviceItemModel] = []
     @Published var audioDevices: [VMModelFieldAudioDeviceItemModel] = []
+    
+    @Published var directorySharingDevices: [VMModelFieldDirectorySharingDeviceItemModel] = []
     
     convenience init() {
         // default
@@ -104,8 +110,9 @@ class VMConfigurationViewStateObject: ObservableObject {
         let networkDevices = self.networkDevices.map({$0.data})
         let pointingDevices = self.pointingDevices.map({$0.data})
         let audioDevices = self.audioDevices.map({$0.data})
+        let directorySharingDevices = self.directorySharingDevices.map({$0.data})
         
-        return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices)
+        return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices, directorySharingDevices: directorySharingDevices)
     }
     
 }

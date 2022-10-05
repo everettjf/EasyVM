@@ -48,6 +48,8 @@
 		D18AE4D928D2B0F600B5C3E2 /* VMCreateViewStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4D828D2B0F600B5C3E2 /* VMCreateViewStateObject.swift */; };
 		D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */; };
 		D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
+		D19105F128EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */; };
+		D19105F328EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */; };
 		D19EC92F28CEE58C004564B7 /* CreatePhaseSystemImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */; };
 		D19EC93128CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93028CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift */; };
 		D19EC93328CEE9F6004564B7 /* CreatePhaseConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */; };
@@ -119,6 +121,8 @@
 		D18AE4D828D2B0F600B5C3E2 /* VMCreateViewStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateViewStateObject.swift; sourceTree = "<group>"; };
 		D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemImageDownloadView.swift; sourceTree = "<group>"; };
 		D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldCPU.swift; sourceTree = "<group>"; };
+		D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldDirectorySharingDevice.swift; sourceTree = "<group>"; };
+		D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationDirectorySharingDevicesView.swift; sourceTree = "<group>"; };
 		D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemImageView.swift; sourceTree = "<group>"; };
 		D19EC93028CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSaveDirectoryView.swift; sourceTree = "<group>"; };
 		D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseConfigurationView.swift; sourceTree = "<group>"; };
@@ -299,6 +303,7 @@
 				D1EF707128B6656500F2D279 /* VMModelFieldNetworkDevice.swift */,
 				D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */,
 				D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */,
+				D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */,
 			);
 			path = Fields;
 			sourceTree = "<group>";
@@ -315,6 +320,7 @@
 				D1196EB228E68C9300CCC04D /* VMConfigurationNetworkDevicesView.swift */,
 				D1196EB628E6D67400CCC04D /* VMConfigurationPointingDevicesView.swift */,
 				D1196EBA28E6EA4500CCC04D /* VMConfigurationAudioDevicesView.swift */,
+				D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -390,8 +396,8 @@
 			isa = PBXGroup;
 			children = (
 				D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */,
-				D18AE4DB28D2B66300B5C3E2 /* OtherViews */,
 				D18AE4DA28D2B62B00B5C3E2 /* PhaseViews */,
+				D18AE4DB28D2B66300B5C3E2 /* OtherViews */,
 			);
 			path = Create;
 			sourceTree = "<group>";
@@ -524,6 +530,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D184CB1628EBE106001E3664 /* VMOSCreatorForLinux.swift in Sources */,
+				D19105F328EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift in Sources */,
 				D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */,
 				D1196EA528E5E2D600CCC04D /* VMConfigurationMemoryView.swift in Sources */,
 				D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */,
@@ -573,6 +580,7 @@
 				D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */,
 				D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */,
 				D1196EA128E5E2A300CCC04D /* VMConfigurationViewStateObject.swift in Sources */,
+				D19105F128EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift in Sources */,
 				D166803428E93DA300F70110 /* MachinesEmptyView.swift in Sources */,
 				D184CB1428EB29DE001E3664 /* MachinesHomeStateObject.swift in Sources */,
 				D184CB0628EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift in Sources */,
