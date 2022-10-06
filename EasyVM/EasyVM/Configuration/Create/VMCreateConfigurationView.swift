@@ -8,7 +8,7 @@
 import SwiftUI
 
 
-struct VMConfigurationView: View {
+struct VMCreateConfigurationView: View {
     
     var body: some View {
         Form {
@@ -27,6 +27,9 @@ struct VMConfigurationView: View {
                 VMConfigurationPointingDevicesView()
                 VMConfigurationAudioDevicesView()
             }
+            Section("Sharing Directory") {
+                VMConfigurationDirectorySharingDevicesView()
+            }
         }
         .formStyle(.grouped)
     }
@@ -34,7 +37,7 @@ struct VMConfigurationView: View {
 
 struct VMConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
-        VMConfigurationView()
+        VMCreateConfigurationView()
             .frame(width: 700, height:1000)
     }
 }

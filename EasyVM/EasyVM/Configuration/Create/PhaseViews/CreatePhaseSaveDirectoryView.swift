@@ -20,7 +20,22 @@ class CreatePhaseSaveDirectoryViewHandler: VMCreateStepperGuidePhaseHandler {
         return .success
     }
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+        DispatchQueue.main.async {
+            let lastSaveDirectory = self.readLastDirectory()
+            if !lastSaveDirectory.isEmpty {
+                let lastSaveURL = URL(filePath: lastSaveDirectory)
+                
+                let bundleName = "\(context.configData.name).ezvm"
+                let vmDir = lastSaveURL.appending(path: bundleName)
+                context.formData.rootPath = vmDir.path(percentEncoded: false)
+            }
+        }
         return .success
+    }
+    
+    
+    func readLastDirectory() -> String {
+        return UserDefaults.standard.string(forKey: "CreatePhaseLastSaveDirectory") ?? ""
     }
 }
 
@@ -56,6 +71,8 @@ struct CreatePhaseSaveDirectoryView: View {
                                         return
                                     }
                                     
+                                    saveDirectory(path: path.path(percentEncoded: false))
+                                    
                                     let bundleName = "\(configData.name).ezvm"
                                     let vmDir = path.appending(path: bundleName)
                                     self.formData.rootPath = vmDir.path(percentEncoded: false)
@@ -70,6 +87,11 @@ struct CreatePhaseSaveDirectoryView: View {
             }
             .formStyle(.grouped)
         }
+    }
+    
+    
+    func saveDirectory(path: String) {
+        UserDefaults.standard.set(path, forKey: "CreatePhaseLastSaveDirectory")
     }
 }
 

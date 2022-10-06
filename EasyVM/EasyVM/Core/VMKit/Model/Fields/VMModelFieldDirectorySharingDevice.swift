@@ -25,7 +25,7 @@ struct VMModelFieldDirectorySharingDevice : Decodable, Encodable, CustomStringCo
     static let autoMoundTag = VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag
     
     var description: String {
-        "TAG: \(tag) ITEMS: \(items.map({$0.description}).joined(separator: " , "))"
+        "Tag: \(tag) Directories: \(items.map({$0.description}).joined(separator: " , "))"
     }
     
     func createConfiguration() -> VZVirtioFileSystemDeviceConfiguration? {

@@ -47,6 +47,10 @@ struct VMEditConfigurationView: View {
                     VMConfigurationPointingDevicesView()
                     VMConfigurationAudioDevicesView()
                 }
+                
+                Section("Sharing Directory") {
+                    VMConfigurationDirectorySharingDevicesView()
+                }
             }
             .formStyle(.grouped)
             

@@ -41,7 +41,7 @@ struct CreatePhaseConfigurationView: View {
             Text("Config Virtual Hardwares")
                 .font(.title3)
                 .padding(.all)
-            VMConfigurationView()
+            VMCreateConfigurationView()
         }
     }
 }

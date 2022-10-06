@@ -69,6 +69,10 @@ class VMOSRunnerForLinux : VMOSRunner {
         // consoleDevices
         virtualMachineConfiguration.consoleDevices = [createSpiceAgentConsoleDeviceConfiguration()]
         
+        // directorySharingDevices
+        virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
+        
+        
         // Validate
         do {
             try virtualMachineConfiguration.validate()
