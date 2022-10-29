@@ -8,6 +8,8 @@
 import Foundation
 import SwiftUI
 
+
+#if arch(arm64)
 struct VMModelFieldGraphicDeviceItemModel: Identifiable {
     let id = UUID()
     let data: VMModelFieldGraphicDevice
@@ -116,3 +118,4 @@ class VMConfigurationViewStateObject: ObservableObject {
     }
     
 }
+#endif

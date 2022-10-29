@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMConfigurationNetworkDevicesEditView: View {
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
@@ -84,3 +85,6 @@ struct VMConfigurationNetworkDevicesEditView_Previews: PreviewProvider {
             .frame(height: 600)
     }
 }
+
+
+#endif

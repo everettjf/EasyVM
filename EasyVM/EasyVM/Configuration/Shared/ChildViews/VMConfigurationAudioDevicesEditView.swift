@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMConfigurationAudioDevicesEditView: View {
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
@@ -83,3 +84,6 @@ struct VMConfigurationAudioDevicesEditView_Previews: PreviewProvider {
             .frame(height: 600)
     }
 }
+
+
+#endif

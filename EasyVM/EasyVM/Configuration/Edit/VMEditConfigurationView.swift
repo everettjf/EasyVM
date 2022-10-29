@@ -8,6 +8,7 @@
 import SwiftUI
 
 
+#if arch(arm64)
 struct VMEditConfigurationView: View {
     @Environment(\.presentationMode) var presentationMode
     
@@ -100,3 +101,6 @@ struct VMEditConfigurationView: View {
 //            .frame(width: 700, height:1000)
 //    }
 //}
+
+
+#endif

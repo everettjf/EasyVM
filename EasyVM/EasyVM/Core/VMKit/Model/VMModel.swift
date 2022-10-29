@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 
+#if arch(arm64)
 struct VMConfigModel : Decodable, Encodable {
     let type: VMOSType
     let name: String
@@ -198,3 +199,5 @@ struct VMModel: Identifiable {
     
 
 }
+
+#endif

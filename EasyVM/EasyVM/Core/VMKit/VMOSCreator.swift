@@ -7,6 +7,7 @@
 
 import Foundation
 
+#if arch(arm64)
 enum VMOSCreatorProgressInfo {
     case info(String)
     case error(String)
@@ -53,3 +54,5 @@ class VMOSCreatorUtil {
         }
     }
 }
+
+#endif

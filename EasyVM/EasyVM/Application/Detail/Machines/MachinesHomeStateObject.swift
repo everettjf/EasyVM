@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct HomeItemVMModel : Identifiable {
     let id = UUID()
     let rootPath: URL
@@ -60,3 +61,5 @@ class MachinesHomeStateObject: ObservableObject {
         }
     }
 }
+
+#endif

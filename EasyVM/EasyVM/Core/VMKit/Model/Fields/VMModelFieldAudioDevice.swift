@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 struct VMModelFieldAudioDevice: Decodable, Encodable, CustomStringConvertible {
     
     enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
@@ -50,3 +51,5 @@ struct VMModelFieldAudioDevice: Decodable, Encodable, CustomStringConvertible {
         return audioConfiguration
     }
 }
+
+#endif

@@ -8,6 +8,7 @@
 import Foundation
 
 
+#if arch(arm64)
 class VMOSHelper {
     
     // Create an empty disk image for the Virtual Machine.
@@ -42,3 +43,5 @@ class VMOSHelper {
         })
     }
 }
+
+#endif

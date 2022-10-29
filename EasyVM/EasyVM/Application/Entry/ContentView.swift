@@ -8,6 +8,7 @@ import Foundation
 import SwiftUI
 
 
+#if arch(arm64)
 struct ContentView: View {
     @State private var selectedMenuItem: SidebarMenu = .machines
     
@@ -39,3 +40,6 @@ struct ContentView_Previews: PreviewProvider {
         ContentView()
     }
 }
+
+
+#endif

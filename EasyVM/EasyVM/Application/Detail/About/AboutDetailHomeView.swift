@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct AboutDetailHomeView: View {
     var body: some View {
         VMWebView(url: URL(string:"https://easyvm.app")!)
@@ -19,3 +20,5 @@ struct AboutDetailHomeView_Previews: PreviewProvider {
         AboutDetailHomeView()
     }
 }
+
+#endif

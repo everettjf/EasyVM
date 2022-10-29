@@ -8,6 +8,7 @@
 import Foundation
 
 
+#if arch(arm64)
 struct AppConfigModel: Decodable, Encodable {
     var rootPaths: [String] = []
 }
@@ -22,7 +23,7 @@ class AppConfigManager {
     }
 
     func getRootPath() -> URL {
-        let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let urls = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)
         let url = urls.first!
         return url.appending(path: "EasyVM")
     }
@@ -104,3 +105,5 @@ class AppConfigManager {
 let sharedAppConfigManager = AppConfigManager()
 
 
+
+#endif

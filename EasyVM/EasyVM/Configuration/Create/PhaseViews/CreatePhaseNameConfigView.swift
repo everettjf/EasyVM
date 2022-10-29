@@ -8,6 +8,7 @@
 import SwiftUI
 
 
+#if arch(arm64)
 class CreatePhaseNameConfigViewHandler: VMCreateStepperGuidePhaseHandler {
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         if context.configData.name.isEmpty {
@@ -52,3 +53,4 @@ struct CreatePhaseNameConfigView_Previews: PreviewProvider {
             .environmentObject(formData)
     }
 }
+#endif

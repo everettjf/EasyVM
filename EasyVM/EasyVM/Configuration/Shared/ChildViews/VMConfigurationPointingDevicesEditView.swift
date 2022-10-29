@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+
+#if arch(arm64)
 struct VMConfigurationPointingDevicesEditView: View {
     
     @EnvironmentObject var configData: VMConfigurationViewStateObject
@@ -88,3 +90,4 @@ struct VMConfigurationPointingDevicesEditView_Previews: PreviewProvider {
             .frame(height: 600)
     }
 }
+#endif

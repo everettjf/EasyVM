@@ -7,6 +7,7 @@
 
 import Foundation
 
+#if arch(arm64)
 protocol VMOSDownloader {
     func isSupport() -> Bool
     func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) -> Void
@@ -21,3 +22,5 @@ class VMOSDownloaderFactory {
     }
 }
 
+
+#endif

@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct MachinesDetailCardWarpView: View {
     
     let item: HomeItemVMModel
@@ -144,3 +145,5 @@ struct MachinesDetailHomeView_Previews: PreviewProvider {
             .frame(width: 500, height: 400)
     }
 }
+
+#endif

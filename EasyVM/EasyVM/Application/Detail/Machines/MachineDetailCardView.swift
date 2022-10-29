@@ -8,6 +8,7 @@
 import SwiftUI
 
 
+#if arch(arm64)
 struct MachineDetailCardAction {
     let onPlay: () -> Void
     let onEdit: () -> Void
@@ -105,3 +106,5 @@ struct MachineDetailCardView: View {
         .padding(.all, 5)
     }
 }
+
+#endif

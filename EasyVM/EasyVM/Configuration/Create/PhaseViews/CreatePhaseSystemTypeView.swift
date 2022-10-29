@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct SystemCardView: View {
     let image: String
     let name: String
@@ -95,3 +96,6 @@ struct CreatePhaseSystemTypeView_Previews: PreviewProvider {
             .environmentObject(formData)
     }
 }
+
+
+#endif

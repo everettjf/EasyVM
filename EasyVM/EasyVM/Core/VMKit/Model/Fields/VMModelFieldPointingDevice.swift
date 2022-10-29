@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 
 struct VMModelFieldPointingDevice: Decodable, Encodable, CustomStringConvertible {
     
@@ -33,3 +34,5 @@ struct VMModelFieldPointingDevice: Decodable, Encodable, CustomStringConvertible
         return VZMacTrackpadConfiguration()
     }
 }
+
+#endif

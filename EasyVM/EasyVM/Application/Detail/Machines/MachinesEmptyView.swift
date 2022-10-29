@@ -8,6 +8,7 @@
 import SwiftUI
 
 
+#if arch(arm64)
 struct MachinesEmptyButtonView: View {
     let image: String
     let title: String
@@ -73,3 +74,5 @@ struct MachinesEmptyView_Previews: PreviewProvider {
             .frame(width: 600, height: 400)
     }
 }
+
+#endif

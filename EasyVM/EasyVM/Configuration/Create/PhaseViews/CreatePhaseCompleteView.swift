@@ -9,6 +9,7 @@ import SwiftUI
 
 
 
+#if arch(arm64)
 class CreatePhaseCompleteViewHandler: VMCreateStepperGuidePhaseHandler {
     
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
@@ -36,3 +37,6 @@ struct CreatePhaseCompleteView_Previews: PreviewProvider {
             .environmentObject(formData)
     }
 }
+
+
+#endif

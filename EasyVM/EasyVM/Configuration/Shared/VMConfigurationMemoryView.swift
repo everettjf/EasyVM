@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMConfigurationMemoryView: View {
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
@@ -68,3 +69,6 @@ struct VMConfigurationMemoryView_Previews: PreviewProvider {
             .environmentObject(VMConfigurationViewStateObject())
     }
 }
+
+
+#endif

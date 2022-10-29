@@ -9,6 +9,7 @@ import Cocoa
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 class VMOSInternalVirtualMachineDelegate: NSObject, VZVirtualMachineDelegate {
     
     func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
@@ -21,3 +22,5 @@ class VMOSInternalVirtualMachineDelegate: NSObject, VZVirtualMachineDelegate {
         print(info)
     }
 }
+
+#endif

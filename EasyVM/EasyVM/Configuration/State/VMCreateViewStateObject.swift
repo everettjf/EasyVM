@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 class VMCreateViewStateObject: ObservableObject {
     struct LogModel : Identifiable {
         let id = UUID()
@@ -74,6 +75,7 @@ class VMCreateViewStateObject: ObservableObject {
         return localPath
     }
     
-    
-    
 }
+
+
+#endif

@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMConfigurationDirectorySharingDevicesView: View {
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     @State var showingEditView = false
@@ -55,3 +56,6 @@ struct VMConfigurationDirectorySharingDevicesView_Previews: PreviewProvider {
         .formStyle(.grouped)
     }
 }
+
+
+#endif

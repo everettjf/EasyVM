@@ -8,6 +8,9 @@
 import Foundation
 import Virtualization
 
+
+#if arch(arm64)
+
 class VMOSDownloaderForMacOS : VMOSDownloader {
     private var downloadObserver: NSKeyValueObservation?
     private var downloadTask: URLSessionDownloadTask?
@@ -64,3 +67,6 @@ class VMOSDownloaderForMacOS : VMOSDownloader {
         downloadTask = nil
     }
 }
+
+
+#endif

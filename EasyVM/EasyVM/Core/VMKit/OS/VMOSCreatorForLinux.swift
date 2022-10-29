@@ -9,6 +9,7 @@ import Foundation
 import Virtualization
 
 
+#if arch(arm64)
 class VMOSCreatorForLinux: VMOSCreator {
     
     
@@ -162,3 +163,5 @@ class VMOSCreatorForLinux: VMOSCreator {
         return consoleDevice
     }
 }
+
+#endif

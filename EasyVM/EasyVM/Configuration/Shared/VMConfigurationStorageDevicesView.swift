@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMConfigurationStorageDevicesView: View {
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     @State var showingEditView = false
@@ -50,3 +51,6 @@ struct VMConfigurationStorageDevicesView_Previews: PreviewProvider {
             .environmentObject(VMConfigurationViewStateObject())
     }
 }
+
+
+#endif

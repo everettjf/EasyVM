@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 
 class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
     
@@ -95,3 +96,6 @@ struct CreatePhaseCreatingView_Previews: PreviewProvider {
             .environmentObject(formData)
     }
 }
+
+
+#endif

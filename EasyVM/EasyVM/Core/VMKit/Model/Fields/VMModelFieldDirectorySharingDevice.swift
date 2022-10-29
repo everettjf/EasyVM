@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 struct VMModelFieldDirectorySharingDevice : Decodable, Encodable, CustomStringConvertible {
     struct SharingItem:  Decodable, Encodable, CustomStringConvertible {
         let name: String
@@ -59,3 +60,5 @@ struct VMModelFieldDirectorySharingDevice : Decodable, Encodable, CustomStringCo
     }
 }
 
+
+#endif

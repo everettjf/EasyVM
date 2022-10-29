@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMCreateStepperGuideStepItemView: View {
     let systemImage: String
     let name: String
@@ -314,3 +315,6 @@ struct VMCreateStepperGuideView_Previews: PreviewProvider {
             .frame(width: 600, height: 400)
     }
 }
+
+
+#endif

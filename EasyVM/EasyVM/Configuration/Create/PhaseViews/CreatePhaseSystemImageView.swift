@@ -8,6 +8,7 @@
 import SwiftUI
 
 
+#if arch(arm64)
 struct SystemImageSourceTypeView: View {
     let image: String
     let name: String
@@ -139,3 +140,6 @@ struct CreatePhaseSystemImage_Previews: PreviewProvider {
             .environmentObject(configData)
     }
 }
+
+
+#endif

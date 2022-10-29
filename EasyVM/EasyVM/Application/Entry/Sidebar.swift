@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 
+#if arch(arm64)
 enum SidebarMenu: String, Identifiable, CaseIterable, Hashable {
     case machines = "Machines"
     case community = "Community"
@@ -81,3 +82,5 @@ struct SidebarItemLabel: View {
         .padding(.bottom, 7)
     }
 }
+
+#endif

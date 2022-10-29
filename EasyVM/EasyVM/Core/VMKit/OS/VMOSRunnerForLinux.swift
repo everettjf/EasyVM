@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 class VMOSRunnerForLinux : VMOSRunner {
     
     
@@ -129,3 +130,5 @@ class VMOSRunnerForLinux : VMOSRunner {
         return consoleDevice
     }
 }
+
+#endif

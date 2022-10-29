@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
     let rootPath: URL
     let recoveryMode: Bool
@@ -37,3 +38,5 @@ struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
     }
 }
 
+
+#endif

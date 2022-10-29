@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct MachineDetailInvalidCardView: View {
     let item: HomeItemVMModel
     
@@ -35,3 +36,5 @@ struct MachineDetailInvalidCardView: View {
 //        MachineDetailInvalidCardView()
 //    }
 //}
+
+#endif

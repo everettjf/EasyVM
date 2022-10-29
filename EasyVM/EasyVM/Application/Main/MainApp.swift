@@ -11,6 +11,8 @@ import SwiftUI
 struct MainApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
+    
+#if arch(arm64)
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -44,4 +46,14 @@ struct MainApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
     }
+#else
+    
+    var body: some Scene {
+        WindowGroup {
+            Text("App support only Apple Chips")
+                .frame(minWidth: 800, minHeight: 600)
+        }
+    }
+    
+#endif
 }

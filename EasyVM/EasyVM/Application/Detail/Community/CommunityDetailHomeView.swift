@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct CommunityDetailHomeView: View {
     var body: some View {
         VMWebView(url: URL(string:"https://discord.gg/uxuy3vVtWs")!)
@@ -19,3 +20,5 @@ struct CommunityDetailHomeView_Previews: PreviewProvider {
         CommunityDetailHomeView()
     }
 }
+
+#endif

@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 
 class VMOSCreatorForMacOS : VMOSCreator {
     
@@ -224,3 +225,6 @@ class VMOSCreatorForMacOS : VMOSCreator {
     
     
 }
+
+
+#endif

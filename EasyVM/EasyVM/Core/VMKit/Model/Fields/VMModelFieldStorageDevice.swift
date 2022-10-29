@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible {
     enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
         case Block, USB
@@ -83,3 +84,5 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
         return .success(disk)
     }
 }
+
+#endif

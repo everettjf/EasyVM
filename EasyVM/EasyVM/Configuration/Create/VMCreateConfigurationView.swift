@@ -8,6 +8,7 @@
 import SwiftUI
 
 
+#if arch(arm64)
 struct VMCreateConfigurationView: View {
     
     var body: some View {
@@ -41,3 +42,6 @@ struct VMConfigurationView_Previews: PreviewProvider {
             .frame(width: 700, height:1000)
     }
 }
+
+
+#endif

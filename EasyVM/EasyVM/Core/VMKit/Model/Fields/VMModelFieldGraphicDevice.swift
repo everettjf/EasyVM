@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible {
     enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
         case Mac, Virtio
@@ -53,3 +54,5 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
         return graphicsConfiguration
     }
 }
+
+#endif

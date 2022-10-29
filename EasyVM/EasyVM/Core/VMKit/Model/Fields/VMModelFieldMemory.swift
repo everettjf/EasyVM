@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import Virtualization
 
+#if arch(arm64)
 struct VMModelFieldMemory: Decodable, Encodable, CustomStringConvertible {
     let size: UInt64
     
@@ -39,3 +40,5 @@ struct VMModelFieldMemory: Decodable, Encodable, CustomStringConvertible {
         return VZVirtualMachineConfiguration.minimumAllowedMemorySize
     }
 }
+
+#endif

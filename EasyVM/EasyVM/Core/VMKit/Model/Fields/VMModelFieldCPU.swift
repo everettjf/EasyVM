@@ -10,6 +10,7 @@ import SwiftUI
 import Virtualization
 
 
+#if arch(arm64)
 struct VMModelFieldCPU: Decodable, Encodable {
     let count: Int
     
@@ -35,3 +36,5 @@ struct VMModelFieldCPU: Decodable, Encodable {
 
 }
 
+
+#endif

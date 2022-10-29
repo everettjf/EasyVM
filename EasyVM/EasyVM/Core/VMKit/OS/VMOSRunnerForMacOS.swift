@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 
 class VMOSRunnerForMacOS : VMOSRunner {
     
@@ -115,3 +116,5 @@ class VMOSRunnerForMacOS : VMOSRunner {
     }
 
 }
+
+#endif

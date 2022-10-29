@@ -10,6 +10,8 @@ import Foundation
 import Virtualization
 
 
+#if arch(arm64)
+
 public class VMOSInternalVirtualMachineViewController: NSViewController {
     // parameters
     var rootPath: URL? = nil
@@ -132,3 +134,4 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     }
 }
 
+#endif

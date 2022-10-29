@@ -8,6 +8,7 @@
 import SwiftUI
 
 
+#if arch(arm64)
 class SystemImageDownloadViewState : ObservableObject {
     
     enum ImageSource {
@@ -241,3 +242,6 @@ struct SystemImageDownloadView_Previews: PreviewProvider {
         SystemImageDownloadView()
     }
 }
+
+
+#endif

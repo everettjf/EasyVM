@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 class CreatePhaseSaveDirectoryViewHandler: VMCreateStepperGuidePhaseHandler {
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         if context.formData.rootPath.isEmpty {
@@ -102,3 +103,6 @@ struct CreatePhaseSaveDirectoryView_Previews: PreviewProvider {
             .environmentObject(formData)
     }
 }
+
+
+#endif

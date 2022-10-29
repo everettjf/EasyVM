@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+#if arch(arm64)
 struct VMOSMainVirtualMachineView: View {
     let rootPath: URL
     let recoveryMode: Bool
@@ -21,3 +22,5 @@ struct VMOSMainViewForMacOS_Previews: PreviewProvider {
         VMOSMainVirtualMachineView(rootPath: URL(filePath: "/Users/everettjf/Downloads/MyVirtualMachine"), recoveryMode: false)
     }
 }
+
+#endif

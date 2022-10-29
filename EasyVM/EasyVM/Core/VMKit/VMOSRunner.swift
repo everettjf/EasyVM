@@ -8,6 +8,7 @@
 import Foundation
 import Virtualization
 
+#if arch(arm64)
 protocol VMOSRunner {
     
     func createConfiguration(model: VMModel) -> VMOSResult<VZVirtualMachineConfiguration, String>
@@ -25,3 +26,7 @@ class VMOSRunnerFactory {
         }
     }
 }
+
+
+
+#endif
