@@ -9,7 +9,7 @@ import SwiftUI
 
 struct IssuesDetailHomeView: View {
     var body: some View {
-        VMWebView(url: URL(string:"https://github.com/easyvm/main/issues")!)
+        VMWebView(url: URL(string:"https://github.com/easyvm/blog/issues")!)
             .navigationTitle("Issues - EasyVM")
     }
 }
