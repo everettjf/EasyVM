@@ -208,6 +208,7 @@
 		D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutDetailHomeView.swift; sourceTree = "<group>"; };
 		D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
 		D1CCB222290DB92D00B1F563 /* EasyVM Intel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EasyVM Intel.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1CCB224290E257E00B1F563 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
 		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
 		D1E19A09289E9DAD00CF27D3 /* Array.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Array.swift; sourceTree = "<group>"; };
@@ -531,6 +532,7 @@
 		F2C5DCA02866F7C800B2F41F /* EasyVM */ = {
 			isa = PBXGroup;
 			children = (
+				D1CCB224290E257E00B1F563 /* Info.plist */,
 				D1E19A06289E9CE400CF27D3 /* Common */,
 				D1E61F6928AF1D2400ED98A0 /* Core */,
 				D184CB0C28EB2479001E3664 /* Configuration */,
@@ -985,6 +987,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EasyVM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = EasyVM;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -1014,6 +1017,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EasyVM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = EasyVM;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
