@@ -15,7 +15,11 @@ class CreatePhaseSaveDirectoryViewHandler: VMCreateStepperGuidePhaseHandler {
         }
         
         if FileManager.default.fileExists(atPath: context.formData.rootPath) {
-            return .failure("Directory already existed : \(context.formData.rootPath)")
+            
+            let items = (try? FileManager.default.contentsOfDirectory(atPath: context.formData.rootPath)) ?? []
+            if (items.count >= 2) {
+                return .failure("Directory already existed : \(context.formData.rootPath)")
+            }
         }
         
         return .success

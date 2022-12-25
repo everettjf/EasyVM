@@ -60,13 +60,12 @@ class VMCreateViewStateObject: ObservableObject {
     }
     
     func getSystemImagePathForDownload(osType: VMOSType) -> URL? {
-        guard let vmDir = URL(string: rootPath) else {
-            return nil
+        
+        if !FileManager.default.fileExists(atPath: rootPath) {
+            try? FileManager.default.createDirectory(atPath: rootPath, withIntermediateDirectories: true)
         }
 
-        if !FileManager.default.fileExists(atPath: vmDir.path) {
-            try? FileManager.default.createDirectory(at: vmDir, withIntermediateDirectories: true)
-        }
+        let vmDir = URL(filePath: rootPath)
 
         var localPath = vmDir.appending(path: "SystemImage.ipsw")
         if osType == .linux {

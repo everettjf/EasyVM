@@ -37,9 +37,16 @@ class VMOSCreatorUtil {
             let bundleFd = mkdir(path.path(percentEncoded: false), S_IRWXU | S_IRWXG | S_IRWXO)
             if bundleFd == -1 {
                 if errno == EEXIST {
-                    let error = "Failed to create VM.bundle: the base directory already exists."
-                    continuation.resume(throwing: VMOSError.regularFailure(error))
-                    return
+                    let items = (try? FileManager.default.contentsOfDirectory(atPath: path.path())) ?? []
+                    if (items.count >= 2) {
+                        // if target directory contains more than 1 items
+                        let error = "The base directory already exists."
+                        continuation.resume(throwing: VMOSError.regularFailure(error))
+                        return
+                    } else {
+                        continuation.resume(returning: ())
+                        return
+                    }
                 }
                 continuation.resume(throwing: VMOSError.regularFailure("Failed to create VM.bundle."))
                 return
