@@ -4,7 +4,7 @@ Yet another virtual machine application based on the Virtualization framework.
 
 https://developer.apple.com/documentation/virtualization
 
-**Still under development on optimizations**
+**The project is basically working, but still needs a lot of optimization**
 
 [Discord](https://discord.gg/uxuy3vVtWs)
 
