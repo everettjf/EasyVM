@@ -14,10 +14,27 @@ https://developer.apple.com/documentation/virtualization
 
 # Support
 
-- macOS
-- Linux
+- macOS virutal machine
+- Linux virutal machine
 
 # Screenshot
 
 ![screenshot1](./Assets/screenshot1.png)
 ![screenshot2](./Assets/screenshot2.png)
+
+
+# How to build
+
+- On apple chip macOS 13
+- Open EasyVM/EasyVM.xcodeproj
+- Run
+
+
+# Test system images
+
+- macOS
+    - Use the download latest option
+    - Or find the ipsw file somewhere, e.g. https://ipsw.me/product/Mac
+- Linux
+    - Fedora https://getfedora.org/en/workstation/download/ remember use ARM images: Fedora 37: aarch64 Live ISO
+    - Ubuntu https://cdimage.ubuntu.com/focal/daily-live/current/ remember use ARM images: 64-bit ARM (ARMv8/AArch64) desktop image
