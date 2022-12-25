@@ -1,6 +1,6 @@
 # EasyVM
 
-Yet another virtual machine based on the Virtualization framework.
+Yet another virtual machine application based on the Virtualization framework.
 
 https://developer.apple.com/documentation/virtualization
 
