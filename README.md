@@ -6,6 +6,8 @@ https://developer.apple.com/documentation/virtualization
 
 **Still under development on optimizations**
 
+[Discord](https://discord.gg/uxuy3vVtWs)
+
 # Works on
 
 - macOS 13 with Apple chip
