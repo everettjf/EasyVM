@@ -5,14 +5,14 @@ EasyVM is a macOS application, so it should be distributed as a **Homebrew Cask*
 The intended user experience is:
 
 ```sh
-brew install everettjf/tap/easyvm
+brew install --cask everettjf/tap/easyvm
 ```
 
 ## Release prerequisites
 
 The Cask must not be published until all of the following are true:
 
-- A stable semantic version has been tagged, for example `v2.1.0`.
+- A stable semantic version has been tagged, for example `v3.0.0`.
 - GitHub Releases contains a versioned `EasyVM-<version>.dmg` or `.zip`.
 - The application is signed with a Developer ID Application certificate and notarized by Apple.
 - The archive has a published SHA-256 checksum.
@@ -30,7 +30,7 @@ Once a real release exists, the initial manifest should resemble:
 # frozen_string_literal: true
 
 cask "easyvm" do
-  version "2.1.0"
+  version "3.0.0"
   sha256 "REPLACE_WITH_RELEASE_SHA256"
 
   url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.dmg"

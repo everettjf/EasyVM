@@ -39,7 +39,7 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 There is no supported packaged download yet. Reproducible signed releases and a Homebrew Cask are part of the refresh roadmap. Once the release pipeline is ready, installation will be:
 
 ```sh
-brew install everettjf/tap/easyvm
+brew install --cask everettjf/tap/easyvm
 ```
 
 ## Guest images
