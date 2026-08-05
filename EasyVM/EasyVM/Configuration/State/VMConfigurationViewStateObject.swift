@@ -41,6 +41,7 @@ struct VMModelFieldDirectorySharingDeviceItemModel: Identifiable {
 }
 
 
+@MainActor
 class VMConfigurationViewStateObject: ObservableObject {
     @Published var osType: VMOSType = .macOS
     
@@ -96,6 +97,7 @@ class VMConfigurationViewStateObject: ObservableObject {
         for item in configModel.audioDevices {
             self.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: item))
         }
+        self.directorySharingDevices = configModel.directorySharingDevices.map(VMModelFieldDirectorySharingDeviceItemModel.init(data:))
     }
     
     func resetDefaultConfig() {

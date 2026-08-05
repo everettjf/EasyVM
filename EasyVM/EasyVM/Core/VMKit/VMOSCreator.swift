@@ -14,10 +14,12 @@ enum VMOSCreatorProgressInfo {
     case progress(Double)
 }
 
+@MainActor
 protocol VMOSCreator {
     func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid
 }
 
+@MainActor
 class VMOSCreateFactory {
     static func getCreator(_ osType: VMOSType) -> VMOSCreator {
         switch osType {

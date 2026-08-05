@@ -15,7 +15,7 @@ struct VMConfigurationPointingDevicesEditView: View {
     
     @Environment(\.presentationMode) var presentationMode
     
-    @State var inputType: VMModelFieldPointingDevice.DeviceType = .USBScreenCoordinatePointing
+    @State private var inputType: VMModelFieldPointingDevice.DeviceType = .USBScreenCoordinatePointing
 
     
     var body: some View {

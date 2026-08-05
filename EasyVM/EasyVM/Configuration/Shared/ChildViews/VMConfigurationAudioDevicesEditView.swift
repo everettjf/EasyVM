@@ -13,7 +13,7 @@ struct VMConfigurationAudioDevicesEditView: View {
     
     @Environment(\.presentationMode) var presentationMode
     
-    @State var inputType: VMModelFieldAudioDevice.DeviceType = .InputStream
+    @State private var inputType: VMModelFieldAudioDevice.DeviceType = .InputStream
     
     var body: some View {
         VStack(alignment: .leading) {

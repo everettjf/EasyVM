@@ -13,7 +13,7 @@ struct VMConfigurationNetworkDevicesEditView: View {
     
     @Environment(\.presentationMode) var presentationMode
     
-    @State var inputType: VMModelFieldNetworkDevice.DeviceType = .NAT
+    @State private var inputType: VMModelFieldNetworkDevice.DeviceType = .NAT
 
     
     var body: some View {

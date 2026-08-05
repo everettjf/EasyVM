@@ -9,12 +9,29 @@ import Foundation
 
 
 #if arch(arm64)
-struct AppConfigModel: Decodable, Encodable {
+struct AppConfigModel: Codable {
+    static let currentSchemaVersion = 1
+
+    var schemaVersion = Self.currentSchemaVersion
     var rootPaths: [String] = []
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case rootPaths
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
+        rootPaths = try container.decodeIfPresent([String].self, forKey: .rootPaths) ?? []
+    }
 }
 
+@MainActor
 class AppConfigManager {
-    static let NewVMChangedNotification = Notification.Name("NewVMChanged")
+    static let newVMChangedNotification = Notification.Name("NewVMChanged")
 
     var appConfig = AppConfigModel()
     
@@ -23,17 +40,38 @@ class AppConfigManager {
     }
 
     func getRootPath() -> URL {
-        let urls = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)
-        let url = urls.first!
-        return url.appending(path: "EasyVM")
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "EasyVM", directoryHint: .isDirectory)
     }
+
+    private func getLegacyConfigPath() -> URL {
+        FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appending(path: "EasyVM", directoryHint: .isDirectory)
+            .appending(path: "config.json")
+    }
+
     func getConfigPath() -> URL {
         let rootDir = getRootPath()
         if !FileManager.default.fileExists(atPath: rootDir.path(percentEncoded: false)) {
-            try? FileManager.default.createDirectory(at: rootDir, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(at: rootDir, withIntermediateDirectories: true)
+            } catch {
+                assertionFailure("Unable to create EasyVM application support directory: \(error)")
+            }
         }
         
-        return rootDir.appending(path: "config.json")
+        let configPath = rootDir.appending(path: "config.json")
+        let legacyConfigPath = getLegacyConfigPath()
+        if !FileManager.default.fileExists(atPath: configPath.path(percentEncoded: false)),
+           FileManager.default.fileExists(atPath: legacyConfigPath.path(percentEncoded: false)) {
+            do {
+                try FileManager.default.copyItem(at: legacyConfigPath, to: configPath)
+            } catch {
+                print("legacy app config migration failed: \(error)")
+            }
+        }
+
+        return configPath
     }
 
     func loadConfig() {
@@ -41,10 +79,14 @@ class AppConfigManager {
             self.appConfig.rootPaths.removeAll()
             
             let path = getConfigPath()
-            print("config path : \(path.path(percentEncoded: false))")
-            
-            let data = try Data(contentsOf: path)
+            guard FileManager.default.fileExists(atPath: path.path(percentEncoded: false)) else {
+                return
+            }
+
+            let data = try Data(contentsOf: path, options: .mappedIfSafe)
             self.appConfig = try JSONDecoder().decode(AppConfigModel.self, from: data)
+            self.appConfig.schemaVersion = AppConfigModel.currentSchemaVersion
+            self.appConfig.rootPaths = Array(NSOrderedSet(array: self.appConfig.rootPaths)) as? [String] ?? self.appConfig.rootPaths
         } catch {
             print("app config load error : \(error)")
         }
@@ -54,15 +96,20 @@ class AppConfigManager {
         do {
             let path = getConfigPath()
             
-            let data = try JSONEncoder().encode(self.appConfig)
-            try data.write(to: path)
+            self.appConfig.schemaVersion = AppConfigModel.currentSchemaVersion
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(self.appConfig)
+            try data.write(to: path, options: .atomic)
         } catch {
             print("write app config failed : \(error)")
         }
     }
     
     func addVMPath(url: URL) {
-        self.appConfig.rootPaths.append(url.path(percentEncoded: false))
+        let path = url.standardizedFileURL.path(percentEncoded: false)
+        guard !self.appConfig.rootPaths.contains(path) else { return }
+        self.appConfig.rootPaths.append(path)
         saveConfig()
     }
     
@@ -76,7 +123,7 @@ class AppConfigManager {
     }
     
     public func addVMPathWithSelect() {
-        MacKitUtil.selectDirectory(title: "Select *.ezvm directory") { path in
+        MacKitUtil.selectDirectory(title: "Select *.ezvm directory") { @MainActor path in
             guard let path = path else {
                 return
             }
@@ -85,24 +132,24 @@ class AppConfigManager {
             
             self.addVMPath(url: path)
             
-            NotificationCenter.default.post(name: Self.NewVMChangedNotification, object: nil)
+            NotificationCenter.default.post(name: Self.newVMChangedNotification, object: nil)
         }
     }
     
     func addVMPathWithRefresh(url: URL) {
         addVMPath(url: url)
         
-        NotificationCenter.default.post(name: Self.NewVMChangedNotification, object: nil)
+        NotificationCenter.default.post(name: Self.newVMChangedNotification, object: nil)
     }
     
     
     public func removeVMPathWithReload(url: URL) {
         removeVMPath(url: url)
-        NotificationCenter.default.post(name: Self.NewVMChangedNotification, object: nil)
+        NotificationCenter.default.post(name: Self.newVMChangedNotification, object: nil)
     }
 }
 
-let sharedAppConfigManager = AppConfigManager()
+@MainActor let sharedAppConfigManager = AppConfigManager()
 
 
 

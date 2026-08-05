@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="EasyVM is a simple, native virtual machine app for Apple silicon Macs.">
+  <meta name="theme-color" content="#0b1020">
+  <title>EasyVM — Native virtual machines, kept simple</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav wrap">
+    <a class="brand" href="#top" aria-label="EasyVM home"><span class="mark">E</span>EasyVM</a>
+    <nav aria-label="Main navigation">
+      <a href="#principles">Principles</a>
+      <a href="#roadmap">Roadmap</a>
+      <a class="button small" href="https://github.com/everettjf/easyvm">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow">Native on Apple silicon</p>
+        <h1>Virtual machines,<br><span>kept simple.</span></h1>
+        <p class="lead">Create and run macOS and ARM64 Linux VMs with a focused SwiftUI app built on Apple's Virtualization framework.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/everettjf/easyvm#build-from-source">Build from source</a>
+          <a class="text-link" href="https://github.com/everettjf/easyvm/blob/main/docs/ROADMAP.md">Read the roadmap <span aria-hidden="true">→</span></a>
+        </div>
+        <p class="note">Open source · MIT licensed · macOS 13+ · Apple silicon · Homebrew planned</p>
+      </div>
+      <div class="window" aria-label="EasyVM application screenshot">
+        <div class="titlebar"><i></i><i></i><i></i><span>EasyVM</span></div>
+        <img src="Assets/screenshot1.png" alt="EasyVM showing its virtual machine library">
+      </div>
+    </section>
+
+    <section class="strip" aria-label="Core capabilities">
+      <div class="wrap stats">
+        <div><strong>Native</strong><span>Virtualization.framework</span></div>
+        <div><strong>Focused</strong><span>macOS + ARM64 Linux</span></div>
+        <div><strong>Local</strong><span>No account required</span></div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="principles">
+      <p class="eyebrow">A deliberately smaller VM app</p>
+      <h2>Useful defaults. Understandable controls.</h2>
+      <div class="cards">
+        <article><span>01</span><h3>Stable first</h3><p>Creation, boot, stop, recovery, and configuration integrity come before an expanding feature list.</p></article>
+        <article><span>02</span><h3>Native by design</h3><p>EasyVM embraces Apple silicon and Apple's virtualization stack instead of bundling a universal emulator.</p></article>
+        <article><span>03</span><h3>Agent-ready</h3><p>The future is a small, safe automation surface for disposable VMs—not an AI chat box inside every screen.</p></article>
+      </div>
+    </section>
+
+    <section class="section roadmap" id="roadmap">
+      <div class="wrap roadmap-grid">
+        <div><p class="eyebrow">The refresh</p><h2>A practical path forward.</h2><p>EasyVM started in 2022. The refresh keeps its simplicity while adding the engineering foundations expected from a dependable modern macOS app.</p></div>
+        <ol>
+          <li><span>01</span><div><strong>Re-establish the baseline</strong><p>Current Xcode, compatibility matrix, CI, and repeatable smoke tests.</p></div></li>
+          <li><span>02</span><div><strong>Harden the lifecycle</strong><p>Typed errors, configuration migrations, atomic storage, cancellation, and diagnostics.</p></div></li>
+          <li><span>03</span><div><strong>Ship reliably</strong><p>Tests, signing, notarization, GitHub Releases, Homebrew Cask, accessibility, and honest support policy.</p></div></li>
+          <li><span>04</span><div><strong>Automate carefully</strong><p>A thin CLI and, later, a local MCP interface backed by the same tested VM core.</p></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="cta wrap">
+      <div><p class="eyebrow">Help shape EasyVM</p><h2>Small scope. Solid execution.</h2></div>
+      <a class="button" href="https://github.com/everettjf/easyvm">View on GitHub</a>
+    </section>
+  </main>
+
+  <footer class="wrap"><span>EasyVM · MIT License</span><span>Built for Apple silicon</span></footer>
+</body>
+</html>

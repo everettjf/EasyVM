@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build on macOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project EasyVM/EasyVM.xcodeproj \
+            -scheme EasyVM \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath "$RUNNER_TEMP/EasyVMDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | xcpretty
+      - name: Validate documentation and workflows
+        run: |
+          test -s README.md
+          test -s docs/index.html
+          test -s docs/styles.css
+          ruby -e 'require "yaml"; Dir[".github/workflows/*.yml"].each { |path| YAML.load_file(path); puts "validated #{path}" }'

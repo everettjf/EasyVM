@@ -24,14 +24,14 @@ struct MachinesDetailCardWarpView: View {
 
 
 struct MachinesDetailHomeView: View {
-    @Environment(\.openWindow) var openWindow
+    @Environment(\.openWindow) private var openWindow
     
     @StateObject private var vmStore = MachinesHomeStateObject()
     @State private var editingItem: HomeItemVMModel?
     
-    let columns = [GridItem(.adaptive(minimum: 230, maximum: 230))]
+    private let columns = [GridItem(.adaptive(minimum: 230, maximum: 230))]
     
-    var content: some View {
+    private var content: some View {
         VStack {
             if vmStore.vmItems.isEmpty {
                 MachinesEmptyView()
@@ -40,11 +40,13 @@ struct MachinesDetailHomeView: View {
             }
         }
         .sheet(item: $editingItem) { item in
-            VMEditConfigurationView(model: item.model!)
+            if let model = item.model {
+                VMEditConfigurationView(model: model)
+            }
         }
     }
     
-    var grid: some View {
+    private var grid: some View {
         ScrollView {
             LazyVGrid(columns: columns, alignment: .listRowSeparatorLeading) {
                 ForEach(vmStore.vmItems) { item in
@@ -66,7 +68,7 @@ struct MachinesDetailHomeView: View {
                             Text("Run")
                         }
                         
-                        if item.model != nil && item.model!.config.type == .macOS {
+                        if item.model?.config.type == .macOS {
                             Button {
                                 print("run")
                                 openWindow(id: "start-machine-recovery", value: item.rootPath)
@@ -116,14 +118,14 @@ struct MachinesDetailHomeView: View {
                         Button(action: {
                             openWindow(id: "create-machine-guide")
                         }) {
-                            Label("Create a new virutal machine", systemImage: "plus.diamond")
+                            Label("Create a new virtual machine", systemImage: "plus.diamond")
                         }
                     }
                     ToolbarItem(id: "add", placement: .primaryAction) {
                         Button(action: {
                             sharedAppConfigManager.addVMPathWithSelect()
                         }) {
-                            Label("Add an existing virutal machine", systemImage: "folder.badge.plus")
+                            Label("Add an existing virtual machine", systemImage: "folder.badge.plus")
                         }
                     }
 //                    ToolbarItem(id: "share", placement: .automatic) {

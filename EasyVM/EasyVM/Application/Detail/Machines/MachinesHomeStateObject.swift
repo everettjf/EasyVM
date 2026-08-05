@@ -9,25 +9,28 @@ import SwiftUI
 
 #if arch(arm64)
 struct HomeItemVMModel : Identifiable {
-    let id = UUID()
     let rootPath: URL
     let model: VMModel?
+
+    var id: URL { rootPath.standardizedFileURL }
 }
 
+@MainActor
 class MachinesHomeStateObject: ObservableObject {
     @Published var vmItems: [HomeItemVMModel] = []
+    private var changeObserver: NSObjectProtocol?
     
     init() {
         reload()
         
-        NotificationCenter.default.addObserver(forName: AppConfigManager.NewVMChangedNotification, object: nil, queue: OperationQueue.main) { [weak self] notification in
-            DispatchQueue.main.async {
-                self?.reload()
-            }
+        changeObserver = NotificationCenter.default.addObserver(forName: AppConfigManager.newVMChangedNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.reload() }
         }
     }
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        if let changeObserver {
+            NotificationCenter.default.removeObserver(changeObserver)
+        }
     }
     
     func reload() {

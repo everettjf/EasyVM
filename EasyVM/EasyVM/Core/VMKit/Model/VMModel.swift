@@ -60,12 +60,12 @@ struct VMConfigModel : Decodable, Encodable {
     func writeConfigToFile(path: URL) -> VMOSResultVoid {
         do {
             let encoder = JSONEncoder()
-            encoder.outputFormatting = .prettyPrinted
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(self)
             guard let content = String(data: data, encoding: .utf8) else {
                 return .failure("failed to parse to utf8")
             }
-            try content.write(toFile: path.path(percentEncoded: false), atomically: true, encoding: .utf8)
+            try content.write(to: path, atomically: true, encoding: .utf8)
             return .success
         } catch {
             return .failure("\(error)")
@@ -92,12 +92,12 @@ struct VMStateModel : Decodable, Encodable  {
     func writeStateToFile(path: URL) -> VMOSResultVoid {
         do {
             let encoder = JSONEncoder()
-            encoder.outputFormatting = .prettyPrinted
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(self)
             guard let content = String(data: data, encoding: .utf8) else {
                 return .failure("failed to parse to utf8")
             }
-            try content.write(toFile: path.path(percentEncoded: false), atomically: true, encoding: .utf8)
+            try content.write(to: path, atomically: true, encoding: .utf8)
             return .success
         } catch {
             return .failure("\(error)")
@@ -117,10 +117,11 @@ struct VMStateModel : Decodable, Encodable  {
 }
 
 struct VMModel: Identifiable {
-    let id = UUID()
     let rootPath: URL
     let state: VMStateModel
     let config: VMConfigModel
+
+    var id: URL { rootPath.standardizedFileURL }
     
     func getRootPath() -> URL {
         return rootPath

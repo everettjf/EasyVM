@@ -14,9 +14,9 @@ struct VMConfigurationStorageDevicesEditView: View {
     @Environment(\.presentationMode) var presentationMode
     
     
-    @State var inputType: VMModelFieldStorageDevice.DeviceType = .USB
-    @State var inputSize: UInt64 = 64 * 1024 * 1024 * 1024
-    @State var inputPath: String = ""
+    @State private var inputType: VMModelFieldStorageDevice.DeviceType = .USB
+    @State private var inputSize: UInt64 = 64 * 1024 * 1024 * 1024
+    @State private var inputPath = ""
     
     
     var body: some View {

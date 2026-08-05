@@ -46,11 +46,13 @@ struct VMCreateStepperGuideSeparatorView: View {
     }
 }
 
+@MainActor
 struct VMCreateStepperGuidePhaseContext {
     let formData: VMCreateViewStateObject
     let configData: VMConfigurationViewStateObject
 }
 
+@MainActor
 protocol VMCreateStepperGuidePhaseHandler {
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid
@@ -65,6 +67,7 @@ struct VMCreateStepperGuideItem : Identifiable {
     let handler: any VMCreateStepperGuidePhaseHandler
 }
 
+@MainActor
 class VMCreateStepperGuideStateObject: ObservableObject {
     @Published var current: Int
     @Published var stepCount: Int
@@ -106,18 +109,18 @@ class VMCreateStepperGuideStateObject: ObservableObject {
 }
 
 struct VMCreateStepperGuideView: View {
-    @ObservedObject var stepperState: VMCreateStepperGuideStateObject
-    @ObservedObject var formData: VMCreateViewStateObject
-    @ObservedObject var configData: VMConfigurationViewStateObject
+    @StateObject private var stepperState: VMCreateStepperGuideStateObject
+    @StateObject private var formData: VMCreateViewStateObject
+    @StateObject private var configData: VMConfigurationViewStateObject
     
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     
-    @State var showingAlert = false
-    @State var alertMessage = ""
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
     
-    @State var isStepInitializing = false
-    @State var stepStatusMessage = ""
-    @State var disableNext = false
+    @State private var isStepInitializing = false
+    @State private var stepStatusMessage = ""
+    @State private var disableNext = false
     
     let steps: [VMCreateStepperGuideItem]
     
@@ -175,9 +178,9 @@ struct VMCreateStepperGuideView: View {
         ]
         
         self.steps = steps
-        self.stepperState = VMCreateStepperGuideStateObject(stepCount: steps.count)
-        self.formData = VMCreateViewStateObject()
-        self.configData = VMConfigurationViewStateObject()
+        _stepperState = StateObject(wrappedValue: VMCreateStepperGuideStateObject(stepCount: steps.count))
+        _formData = StateObject(wrappedValue: VMCreateViewStateObject())
+        _configData = StateObject(wrappedValue: VMConfigurationViewStateObject())
     }
     
     var body: some View {
@@ -201,8 +204,8 @@ struct VMCreateStepperGuideView: View {
         HStack(alignment:.top) {
             // body
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(0..<steps.count, id: \.self) { index in
-                    VMCreateStepperGuideStepItemView(systemImage: steps[index].systemImage, name: steps[index].name, subtitle: steps[index].subtitle, pointing: index == stepperState.current)
+                ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                    VMCreateStepperGuideStepItemView(systemImage: step.systemImage, name: step.name, subtitle: step.subtitle, pointing: index == stepperState.current)
                 }
                 Spacer()
             }
@@ -219,12 +222,7 @@ struct VMCreateStepperGuideView: View {
     var bottom: some View {
         
         VStack {
-            ZStack {
-                ForEach(0..<steps.count, id: \.self) { index in
-                    steps[index].content
-                        .opacity(index == stepperState.current ? 1 : 0)
-                }
-            }
+            steps[stepperState.current].content
             
             Spacer()
             
@@ -262,10 +260,7 @@ struct VMCreateStepperGuideView: View {
     
     func tryMoveNextStep() {
         if stepperState.isStepCompletion() {
-            // done , notify main list when changed value
-            // TODO
-            // close
-            presentationMode.wrappedValue.dismiss()
+            dismiss()
             return
         }
         
@@ -286,19 +281,15 @@ struct VMCreateStepperGuideView: View {
         self.disableNext = true
         
         // call onStepMovedIn
-        Task {
+        Task { @MainActor in
             let result = await nextItem.handler.onStepMovedIn(context: context)
 
-            DispatchQueue.main.async {
-                // enable button
-                self.isStepInitializing = false
-                
-                if case let .failure(error) = result {
-                    self.stepStatusMessage = error
-                    self.disableNext = true
-                } else {
-                    self.disableNext = false
-                }
+            self.isStepInitializing = false
+            if case let .failure(error) = result {
+                self.stepStatusMessage = error
+                self.disableNext = true
+            } else {
+                self.disableNext = false
             }
         }
     }

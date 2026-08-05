@@ -8,6 +8,7 @@
 import SwiftUI
 
 #if arch(arm64)
+@MainActor
 class VMCreateViewStateObject: ObservableObject {
     struct LogModel : Identifiable {
         let id = UUID()
@@ -42,9 +43,7 @@ class VMCreateViewStateObject: ObservableObject {
     }
     
     func addLog(_ log: String) {
-        DispatchQueue.main.async {
-            self.logs.insert(LogModel(log), at: 0)
-        }
+        logs.insert(LogModel(log), at: 0)
     }
     
     func changeProgress(_ percent: Double) {
@@ -54,15 +53,18 @@ class VMCreateViewStateObject: ObservableObject {
         if percent < 0.0 {
             return
         }
-        DispatchQueue.main.async {
-            self.installingProgress = percent
-        }
+        installingProgress = percent
     }
     
     func getSystemImagePathForDownload(osType: VMOSType) -> URL? {
         
         if !FileManager.default.fileExists(atPath: rootPath) {
-            try? FileManager.default.createDirectory(atPath: rootPath, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(atPath: rootPath, withIntermediateDirectories: true)
+            } catch {
+                addLog("Unable to create the VM directory: \(error.localizedDescription)")
+                return nil
+            }
         }
 
         let vmDir = URL(filePath: rootPath)

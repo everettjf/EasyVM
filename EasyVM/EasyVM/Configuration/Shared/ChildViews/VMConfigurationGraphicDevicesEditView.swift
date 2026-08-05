@@ -14,10 +14,10 @@ struct VMConfigurationGraphicDevicesEditView: View {
     @Environment(\.presentationMode) var presentationMode
     
     
-    @State var inputType: VMModelFieldGraphicDevice.DeviceType = .Mac
-    @State var inputWidth: Int = 1920
-    @State var inputHeight: Int = 1200
-    @State var inputPixelsPerInch: Int = 80
+    @State private var inputType: VMModelFieldGraphicDevice.DeviceType = .Mac
+    @State private var inputWidth = 1920
+    @State private var inputHeight = 1200
+    @State private var inputPixelsPerInch = 80
     
     var body: some View {
         VStack(alignment: .leading) {

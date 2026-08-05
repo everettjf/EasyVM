@@ -10,7 +10,7 @@ import SwiftUI
 #if arch(arm64)
 struct VMConfigurationPointingDevicesView: View {
     @EnvironmentObject var configData: VMConfigurationViewStateObject
-    @State var showingEditView = false
+    @State private var showingEditView = false
     
     var body: some View {
         content

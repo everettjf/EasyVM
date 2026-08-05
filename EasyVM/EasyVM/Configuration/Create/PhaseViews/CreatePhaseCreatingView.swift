@@ -48,11 +48,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         case .failure(let error):
             print("Failed to create : \(error)")
         case .success:
-            DispatchQueue.main.async {
-                context.formData.disablePreviousButton = true
-                
-                sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
-            }
+            context.formData.disablePreviousButton = true
+            sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
         }
         
         return result

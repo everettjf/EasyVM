@@ -12,7 +12,7 @@ struct VMConfigurationGraphicDevicesView: View {
     
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
-    @State var showingEditView = false
+    @State private var showingEditView = false
     
     var body: some View {
         content

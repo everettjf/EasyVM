@@ -10,7 +10,8 @@ import Virtualization
 
 #if arch(arm64)
 
-class VMOSCreatorForMacOS : VMOSCreator {
+@MainActor
+final class VMOSCreatorForMacOS: VMOSCreator {
     
     
     private var installationObserver: NSKeyValueObservation?
@@ -65,31 +66,25 @@ class VMOSCreatorForMacOS : VMOSCreator {
     
     
     private func startInstallation(restoreImageURL: URL, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
-        return try await withCheckedThrowingContinuation({ continuation in
-            DispatchQueue.main.async {
+        return try await withCheckedThrowingContinuation { continuation in
+            let installer = VZMacOSInstaller(virtualMachine: virtualMachine, restoringFromImageAt: restoreImageURL)
 
-                let installer = VZMacOSInstaller(virtualMachine: self.virtualMachine, restoringFromImageAt: restoreImageURL)
-                
-                progress(.info("Begin real install, please wait..."))
-                installer.install(completionHandler: { (result: Result<Void,Error>) in
-                    if case let .failure(error) = result {
-                        continuation.resume(throwing: error)
-                        return
-                    }
-                    
-                    progress(.info("Succeed install"))
-                    continuation.resume(returning: ())
-                })
-
-                // Observe installation progress
-                self.installationObserver = installer.progress.observe(\.fractionCompleted, options: [.initial, .new]) { (current, change) in
-                    guard let newValue = change.newValue else {
-                        return
-                    }
-                    progress(.progress(newValue))
+            progress(.info("Begin real install, please wait..."))
+            installer.install { result in
+                if case let .failure(error) = result {
+                    continuation.resume(throwing: error)
+                    return
                 }
+
+                progress(.info("Succeed install"))
+                continuation.resume(returning: ())
             }
-        })
+
+            installationObserver = installer.progress.observe(\.fractionCompleted, options: [.initial, .new]) { _, change in
+                guard let newValue = change.newValue else { return }
+                progress(.progress(newValue))
+            }
+        }
     }
     
     

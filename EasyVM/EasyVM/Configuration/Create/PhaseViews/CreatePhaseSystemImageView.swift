@@ -57,7 +57,7 @@ struct CreatePhaseSystemImageView: View {
     @EnvironmentObject var formData: VMCreateViewStateObject
     @EnvironmentObject var configData: VMConfigurationViewStateObject
     
-    @State var isShowDownload: Bool = false
+    @State private var isShowDownload = false
     
     var body: some View {
         content

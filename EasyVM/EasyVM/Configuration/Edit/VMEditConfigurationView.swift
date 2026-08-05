@@ -91,7 +91,7 @@ struct VMEditConfigurationView: View {
         
         print("succeed save")
         
-        NotificationCenter.default.post(name: AppConfigManager.NewVMChangedNotification, object: nil)
+        NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
     }
 }
 //

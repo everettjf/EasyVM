@@ -10,7 +10,8 @@ import Virtualization
 
 
 #if arch(arm64)
-class VMOSCreatorForLinux: VMOSCreator {
+@MainActor
+final class VMOSCreatorForLinux: VMOSCreator {
     
     
     private var virtualMachine: VZVirtualMachine!

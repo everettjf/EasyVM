@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version without the v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+      HAS_SIGNING_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 != '' }}
+      HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import Developer ID certificate
+        if: env.HAS_SIGNING_CERTIFICATE == 'true'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 }}
+          p12-password: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
+
+      - name: Select signing identity
+        if: env.HAS_SIGNING_CERTIFICATE == 'true'
+        run: |
+          identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)
+          test -n "$identity"
+          echo "EASYVM_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: Build release archive
+        run: |
+          chmod +x scripts/build-release.sh
+          scripts/build-release.sh "$RELEASE_VERSION" "$RUNNER_TEMP/release"
+
+      - name: Require signing for tagged releases
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_SIGNING_CERTIFICATE != 'true'
+        run: |
+          echo "Tagged releases require DEVELOPER_ID_APPLICATION_P12 and DEVELOPER_ID_APPLICATION_PASSWORD secrets." >&2
+          exit 1
+
+      - name: Notarize release archive
+        if: env.HAS_SIGNING_CERTIFICATE == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          version="${RELEASE_VERSION#v}"
+          xcrun notarytool submit "$RUNNER_TEMP/release/EasyVM-$version.zip" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${RELEASE_VERSION#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "$RUNNER_TEMP/release/EasyVM-$version.zip" \
+            "$RUNNER_TEMP/release/EasyVM-$version.zip.sha256" \
+            --generate-notes \
+            --title "EasyVM $version"
+
+      - name: Check out Homebrew tap
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_TAP_TOKEN == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: everettjf/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Publish Homebrew Cask
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_TAP_TOKEN == 'true'
+        run: |
+          version="${RELEASE_VERSION#v}"
+          mkdir -p homebrew-tap/Casks
+          ruby scripts/update-cask.rb \
+            "$version" \
+            "$RUNNER_TEMP/release/EasyVM-$version.zip" \
+            Casks/easyvm.rb \
+            homebrew-tap/Casks/easyvm.rb
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/easyvm.rb
+          git diff --cached --quiet || git commit -m "Update EasyVM to $version"
+          git push
+
+      - name: Upload manual build
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyVM-${{ inputs.version }}
+          path: ${{ runner.temp }}/release/*
