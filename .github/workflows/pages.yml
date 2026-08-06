@@ -33,8 +33,9 @@ jobs:
         run: |
           mkdir _site
           cp -R docs/. _site/
-          mkdir _site/Assets
-          cp Assets/screenshot1.png _site/Assets/screenshot1.png
+          mkdir _site/assets
+          cp Assets/screenshot1.png _site/assets/easyvm-library-v3.png
+          test -s _site/assets/easyvm-library-v3.png
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
       - name: Deploy
