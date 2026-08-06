@@ -19,7 +19,8 @@ jobs:
     runs-on: macos-15
     env:
       RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
-      HAS_SIGNING_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 != '' }}
+      HAS_SIGNING_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 != '' || secrets.BUILD_CERTIFICATE_BASE64 != '' }}
+      HAS_NOTARY_CREDENTIALS: ${{ secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && (secrets.APPLE_SPECIFIC_PASSWORD != '' || secrets.APPLE_APP_PASSWORD != '') }}
       HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +29,8 @@ jobs:
         if: env.HAS_SIGNING_CERTIFICATE == 'true'
         uses: apple-actions/import-codesign-certs@v3
         with:
-          p12-file-base64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 }}
-          p12-password: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
+          p12-file-base64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 || secrets.BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD || secrets.P12_PASSWORD }}
 
       - name: Select signing identity
         if: env.HAS_SIGNING_CERTIFICATE == 'true'
@@ -43,28 +44,27 @@ jobs:
           chmod +x scripts/build-release.sh
           scripts/build-release.sh "$RELEASE_VERSION" "$RUNNER_TEMP/release"
 
-      - name: Require signing for tagged releases
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_SIGNING_CERTIFICATE != 'true'
+      - name: Report candidate-only build
+        if: env.HAS_SIGNING_CERTIFICATE != 'true' || env.HAS_NOTARY_CREDENTIALS != 'true'
         run: |
-          echo "Tagged releases require DEVELOPER_ID_APPLICATION_P12 and DEVELOPER_ID_APPLICATION_PASSWORD secrets." >&2
-          exit 1
+          echo "Release credentials are incomplete. The archive will be uploaded as a workflow artifact, but no GitHub Release or Homebrew update will be published."
 
       - name: Notarize release archive
-        if: env.HAS_SIGNING_CERTIFICATE == 'true'
+        if: env.HAS_SIGNING_CERTIFICATE == 'true' && env.HAS_NOTARY_CREDENTIALS == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_SPECIFIC_PASSWORD: ${{ secrets.APPLE_SPECIFIC_PASSWORD || secrets.APPLE_APP_PASSWORD }}
         run: |
           version="${RELEASE_VERSION#v}"
           xcrun notarytool submit "$RUNNER_TEMP/release/EasyVM-$version.zip" \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_APP_PASSWORD" \
+            --password "$APPLE_SPECIFIC_PASSWORD" \
             --wait
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_SIGNING_CERTIFICATE == 'true' && env.HAS_NOTARY_CREDENTIALS == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -76,7 +76,7 @@ jobs:
             --title "EasyVM $version"
 
       - name: Check out Homebrew tap
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_TAP_TOKEN == 'true'
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_SIGNING_CERTIFICATE == 'true' && env.HAS_NOTARY_CREDENTIALS == 'true' && env.HAS_TAP_TOKEN == 'true'
         uses: actions/checkout@v4
         with:
           repository: everettjf/homebrew-tap
@@ -84,7 +84,7 @@ jobs:
           path: homebrew-tap
 
       - name: Publish Homebrew Cask
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_TAP_TOKEN == 'true'
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_SIGNING_CERTIFICATE == 'true' && env.HAS_NOTARY_CREDENTIALS == 'true' && env.HAS_TAP_TOKEN == 'true'
         run: |
           version="${RELEASE_VERSION#v}"
           mkdir -p homebrew-tap/Casks
@@ -100,9 +100,9 @@ jobs:
           git diff --cached --quiet || git commit -m "Update EasyVM to $version"
           git push
 
-      - name: Upload manual build
-        if: github.event_name == 'workflow_dispatch'
+      - name: Upload candidate build
+        if: github.event_name == 'workflow_dispatch' || env.HAS_SIGNING_CERTIFICATE != 'true' || env.HAS_NOTARY_CREDENTIALS != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: EasyVM-${{ inputs.version }}
+          name: EasyVM-${{ env.RELEASE_VERSION }}
           path: ${{ runner.temp }}/release/*
