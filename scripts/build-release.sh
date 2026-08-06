@@ -46,6 +46,9 @@ codesign --verify --deep --strict --verbose=2 "$app_path"
 codesign --display --entitlements :- "$app_path"
 
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$output_dir/$archive_name"
-shasum -a 256 "$output_dir/$archive_name" > "$output_dir/$archive_name.sha256"
+(
+  cd "$output_dir"
+  shasum -a 256 "$archive_name" > "$archive_name.sha256"
+)
 
 echo "Created $output_dir/$archive_name"

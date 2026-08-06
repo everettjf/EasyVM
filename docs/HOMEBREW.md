@@ -1,29 +1,26 @@
-# Homebrew distribution plan
+# Homebrew distribution
 
 EasyVM is a macOS application, so it should be distributed as a **Homebrew Cask**, not a source-building Formula.
 
-The intended user experience is:
+EasyVM 3 is published through the project's Homebrew tap:
 
 ```sh
 brew install --cask everettjf/tap/easyvm
 ```
 
-## Release prerequisites
+## Current release
 
-The Cask must not be published until all of the following are true:
+The `v3.0.0` release meets the distribution requirements:
 
-- A stable semantic version has been tagged, for example `v3.0.0`.
-- GitHub Releases contains a versioned `EasyVM-<version>.dmg` or `.zip`.
-- The application is signed with a Developer ID Application certificate and notarized by Apple.
-- The archive has a published SHA-256 checksum.
-- Installation and first launch have been tested on a clean supported Mac.
-- The download URL is stable and does not require authentication.
+- The release is tagged and hosted by GitHub Releases.
+- The app is signed with Developer ID Application team `YPV49M8592`.
+- Apple notarization and Gatekeeper assessment pass.
+- The immutable ZIP SHA-256 is `7bbd5d66d25461ca1d1e9c0fdd9629c3d150872b2f28997e69bdbf48b3088fef`.
+- `brew install --cask everettjf/tap/easyvm` has been tested successfully.
 
 GitHub Releases should remain the source of truth. The Cask is a small installation manifest pointing at the immutable release artifact.
 
-## Proposed Cask
-
-Once a real release exists, the initial manifest should resemble:
+## Cask
 
 ```ruby
 # typed: strict
@@ -31,37 +28,38 @@ Once a real release exists, the initial manifest should resemble:
 
 cask "easyvm" do
   version "3.0.0"
-  sha256 "REPLACE_WITH_RELEASE_SHA256"
+  sha256 "7bbd5d66d25461ca1d1e9c0fdd9629c3d150872b2f28997e69bdbf48b3088fef"
 
-  url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.dmg"
+  url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip"
   name "EasyVM"
   desc "Simple native virtual machines for Apple silicon Macs"
   homepage "https://everettjf.github.io/easyvm/"
 
   depends_on arch: :arm64
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "EasyVM.app"
 
   zap trash: [
+    "~/Library/Application Support/EasyVM",
     "~/Library/Preferences/com.everettjf.easyvm.plist",
     "~/Library/Saved Application State/com.everettjf.easyvm.savedState",
   ]
 end
 ```
 
-The final `zap` list must be verified against the refreshed application's actual bundle identifier and storage policy. VM bundles must never be included in `zap` unless users explicitly choose their deletion.
+The `zap` list covers application state only. VM bundles are never removed by uninstall or zap.
 
-## Publication sequence
+## Publication process
 
-1. Build, sign, notarize and staple the application artifact.
+1. Build and sign the application with its virtualization entitlement and hardened runtime.
 2. Create the GitHub Release and upload the immutable archive plus checksum.
 3. Test a local Cask against that exact URL and SHA-256.
 4. Publish the Cask to `everettjf/homebrew-tap` automatically after the signed release succeeds.
 5. Submit it to `Homebrew/homebrew-cask` once EasyVM meets upstream inclusion requirements; the shorter command will then become `brew install --cask easyvm`.
 6. Verify install, upgrade and uninstall on a clean supported Mac.
-7. Add the working install command to the README and website; remove the “planned” label.
+7. Publish the working install command in the README and website.
 
 ## Automation boundary
 
-Release automation may generate a candidate Cask and checksum, but publishing to Homebrew should remain gated on a successfully signed/notarized release and an installation smoke test. A broken Cask damages trust more than a manual release step costs.
+Release automation generates a candidate archive when credentials are unavailable. GitHub Release and Homebrew publication remain gated on a Developer ID certificate, Apple notarization credentials, and tap access.

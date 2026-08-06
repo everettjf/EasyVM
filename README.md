@@ -9,7 +9,7 @@
 
 EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to create and run macOS and Linux virtual machines with a focused SwiftUI interface. It aims to be dependable, understandable, and useful without becoming a full emulation suite.
 
-> **Project status:** EasyVM is being refreshed after its original 2022 release. The current code works, but releases should be treated as experimental until the reliability milestone is complete. Keep backups of important VM data.
+> **Project status:** EasyVM 3 is the refreshed, Developer ID-signed and Apple-notarized release. VM software can affect large disk images, so keep backups of important guests.
 
 ![EasyVM machine library](./Assets/screenshot1.png)
 
@@ -25,8 +25,17 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 
 - An Apple silicon Mac
 - macOS 13 Ventura or later
-- Xcode 14 or later to build the current project
 - An ARM64 guest image; EasyVM does not emulate x86 guests
+
+## Install
+
+Install the signed and notarized release from the EasyVM Homebrew tap:
+
+```sh
+brew install --cask everettjf/tap/easyvm
+```
+
+Or download the archive from [GitHub Releases](https://github.com/everettjf/easyvm/releases/latest).
 
 ## Build from source
 
@@ -35,12 +44,6 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 3. Select the **EasyVM** scheme and your Mac as the run destination.
 4. Choose your own development team and bundle identifier if code signing requires it.
 5. Build and run with <kbd>⌘R</kbd>.
-
-There is no supported packaged download yet. Reproducible signed releases and a Homebrew Cask are part of the refresh roadmap. Once the release pipeline is ready, installation will be:
-
-```sh
-brew install --cask everettjf/tap/easyvm
-```
 
 ## Guest images
 
