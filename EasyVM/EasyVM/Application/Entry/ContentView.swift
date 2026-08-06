@@ -20,6 +20,7 @@ struct ContentView: View {
                 }
                 .listItemTint(menu.color)
             }
+            .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 360)
         } detail: {
             switch selectedMenuItem {
             case .machines:
