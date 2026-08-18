@@ -68,15 +68,18 @@ struct MachinesDetailHomeView: View {
                         openWindow(id: "start-machine", value: item.rootPath)
                     })
                     .contextMenu {
+                        let isRunning = VMRunningRegistry.shared.isRunning(rootPath: item.rootPath)
+
                         Button {
                             print("run")
                             openWindow(id: "start-machine", value: item.rootPath)
                         } label: {
-                            Image(systemName: "play")
-                            Text("Run")
+                            Image(systemName: isRunning ? "macwindow" : "play")
+                            Text(isRunning ? "Open Window" : "Run")
                         }
-                        
-                        if item.model?.config.type == .macOS {
+
+                        // starting a second instance on the same disk is unsafe
+                        if item.model?.config.type == .macOS && !isRunning {
                             Button {
                                 print("run")
                                 openWindow(id: "start-machine-recovery", value: item.rootPath)
@@ -85,15 +88,9 @@ struct MachinesDetailHomeView: View {
                                 Text("Run into Recovery Mode")
                             }
                         }
-                        
-                        Button {
-                            print("reveal")
-                            MacKitUtil.revealInFinder(item.rootPath.path(percentEncoded: false))
-                        } label: {
-                            Image(systemName: "folder")
-                            Text("Reveal in Finder")
-                        }
-                        
+
+                        Divider()
+
                         Button {
                             print("take snapshot now")
                             takeQuickSnapshot(item: item)
@@ -110,6 +107,8 @@ struct MachinesDetailHomeView: View {
                             Text("Snapshots...")
                         }
 
+                        Divider()
+
                         Button {
                             print("edit")
                             editingItem = item
@@ -117,13 +116,31 @@ struct MachinesDetailHomeView: View {
                             Image(systemName: "slider.horizontal.3")
                             Text("Edit")
                         }
-                        
+
                         Button {
-                            print("remove")
-                            sharedAppConfigManager.removeVMPathWithReload(url: item.rootPath)
+                            print("reveal")
+                            MacKitUtil.revealInFinder(item.rootPath.path(percentEncoded: false))
                         } label: {
-                            Image(systemName: "delete.left")
-                            Text("Remove")
+                            Image(systemName: "folder")
+                            Text("Reveal in Finder")
+                        }
+
+                        Divider()
+
+                        Button {
+                            print("remove from list")
+                            removeFromList(item: item)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                            Text("Remove from List")
+                        }
+
+                        Button {
+                            print("move to trash")
+                            moveToTrash(item: item)
+                        } label: {
+                            Image(systemName: "trash")
+                            Text("Move to Trash")
                         }
                     }
                 }
@@ -148,6 +165,36 @@ struct MachinesDetailHomeView: View {
                 case .failure(let error):
                     MacKitUtil.alertWarn(title: "Snapshot failed", message: error)
                 }
+            }
+        }
+    }
+
+    func removeFromList(item: HomeItemVMModel) {
+        let name = item.model?.config.name ?? item.rootPath.lastPathComponent
+        let path = item.rootPath.path(percentEncoded: false)
+        MacKitUtil.alertWarn(title: "Remove \"\(name)\" from the list?", message: "The machine files stay on disk at \(path). You can add the machine back at any time.") { isOK in
+            if isOK {
+                sharedAppConfigManager.removeVMPathWithReload(url: item.rootPath)
+            }
+        }
+    }
+
+    func moveToTrash(item: HomeItemVMModel) {
+        if VMRunningRegistry.shared.isRunning(rootPath: item.rootPath) {
+            MacKitUtil.alertWarn(title: "Machine is running", message: "Shut down the virtual machine before moving it to the Trash.")
+            return
+        }
+
+        let name = item.model?.config.name ?? item.rootPath.lastPathComponent
+        MacKitUtil.alertWarn(title: "Move \"\(name)\" to the Trash?", message: "The whole machine bundle, including its snapshots, will be moved to the Trash. You can put it back from the Trash.") { isOK in
+            guard isOK else {
+                return
+            }
+            do {
+                try FileManager.default.trashItem(at: item.rootPath, resultingItemURL: nil)
+                sharedAppConfigManager.removeVMPathWithReload(url: item.rootPath)
+            } catch {
+                MacKitUtil.alertWarn(title: "Failed to move to Trash", message: error.localizedDescription)
             }
         }
     }

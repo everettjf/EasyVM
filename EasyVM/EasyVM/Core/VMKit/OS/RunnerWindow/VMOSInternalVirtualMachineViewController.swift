@@ -21,6 +21,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var virtualMachineView: VZVirtualMachineView!
     private var virtualMachineResponder: VMOSInternalVirtualMachineDelegate?
     private var virtualMachine: VZVirtualMachine!
+    private var screenshotTimer: Timer?
     
 
     public override func loadView() {
@@ -101,6 +102,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 print("Virtual machine successfully started.")
                 Task { @MainActor in
                     VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                    self.startScreenshotTimer()
                 }
             }
         } else {
@@ -114,17 +116,48 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 print("Virtual machine successfully started.")
                 Task { @MainActor in
                     VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                    self.startScreenshotTimer()
                 }
             }
         }
     }
 
+    // keep a thumbnail of the running system for the machine card
+    private func startScreenshotTimer() {
+        screenshotTimer?.invalidate()
+        screenshotTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.captureScreenshot()
+        }
+    }
+
+    private func captureScreenshot() {
+        guard let rootPath = rootPath, let view = virtualMachineView else {
+            return
+        }
+        let bounds = view.bounds
+        guard bounds.width > 1, bounds.height > 1 else {
+            return
+        }
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: bounds) else {
+            return
+        }
+        view.cacheDisplay(in: bounds, to: rep)
+        let image = NSImage(size: bounds.size)
+        image.addRepresentation(rep)
+        MacKitUtil.saveImage(image, atUrl: rootPath.appending(path: "screenshot.png"))
+    }
+
     public override func viewDidDisappear() {
         super.viewDidDisappear()
         // closing the window tears the virtual machine down with it
+        screenshotTimer?.invalidate()
+        screenshotTimer = nil
+        captureScreenshot()
         if let rootPath = rootPath {
             Task { @MainActor in
                 VMRunningRegistry.shared.markStopped(rootPath: rootPath)
+                // refresh the machine list so the card shows the final thumbnail
+                NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
             }
         }
     }
