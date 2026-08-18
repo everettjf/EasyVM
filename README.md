@@ -15,8 +15,10 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 
 ## What it does
 
-- Creates and runs macOS virtual machines from a local IPSW or Apple's latest supported restore image
-- Creates and runs ARM64 Linux virtual machines from an ISO
+- Creates and runs macOS virtual machines from a local IPSW, a selectable macOS version, or Apple's latest supported restore image
+- Creates and runs ARM64 Linux virtual machines from a local ISO or a built-in list of common distributions
+- Stores machines in `~/EasyVM` by default; any other location can still be chosen
+- Takes, restores, and deletes snapshots of a stopped machine (APFS copy-on-write clones)
 - Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories
 - Uses Apple's native virtualization stack—no bundled hypervisor or cross-architecture emulation
 - Keeps the app and its VM configuration format intentionally small
@@ -49,11 +51,11 @@ Or download the archive from [GitHub Releases](https://github.com/everettjf/easy
 
 ### macOS
 
-Use **Download Latest** in the creation flow, or select a compatible `.ipsw` restore image. Apple publishes current restore images through `Virtualization.framework`; third-party indexes such as [ipsw.me](https://ipsw.me/product/Mac) can help locate older versions.
+Pick a macOS version from the built-in list in the creation flow (or use the latest supported restore image), or select a compatible `.ipsw` restore image from disk. Apple publishes current restore images through `Virtualization.framework`; third-party indexes such as [ipsw.me](https://ipsw.me/product/Mac) can help locate older versions.
 
 ### Linux
 
-Choose an **ARM64 / AArch64** installer ISO, for example [Ubuntu](https://ubuntu.com/download/server/arm) or [Fedora](https://fedoraproject.org/server/download). Intel/AMD (`x86_64`) images are not supported.
+Pick a distribution from the built-in list in the creation flow (Ubuntu Server/Desktop, Debian, Fedora), or choose any **ARM64 / AArch64** installer ISO, for example [Ubuntu](https://ubuntu.com/download/server/arm) or [Fedora](https://fedoraproject.org/server/download). Intel/AMD (`x86_64`) images are not supported.
 
 ## Direction
 

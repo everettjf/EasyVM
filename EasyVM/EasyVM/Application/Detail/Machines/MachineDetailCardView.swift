@@ -12,6 +12,7 @@ import SwiftUI
 struct MachineDetailCardAction {
     let onPlay: () -> Void
     let onEdit: () -> Void
+    let onSnapshots: () -> Void
 }
 
 struct MachineDetailCardView: View {
@@ -86,8 +87,16 @@ struct MachineDetailCardView: View {
                 }
                 .buttonStyle(.borderless)
 
-                
+
                 Spacer()
+                Button {
+                    action.onSnapshots()
+                } label: {
+                    Image(systemName: "camera.on.rectangle")
+                }
+                .buttonStyle(.borderless)
+                .help("Snapshots")
+
                 Button {
                     action.onEdit()
                 } label: {

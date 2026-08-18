@@ -150,7 +150,7 @@ struct VMCreateStepperGuideView: View {
             VMCreateStepperGuideItem(
                 systemImage: "4.circle",
                 name: "System Image",
-                subtitle: "Download or choose ipsw/iso file ?",
+                subtitle: "Choose a system version to download, or pick a local ipsw/iso file",
                 content: AnyView(CreatePhaseSystemImageView()),
                 handler: CreatePhaseSystemImageViewHandler()
             ),

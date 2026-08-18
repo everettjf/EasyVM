@@ -83,13 +83,11 @@ struct CreatePhaseSystemImageView: View {
                     .onTapGesture {
                         selectFromFileSystem()
                     }
-                
-                if configData.osType == .macOS {
-                    SystemImageSourceTypeView(image: "cloud", name: "Download from network")
-                        .onTapGesture {
-                            selectFromNetwork()
-                        }
-                }
+
+                SystemImageSourceTypeView(image: "cloud", name: configData.osType == .macOS ? "Choose macOS version" : "Choose Linux distribution")
+                    .onTapGesture {
+                        selectFromNetwork()
+                    }
                 
                 Spacer()
             }

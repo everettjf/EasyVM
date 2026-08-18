@@ -28,6 +28,7 @@ struct MachinesDetailHomeView: View {
     
     @StateObject private var vmStore = MachinesHomeStateObject()
     @State private var editingItem: HomeItemVMModel?
+    @State private var snapshotItem: HomeItemVMModel?
     
     private let columns = [GridItem(.adaptive(minimum: 230, maximum: 230))]
     
@@ -44,6 +45,11 @@ struct MachinesDetailHomeView: View {
                 VMEditConfigurationView(model: model)
             }
         }
+        .sheet(item: $snapshotItem) { item in
+            if let model = item.model {
+                MachineSnapshotsView(machineName: model.config.name, rootPath: item.rootPath)
+            }
+        }
     }
     
     private var grid: some View {
@@ -54,6 +60,8 @@ struct MachinesDetailHomeView: View {
                         openWindow(id: "start-machine", value: item.rootPath)
                     }, onEdit: {
                         editingItem = item
+                    }, onSnapshots: {
+                        snapshotItem = item
                     }))
                     .onTapGesture(count: 2, perform: {
                         print("open machine")
@@ -86,6 +94,14 @@ struct MachinesDetailHomeView: View {
                             Text("Reveal in Finder")
                         }
                         
+                        Button {
+                            print("snapshots")
+                            snapshotItem = item
+                        } label: {
+                            Image(systemName: "camera.on.rectangle")
+                            Text("Snapshots")
+                        }
+
                         Button {
                             print("edit")
                             editingItem = item

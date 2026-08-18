@@ -1,17 +1,15 @@
 //
-//  VMOSImageDownloadForMacOS.swift
+//  VMOSDownloaderForLinux.swift
 //  EasyVM
 //
-//  Created by everettjf on 2022/9/27.
+//  Created by everettjf on 2026/8/18.
 //
 
 import Foundation
-import Virtualization
-
 
 #if arch(arm64)
 
-class VMOSDownloaderForMacOS : VMOSDownloader {
+class VMOSDownloaderForLinux : VMOSDownloader {
     private let fileDownloader = VMOSHTTPFileDownloader()
 
     func isSupport() -> Bool {
@@ -19,16 +17,9 @@ class VMOSDownloaderForMacOS : VMOSDownloader {
     }
 
     func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
-
-        VZMacOSRestoreImage.fetchLatestSupported { [self](result: Result<VZMacOSRestoreImage, Error>) in
-            switch result {
-            case let .failure(error):
-                completionHandler(.failure("Failed to fetch latest supported image : \(error.localizedDescription)"))
-
-            case let .success(restoreImage):
-                fileDownloader.download(imageURL: restoreImage.url, toLocalPath: toLocalPath, completionHandler: completionHandler, downloadProgressHandler: downloadProgressHandler)
-            }
-        }
+        // There is no single "latest" image for Linux; pick a distribution
+        // from the catalog or provide a custom URL instead.
+        completionHandler(.failure("Latest image is not available for Linux. Please choose a distribution or input an image URL."))
     }
 
     func downloadURL(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
@@ -39,6 +30,5 @@ class VMOSDownloaderForMacOS : VMOSDownloader {
         fileDownloader.cancel()
     }
 }
-
 
 #endif

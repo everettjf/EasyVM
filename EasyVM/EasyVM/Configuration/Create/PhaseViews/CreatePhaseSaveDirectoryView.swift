@@ -9,36 +9,55 @@ import SwiftUI
 
 #if arch(arm64)
 class CreatePhaseSaveDirectoryViewHandler: VMCreateStepperGuidePhaseHandler {
+
+    // ~/EasyVM is used when the user never picked a custom location,
+    // so choosing a directory is optional in the create guide.
+    static func defaultStorageDirectory() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser.appending(path: "EasyVM")
+    }
+
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         if context.formData.rootPath.isEmpty {
             return .failure("Directory can not be empty")
         }
-        
+
         if FileManager.default.fileExists(atPath: context.formData.rootPath) {
-            
+
             let items = (try? FileManager.default.contentsOfDirectory(atPath: context.formData.rootPath)) ?? []
             if (items.count >= 2) {
                 return .failure("Directory already existed : \(context.formData.rootPath)")
             }
         }
-        
+
+        // make sure the parent directory exists (e.g. the default ~/EasyVM)
+        let parentDir = URL(filePath: context.formData.rootPath).deletingLastPathComponent()
+        if !FileManager.default.fileExists(atPath: parentDir.path(percentEncoded: false)) {
+            do {
+                try FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
+            } catch {
+                return .failure("Unable to create directory \(parentDir.path(percentEncoded: false)) : \(error.localizedDescription)")
+            }
+        }
+
         return .success
     }
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         DispatchQueue.main.async {
+            var baseURL = Self.defaultStorageDirectory()
+
             let lastSaveDirectory = self.readLastDirectory()
             if !lastSaveDirectory.isEmpty {
-                let lastSaveURL = URL(filePath: lastSaveDirectory)
-                
-                let bundleName = "\(context.configData.name).ezvm"
-                let vmDir = lastSaveURL.appending(path: bundleName)
-                context.formData.rootPath = vmDir.path(percentEncoded: false)
+                baseURL = URL(filePath: lastSaveDirectory)
             }
+
+            let bundleName = "\(context.configData.name).ezvm"
+            let vmDir = baseURL.appending(path: bundleName)
+            context.formData.rootPath = vmDir.path(percentEncoded: false)
         }
         return .success
     }
-    
-    
+
+
     func readLastDirectory() -> String {
         return UserDefaults.standard.string(forKey: "CreatePhaseLastSaveDirectory") ?? ""
     }
@@ -61,13 +80,16 @@ struct CreatePhaseSaveDirectoryView: View {
                 Section("Location") {
                     VStack(alignment: .leading) {
                         HStack {
-                            Text("Select where machine files save :")
+                            Text("Machine files will be saved to :")
                             Spacer()
                             Text(formData.rootPath)
                                 .lineLimit(4)
                         }
-                        
+
                         HStack {
+                            Text("By default machines are stored in ~/EasyVM. Pick another directory only if you want a different location.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             Spacer()
                             Button {
                                 MacKitUtil.selectDirectory(title: "Select a direcotry") { path in
