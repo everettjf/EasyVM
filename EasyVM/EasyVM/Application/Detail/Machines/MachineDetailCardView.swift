@@ -20,7 +20,11 @@ struct MachineDetailCardView: View {
     let item: HomeItemVMModel
     let model: VMModel
     let action: MachineDetailCardAction
-    
+
+    var snapshotCount: Int {
+        VMSnapshotManager.snapshotCount(vmRootPath: model.rootPath)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -92,7 +96,13 @@ struct MachineDetailCardView: View {
                 Button {
                     action.onSnapshots()
                 } label: {
-                    Image(systemName: "camera.on.rectangle")
+                    HStack(spacing: 2) {
+                        Image(systemName: "camera.on.rectangle")
+                        if snapshotCount > 0 {
+                            Text("\(snapshotCount)")
+                                .font(.caption)
+                        }
+                    }
                 }
                 .buttonStyle(.borderless)
                 .help("Snapshots")

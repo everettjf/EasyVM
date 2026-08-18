@@ -83,11 +83,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         
         virtualMachine = VZVirtualMachine(configuration: virtualMachineConfiguration)
-        virtualMachineResponder = VMOSInternalVirtualMachineDelegate()
+        virtualMachineResponder = VMOSInternalVirtualMachineDelegate(rootPath: rootPath)
         virtualMachine.delegate = virtualMachineResponder
         virtualMachineView.virtualMachine = virtualMachine
-        
-        
+
+
         if recoveryMode {
             let startOptions = VZMacOSVirtualMachineStartOptions()
             startOptions.startUpFromMacOSRecovery = true
@@ -99,6 +99,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
                 // succeed start
                 print("Virtual machine successfully started.")
+                Task { @MainActor in
+                    VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                }
             }
         } else {
             virtualMachine.start { result in
@@ -106,13 +109,26 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     print("error start : \(error)")
                     return
                 }
-                
+
                 // succeed start
                 print("Virtual machine successfully started.")
+                Task { @MainActor in
+                    VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                }
             }
         }
     }
-    
+
+    public override func viewDidDisappear() {
+        super.viewDidDisappear()
+        // closing the window tears the virtual machine down with it
+        if let rootPath = rootPath {
+            Task { @MainActor in
+                VMRunningRegistry.shared.markStopped(rootPath: rootPath)
+            }
+        }
+    }
+
 }
 
 extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {

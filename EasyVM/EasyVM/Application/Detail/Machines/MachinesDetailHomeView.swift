@@ -95,11 +95,19 @@ struct MachinesDetailHomeView: View {
                         }
                         
                         Button {
+                            print("take snapshot now")
+                            takeQuickSnapshot(item: item)
+                        } label: {
+                            Image(systemName: "camera")
+                            Text("Take Snapshot Now")
+                        }
+
+                        Button {
                             print("snapshots")
                             snapshotItem = item
                         } label: {
                             Image(systemName: "camera.on.rectangle")
-                            Text("Snapshots")
+                            Text("Snapshots...")
                         }
 
                         Button {
@@ -123,6 +131,27 @@ struct MachinesDetailHomeView: View {
         }
     }
     
+    func takeQuickSnapshot(item: HomeItemVMModel) {
+        let rootPath = item.rootPath
+        if VMRunningRegistry.shared.isRunning(rootPath: rootPath) {
+            MacKitUtil.alertWarn(title: "Machine is running", message: "Shut down the virtual machine before taking a snapshot.")
+            return
+        }
+
+        Task.detached {
+            let result = VMSnapshotManager.createSnapshot(vmRootPath: rootPath, name: VMSnapshotManager.defaultSnapshotName())
+            await MainActor.run {
+                switch result {
+                case .success(let snapshot):
+                    NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+                    MacKitUtil.alertInfo(title: "Snapshot created", message: snapshot.name)
+                case .failure(let error):
+                    MacKitUtil.alertWarn(title: "Snapshot failed", message: error)
+                }
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             content

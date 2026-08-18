@@ -20,17 +20,36 @@ import Foundation
  (copy-on-write), so taking a snapshot is fast and only consumes space as
  the disk image diverges afterwards.
 
+ Restoring is transactional: the snapshot is cloned into a staging
+ directory first, then swapped in with renames; any failure rolls the
+ machine back to the state it was in before the restore started.
+
  Snapshots must be taken/restored while the virtual machine is shut down.
  */
 struct VMSnapshotModel: Identifiable, Codable {
     let id: String
-    let name: String
+    var name: String
     let createdAt: Date
+    // missing in metadata written by older versions
+    let totalSize: UInt64?
 
     var displayDate: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
         return formatter.string(from: createdAt)
+    }
+
+    var displayRelativeDate: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: createdAt, relativeTo: Date())
+    }
+
+    var displaySize: String {
+        guard let totalSize = totalSize else {
+            return ""
+        }
+        return ByteCountFormatter.string(fromByteCount: Int64(totalSize), countStyle: .file)
     }
 }
 
@@ -40,6 +59,8 @@ class VMSnapshotManager {
     static let snapshotsDirectoryName = "Snapshots"
     private static let filesDirectoryName = "files"
     private static let metaFileName = "snapshot.json"
+    private static let restoreStagingDirectoryName = ".restore-staging"
+    private static let restoreBackupDirectoryName = ".restore-backup"
 
     static func snapshotsRootURL(vmRootPath: URL) -> URL {
         vmRootPath.appending(path: snapshotsDirectoryName)
@@ -57,10 +78,18 @@ class VMSnapshotManager {
         snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshotId).appending(path: metaFileName)
     }
 
-    // machine files are everything in the bundle except the Snapshots directory itself
+    static func defaultSnapshotName() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return "Snapshot \(formatter.string(from: Date()))"
+    }
+
+    // machine files are everything in the bundle except the Snapshots
+    // directory itself and restore working directories
     private static func listMachineFileNames(vmRootPath: URL) throws -> [String] {
+        let excluded: Set<String> = [snapshotsDirectoryName, restoreStagingDirectoryName, restoreBackupDirectoryName, ".DS_Store"]
         let items = try FileManager.default.contentsOfDirectory(atPath: vmRootPath.path(percentEncoded: false))
-        return items.filter { $0 != snapshotsDirectoryName && $0 != ".DS_Store" }
+        return items.filter { !excluded.contains($0) }
     }
 
     static func listSnapshots(vmRootPath: URL) -> [VMSnapshotModel] {
@@ -83,11 +112,14 @@ class VMSnapshotManager {
         return snapshots.sorted { $0.createdAt > $1.createdAt }
     }
 
-    static func createSnapshot(vmRootPath: URL, name: String) -> VMOSResult<VMSnapshotModel, String> {
-        let model = VMSnapshotModel(id: UUID().uuidString, name: name, createdAt: Date())
+    static func snapshotCount(vmRootPath: URL) -> Int {
+        listSnapshots(vmRootPath: vmRootPath).count
+    }
 
-        let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: model.id)
-        let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: model.id)
+    static func createSnapshot(vmRootPath: URL, name: String) -> VMOSResult<VMSnapshotModel, String> {
+        let snapshotId = UUID().uuidString
+        let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshotId)
+        let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshotId)
 
         do {
             let fileNames = try listMachineFileNames(vmRootPath: vmRootPath)
@@ -103,6 +135,8 @@ class VMSnapshotManager {
                 try FileManager.default.copyItem(at: sourceURL, to: targetURL)
             }
 
+            let model = VMSnapshotModel(id: snapshotId, name: name, createdAt: Date(), totalSize: directoryAllocatedSize(filesDir))
+
             let data = try Self.jsonEncoder().encode(model)
             try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id))
 
@@ -115,27 +149,73 @@ class VMSnapshotManager {
     }
 
     static func restoreSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
+        let fm = FileManager.default
         let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
 
-        guard let snapshotFileNames = try? FileManager.default.contentsOfDirectory(atPath: filesDir.path(percentEncoded: false)), !snapshotFileNames.isEmpty else {
+        guard let snapshotFileNames = try? fm.contentsOfDirectory(atPath: filesDir.path(percentEncoded: false)), !snapshotFileNames.isEmpty else {
             return .failure("Snapshot files are missing : \(filesDir.path(percentEncoded: false))")
         }
 
+        let stagingDir = vmRootPath.appending(path: restoreStagingDirectoryName)
+        let backupDir = vmRootPath.appending(path: restoreBackupDirectoryName)
+        try? fm.removeItem(at: stagingDir)
+        try? fm.removeItem(at: backupDir)
+
+        // phase 1 : clone the snapshot into staging; the machine is untouched,
+        // so a failure here is harmless
         do {
-            // remove current machine files, then clone the snapshot files back
+            try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+            for fileName in snapshotFileNames {
+                try fm.copyItem(at: filesDir.appending(path: fileName), to: stagingDir.appending(path: fileName))
+            }
+        } catch {
+            try? fm.removeItem(at: stagingDir)
+            return .failure("Failed to prepare snapshot files : \(error.localizedDescription)")
+        }
+
+        // phase 2 : swap with renames (fast on the same volume); every move is
+        // tracked so a failure can be rolled back precisely
+        var movedToBackup: [String] = []
+        var movedFromStaging: [String] = []
+        do {
+            try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
+
             let currentFileNames = try listMachineFileNames(vmRootPath: vmRootPath)
             for fileName in currentFileNames {
-                try FileManager.default.removeItem(at: vmRootPath.appending(path: fileName))
+                try fm.moveItem(at: vmRootPath.appending(path: fileName), to: backupDir.appending(path: fileName))
+                movedToBackup.append(fileName)
             }
 
             for fileName in snapshotFileNames {
-                let sourceURL = filesDir.appending(path: fileName)
-                let targetURL = vmRootPath.appending(path: fileName)
-                try FileManager.default.copyItem(at: sourceURL, to: targetURL)
+                try fm.moveItem(at: stagingDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
+                movedFromStaging.append(fileName)
             }
+        } catch {
+            for fileName in movedFromStaging {
+                try? fm.removeItem(at: vmRootPath.appending(path: fileName))
+            }
+            for fileName in movedToBackup {
+                try? fm.moveItem(at: backupDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
+            }
+            try? fm.removeItem(at: stagingDir)
+            try? fm.removeItem(at: backupDir)
+            return .failure("Failed to restore snapshot, the machine was rolled back to its previous state : \(error.localizedDescription)")
+        }
+
+        try? fm.removeItem(at: stagingDir)
+        try? fm.removeItem(at: backupDir)
+        return .success
+    }
+
+    static func renameSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel, newName: String) -> VMOSResultVoid {
+        var model = snapshot
+        model.name = newName
+        do {
+            let data = try Self.jsonEncoder().encode(model)
+            try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id))
             return .success
         } catch {
-            return .failure("Failed to restore snapshot : \(error.localizedDescription)")
+            return .failure("Failed to rename snapshot : \(error.localizedDescription)")
         }
     }
 
@@ -147,6 +227,24 @@ class VMSnapshotManager {
         } catch {
             return .failure("Failed to delete snapshot : \(error.localizedDescription)")
         }
+    }
+
+    // size on disk of every regular file below url
+    private static func directoryAllocatedSize(_ url: URL) -> UInt64 {
+        var total: UInt64 = 0
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey]
+        guard let enumerator = FileManager.default.enumerator(at: url, includingPropertiesForKeys: Array(keys)) else {
+            return 0
+        }
+        for case let fileURL as URL in enumerator {
+            guard let values = try? fileURL.resourceValues(forKeys: keys) else {
+                continue
+            }
+            if values.isRegularFile == true {
+                total += UInt64(values.totalFileAllocatedSize ?? values.fileSize ?? 0)
+            }
+        }
+        return total
     }
 
     private static func jsonEncoder() -> JSONEncoder {

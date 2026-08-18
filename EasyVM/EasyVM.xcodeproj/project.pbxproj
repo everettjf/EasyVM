@@ -40,6 +40,8 @@
 		CA5E5AFE000000000000C006 /* CreatePhaseNameLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */; };
 		CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */; };
 		CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */; };
+		CA5E5AFE000000000000C007 /* VMRunningRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */; };
+		CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */; };
 		D132337728E28453002C26A2 /* VMOSResultVoid.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337628E28453002C26A2 /* VMOSResultVoid.swift */; };
 		D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
 		D166803428E93DA300F70110 /* MachinesEmptyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D166803328E93DA300F70110 /* MachinesEmptyView.swift */; };
@@ -183,6 +185,7 @@
 		CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineSnapshotsView.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemView.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseNameLocationView.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMRunningRegistry.swift; sourceTree = "<group>"; };
 		D132337628E28453002C26A2 /* VMOSResultVoid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSResultVoid.swift; sourceTree = "<group>"; };
 		D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailCardView.swift; sourceTree = "<group>"; };
 		D166803328E93DA300F70110 /* MachinesEmptyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesEmptyView.swift; sourceTree = "<group>"; };
@@ -326,6 +329,7 @@
 			children = (
 				D132337628E28453002C26A2 /* VMOSResultVoid.swift */,
 				D1196EC328E868BC00CCC04D /* VMOSHelper.swift */,
+				CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -694,6 +698,7 @@
 				CA5E5AFE000000000000C004 /* MachineSnapshotsView.swift in Sources */,
 				CA5E5AFE000000000000C005 /* CreatePhaseSystemView.swift in Sources */,
 				CA5E5AFE000000000000C006 /* CreatePhaseNameLocationView.swift in Sources */,
+				CA5E5AFE000000000000C007 /* VMRunningRegistry.swift in Sources */,
 				D1CCB1E6290DB92D00B1F563 /* VMConfigurationCPUView.swift in Sources */,
 				D1CCB1E7290DB92D00B1F563 /* VMModelFieldNetworkDevice.swift in Sources */,
 				D1CCB1E8290DB92D00B1F563 /* VMOSRunnerForLinux.swift in Sources */,
@@ -772,6 +777,7 @@
 				CA5E5AFE000000000000D004 /* MachineSnapshotsView.swift in Sources */,
 				CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */,
 				CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */,
+				CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */,
 				D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */,
 				D1EF707228B6656500F2D279 /* VMModelFieldNetworkDevice.swift in Sources */,
 				D184CB1E28ED2496001E3664 /* VMOSRunnerForLinux.swift in Sources */,
