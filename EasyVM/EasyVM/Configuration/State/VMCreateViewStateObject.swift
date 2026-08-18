@@ -28,22 +28,28 @@ class VMCreateViewStateObject: ObservableObject {
     
     // phase
     @Published var rootPath: String = ""
+    @Published var baseDirectory: String = ""
 
     // phase
     @Published var imagePath: String = ""
-    
+
     @Published var logs: [LogModel] = []
-    
+
     @Published var installingProgress: Double = 0.0
-    
+
     @Published var disablePreviousButton = false
-    
-    
+
+    // creating phase status
+    @Published var isCreating = false
+    @Published var statusText: String = ""
+
+
     init() {
     }
-    
+
     func addLog(_ log: String) {
         logs.insert(LogModel(log), at: 0)
+        statusText = log
     }
     
     func changeProgress(_ percent: Double) {
@@ -54,26 +60,6 @@ class VMCreateViewStateObject: ObservableObject {
             return
         }
         installingProgress = percent
-    }
-    
-    func getSystemImagePathForDownload(osType: VMOSType) -> URL? {
-        
-        if !FileManager.default.fileExists(atPath: rootPath) {
-            do {
-                try FileManager.default.createDirectory(atPath: rootPath, withIntermediateDirectories: true)
-            } catch {
-                addLog("Unable to create the VM directory: \(error.localizedDescription)")
-                return nil
-            }
-        }
-
-        let vmDir = URL(filePath: rootPath)
-
-        var localPath = vmDir.appending(path: "SystemImage.ipsw")
-        if osType == .linux {
-            localPath = vmDir.appending(path: "SystemImage.iso")
-        }
-        return localPath
     }
     
 }

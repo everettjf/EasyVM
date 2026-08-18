@@ -198,6 +198,13 @@ struct SystemImageDownloadView: View {
             }
 
 
+            HStack {
+                Text("Downloaded images are kept in the image store and reused when creating more machines.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+
             Spacer()
 
             HStack {
@@ -244,12 +251,39 @@ struct SystemImageDownloadView: View {
         }
     }
 
+    func targetFileName() -> String {
+        let defaultExtension = configData.osType == .macOS ? "ipsw" : "iso"
+        switch state.downloadMethod {
+        case .latest_avaliable:
+            return "macOS-Latest.ipsw"
+        case .catalog(let item):
+            let ext = item.url.pathExtension.isEmpty ? defaultExtension : item.url.pathExtension
+            return "\(item.id).\(ext)"
+        case .input_url:
+            if let url = URL(string: state.downloadInputUrl) {
+                let fileName = url.lastPathComponent
+                if !fileName.isEmpty && fileName != "/" && fileName != "." {
+                    return fileName
+                }
+            }
+            return "CustomImage.\(defaultExtension)"
+        }
+    }
+
     func startDownload() {
-        guard let localPath = formData.getSystemImagePathForDownload(osType: configData.osType) else {
+        guard let localPath = VMImageStore.preparePath(fileName: targetFileName()) else {
+            state.downloadMessage = "Unable to create the image store directory"
             return
         }
 
         if state.downloadStatus == .initial || state.downloadStatus == .downloadFailed {
+            // an image downloaded before can be reused directly
+            if FileManager.default.fileExists(atPath: localPath.path(percentEncoded: false)) {
+                state.downloadStatus = .downloadSuccess
+                state.downloadMessage = "Found previously downloaded image, it will be reused"
+                state.current = 100
+                return
+            }
             state.startDownload(vmOSType: configData.osType, localPath: localPath)
         }
 

@@ -108,4 +108,37 @@ struct VMSystemImageCatalog {
     }
 }
 
+
+/*
+ Shared store for downloaded system images, so an image downloaded once can
+ be reused by every machine created afterwards instead of being downloaded
+ into each VM bundle again.
+ */
+class VMImageStore {
+
+    static func directory() -> URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "EasyVM", directoryHint: .isDirectory)
+            .appending(path: "Images", directoryHint: .isDirectory)
+    }
+
+    // returns the target path for fileName, creating the store directory on demand
+    static func preparePath(fileName: String) -> URL? {
+        let dir = directory()
+        if !FileManager.default.fileExists(atPath: dir.path(percentEncoded: false)) {
+            do {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            } catch {
+                print("failed to create image store directory : \(error)")
+                return nil
+            }
+        }
+        return dir.appending(path: fileName)
+    }
+
+    static func exists(fileName: String) -> Bool {
+        FileManager.default.fileExists(atPath: directory().appending(path: fileName).path(percentEncoded: false))
+    }
+}
+
 #endif
