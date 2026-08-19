@@ -10,7 +10,7 @@ brew install --cask everettjf/tap/easyvm
 
 ## Current release
 
-The `v3.0.1` release meets the distribution requirements:
+The `v3.1.0` release meets the distribution requirements:
 
 - The release is tagged and hosted by GitHub Releases.
 - The app is signed with Developer ID Application team `YPV49M8592`.
@@ -27,7 +27,7 @@ GitHub Releases should remain the source of truth. The Cask is a small installat
 # frozen_string_literal: true
 
 cask "easyvm" do
-  version "3.0.1"
+  version "3.1.0"
   sha256 "1d01d142009d15abdab87d00c5bc85d5bd41d387092c5009f1d2a9e4a5f0dccc"
 
   url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip"
