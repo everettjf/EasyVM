@@ -25,18 +25,29 @@
 		D1196EC428E868BC00CCC04D /* VMOSHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EC328E868BC00CCC04D /* VMOSHelper.swift */; };
 		D11A80E928C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */; };
 		D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = D120BD5028CF25E3009297E8 /* MacKitUtil.swift */; };
-		D120BD5328CF2B8B009297E8 /* CreatePhaseNameConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D120BD5228CF2B8B009297E8 /* CreatePhaseNameConfigView.swift */; };
 		D132336D28E27C2E002C26A2 /* VMOSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132336C28E27C2E002C26A2 /* VMOSDownloader.swift */; };
 		D132337028E27C6B002C26A2 /* VMOSType.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132336F28E27C6B002C26A2 /* VMOSType.swift */; };
 		D132337328E282AF002C26A2 /* VMOSDownloaderForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */; };
+		CA5E5AFE000000000000C001 /* VMSystemImageCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A001 /* VMSystemImageCatalog.swift */; };
+		CA5E5AFE000000000000C002 /* VMOSDownloaderForLinux.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */; };
+		CA5E5AFE000000000000C003 /* VMSnapshotManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */; };
+		CA5E5AFE000000000000C004 /* MachineSnapshotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */; };
+		CA5E5AFE000000000000D001 /* VMSystemImageCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A001 /* VMSystemImageCatalog.swift */; };
+		CA5E5AFE000000000000D002 /* VMOSDownloaderForLinux.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */; };
+		CA5E5AFE000000000000D003 /* VMSnapshotManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */; };
+		CA5E5AFE000000000000D004 /* MachineSnapshotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */; };
+		CA5E5AFE000000000000C005 /* CreatePhaseSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */; };
+		CA5E5AFE000000000000C006 /* CreatePhaseNameLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */; };
+		CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */; };
+		CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */; };
+		CA5E5AFE000000000000C007 /* VMRunningRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */; };
+		CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */; };
 		D132337728E28453002C26A2 /* VMOSResultVoid.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337628E28453002C26A2 /* VMOSResultVoid.swift */; };
-		D142CA2928C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D142CA2828C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift */; };
 		D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
 		D166803428E93DA300F70110 /* MachinesEmptyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D166803328E93DA300F70110 /* MachinesEmptyView.swift */; };
 		D184CB0428EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0328EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift */; };
 		D184CB0628EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0528EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift */; };
 		D184CB0828EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0728EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift */; };
-		D184CB0A28EACB83001E3664 /* VMWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0928EACB83001E3664 /* VMWebView.swift */; };
 		D184CB1028EB2581001E3664 /* VMEditConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0F28EB2581001E3664 /* VMEditConfigurationView.swift */; };
 		D184CB1228EB295A001E3664 /* MachineDetailInvalidCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1128EB295A001E3664 /* MachineDetailInvalidCardView.swift */; };
 		D184CB1428EB29DE001E3664 /* MachinesHomeStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1328EB29DE001E3664 /* MachinesHomeStateObject.swift */; };
@@ -51,8 +62,6 @@
 		D19105F128EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */; };
 		D19105F328EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */; };
 		D19105F528EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F428EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift */; };
-		D19EC92F28CEE58C004564B7 /* CreatePhaseSystemImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */; };
-		D19EC93128CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93028CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift */; };
 		D19EC93328CEE9F6004564B7 /* CreatePhaseConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */; };
 		D19EC93728CEEA44004564B7 /* VMCreateConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93628CEEA44004564B7 /* VMCreateConfigurationView.swift */; };
 		D19EC93928CEEAEB004564B7 /* CreatePhaseCreatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */; };
@@ -70,11 +79,9 @@
 		D1CCB1DB290DB92D00B1F563 /* MacKitUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = D120BD5028CF25E3009297E8 /* MacKitUtil.swift */; };
 		D1CCB1DC290DB92D00B1F563 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */; };
 		D1CCB1DD290DB92D00B1F563 /* SystemImageDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */; };
-		D1CCB1DE290DB92D00B1F563 /* VMWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0928EACB83001E3664 /* VMWebView.swift */; };
 		D1CCB1DF290DB92D00B1F563 /* VMOSType.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132336F28E27C6B002C26A2 /* VMOSType.swift */; };
 		D1CCB1E0290DB92D00B1F563 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA32866F7C800B2F41F /* ContentView.swift */; };
 		D1CCB1E1290DB92D00B1F563 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
-		D1CCB1E2290DB92D00B1F563 /* CreatePhaseSystemImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */; };
 		D1CCB1E3290DB92D00B1F563 /* VMOSRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1928ED21F2001E3664 /* VMOSRunner.swift */; };
 		D1CCB1E4290DB92D00B1F563 /* IssuesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */; };
 		D1CCB1E5290DB92D00B1F563 /* VMOSDownloaderForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */; };
@@ -87,7 +94,6 @@
 		D1CCB1EC290DB92D00B1F563 /* VMConfigurationAudioDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EBC28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift */; };
 		D1CCB1ED290DB92D00B1F563 /* CreatePhaseCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93A28CEEB49004564B7 /* CreatePhaseCompleteView.swift */; };
 		D1CCB1EE290DB92D00B1F563 /* Palettes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */; };
-		D1CCB1EF290DB92D00B1F563 /* CreatePhaseSystemTypeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D142CA2828C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift */; };
 		D1CCB1F0290DB92D00B1F563 /* CommunityDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */; };
 		D1CCB1F1290DB92D00B1F563 /* CreatePhaseConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */; };
 		D1CCB1F2290DB92D00B1F563 /* VMOSMainVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0328EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift */; };
@@ -95,11 +101,9 @@
 		D1CCB1F4290DB92D00B1F563 /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
 		D1CCB1F5290DB92D00B1F563 /* VMOSCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EBF28E7D65000CCC04D /* VMOSCreator.swift */; };
 		D1CCB1F6290DB92D00B1F563 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */; };
-		D1CCB1F7290DB92D00B1F563 /* CreatePhaseSaveDirectoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93028CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift */; };
 		D1CCB1F8290DB92D00B1F563 /* VMConfigurationGraphicDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */; };
 		D1CCB1F9290DB92D00B1F563 /* VMOSRunnerForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1B28ED23F9001E3664 /* VMOSRunnerForMacOS.swift */; };
 		D1CCB1FA290DB92D00B1F563 /* VMEditConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0F28EB2581001E3664 /* VMEditConfigurationView.swift */; };
-		D1CCB1FB290DB92D00B1F563 /* CreatePhaseNameConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D120BD5228CF2B8B009297E8 /* CreatePhaseNameConfigView.swift */; };
 		D1CCB1FC290DB92D00B1F563 /* VMConfigurationNetworkDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EB428E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift */; };
 		D1CCB1FD290DB92D00B1F563 /* VMModelFieldStorageDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF706F28B6654500F2D279 /* VMModelFieldStorageDevice.swift */; };
 		D1CCB1FE290DB92D00B1F563 /* VMOSCreatorForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EC128E7D8D500CCC04D /* VMOSCreatorForMacOS.swift */; };
@@ -170,18 +174,22 @@
 		D1196EC328E868BC00CCC04D /* VMOSHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSHelper.swift; sourceTree = "<group>"; };
 		D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateStepperGuideView.swift; sourceTree = "<group>"; };
 		D120BD5028CF25E3009297E8 /* MacKitUtil.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacKitUtil.swift; sourceTree = "<group>"; };
-		D120BD5228CF2B8B009297E8 /* CreatePhaseNameConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseNameConfigView.swift; sourceTree = "<group>"; };
 		D132336C28E27C2E002C26A2 /* VMOSDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloader.swift; sourceTree = "<group>"; };
 		D132336F28E27C6B002C26A2 /* VMOSType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSType.swift; sourceTree = "<group>"; };
 		D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloaderForMacOS.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A001 /* VMSystemImageCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMSystemImageCatalog.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloaderForLinux.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMSnapshotManager.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineSnapshotsView.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemView.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseNameLocationView.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMRunningRegistry.swift; sourceTree = "<group>"; };
 		D132337628E28453002C26A2 /* VMOSResultVoid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSResultVoid.swift; sourceTree = "<group>"; };
-		D142CA2828C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemTypeView.swift; sourceTree = "<group>"; };
 		D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailCardView.swift; sourceTree = "<group>"; };
 		D166803328E93DA300F70110 /* MachinesEmptyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesEmptyView.swift; sourceTree = "<group>"; };
 		D184CB0328EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSMainVirtualMachineView.swift; sourceTree = "<group>"; };
 		D184CB0528EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSInternalVirtualMachineViewController.swift; sourceTree = "<group>"; };
 		D184CB0728EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSInternalVirtualMachineView.swift; sourceTree = "<group>"; };
-		D184CB0928EACB83001E3664 /* VMWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMWebView.swift; sourceTree = "<group>"; };
 		D184CB0F28EB2581001E3664 /* VMEditConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMEditConfigurationView.swift; sourceTree = "<group>"; };
 		D184CB1128EB295A001E3664 /* MachineDetailInvalidCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailInvalidCardView.swift; sourceTree = "<group>"; };
 		D184CB1328EB29DE001E3664 /* MachinesHomeStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesHomeStateObject.swift; sourceTree = "<group>"; };
@@ -196,8 +204,6 @@
 		D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldDirectorySharingDevice.swift; sourceTree = "<group>"; };
 		D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationDirectorySharingDevicesView.swift; sourceTree = "<group>"; };
 		D19105F428EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationDirectorySharingDevicesEditView.swift; sourceTree = "<group>"; };
-		D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemImageView.swift; sourceTree = "<group>"; };
-		D19EC93028CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSaveDirectoryView.swift; sourceTree = "<group>"; };
 		D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseConfigurationView.swift; sourceTree = "<group>"; };
 		D19EC93628CEEA44004564B7 /* VMCreateConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateConfigurationView.swift; sourceTree = "<group>"; };
 		D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseCreatingView.swift; sourceTree = "<group>"; };
@@ -263,14 +269,32 @@
 		D120BD5428CF463A009297E8 /* VMKit */ = {
 			isa = PBXGroup;
 			children = (
+				CA5E5AFE000000000000B001 /* Catalog */,
 				D132337828E28589002C26A2 /* Common */,
 				D132336E28E27C5E002C26A2 /* Model */,
 				D132337128E282A0002C26A2 /* OS */,
+				CA5E5AFE000000000000B002 /* Snapshot */,
 				D132336C28E27C2E002C26A2 /* VMOSDownloader.swift */,
 				D1196EBF28E7D65000CCC04D /* VMOSCreator.swift */,
 				D184CB1928ED21F2001E3664 /* VMOSRunner.swift */,
 			);
 			path = VMKit;
+			sourceTree = "<group>";
+		};
+		CA5E5AFE000000000000B001 /* Catalog */ = {
+			isa = PBXGroup;
+			children = (
+				CA5E5AFE000000000000A001 /* VMSystemImageCatalog.swift */,
+			);
+			path = Catalog;
+			sourceTree = "<group>";
+		};
+		CA5E5AFE000000000000B002 /* Snapshot */ = {
+			isa = PBXGroup;
+			children = (
+				CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */,
+			);
+			path = Snapshot;
 			sourceTree = "<group>";
 		};
 		D132336E28E27C5E002C26A2 /* Model */ = {
@@ -288,6 +312,7 @@
 			children = (
 				D184CB0228EA8A13001E3664 /* RunnerWindow */,
 				D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */,
+				CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */,
 				D1196EC128E7D8D500CCC04D /* VMOSCreatorForMacOS.swift */,
 				D184CB1528EBE106001E3664 /* VMOSCreatorForLinux.swift */,
 				D184CB1B28ED23F9001E3664 /* VMOSRunnerForMacOS.swift */,
@@ -301,6 +326,7 @@
 			children = (
 				D132337628E28453002C26A2 /* VMOSResultVoid.swift */,
 				D1196EC328E868BC00CCC04D /* VMOSHelper.swift */,
+				CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -358,11 +384,9 @@
 		D18AE4DA28D2B62B00B5C3E2 /* PhaseViews */ = {
 			isa = PBXGroup;
 			children = (
-				D142CA2828C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift */,
-				D120BD5228CF2B8B009297E8 /* CreatePhaseNameConfigView.swift */,
-				D19EC93028CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift */,
-				D19EC92E28CEE58C004564B7 /* CreatePhaseSystemImageView.swift */,
 				D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */,
+				CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */,
+				CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */,
 				D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */,
 				D19EC93A28CEEB49004564B7 /* CreatePhaseCompleteView.swift */,
 			);
@@ -426,6 +450,7 @@
 				F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */,
 				D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */,
 				D184CB1128EB295A001E3664 /* MachineDetailInvalidCardView.swift */,
+				CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */,
 				D166803328E93DA300F70110 /* MachinesEmptyView.swift */,
 			);
 			path = Machines;
@@ -479,7 +504,6 @@
 				D1E19A09289E9DAD00CF27D3 /* Array.swift */,
 				D1E19A07289E9CFB00CF27D3 /* Date.swift */,
 				D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */,
-				D184CB0928EACB83001E3664 /* VMWebView.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -657,14 +681,19 @@
 				D1CCB1DB290DB92D00B1F563 /* MacKitUtil.swift in Sources */,
 				D1CCB1DC290DB92D00B1F563 /* AppDelegate.swift in Sources */,
 				D1CCB1DD290DB92D00B1F563 /* SystemImageDownloadView.swift in Sources */,
-				D1CCB1DE290DB92D00B1F563 /* VMWebView.swift in Sources */,
 				D1CCB1DF290DB92D00B1F563 /* VMOSType.swift in Sources */,
 				D1CCB1E0290DB92D00B1F563 /* ContentView.swift in Sources */,
 				D1CCB1E1290DB92D00B1F563 /* VMModel.swift in Sources */,
-				D1CCB1E2290DB92D00B1F563 /* CreatePhaseSystemImageView.swift in Sources */,
 				D1CCB1E3290DB92D00B1F563 /* VMOSRunner.swift in Sources */,
 				D1CCB1E4290DB92D00B1F563 /* IssuesDetailHomeView.swift in Sources */,
 				D1CCB1E5290DB92D00B1F563 /* VMOSDownloaderForMacOS.swift in Sources */,
+				CA5E5AFE000000000000C001 /* VMSystemImageCatalog.swift in Sources */,
+				CA5E5AFE000000000000C002 /* VMOSDownloaderForLinux.swift in Sources */,
+				CA5E5AFE000000000000C003 /* VMSnapshotManager.swift in Sources */,
+				CA5E5AFE000000000000C004 /* MachineSnapshotsView.swift in Sources */,
+				CA5E5AFE000000000000C005 /* CreatePhaseSystemView.swift in Sources */,
+				CA5E5AFE000000000000C006 /* CreatePhaseNameLocationView.swift in Sources */,
+				CA5E5AFE000000000000C007 /* VMRunningRegistry.swift in Sources */,
 				D1CCB1E6290DB92D00B1F563 /* VMConfigurationCPUView.swift in Sources */,
 				D1CCB1E7290DB92D00B1F563 /* VMModelFieldNetworkDevice.swift in Sources */,
 				D1CCB1E8290DB92D00B1F563 /* VMOSRunnerForLinux.swift in Sources */,
@@ -674,7 +703,6 @@
 				D1CCB1EC290DB92D00B1F563 /* VMConfigurationAudioDevicesEditView.swift in Sources */,
 				D1CCB1ED290DB92D00B1F563 /* CreatePhaseCompleteView.swift in Sources */,
 				D1CCB1EE290DB92D00B1F563 /* Palettes.swift in Sources */,
-				D1CCB1EF290DB92D00B1F563 /* CreatePhaseSystemTypeView.swift in Sources */,
 				D1CCB1F0290DB92D00B1F563 /* CommunityDetailHomeView.swift in Sources */,
 				D1CCB1F1290DB92D00B1F563 /* CreatePhaseConfigurationView.swift in Sources */,
 				D1CCB1F2290DB92D00B1F563 /* VMOSMainVirtualMachineView.swift in Sources */,
@@ -682,11 +710,9 @@
 				D1CCB1F4290DB92D00B1F563 /* VMModelFieldCPU.swift in Sources */,
 				D1CCB1F5290DB92D00B1F563 /* VMOSCreator.swift in Sources */,
 				D1CCB1F6290DB92D00B1F563 /* Sidebar.swift in Sources */,
-				D1CCB1F7290DB92D00B1F563 /* CreatePhaseSaveDirectoryView.swift in Sources */,
 				D1CCB1F8290DB92D00B1F563 /* VMConfigurationGraphicDevicesEditView.swift in Sources */,
 				D1CCB1F9290DB92D00B1F563 /* VMOSRunnerForMacOS.swift in Sources */,
 				D1CCB1FA290DB92D00B1F563 /* VMEditConfigurationView.swift in Sources */,
-				D1CCB1FB290DB92D00B1F563 /* CreatePhaseNameConfigView.swift in Sources */,
 				D1CCB1FC290DB92D00B1F563 /* VMConfigurationNetworkDevicesEditView.swift in Sources */,
 				D1CCB1FD290DB92D00B1F563 /* VMModelFieldStorageDevice.swift in Sources */,
 				D1CCB1FE290DB92D00B1F563 /* VMOSCreatorForMacOS.swift in Sources */,
@@ -733,14 +759,19 @@
 				D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */,
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */,
-				D184CB0A28EACB83001E3664 /* VMWebView.swift in Sources */,
 				D132337028E27C6B002C26A2 /* VMOSType.swift in Sources */,
 				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
 				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,
-				D19EC92F28CEE58C004564B7 /* CreatePhaseSystemImageView.swift in Sources */,
 				D184CB1A28ED21F2001E3664 /* VMOSRunner.swift in Sources */,
 				D1A6A5E628BA7B0300CBE80A /* IssuesDetailHomeView.swift in Sources */,
 				D132337328E282AF002C26A2 /* VMOSDownloaderForMacOS.swift in Sources */,
+				CA5E5AFE000000000000D001 /* VMSystemImageCatalog.swift in Sources */,
+				CA5E5AFE000000000000D002 /* VMOSDownloaderForLinux.swift in Sources */,
+				CA5E5AFE000000000000D003 /* VMSnapshotManager.swift in Sources */,
+				CA5E5AFE000000000000D004 /* MachineSnapshotsView.swift in Sources */,
+				CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */,
+				CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */,
+				CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */,
 				D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */,
 				D1EF707228B6656500F2D279 /* VMModelFieldNetworkDevice.swift in Sources */,
 				D184CB1E28ED2496001E3664 /* VMOSRunnerForLinux.swift in Sources */,
@@ -750,7 +781,6 @@
 				D1196EBD28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift in Sources */,
 				D19EC93B28CEEB49004564B7 /* CreatePhaseCompleteView.swift in Sources */,
 				D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */,
-				D142CA2928C82DDA004F86E9 /* CreatePhaseSystemTypeView.swift in Sources */,
 				D1A6A5E428BA7AEC00CBE80A /* CommunityDetailHomeView.swift in Sources */,
 				D19EC93328CEE9F6004564B7 /* CreatePhaseConfigurationView.swift in Sources */,
 				D184CB0428EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift in Sources */,
@@ -758,11 +788,9 @@
 				D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */,
 				D1196EC028E7D65000CCC04D /* VMOSCreator.swift in Sources */,
 				D1A6A5EB28BA7B9B00CBE80A /* Sidebar.swift in Sources */,
-				D19EC93128CEE6D8004564B7 /* CreatePhaseSaveDirectoryView.swift in Sources */,
 				D1196EAC28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift in Sources */,
 				D184CB1C28ED23F9001E3664 /* VMOSRunnerForMacOS.swift in Sources */,
 				D184CB1028EB2581001E3664 /* VMEditConfigurationView.swift in Sources */,
-				D120BD5328CF2B8B009297E8 /* CreatePhaseNameConfigView.swift in Sources */,
 				D1196EB528E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift in Sources */,
 				D1EF707028B6654500F2D279 /* VMModelFieldStorageDevice.swift in Sources */,
 				D1196EC228E7D8D500CCC04D /* VMOSCreatorForMacOS.swift in Sources */,

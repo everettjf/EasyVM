@@ -65,6 +65,10 @@ struct VMCreateStepperGuideItem : Identifiable {
     let subtitle: String
     let content: AnyView
     let handler: any VMCreateStepperGuidePhaseHandler
+    // label of the Next button while this step is shown, e.g. "Create"
+    var nextTitle: String? = nil
+    // move to the following step automatically when this step's work succeeds
+    var autoAdvanceOnSuccess = false
 }
 
 @MainActor
@@ -128,50 +132,38 @@ struct VMCreateStepperGuideView: View {
         let steps = [
             VMCreateStepperGuideItem(
                 systemImage: "1.circle",
-                name: "OS Type",
-                subtitle: "Create macOS or Linux ?",
-                content: AnyView(CreatePhaseSystemTypeView()),
-                handler: CreatePhaseSystemTypeViewHandler()
+                name: "System",
+                subtitle: "Choose macOS or Linux, and the system version",
+                content: AnyView(CreatePhaseSystemView()),
+                handler: CreatePhaseSystemViewHandler()
             ),
             VMCreateStepperGuideItem(
                 systemImage: "2.circle",
-                name: "Name",
-                subtitle: "Name the machine",
-                content: AnyView(CreatePhaseNameConfigView()),
-                handler: CreatePhaseNameConfigViewHandler()
+                name: "Name & Location",
+                subtitle: "Name the machine, stored in ~/EasyVM by default",
+                content: AnyView(CreatePhaseNameLocationView()),
+                handler: CreatePhaseNameLocationViewHandler()
             ),
             VMCreateStepperGuideItem(
                 systemImage: "3.circle",
-                name: "Location",
-                subtitle: "Where the machine will store ?",
-                content: AnyView(CreatePhaseSaveDirectoryView()),
-                handler: CreatePhaseSaveDirectoryViewHandler()
-            ),
-            VMCreateStepperGuideItem(
-                systemImage: "4.circle",
-                name: "System Image",
-                subtitle: "Download or choose ipsw/iso file ?",
-                content: AnyView(CreatePhaseSystemImageView()),
-                handler: CreatePhaseSystemImageViewHandler()
-            ),
-            VMCreateStepperGuideItem(
-                systemImage: "5.circle",
                 name: "Configuration",
                 subtitle: "Config virtual devices such as size of disk, network type...",
                 content: AnyView(CreatePhaseConfigurationView()),
-                handler: CreatePhaseConfigurationViewHandler()
+                handler: CreatePhaseConfigurationViewHandler(),
+                nextTitle: "Create"
             ),
             VMCreateStepperGuideItem(
-                systemImage: "6.circle",
+                systemImage: "4.circle",
                 name: "Creating",
                 subtitle: "Start creating virtual machines...",
                 content: AnyView(CreatePhaseCreatingView()),
-                handler: CreatePhaseCreatingViewHandler()
+                handler: CreatePhaseCreatingViewHandler(),
+                autoAdvanceOnSuccess: true
             ),
             VMCreateStepperGuideItem(
-                systemImage: "7.circle",
+                systemImage: "5.circle",
                 name: "Completion",
-                subtitle: "Congratulations",
+                subtitle: "Run the new machine",
                 content: AnyView(CreatePhaseCompleteView()),
                 handler: CreatePhaseCompleteViewHandler()
             ),
@@ -247,7 +239,7 @@ struct VMCreateStepperGuideView: View {
                 Button {
                     tryMoveNextStep()
                 } label: {
-                    Text(stepperState.getNextButtonText())
+                    Text(nextButtonText())
                         .frame(width: 60)
                     Image(systemName: "chevron.forward.2")
                 }
@@ -258,12 +250,19 @@ struct VMCreateStepperGuideView: View {
     }
     
     
+    func nextButtonText() -> String {
+        if stepperState.isStepCompletion() {
+            return "Done"
+        }
+        return steps[stepperState.current].nextTitle ?? "Next"
+    }
+
     func tryMoveNextStep() {
         if stepperState.isStepCompletion() {
             dismiss()
             return
         }
-        
+
         let context = VMCreateStepperGuidePhaseContext(formData: formData, configData: configData)
         let currentItem = steps[stepperState.current]
         let verifyResult = currentItem.handler.verifyForm(context: context)
@@ -271,15 +270,15 @@ struct VMCreateStepperGuideView: View {
             showAlert(error)
             return
         }
-        
+
         stepperState.moveNextStep()
-        
+
         let nextItem = steps[stepperState.current]
         // disable button
         self.isStepInitializing = true
         self.stepStatusMessage = ""
         self.disableNext = true
-        
+
         // call onStepMovedIn
         Task { @MainActor in
             let result = await nextItem.handler.onStepMovedIn(context: context)
@@ -288,8 +287,18 @@ struct VMCreateStepperGuideView: View {
             if case let .failure(error) = result {
                 self.stepStatusMessage = error
                 self.disableNext = true
-            } else {
-                self.disableNext = false
+                return
+            }
+            self.disableNext = false
+
+            // e.g. jump from Creating to Completion without another click
+            if nextItem.autoAdvanceOnSuccess && !stepperState.isStepCompletion() {
+                stepperState.moveNextStep()
+                let followingItem = steps[stepperState.current]
+                let followingResult = await followingItem.handler.onStepMovedIn(context: context)
+                if case let .failure(error) = followingResult {
+                    self.stepStatusMessage = error
+                }
             }
         }
     }

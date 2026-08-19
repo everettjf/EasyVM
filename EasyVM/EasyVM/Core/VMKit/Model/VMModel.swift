@@ -143,6 +143,10 @@ struct VMModel: Identifiable {
         rootPath.appending(path: "NVRAM")
     }
     
+    var screenshotURL: URL {
+        rootPath.appending(path: "screenshot.png")
+    }
+
     var stateURL: URL {
         Self.getStateURL(rootPath: rootPath)
     }
