@@ -34,8 +34,7 @@ struct MachinesDetailHomeView: View {
     private let columns = [GridItem(.adaptive(minimum: 300, maximum: 420), spacing: 18)]
 
     private enum SupportDestination: String, Identifiable {
-        case community
-        case issues
+        case communityFeedback
         case about
 
         var id: String { rawValue }
@@ -60,26 +59,30 @@ struct MachinesDetailHomeView: View {
             }
         }
         .sheet(item: $supportDestination) { destination in
-            NavigationStack {
-                Group {
-                    switch destination {
-                    case .community:
-                        CommunityDetailHomeView()
-                    case .issues:
-                        IssuesDetailHomeView()
-                    case .about:
-                        AboutDetailHomeView()
+            VStack(spacing: 0) {
+                NavigationStack {
+                    Group {
+                        switch destination {
+                        case .communityFeedback:
+                            CommunityDetailHomeView()
+                        case .about:
+                            AboutDetailHomeView()
+                        }
                     }
+                    .frame(minWidth: 580, minHeight: 500)
                 }
-                .frame(minWidth: 580, minHeight: 500)
-            }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+
+                Divider()
+
+                HStack {
+                    Spacer()
                     Button("Close") {
                         supportDestination = nil
                     }
+                    .keyboardShortcut(.cancelAction)
                     .accessibilityIdentifier("support.close")
                 }
+                .padding(12)
             }
         }
     }
@@ -265,14 +268,11 @@ struct MachinesDetailHomeView: View {
                     }
                     ToolbarItem(id: "more", placement: .primaryAction) {
                         Menu {
-                            Button("Community", systemImage: "person.2") {
-                                supportDestination = .community
-                            }
-                            Button("Issues & Feedback", systemImage: "ladybug") {
-                                supportDestination = .issues
+                            Button("Community & Feedback", systemImage: "person.2.wave.2") {
+                                supportDestination = .communityFeedback
                             }
                             Divider()
-                            Button("About EasyVM", systemImage: "info.circle") {
+                            Button("About", systemImage: "info.circle") {
                                 supportDestination = .about
                             }
                         } label: {

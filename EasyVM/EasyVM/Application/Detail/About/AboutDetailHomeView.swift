@@ -35,24 +35,30 @@ struct DetailLinkCardView: View {
     @State private var borderColor: Color = .gray
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: image)
-                .font(.system(size: 26))
-                .frame(width: 40)
+        Button {
+            MacKitUtil.openUrl(urlString)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: image)
+                    .font(.system(size: 26))
+                    .frame(width: 40)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                Text(subtitle)
-                    .font(.caption)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.headline)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.up.forward.square")
                     .foregroundStyle(.secondary)
             }
-
-            Spacer()
-
-            Image(systemName: "arrow.up.forward.square")
-                .foregroundStyle(.secondary)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .padding()
         .frame(maxWidth: 480)
         .overlay(
@@ -63,9 +69,7 @@ struct DetailLinkCardView: View {
         .onHover { hover in
             borderColor = hover ? .blue : .gray
         }
-        .onTapGesture {
-            MacKitUtil.openUrl(urlString)
-        }
+        .accessibilityHint("Opens in your browser")
     }
 }
 
