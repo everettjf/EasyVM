@@ -22,6 +22,7 @@ struct VMConfigModel : Decodable, Encodable {
     let pointingDevices: [VMModelFieldPointingDevice]
     let audioDevices: [VMModelFieldAudioDevice]
     let directorySharingDevices: [VMModelFieldDirectorySharingDevice]
+    var linuxFeatures: VMLinuxFeatureConfiguration? = nil
     
     static func createWithDefaultValues(osType: VMOSType) -> VMConfigModel {
         switch osType {
@@ -37,7 +38,8 @@ struct VMConfigModel : Decodable, Encodable {
                 networkDevices: [VMModelFieldNetworkDevice.default()],
                 pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)],
                 audioDevices: [VMModelFieldAudioDevice.default()],
-                directorySharingDevices: []
+                directorySharingDevices: [],
+                linuxFeatures: nil
             )
         case .linux:
             return VMConfigModel(
@@ -51,7 +53,8 @@ struct VMConfigModel : Decodable, Encodable {
                 networkDevices: [VMModelFieldNetworkDevice.default()],
                 pointingDevices: [VMModelFieldPointingDevice(type: .USBScreenCoordinatePointing)],
                 audioDevices: [VMModelFieldAudioDevice.default()],
-                directorySharingDevices: []
+                directorySharingDevices: [],
+                linuxFeatures: .recommended
             )
         }
     }
@@ -227,7 +230,8 @@ struct VMModel: Identifiable {
             networkDevices: config.networkDevices,
             pointingDevices: config.pointingDevices,
             audioDevices: config.audioDevices,
-            directorySharingDevices: config.directorySharingDevices
+            directorySharingDevices: config.directorySharingDevices,
+            linuxFeatures: config.linuxFeatures
         )
 
         var movedSourceToBackup = false

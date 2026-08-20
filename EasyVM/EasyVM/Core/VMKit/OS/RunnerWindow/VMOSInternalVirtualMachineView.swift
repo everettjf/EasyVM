@@ -48,6 +48,8 @@ final class VMRuntimeState: ObservableObject {
     @Published private(set) var phase: Phase = .preparing
     @Published private(set) var usbAccessories: [USBAccessoryItem] = []
     @Published private(set) var usbStatusMessage: String?
+    @Published private(set) var balloonMemoryTarget: UInt64?
+    @Published private(set) var balloonMemoryMaximum: UInt64?
     weak var controller: VMOSInternalVirtualMachineViewController?
 
     var errorMessage: String? {
@@ -66,6 +68,9 @@ final class VMRuntimeState: ObservableObject {
         }
         return false
     }
+    var canManageBalloon: Bool {
+        balloonMemoryMaximum != nil && (phase == .running || phase == .paused)
+    }
 
     func update(_ phase: Phase) {
         self.phase = phase
@@ -76,11 +81,17 @@ final class VMRuntimeState: ObservableObject {
         usbStatusMessage = statusMessage
     }
 
+    func updateBalloonMemory(target: UInt64?, maximum: UInt64?) {
+        balloonMemoryTarget = target
+        balloonMemoryMaximum = maximum
+    }
+
     func pause() { controller?.pauseMachine() }
     func resume() { controller?.resumeMachine() }
     func requestStop() { controller?.requestStopMachine() }
     func saveAndStop() { controller?.saveAndStopMachine() }
     func toggleUSB(_ id: UInt64) { controller?.toggleUSBAccessory(registryID: id) }
+    func setBalloonMemory(fraction: Double) { controller?.setBalloonMemory(fraction: fraction) }
 }
 
 struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {

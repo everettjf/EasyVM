@@ -59,6 +59,7 @@ class VMConfigurationViewStateObject: ObservableObject {
     @Published var audioDevices: [VMModelFieldAudioDeviceItemModel] = []
     
     @Published var directorySharingDevices: [VMModelFieldDirectorySharingDeviceItemModel] = []
+    @Published var linuxFeatures: VMLinuxFeatureConfiguration = .legacy
     
     convenience init() {
         // default
@@ -98,6 +99,7 @@ class VMConfigurationViewStateObject: ObservableObject {
             self.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: item))
         }
         self.directorySharingDevices = configModel.directorySharingDevices.map(VMModelFieldDirectorySharingDeviceItemModel.init(data:))
+        self.linuxFeatures = configModel.linuxFeatures ?? .legacy
     }
     
     func resetDefaultConfig() {
@@ -116,7 +118,7 @@ class VMConfigurationViewStateObject: ObservableObject {
         let audioDevices = self.audioDevices.map({$0.data})
         let directorySharingDevices = self.directorySharingDevices.map({$0.data})
         
-        return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices, directorySharingDevices: directorySharingDevices)
+        return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices, directorySharingDevices: directorySharingDevices, linuxFeatures: osType == .linux ? linuxFeatures : nil)
     }
     
 }

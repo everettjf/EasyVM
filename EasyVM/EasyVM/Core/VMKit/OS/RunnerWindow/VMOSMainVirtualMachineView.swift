@@ -65,6 +65,21 @@ struct VMOSMainVirtualMachineView: View {
                     .help("Attach or detach a host USB accessory")
                 }
 
+                if let target = runtimeState.balloonMemoryTarget,
+                   let maximum = runtimeState.balloonMemoryMaximum {
+                    Menu("Memory", systemImage: "memorychip") {
+                        Text("Guest target: \(memoryDescription(target)) of \(memoryDescription(maximum))")
+                        Divider()
+                        ForEach([0.25, 0.5, 0.75, 1.0], id: \.self) { fraction in
+                            Button("\(Int(fraction * 100))% — \(memoryDescription(UInt64(Double(maximum) * fraction)))") {
+                                runtimeState.setBalloonMemory(fraction: fraction)
+                            }
+                            .disabled(!runtimeState.canManageBalloon)
+                        }
+                    }
+                    .help("Request a Linux guest memory balloon target")
+                }
+
                 if runtimeState.canPause {
                     Button("Pause", systemImage: "pause") {
                         runtimeState.pause()
@@ -93,6 +108,10 @@ struct VMOSMainVirtualMachineView: View {
             }
         }
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
+    }
+
+    private func memoryDescription(_ bytes: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
     }
 }
 

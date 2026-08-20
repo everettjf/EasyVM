@@ -7,6 +7,7 @@
 
 import Foundation
 import Security
+import Virtualization
 
 
 #if arch(arm64)
@@ -50,6 +51,87 @@ enum EasyVMExperimentalFeatures {
     static let diskImageKitSnapshotsKey = "experimental.diskImageKitSnapshots"
     static let usbPassthroughKey = "experimental.usbPassthrough"
     static let customVirtioKey = "experimental.customVirtio"
+    static let efiSecureBootKey = "experimental.efiSecureBoot"
+}
+
+struct VMLinuxFeatureConfiguration: Codable, Equatable {
+    var rosettaEnabled: Bool
+    var rosettaCachingEnabled: Bool
+    var memoryBalloonEnabled: Bool
+    var entropyEnabled: Bool
+    var virtioSocketEnabled: Bool
+    var secureBootEnabled: Bool
+
+    static let legacy = VMLinuxFeatureConfiguration(
+        rosettaEnabled: false,
+        rosettaCachingEnabled: false,
+        memoryBalloonEnabled: false,
+        entropyEnabled: false,
+        virtioSocketEnabled: false,
+        secureBootEnabled: false
+    )
+
+    static let recommended = VMLinuxFeatureConfiguration(
+        rosettaEnabled: false,
+        rosettaCachingEnabled: true,
+        memoryBalloonEnabled: true,
+        entropyEnabled: true,
+        virtioSocketEnabled: true,
+        secureBootEnabled: false
+    )
+}
+
+extension VMLinuxFeatureConfiguration {
+    func applyDevices(to configuration: VZVirtualMachineConfiguration, existingDirectoryTags: Set<String>) -> VMOSResultVoid {
+        if memoryBalloonEnabled {
+            configuration.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]
+        }
+        if entropyEnabled {
+            configuration.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
+        }
+        if virtioSocketEnabled {
+            configuration.socketDevices = [VZVirtioSocketDeviceConfiguration()]
+        }
+
+        if rosettaEnabled {
+            guard !existingDirectoryTags.contains("rosetta") else {
+                return .failure("The directory-sharing tag ‘rosetta’ is reserved when Linux Rosetta is enabled.")
+            }
+            guard VZLinuxRosettaDirectoryShare.availability == .installed else {
+                return .failure("Rosetta for Linux is not installed on this Mac. Disable Rosetta or create the VM again to install it.")
+            }
+            do {
+                let share = try VZLinuxRosettaDirectoryShare()
+                if rosettaCachingEnabled {
+                    try share.setCachingOptions(.defaultUnixSocket)
+                }
+                let device = VZVirtioFileSystemDeviceConfiguration(tag: "rosetta")
+                device.share = share
+                configuration.directorySharingDevices.append(device)
+            } catch {
+                return .failure("Could not configure Rosetta for Linux: \(error.localizedDescription)")
+            }
+        }
+        return .success
+    }
+}
+
+@available(macOS 27.0, *)
+enum VMEFISecureBootManager {
+    static func apply(enabled: Bool, variableStore: VZEFIVariableStore) -> VMOSResultVoid {
+        do {
+            let isEnabled = try variableStore.isSecureBootEnabled
+            if enabled, !isEnabled {
+                try variableStore.enrollDefaultSecureBootSignatures()
+                try variableStore.enableSecureBootUsingDefaultPlatformKey()
+            } else if !enabled, isEnabled {
+                try variableStore.disableSecureBoot()
+            }
+            return .success
+        } catch {
+            return .failure("Could not update UEFI Secure Boot: \(error.localizedDescription)")
+        }
+    }
 }
 
 struct VMUSBDeviceDescriptor: Equatable {

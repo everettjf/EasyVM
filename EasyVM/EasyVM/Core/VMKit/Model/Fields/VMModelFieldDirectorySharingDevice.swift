@@ -34,7 +34,7 @@ struct VMModelFieldDirectorySharingDevice : Decodable, Encodable, CustomStringCo
             return nil
         }
         
-        if items.count == 0 {
+        if items.count == 1 {
             let singleItem = items[0]
             let sharedDirectory = VZSharedDirectory(url: singleItem.path, readOnly: singleItem.readOnly)
             let singleDirectoryShare = VZSingleDirectoryShare(directory: sharedDirectory)

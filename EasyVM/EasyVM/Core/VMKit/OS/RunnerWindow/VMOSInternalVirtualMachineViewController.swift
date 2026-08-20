@@ -23,6 +23,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var virtualMachineView: VZVirtualMachineView!
     private var virtualMachineResponder: VMOSInternalVirtualMachineDelegate?
     private var virtualMachine: VZVirtualMachine!
+    private var configuredMemorySize: UInt64 = 0
     private var screenshotTimer: Timer?
     private var usbAccessoryCoordinator: AnyObject?
     // Keep the controller alive while a window-close save is still running.
@@ -93,6 +94,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             return
         }
         
+        configuredMemorySize = virtualMachineConfiguration.memorySize
         virtualMachine = VZVirtualMachine(configuration: virtualMachineConfiguration)
         virtualMachineResponder = VMOSInternalVirtualMachineDelegate(rootPath: rootPath)
         virtualMachine.delegate = virtualMachineResponder
@@ -213,6 +215,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         VMRunningRegistry.shared.markRunning(rootPath: rootPath)
         startScreenshotTimer()
         startUSBAccessoryDiscoveryIfEnabled()
+        updateBalloonMemoryState()
     }
 
     func pauseMachine() {
@@ -240,6 +243,25 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 }
             }
         }
+    }
+
+    func setBalloonMemory(fraction: Double) {
+        guard let device = virtualMachine?.memoryBalloonDevices.first as? VZVirtioTraditionalMemoryBalloonDevice else { return }
+        let maximum = configuredMemorySize
+        let requested = UInt64(Double(maximum) * min(max(fraction, 0), 1))
+        device.targetVirtualMachineMemorySize = requested
+        runtimeState?.updateBalloonMemory(target: device.targetVirtualMachineMemorySize, maximum: maximum)
+    }
+
+    private func updateBalloonMemoryState() {
+        guard let device = virtualMachine?.memoryBalloonDevices.first as? VZVirtioTraditionalMemoryBalloonDevice else {
+            runtimeState?.updateBalloonMemory(target: nil, maximum: nil)
+            return
+        }
+        runtimeState?.updateBalloonMemory(
+            target: device.targetVirtualMachineMemorySize,
+            maximum: configuredMemorySize
+        )
     }
 
     func requestStopMachine() {

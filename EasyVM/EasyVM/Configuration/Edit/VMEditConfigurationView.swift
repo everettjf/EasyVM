@@ -52,6 +52,7 @@ struct VMEditConfigurationView: View {
                 Section("Sharing Directory") {
                     VMConfigurationDirectorySharingDevicesView()
                 }
+                VMLinuxFeaturesConfigurationSection()
             }
             .formStyle(.grouped)
             

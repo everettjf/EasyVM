@@ -69,6 +69,7 @@ private struct VirtualizationFeaturesSettingsView: View {
     @AppStorage(EasyVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
     @AppStorage(EasyVMExperimentalFeatures.usbPassthroughKey) private var usbPassthrough = false
     @AppStorage(EasyVMExperimentalFeatures.customVirtioKey) private var customVirtio = false
+    @AppStorage(EasyVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
 
     var body: some View {
         Form {
@@ -89,6 +90,7 @@ private struct VirtualizationFeaturesSettingsView: View {
                 featureToggle("DiskImageKit snapshots", isOn: $diskImageKitSnapshots, capability: .diskImageKitSnapshots)
                 featureToggle("USB passthrough", isOn: $usbPassthrough, capability: .usbPassthrough)
                 featureToggle("Custom Virtio devices", isOn: $customVirtio, capability: .customVirtio)
+                featureToggle("EFI Secure Boot", isOn: $efiSecureBoot, capability: .efiSecureBoot)
             } header: {
                 Text("Experimental macOS 27 features")
             } footer: {

@@ -80,6 +80,15 @@ class VMOSRunnerForLinux : VMOSRunner {
         
         // directorySharingDevices
         virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
+
+        let features = model.config.linuxFeatures ?? .legacy
+        switch features.applyDevices(
+            to: virtualMachineConfiguration,
+            existingDirectoryTags: Set(model.config.directorySharingDevices.map(\.tag))
+        ) {
+        case .success: break
+        case .failure(let error): return .failure(error)
+        }
         
         
         // Validate
@@ -120,6 +129,18 @@ class VMOSRunnerForLinux : VMOSRunner {
         }
 
         let variableStore = VZEFIVariableStore(url: model.efiVariableStoreURL)
+        if let features = model.config.linuxFeatures {
+            if features.secureBootEnabled,
+               !(VirtualizationCapability.efiSecureBoot.isAvailable
+                 && UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.efiSecureBootKey)) {
+                return .failure("UEFI Secure Boot requires macOS 27 and the EFI Secure Boot experimental feature in Settings.")
+            }
+            if #available(macOS 27.0, *),
+               UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.efiSecureBootKey),
+               case let .failure(error) = VMEFISecureBootManager.apply(enabled: features.secureBootEnabled, variableStore: variableStore) {
+                return .failure(error)
+            }
+        }
         let bootloader = VZEFIBootLoader()
         bootloader.variableStore = variableStore
         

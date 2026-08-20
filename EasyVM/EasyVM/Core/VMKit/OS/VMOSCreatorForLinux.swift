@@ -20,6 +20,7 @@ final class VMOSCreatorForLinux: VMOSCreator {
     func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {
         
         do {
+            try await prepareRosettaIfNeeded(model: model, progress: progress)
             progress(.progress(0.1))
             
             // create bundle
@@ -86,6 +87,15 @@ final class VMOSCreatorForLinux: VMOSCreator {
             do {
                 let bootloader = VZEFIBootLoader()
                 let efiVariableStore = try VZEFIVariableStore(creatingVariableStoreAt: model.efiVariableStoreURL)
+                if model.config.linuxFeatures?.secureBootEnabled == true {
+                    guard #available(macOS 27.0, *),
+                          UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.efiSecureBootKey) else {
+                        throw VMOSError.regularFailure("UEFI Secure Boot requires macOS 27 and the EFI Secure Boot experimental feature in Settings.")
+                    }
+                    if case let .failure(error) = VMEFISecureBootManager.apply(enabled: true, variableStore: efiVariableStore) {
+                        throw VMOSError.regularFailure(error)
+                    }
+                }
                 bootloader.variableStore = efiVariableStore
                 virtualMachineConfiguration.bootLoader = bootloader
             } catch {
@@ -137,6 +147,15 @@ final class VMOSCreatorForLinux: VMOSCreator {
             
             // directorySharingDevices
             virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
+
+            let features = model.config.linuxFeatures ?? .legacy
+            if case let .failure(error) = features.applyDevices(
+                to: virtualMachineConfiguration,
+                existingDirectoryTags: Set(model.config.directorySharingDevices.map(\.tag))
+            ) {
+                continuation.resume(throwing: VMOSError.regularFailure(error))
+                return
+            }
             
             
             // Validate
@@ -156,6 +175,26 @@ final class VMOSCreatorForLinux: VMOSCreator {
 
             continuation.resume(returning: ())
         })
+    }
+
+    private func prepareRosettaIfNeeded(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
+        guard model.config.linuxFeatures?.rosettaEnabled == true else { return }
+        switch VZLinuxRosettaDirectoryShare.availability {
+        case .installed:
+            return
+        case .notInstalled:
+            progress(.info("Installing Rosetta support for Linux…"))
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                VZLinuxRosettaDirectoryShare.installRosetta { error in
+                    if let error { continuation.resume(throwing: error) }
+                    else { continuation.resume(returning: ()) }
+                }
+            }
+        case .notSupported:
+            throw VMOSError.regularFailure("Rosetta for Linux is not supported on this Mac.")
+        @unknown default:
+            throw VMOSError.regularFailure("The host returned an unknown Rosetta availability state.")
+        }
     }
     
     private func createSpiceAgentConsoleDeviceConfiguration() -> VZVirtioConsoleDeviceConfiguration {
