@@ -15,6 +15,7 @@ struct VMConfigurationStorageDevicesEditView: View {
     
     
     @State private var inputType: VMModelFieldStorageDevice.DeviceType = .USB
+    @State private var inputFormat: VMDiskImageFormat = .asif
     @State private var inputSize: UInt64 = 64 * 1024 * 1024 * 1024
     @State private var inputPath = ""
     
@@ -30,6 +31,11 @@ struct VMConfigurationStorageDevicesEditView: View {
                     }
                     
                     if inputType == .Block {
+                        Picker("Disk Format", selection: $inputFormat) {
+                            ForEach(VMDiskImageFormat.allCases) { format in
+                                Text(format.rawValue.uppercased()).tag(format)
+                            }
+                        }
                         TextField("Block Size", value: $inputSize, format: .number)
                     } else {
                         TextField("ISO Image Path", text: $inputPath)
@@ -108,7 +114,8 @@ struct VMConfigurationStorageDevicesEditView: View {
             }
         }
         
-        let device = VMModelFieldStorageDevice(type: inputType, size: inputSize, imagePath: inputPath)
+        let path = inputType == .Block ? "Disk-\(UUID().uuidString).\(inputFormat.fileExtension)" : inputPath
+        let device = VMModelFieldStorageDevice(type: inputType, size: inputSize, imagePath: path, format: inputFormat)
         
         configData.storageDevices.append(VMModelFieldStorageDeviceItemModel(data: device))
     }

@@ -182,6 +182,71 @@ struct VMModel: Identifiable {
         info += "Audio : " + config.audioDevices.map({$0.description}).joined(separator: " , ")
         return info
     }
+
+    var hasConvertibleRawDisk: Bool {
+        config.storageDevices.contains { $0.type == .Block && $0.format == .raw }
+    }
+
+    func convertPrimaryRawDiskToASIF() -> VMOSResultVoid {
+        guard let index = config.storageDevices.firstIndex(where: { $0.type == .Block && $0.format == .raw }) else {
+            return .failure("This virtual machine has no raw block disk to convert.")
+        }
+
+        let sourceDevice = config.storageDevices[index]
+        let sourceURL = rootPath.appending(path: sourceDevice.imagePath)
+        let destinationName = sourceURL.deletingPathExtension().lastPathComponent + ".asif"
+        let destinationURL = rootPath.appending(path: destinationName)
+        let backupURL = sourceURL.appendingPathExtension("raw-backup")
+        let configBackupURL = configURL.appendingPathExtension("pre-asif-backup")
+
+        guard !FileManager.default.fileExists(atPath: destinationURL.path(percentEncoded: false)) else {
+            return .failure("An ASIF disk already exists at \(destinationURL.lastPathComponent).")
+        }
+        guard !FileManager.default.fileExists(atPath: backupURL.path(percentEncoded: false)) else {
+            return .failure("A previous raw disk backup already exists at \(backupURL.lastPathComponent). Move it before converting again.")
+        }
+
+        let conversion = VMDiskImageManager.convertRawToASIF(sourceURL: sourceURL, destinationURL: destinationURL)
+        if case .failure = conversion { return conversion }
+
+        var storageDevices = config.storageDevices
+        storageDevices[index] = VMModelFieldStorageDevice(
+            type: .Block,
+            size: sourceDevice.size,
+            imagePath: destinationName,
+            format: .asif
+        )
+        let updatedConfig = VMConfigModel(
+            type: config.type,
+            name: config.name,
+            remark: config.remark,
+            cpu: config.cpu,
+            memory: config.memory,
+            graphicsDevices: config.graphicsDevices,
+            storageDevices: storageDevices,
+            networkDevices: config.networkDevices,
+            pointingDevices: config.pointingDevices,
+            audioDevices: config.audioDevices,
+            directorySharingDevices: config.directorySharingDevices
+        )
+
+        var movedSourceToBackup = false
+        do {
+            if !FileManager.default.fileExists(atPath: configBackupURL.path(percentEncoded: false)) {
+                try FileManager.default.copyItem(at: configURL, to: configBackupURL)
+            }
+            try FileManager.default.moveItem(at: sourceURL, to: backupURL)
+            movedSourceToBackup = true
+            try updatedConfig.writeConfigToFile(path: configURL).get()
+            return .success
+        } catch {
+            if movedSourceToBackup {
+                try? FileManager.default.moveItem(at: backupURL, to: sourceURL)
+            }
+            try? FileManager.default.removeItem(at: destinationURL)
+            return .failure("The ASIF image was created, but the VM configuration could not be updated: \(error.localizedDescription)")
+        }
+    }
     
     static func loadConfigFromFile(rootPath: URL) -> VMOSResult<VMModel, String> {
         do {
@@ -207,6 +272,14 @@ struct VMModel: Identifiable {
     }
     
 
+}
+
+private extension VMOSResultVoid {
+    func get() throws {
+        if case .failure(let message) = self {
+            throw NSError(domain: "EasyVM.Configuration", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+        }
+    }
 }
 
 #endif

@@ -153,6 +153,15 @@ struct MachinesDetailHomeView: View {
                             Text("Snapshots...")
                         }
 
+                        if let model = item.model, model.hasConvertibleRawDisk, !isRunning {
+                            Button {
+                                convertDiskToASIF(item: item, model: model)
+                            } label: {
+                                Image(systemName: "internaldrive")
+                                Text("Convert Disk to ASIF...")
+                            }
+                        }
+
                         Divider()
 
                         Button {
@@ -223,6 +232,27 @@ struct MachinesDetailHomeView: View {
         MacKitUtil.alertWarn(title: "Remove \"\(name)\" from the list?", message: "The machine files stay on disk at \(path). You can add the machine back at any time.") { isOK in
             if isOK {
                 sharedAppConfigManager.removeVMPathWithReload(url: item.rootPath)
+            }
+        }
+    }
+
+    func convertDiskToASIF(item: HomeItemVMModel, model: VMModel) {
+        MacKitUtil.alertWarn(
+            title: "Convert \"\(model.config.name)\" to ASIF?",
+            message: "EasyVM will create a space-efficient ASIF disk and keep the original raw disk as a backup. The machine must remain stopped during conversion."
+        ) { isOK in
+            guard isOK else { return }
+            Task.detached {
+                let result = model.convertPrimaryRawDiskToASIF()
+                await MainActor.run {
+                    switch result {
+                    case .success:
+                        NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+                        MacKitUtil.alertInfo(title: "Disk converted", message: "The VM now uses ASIF. The original raw disk remains in the VM bundle with a .raw-backup extension.")
+                    case .failure(let error):
+                        MacKitUtil.alertWarn(title: "Conversion failed", message: error)
+                    }
+                }
             }
         }
     }

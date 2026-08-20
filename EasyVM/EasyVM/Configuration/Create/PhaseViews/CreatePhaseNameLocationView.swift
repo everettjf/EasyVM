@@ -214,7 +214,7 @@ struct CreatePhaseNameLocationView: View {
             }
             .formStyle(.grouped)
         }
-        .onChange(of: configData.name) { _ in
+        .onChange(of: configData.name) {
             refreshRootPath()
         }
     }

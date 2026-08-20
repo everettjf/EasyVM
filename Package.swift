@@ -16,7 +16,6 @@ let package = Package(
                 "Catalog",
                 "Model",
                 "OS",
-                "Common/VMOSHelper.swift",
                 "Common/VMRunningRegistry.swift",
                 "VMOSCreator.swift",
                 "VMOSDownloader.swift",
@@ -24,6 +23,7 @@ let package = Package(
             ],
             sources: [
                 "Common/VMOSResultVoid.swift",
+                "Common/VMOSHelper.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ]
         ),

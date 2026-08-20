@@ -258,9 +258,9 @@ struct CreatePhaseCreatingView: View {
             Spacer()
         }
         .padding(24)
-        .onChange(of: formData.statusText) { newValue in
+        .onChange(of: formData.statusText) {
             // surface the full log as soon as something goes wrong
-            if newValue.hasPrefix("❌") {
+            if formData.statusText.hasPrefix("❌") {
                 showDetails = true
             }
         }

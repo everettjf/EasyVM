@@ -17,16 +17,37 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     
     let type: DeviceType
     let size: UInt64
+    let format: VMDiskImageFormat
     
     /*
      - file name only when .Block
      - full path when .USB
      */
     let imagePath: String
+
+    init(type: DeviceType, size: UInt64, imagePath: String, format: VMDiskImageFormat = .raw) {
+        self.type = type
+        self.size = size
+        self.imagePath = imagePath
+        self.format = format
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case type, size, imagePath, format
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        type = try container.decode(DeviceType.self, forKey: .type)
+        size = try container.decode(UInt64.self, forKey: .size)
+        imagePath = try container.decode(String.self, forKey: .imagePath)
+        // EasyVM 3.2.x and earlier only created raw disk images.
+        format = try container.decodeIfPresent(VMDiskImageFormat.self, forKey: .format) ?? .raw
+    }
     
     var description: String {
         if type == .Block {
-            return "\(type) \(size / 1024 / 1024 / 1024)GB"
+            return "\(type) \(format.rawValue.uppercased()) \(size / 1024 / 1024 / 1024)GB"
         } else {
             return "\(type) \(imagePath)"
         }
@@ -35,7 +56,7 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     
     var shortDescription: String {
         if type == .Block {
-            return "\(type) \(size / 1024 / 1024 / 1024)GB"
+            return "\(type) \(format.rawValue.uppercased()) \(size / 1024 / 1024 / 1024)GB"
         } else {
             return "\(type)"
         }
@@ -56,7 +77,7 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     }
     
     static func `default`() -> VMModelFieldStorageDevice {
-        return VMModelFieldStorageDevice(type: .Block, size: Self.defaultDiskSize(), imagePath: "Disk.img")
+        return VMModelFieldStorageDevice(type: .Block, size: Self.defaultDiskSize(), imagePath: "Disk.asif", format: .asif)
     }
     
     func createConfiguration(rootPath: URL) -> VMOSResult<VZStorageDeviceConfiguration, String> {
@@ -71,7 +92,7 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
         
         // create disk
         let fullPath = rootPath.appending(path: imagePath)
-        let createResult = VMOSHelper.createEmptyDiskImage(filePath: fullPath, size: size)
+        let createResult = VMDiskImageManager.create(format: format, at: fullPath, size: size)
         if case let .failure(error) = createResult {
             return .failure(error)
         }
