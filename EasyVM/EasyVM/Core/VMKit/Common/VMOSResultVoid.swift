@@ -7,7 +7,6 @@
 
 import Foundation
 
-#if arch(arm64)
 enum VMOSResult<Success, Failure> {
     case success(Success)
     case failure(Failure)
@@ -24,5 +23,3 @@ enum VMOSResultVoid {
 enum VMOSError: Error {
     case regularFailure(String)
 }
-
-#endif

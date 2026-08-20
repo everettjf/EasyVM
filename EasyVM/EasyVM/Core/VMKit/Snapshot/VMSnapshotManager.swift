@@ -7,8 +7,6 @@
 
 import Foundation
 
-#if arch(arm64)
-
 /*
  File level snapshots for a virtual machine bundle.
 
@@ -260,5 +258,3 @@ class VMSnapshotManager {
         return decoder
     }
 }
-
-#endif

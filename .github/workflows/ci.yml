@@ -14,6 +14,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  core-tests:
+    name: Core tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run core tests
+        run: swift test
+
   build:
     name: Build on macOS
     runs-on: macos-15
