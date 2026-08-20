@@ -52,6 +52,17 @@ The `zap` list covers application state only. VM bundles are never removed by un
 
 ## Publication process
 
+For a normal patch release, export the Apple notarization credentials and run the one-command publisher:
+
+```sh
+export APPLE_ID="developer@example.com"
+export APPLE_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+export APPLE_TEAM_ID="YPV49M8592"
+scripts/release-patch.sh
+```
+
+The script requires a clean checkout whose `HEAD` matches `origin/main`. It calculates the next patch version, updates every Xcode target, runs tests and a Release build, commits the version bump when needed, pushes `main` and the tag, signs and notarizes the app locally, creates the GitHub Release, then updates `everettjf/homebrew-tap`. Set `EASYVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
+
 1. Build and sign the application with its virtualization entitlement and hardened runtime.
 2. Create the GitHub Release and upload the immutable archive plus checksum.
 3. Test a local Cask against that exact URL and SHA-256.
