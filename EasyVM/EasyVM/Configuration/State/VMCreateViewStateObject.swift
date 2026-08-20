@@ -70,6 +70,7 @@ class VMCreateViewStateObject: ObservableObject {
     // phase
     @Published var rootPath: String = ""
     @Published var baseDirectory: String = ""
+    @Published var hasGeneratedNameSuggestion = false
 
     // phase
     @Published var imagePath: String = ""

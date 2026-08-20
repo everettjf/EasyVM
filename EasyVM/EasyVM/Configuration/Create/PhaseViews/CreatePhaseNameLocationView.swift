@@ -13,6 +13,26 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
 
     static let lastDirectoryKey = "CreatePhaseLastSaveDirectory"
 
+    // A compact, offline catalog of filesystem-safe astronomical names. The
+    // names are intentionally bundled with the app so suggestions never depend
+    // on network availability or an app update service.
+    static let suggestedNames = [
+        "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
+        "Ceres", "Pluto", "Haumea", "Makemake", "Eris", "Luna", "Europa", "Ganymede",
+        "Callisto", "Io", "Titan", "Enceladus", "Triton", "Charon",
+        "Sirius", "Canopus", "Arcturus", "Vega", "Capella", "Rigel", "Procyon", "Betelgeuse",
+        "Achernar", "Hadar", "Altair", "Acrux", "Aldebaran", "Antares", "Spica", "Pollux",
+        "Fomalhaut", "Deneb", "Regulus", "Castor", "Bellatrix", "Elnath", "Alnilam", "Alnair",
+        "Alioth", "Dubhe", "Mirfak", "Wezen", "Sargas", "Kaus", "Avior", "Alkaid",
+        "Menkalinan", "Atria", "Alhena", "Peacock", "Mirzam", "Alphard", "Hamal", "Diphda",
+        "Andromeda", "Milky Way", "Triangulum", "Whirlpool", "Sombrero", "Pinwheel", "Sunflower",
+        "Cartwheel", "Black Eye", "Cigar", "Bode", "Sculptor", "Centaurus", "Tadpole", "Condor",
+        "Comet", "Fireworks", "Malin", "Mayall", "Hoag",
+        "Orion", "Carina", "Helix", "Crab", "Eagle", "Lagoon", "Trifid", "Rosette", "Veil",
+        "Horsehead", "Catseye", "Ring", "Tarantula", "Bubble", "Butterfly", "Pelican",
+        "North America", "Omega"
+    ]
+
     // ~/Easy Virtual Machines is used when the user never picked a custom location,
     // so choosing a directory is optional in the create guide.
     static func defaultStorageDirectory() -> URL {
@@ -52,6 +72,17 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
             }
         }
         return name
+    }
+
+    static func randomName(baseDirectory: String, excluding currentName: String? = nil) -> String {
+        for name in suggestedNames.shuffled() where name != currentName {
+            if !bundleOccupied(path: bundlePath(baseDirectory: baseDirectory, name: name)) {
+                return name
+            }
+        }
+
+        // This is only reached when every catalog name is already occupied.
+        return uniqueName(baseDirectory: baseDirectory, name: suggestedNames.randomElement() ?? "Nova")
     }
 
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
@@ -98,8 +129,11 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
                     context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
                 }
 
-                // only auto-rename the prefilled default, never a name the user already edited
-                context.configData.name = Self.uniqueName(baseDirectory: context.formData.baseDirectory, name: context.configData.name)
+            }
+
+            if !context.formData.hasGeneratedNameSuggestion {
+                context.configData.name = Self.randomName(baseDirectory: context.formData.baseDirectory)
+                context.formData.hasGeneratedNameSuggestion = true
             }
 
             context.formData.rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory, name: context.configData.name)
@@ -122,7 +156,24 @@ struct CreatePhaseNameLocationView: View {
 
             Form {
                 Section("Basic") {
-                    TextField("Name", text: $configData.name).lineLimit(1)
+                    HStack {
+                        TextField("Name", text: $configData.name).lineLimit(1)
+                        Button {
+                            let baseDirectory = formData.baseDirectory.isEmpty
+                                ? CreatePhaseNameLocationViewHandler.defaultStorageDirectory().path(percentEncoded: false)
+                                : formData.baseDirectory
+                            configData.name = CreatePhaseNameLocationViewHandler.randomName(
+                                baseDirectory: baseDirectory,
+                                excluding: configData.name
+                            )
+                        } label: {
+                            Image(systemName: "dice")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Suggest another astronomical name")
+                        .accessibilityLabel("Suggest another name")
+                        .accessibilityIdentifier("randomize-vm-name")
+                    }
 
                     TextField("Description", text: $configData.remark).lineLimit(3, reservesSpace: true)
                 }

@@ -125,8 +125,12 @@ struct CreatePhaseSystemView: View {
 
     private func switchOSType(_ osType: VMOSType) {
         guard configData.osType != osType else { return }
+        let existingName = configData.name
         configData.osType = osType
         configData.resetDefaultConfig()
+        if formData.hasGeneratedNameSuggestion {
+            configData.name = existingName
+        }
         formData.imagePath = ""
         formData.systemImageSelection = osType == .macOS
             ? .latestMacOS
