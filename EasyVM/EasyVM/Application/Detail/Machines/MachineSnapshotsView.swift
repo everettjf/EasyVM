@@ -16,6 +16,7 @@ class MachineSnapshotsViewStateObject: ObservableObject {
     @Published var snapshots: [VMSnapshotModel] = []
     @Published var snapshotTree: [VMSnapshotTreeNode] = []
     @Published var currentSnapshotID: String?
+    @Published var selectedBackend: VMSnapshotBackend = .apfsClone
     @Published var newSnapshotName: String = ""
     @Published var snapshotBeforeRestore = true
     @Published var isWorking = false
@@ -30,6 +31,7 @@ class MachineSnapshotsViewStateObject: ObservableObject {
         snapshots = VMSnapshotManager.listSnapshots(vmRootPath: rootPath)
         snapshotTree = VMSnapshotManager.snapshotTree(vmRootPath: rootPath)
         currentSnapshotID = VMSnapshotManager.currentSnapshotID(vmRootPath: rootPath)
+        selectedBackend = VMSnapshotManager.selectedBackend(vmRootPath: rootPath)
     }
 
     private func notifySnapshotsChanged() {
@@ -174,6 +176,8 @@ struct MachineSnapshotRowView: View {
                     Text(snapshot.displayRelativeDate)
                     Text("·")
                     Text(snapshot.displayDate)
+                    Text("·")
+                    Text(snapshot.backend == .diskImageKitLayered ? "ASIF layers" : "APFS clone")
                     if !snapshot.displaySize.isEmpty {
                         Text("·")
                         Text(snapshot.displaySize)
@@ -244,7 +248,7 @@ struct MachineSnapshotRowView: View {
 
 
 struct MachineSnapshotsView: View {
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
 
     let machineName: String
     @StateObject private var state: MachineSnapshotsViewStateObject
@@ -281,9 +285,16 @@ struct MachineSnapshotsView: View {
                 }
                 .font(.caption)
             } else {
-                Text("Snapshots form a history tree. Restore an earlier snapshot and create a new one to start another branch.")
-                    .font(.caption)
+                HStack {
+                    Text("Snapshots form a history tree. Restore an earlier snapshot and create a new one to start another branch.")
+                    Spacer()
+                    Label(
+                        state.selectedBackend == .diskImageKitLayered ? "ASIF layered" : "APFS clone",
+                        systemImage: state.selectedBackend == .diskImageKitLayered ? "square.stack.3d.up" : "doc.on.doc"
+                    )
                     .foregroundStyle(.secondary)
+                }
+                .font(.caption)
             }
 
             HStack {
@@ -311,7 +322,9 @@ struct MachineSnapshotsView: View {
                         .foregroundStyle(.secondary)
                     Text("No snapshots yet")
                         .foregroundStyle(.secondary)
-                    Text("Snapshots are stored inside the machine bundle and use copy-on-write, so creating one is fast and takes almost no extra space.")
+                    Text(state.selectedBackend == .diskImageKitLayered
+                         ? "Snapshots use macOS 27 ASIF overlay layers and are stored inside the machine bundle."
+                         : "Snapshots are stored inside the machine bundle and use APFS copy-on-write when available.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -360,7 +373,7 @@ struct MachineSnapshotsView: View {
                     .lineLimit(2)
                 Spacer()
                 Button {
-                    presentationMode.wrappedValue.dismiss()
+                    dismiss()
                 } label: {
                     Text("Close")
                 }

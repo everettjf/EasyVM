@@ -7,6 +7,9 @@
 
 import Foundation
 import Virtualization
+#if canImport(DiskImageKit)
+import DiskImageKit
+#endif
 
 #if arch(arm64)
 struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible {
@@ -97,10 +100,32 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
             return .failure(error)
         }
         
-        // attachment
-        guard let diskImageAttachment = try? VZDiskImageStorageDeviceAttachment(url: fullPath, readOnly: false) else {
-            return .failure("Failed to create Disk image.")
+        // DiskImageKit overlay stacks are opt-in on macOS 27. The URL-based
+        // attachment remains the default and the macOS 26 compatibility path.
+        let diskImageAttachment: VZDiskImageStorageDeviceAttachment
+#if canImport(DiskImageKit)
+        if #available(macOS 27.0, *), format == .asif {
+            do {
+                if let layeredImage = try VMSnapshotManager.layeredDiskImage(baseURL: fullPath, vmRootPath: rootPath) {
+                    diskImageAttachment = try VZDiskImageStorageDeviceAttachment(diskImage: layeredImage)
+                } else {
+                    diskImageAttachment = try VZDiskImageStorageDeviceAttachment(url: fullPath, readOnly: false)
+                }
+            } catch {
+                return .failure("Failed to open the DiskImageKit layer stack: \(error.localizedDescription)")
+            }
+        } else {
+            guard let attachment = try? VZDiskImageStorageDeviceAttachment(url: fullPath, readOnly: false) else {
+                return .failure("Failed to create disk image attachment.")
+            }
+            diskImageAttachment = attachment
         }
+#else
+        guard let attachment = try? VZDiskImageStorageDeviceAttachment(url: fullPath, readOnly: false) else {
+            return .failure("Failed to create disk image attachment.")
+        }
+        diskImageAttachment = attachment
+#endif
         let disk = VZVirtioBlockDeviceConfiguration(attachment: diskImageAttachment)
         return .success(disk)
     }

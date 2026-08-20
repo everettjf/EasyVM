@@ -33,6 +33,8 @@ final class VMSnapshotManagerTests: XCTestCase {
 
         XCTAssertEqual(VMSnapshotManager.snapshotCount(vmRootPath: temporaryRoot), 1)
         XCTAssertEqual(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).first?.name, "Before change")
+        XCTAssertEqual(snapshot.backend, .apfsClone)
+        XCTAssertTrue(snapshot.diskLayers.isEmpty)
         XCTAssertGreaterThan(snapshot.totalSize ?? 0, 0)
 
         try write("changed config", to: "config.json")
@@ -157,7 +159,25 @@ final class VMSnapshotManagerTests: XCTestCase {
         let snapshots = VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot)
         XCTAssertEqual(snapshots.count, 1)
         XCTAssertNil(snapshots[0].parentSnapshotID)
+        XCTAssertEqual(snapshots[0].backend, .apfsClone)
+        XCTAssertTrue(snapshots[0].diskLayers.isEmpty)
         XCTAssertEqual(VMSnapshotManager.snapshotTree(vmRootPath: temporaryRoot).first?.id, snapshotID)
+    }
+
+    func testRawMachineAlwaysUsesAPFSCloneBackend() throws {
+        let oldValue = UserDefaults.standard.object(forKey: EasyVMExperimentalFeatures.diskImageKitSnapshotsKey)
+        defer {
+            if let oldValue {
+                UserDefaults.standard.set(oldValue, forKey: EasyVMExperimentalFeatures.diskImageKitSnapshotsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: EasyVMExperimentalFeatures.diskImageKitSnapshotsKey)
+            }
+        }
+        UserDefaults.standard.set(true, forKey: EasyVMExperimentalFeatures.diskImageKitSnapshotsKey)
+        try write("raw", to: "Disk.img")
+        try write(#"{"storageDevices":[{"type":"Block","size":1024,"imagePath":"Disk.img","format":"raw"}]}"#, to: "config.json")
+
+        XCTAssertEqual(VMSnapshotManager.selectedBackend(vmRootPath: temporaryRoot), .apfsClone)
     }
 
     private func write(_ value: String, to relativePath: String) throws {
