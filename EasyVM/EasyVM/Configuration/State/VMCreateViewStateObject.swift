@@ -76,6 +76,16 @@ class VMCreateViewStateObject: ObservableObject {
     @Published var imagePath: String = ""
     @Published var systemImageSelection: SystemImageSelection = .latestMacOS
 
+    // macOS 27 first-boot provisioning. The password lives only in this
+    // in-memory form and is moved to Keychain after the VM is installed.
+    @Published var provisionsMacGuest = false
+    @Published var provisioningFullName = "EasyVM User"
+    @Published var provisioningUsername = "easyvm"
+    @Published var provisioningPassword = ""
+    @Published var provisioningPasswordConfirmation = ""
+    @Published var provisioningAutomaticLogin = false
+    @Published var provisioningRemoteLogin = false
+
     @Published var logs: [LogModel] = []
 
     @Published var installingProgress: Double = 0.0

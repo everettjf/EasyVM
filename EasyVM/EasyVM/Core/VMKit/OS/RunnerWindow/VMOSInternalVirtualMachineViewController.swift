@@ -116,29 +116,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             }
         } else {
             if #available(macOS 14.0, *), FileManager.default.fileExists(atPath: model.savedMachineStateURL.path(percentEncoded: false)) {
-                restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath)
+                restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath, model: model)
                 return
             }
 
-            runtimeState?.update(.starting)
-            virtualMachine.start { result in
-                if case let .failure(error) = result {
-                    Task { @MainActor in self.fail("Could not start the virtual machine: \(error.localizedDescription)") }
-                    return
-                }
-
-                // succeed start
-                Task { @MainActor in
-                    self.runtimeState?.update(.running)
-                    VMRunningRegistry.shared.markRunning(rootPath: rootPath)
-                    self.startScreenshotTimer()
-                }
-            }
+            startNormally(rootPath: rootPath, model: model)
         }
     }
 
     @available(macOS 14.0, *)
-    private func restoreMachine(from stateURL: URL, rootPath: URL) {
+    private func restoreMachine(from stateURL: URL, rootPath: URL, model: VMModel) {
         runtimeState?.update(.restoring)
         virtualMachine.restoreMachineStateFrom(url: stateURL) { [weak self] error in
             guard let self else { return }
@@ -146,7 +133,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 try? FileManager.default.removeItem(at: stateURL)
                 Task { @MainActor in
                     self.runtimeState?.update(.starting)
-                    self.startWithoutRestore(rootPath: rootPath)
+                    self.startNormally(rootPath: rootPath, model: model)
                 }
                 print("saved state restore failed, starting normally: \(error)")
                 return
@@ -167,20 +154,62 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
-    private func startWithoutRestore(rootPath: URL) {
+    private func startNormally(rootPath: URL, model: VMModel) {
+        runtimeState?.update(.starting)
+        if #available(macOS 27.0, *),
+           model.config.type == .macOS {
+            switch VMGuestProvisioningCredentialStore.load(vmRootPath: rootPath) {
+            case .failure(let error):
+                fail(error)
+                return
+            case .success(let credential?):
+                do {
+                    let provisioning = VZMacGuestProvisioningOptions()
+                    provisioning.fullName = credential.fullName
+                    provisioning.username = credential.username
+                    provisioning.password = credential.password
+                    provisioning.logsInAutomatically = credential.logsInAutomatically
+                    provisioning.enablesRemoteLogin = credential.enablesRemoteLogin
+                    let options = VZMacOSVirtualMachineStartOptions()
+                    try options.setGuestProvisioning(provisioning)
+                    virtualMachine.start(options: options) { [weak self] error in
+                        Task { @MainActor in
+                            guard let self else { return }
+                            if let error {
+                                self.fail("Could not start the provisioned virtual machine: \(error.localizedDescription)")
+                            } else {
+                                VMGuestProvisioningCredentialStore.delete(vmRootPath: rootPath)
+                                self.didStart(rootPath: rootPath)
+                            }
+                        }
+                    }
+                    return
+                } catch {
+                    fail("Guest provisioning settings were rejected: \(error.localizedDescription)")
+                    return
+                }
+            case .success(nil):
+                break
+            }
+        }
+
         virtualMachine.start { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
                 switch result {
                 case .success:
-                    self.runtimeState?.update(.running)
-                    VMRunningRegistry.shared.markRunning(rootPath: rootPath)
-                    self.startScreenshotTimer()
+                    self.didStart(rootPath: rootPath)
                 case .failure(let error):
                     self.fail("Could not start the virtual machine: \(error.localizedDescription)")
                 }
             }
         }
+    }
+
+    private func didStart(rootPath: URL) {
+        runtimeState?.update(.running)
+        VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+        startScreenshotTimer()
     }
 
     func pauseMachine() {

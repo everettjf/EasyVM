@@ -82,6 +82,25 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             context.formData.creationStage = "Creation failed"
             print("Failed to create : \(error)")
         case .success:
+            if context.formData.provisionsMacGuest {
+                let credential = VMGuestProvisioningCredential(
+                    fullName: context.formData.provisioningFullName,
+                    username: context.formData.provisioningUsername,
+                    password: context.formData.provisioningPassword,
+                    logsInAutomatically: context.formData.provisioningAutomaticLogin,
+                    enablesRemoteLogin: context.formData.provisioningRemoteLogin
+                )
+                if case let .failure(error) = VMGuestProvisioningCredentialStore.save(credential, vmRootPath: rootPath) {
+                    context.formData.creationStage = "Provisioning setup failed"
+                    context.formData.addLog("❌ \(error)")
+                    context.formData.provisioningPassword = ""
+                    context.formData.provisioningPasswordConfirmation = ""
+                    return .failure(error)
+                }
+                context.formData.addLog("Guest credentials saved securely in Keychain for first boot")
+                context.formData.provisioningPassword = ""
+                context.formData.provisioningPasswordConfirmation = ""
+            }
             context.formData.creationStage = "Ready"
             context.formData.changeProgress(1)
             context.formData.disablePreviousButton = true

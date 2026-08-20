@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Security
 
 
 #if arch(arm64)
@@ -49,6 +50,70 @@ enum EasyVMExperimentalFeatures {
     static let diskImageKitSnapshotsKey = "experimental.diskImageKitSnapshots"
     static let usbPassthroughKey = "experimental.usbPassthrough"
     static let customVirtioKey = "experimental.customVirtio"
+}
+
+struct VMGuestProvisioningCredential: Codable, Equatable {
+    let fullName: String
+    let username: String
+    let password: String
+    let logsInAutomatically: Bool
+    let enablesRemoteLogin: Bool
+}
+
+enum VMGuestProvisioningCredentialStore {
+    private static let service = "com.everettjf.easyvm.guest-provisioning"
+
+    static func save(_ credential: VMGuestProvisioningCredential, vmRootPath: URL) -> VMOSResultVoid {
+        do {
+            let data = try JSONEncoder().encode(credential)
+            let query = baseQuery(vmRootPath: vmRootPath)
+            let status = SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary)
+            if status == errSecSuccess { return .success }
+            guard status == errSecItemNotFound else { return .failure(message(for: status)) }
+
+            var addQuery = query
+            addQuery[kSecValueData as String] = data
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+            return addStatus == errSecSuccess ? .success : .failure(message(for: addStatus))
+        } catch {
+            return .failure("Could not encode guest provisioning credentials: \(error.localizedDescription)")
+        }
+    }
+
+    static func load(vmRootPath: URL) -> VMOSResult<VMGuestProvisioningCredential?, String> {
+        var query = baseQuery(vmRootPath: vmRootPath)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return .success(nil) }
+        guard status == errSecSuccess, let data = result as? Data else {
+            return .failure(message(for: status))
+        }
+        do {
+            return .success(try JSONDecoder().decode(VMGuestProvisioningCredential.self, from: data))
+        } catch {
+            return .failure("The guest provisioning credential in Keychain is invalid: \(error.localizedDescription)")
+        }
+    }
+
+    static func delete(vmRootPath: URL) {
+        SecItemDelete(baseQuery(vmRootPath: vmRootPath) as CFDictionary)
+    }
+
+    private static func baseQuery(vmRootPath: URL) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: vmRootPath.standardizedFileURL.path(percentEncoded: false),
+        ]
+    }
+
+    private static func message(for status: OSStatus) -> String {
+        let detail = SecCopyErrorMessageString(status, nil) as String? ?? "OSStatus \(status)"
+        return "Could not access guest provisioning credentials in Keychain: \(detail)"
+    }
 }
 
 enum VMDiskImageFormat: String, Codable, CaseIterable, Identifiable {
