@@ -10,12 +10,12 @@ brew install --cask everettjf/tap/easyvm
 
 ## Current release
 
-The `v3.1.0` release meets the distribution requirements:
+The `v3.2.0` release meets the distribution requirements:
 
 - The release is tagged and hosted by GitHub Releases.
 - The app is signed with Developer ID Application team `YPV49M8592`.
 - Apple notarization and Gatekeeper assessment pass.
-- The immutable ZIP SHA-256 is `1d01d142009d15abdab87d00c5bc85d5bd41d387092c5009f1d2a9e4a5f0dccc`.
+- The immutable ZIP SHA-256 is `0f7a3b22442d35a56811d26ba468b009d099ed348824f25b02e1638b08f1bec4`.
 - `brew install --cask everettjf/tap/easyvm` has been tested successfully.
 
 GitHub Releases should remain the source of truth. The Cask is a small installation manifest pointing at the immutable release artifact.
@@ -27,8 +27,8 @@ GitHub Releases should remain the source of truth. The Cask is a small installat
 # frozen_string_literal: true
 
 cask "easyvm" do
-  version "3.1.0"
-  sha256 "1d01d142009d15abdab87d00c5bc85d5bd41d387092c5009f1d2a9e4a5f0dccc"
+  version "3.2.0"
+  sha256 "0f7a3b22442d35a56811d26ba468b009d099ed348824f25b02e1638b08f1bec4"
 
   url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip"
   name "EasyVM"
