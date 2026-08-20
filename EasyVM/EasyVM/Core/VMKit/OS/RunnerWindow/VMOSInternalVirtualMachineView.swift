@@ -10,6 +10,13 @@ import SwiftUI
 #if arch(arm64)
 @MainActor
 final class VMRuntimeState: ObservableObject {
+    struct USBAccessoryItem: Identifiable, Equatable {
+        let id: UInt64
+        let name: String
+        let detail: String
+        var isAttached: Bool
+    }
+
     enum Phase: Equatable {
         case preparing
         case starting
@@ -39,6 +46,8 @@ final class VMRuntimeState: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .preparing
+    @Published private(set) var usbAccessories: [USBAccessoryItem] = []
+    @Published private(set) var usbStatusMessage: String?
     weak var controller: VMOSInternalVirtualMachineViewController?
 
     var errorMessage: String? {
@@ -50,15 +59,28 @@ final class VMRuntimeState: ObservableObject {
     var canResume: Bool { phase == .paused }
     var canRequestStop: Bool { phase == .running || phase == .paused }
     var canSave: Bool { phase == .running || phase == .paused }
+    var canManageUSB: Bool {
+        if #available(macOS 27.0, *) {
+            return UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey)
+                && (phase == .running || phase == .paused)
+        }
+        return false
+    }
 
     func update(_ phase: Phase) {
         self.phase = phase
+    }
+
+    func updateUSBAccessories(_ accessories: [USBAccessoryItem], statusMessage: String? = nil) {
+        usbAccessories = accessories
+        usbStatusMessage = statusMessage
     }
 
     func pause() { controller?.pauseMachine() }
     func resume() { controller?.resumeMachine() }
     func requestStop() { controller?.requestStopMachine() }
     func saveAndStop() { controller?.saveAndStopMachine() }
+    func toggleUSB(_ id: UInt64) { controller?.toggleUSBAccessory(registryID: id) }
 }
 
 struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
