@@ -96,8 +96,8 @@ struct AboutDetailHomeView: View {
             DetailLinkCardView(
                 image: "globe",
                 title: "Website",
-                subtitle: "easyvm.app",
-                urlString: "https://easyvm.app"
+                subtitle: "xnu.app/easyvm",
+                urlString: "https://xnu.app/easyvm"
             )
             DetailLinkCardView(
                 image: "chevron.left.forwardslash.chevron.right",

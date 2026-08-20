@@ -27,16 +27,10 @@ struct CommunityDetailHomeView: View {
                 .padding(.bottom, 8)
 
             DetailLinkCardView(
-                image: "bubble.left.and.bubble.right",
-                title: "GitHub Discussions",
-                subtitle: "Ask questions and share ideas",
-                urlString: "https://github.com/everettjf/easyvm/discussions"
-            )
-            DetailLinkCardView(
                 image: "message",
                 title: "Discord",
                 subtitle: "Chat with other users",
-                urlString: "https://discord.gg/uxuy3vVtWs"
+                urlString: "https://discord.gg/eGzEaP6TzR"
             )
             DetailLinkCardView(
                 image: "star",

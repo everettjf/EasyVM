@@ -23,7 +23,8 @@ struct MainApp: App {
             VMCreateStepperGuideView()
         }
         .defaultPosition(.center)
-        .defaultSize(width: 1024, height: 768)
+        .defaultSize(width: 960, height: 660)
+        .windowResizability(.contentMinSize)
         
         WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
             if let rootPath = modelRootPath {

@@ -11,11 +11,9 @@ import SwiftUI
 
 class CreatePhaseSystemViewHandler: VMCreateStepperGuidePhaseHandler {
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        if context.formData.imagePath.isEmpty {
-            return .failure("Please choose a system version to download, or pick a local ipsw/iso file")
-        }
-        if !FileManager.default.fileExists(atPath: context.formData.imagePath) {
-            return .failure("System image file does not exist : \(context.formData.imagePath)")
+        if case .localFile(let url) = context.formData.systemImageSelection,
+           !FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+            return .failure("The selected system image no longer exists: \(url.path(percentEncoded: false))")
         }
         return .success
     }
@@ -29,7 +27,7 @@ struct CreatePhaseSystemView: View {
     @EnvironmentObject private var formData: VMCreateViewStateObject
     @EnvironmentObject private var configData: VMConfigurationViewStateObject
 
-    @State private var downloadSource: SystemImageDownloadViewState.ImageSource?
+    @State private var customImageURL = ""
 
     var body: some View {
         ScrollView {
@@ -43,16 +41,13 @@ struct CreatePhaseSystemView: View {
             .padding(.horizontal, 4)
             .padding(.bottom, 12)
         }
-        .sheet(item: $downloadSource) { source in
-            SystemImageDownloadView(initialSource: source)
-        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text("Choose a system")
                 .font(.title2.weight(.semibold))
-            Text("Select an operating system and an image. Downloads are saved for reuse.")
+            Text("Choose an image now. Downloading starts only after you click Create.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -77,14 +72,15 @@ struct CreatePhaseSystemView: View {
     private var imageSelection: some View {
         if configData.osType == .macOS {
             MacOSImageSelectionView(
-                selectedPath: formData.imagePath,
-                onDownload: presentDownload,
+                selection: formData.systemImageSelection,
+                onSelect: selectImage,
                 onChooseLocal: selectFromFileSystem
             )
         } else {
             LinuxImageSelectionView(
-                selectedPath: formData.imagePath,
-                onDownload: presentDownload,
+                selection: formData.systemImageSelection,
+                customURL: $customImageURL,
+                onSelect: selectImage,
                 onChooseLocal: selectFromFileSystem
             )
         }
@@ -93,15 +89,15 @@ struct CreatePhaseSystemView: View {
     private var selectedImageSummary: some View {
         GroupBox {
             HStack(spacing: 12) {
-                Image(systemName: formData.imagePath.isEmpty ? "circle.dashed" : "checkmark.circle.fill")
+                Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(formData.imagePath.isEmpty ? Color.secondary : Color.green)
+                    .foregroundStyle(.green)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(formData.imagePath.isEmpty ? "No system image selected" : "Ready to continue")
+                    Text(formData.systemImageSelection.title)
                         .font(.headline)
-                    Text(formData.imagePath.isEmpty ? "Choose a download above or select an image from disk." : formData.imagePath)
+                    Text(formData.systemImageSelection.detail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -114,10 +110,16 @@ struct CreatePhaseSystemView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("selected-system-image")
+        .id(formData.systemImageSelection)
     }
 
-    private func presentDownload(_ source: SystemImageDownloadViewState.ImageSource) {
-        downloadSource = source
+    private func selectImage(_ selection: VMCreateViewStateObject.SystemImageSelection) {
+        formData.systemImageSelection = selection
+        if case .localFile(let url) = selection {
+            formData.imagePath = url.path(percentEncoded: false)
+        } else {
+            formData.imagePath = ""
+        }
     }
 
     private func switchOSType(_ osType: VMOSType) {
@@ -125,20 +127,23 @@ struct CreatePhaseSystemView: View {
         configData.osType = osType
         configData.resetDefaultConfig()
         formData.imagePath = ""
+        formData.systemImageSelection = osType == .macOS
+            ? .latestMacOS
+            : .catalog(VMSystemImageCatalog.linuxItems[0])
     }
 
     private func selectFromFileSystem() {
         let fileType = configData.osType == .macOS ? "IPSW" : "ISO"
         MacKitUtil.selectFile(title: "Choose a \(fileType) system image") { path in
             guard let path else { return }
-            formData.imagePath = path.path(percentEncoded: false)
+            selectImage(.localFile(path))
         }
     }
 }
 
 private struct MacOSImageSelectionView: View {
-    let selectedPath: String
-    let onDownload: (SystemImageDownloadViewState.ImageSource) -> Void
+    let selection: VMCreateViewStateObject.SystemImageSelection
+    let onSelect: (VMCreateViewStateObject.SystemImageSelection) -> Void
     let onChooseLocal: () -> Void
 
     var body: some View {
@@ -154,9 +159,10 @@ private struct MacOSImageSelectionView: View {
                 systemImage: "sparkles",
                 accent: .blue,
                 badge: VMImageStore.exists(fileName: "macOS-Latest.ipsw") ? "Downloaded" : "Recommended",
+                isSelected: selection == .latestMacOS,
                 identifier: "macos-latest-image"
             ) {
-                onDownload(.latestAvailable)
+                onSelect(.latestMacOS)
             }
 
             VStack(spacing: 8) {
@@ -167,15 +173,21 @@ private struct MacOSImageSelectionView: View {
                         systemImage: "shippingbox",
                         accent: .indigo,
                         badge: cachedBadge(for: item),
+                        isSelected: selection == .catalog(item),
                         identifier: "macos-image-\(item.id)"
                     ) {
-                        onDownload(.catalog(item))
+                        onSelect(.catalog(item))
                     }
                 }
             }
 
-            LocalImageButton(fileType: "IPSW", selectedPath: selectedPath, action: onChooseLocal)
+            LocalImageButton(fileType: "IPSW", selectedPath: localPath, action: onChooseLocal)
         }
+    }
+
+    private var localPath: String {
+        if case .localFile(let url) = selection { return url.path(percentEncoded: false) }
+        return ""
     }
 
     private func cachedBadge(for item: VMSystemImageCatalogItem) -> String? {
@@ -185,8 +197,9 @@ private struct MacOSImageSelectionView: View {
 }
 
 private struct LinuxImageSelectionView: View {
-    let selectedPath: String
-    let onDownload: (SystemImageDownloadViewState.ImageSource) -> Void
+    let selection: VMCreateViewStateObject.SystemImageSelection
+    @Binding var customURL: String
+    let onSelect: (VMCreateViewStateObject.SystemImageSelection) -> Void
     let onChooseLocal: () -> Void
 
     var body: some View {
@@ -204,25 +217,39 @@ private struct LinuxImageSelectionView: View {
                         systemImage: linuxIcon(for: item),
                         accent: item.id.hasPrefix("ubuntu") ? .orange : .purple,
                         badge: linuxBadge(for: item),
+                        isSelected: selection == .catalog(item),
                         identifier: "linux-image-\(item.id)"
                     ) {
-                        onDownload(.catalog(item))
+                        onSelect(.catalog(item))
                     }
                 }
             }
 
-            ImageChoiceButton(
-                title: "Download from a custom URL",
-                detail: "Use a direct link to another ARM64 ISO",
-                systemImage: "link",
-                accent: .orange,
-                identifier: "linux-custom-url"
-            ) {
-                onDownload(.inputURL)
+            HStack(spacing: 10) {
+                TextField("Direct ARM64 ISO URL", text: $customURL)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("linux-custom-url-field")
+                Button("Use URL") {
+                    guard let url = validatedCustomURL else { return }
+                    onSelect(.remoteURL(url))
+                }
+                .disabled(validatedCustomURL == nil)
             }
 
-            LocalImageButton(fileType: "ISO", selectedPath: selectedPath, action: onChooseLocal)
+            LocalImageButton(fileType: "ISO", selectedPath: localPath, action: onChooseLocal)
         }
+    }
+
+    private var localPath: String {
+        if case .localFile(let url) = selection { return url.path(percentEncoded: false) }
+        return ""
+    }
+
+    private var validatedCustomURL: URL? {
+        guard let url = URL(string: customURL),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http" else { return nil }
+        return url
     }
 
     private func linuxDetail(for item: VMSystemImageCatalogItem) -> String {
@@ -254,6 +281,7 @@ private struct ImageChoiceButton: View {
     let systemImage: String
     let accent: Color
     var badge: String? = nil
+    var isSelected = false
     let identifier: String
     let action: () -> Void
 
@@ -294,10 +322,10 @@ private struct ImageChoiceButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+        .background(isSelected ? accent.opacity(0.10) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(.separator.opacity(0.5), lineWidth: 1)
+                .stroke(isSelected ? accent : Color.secondary.opacity(0.25), lineWidth: isSelected ? 2 : 1)
         }
         .accessibilityLabel("\(title), \(detail)")
         .accessibilityIdentifier(identifier)

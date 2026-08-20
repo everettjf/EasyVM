@@ -72,13 +72,13 @@ struct MachinesDetailHomeView: View {
                     }
                 }
                 .frame(minWidth: 580, minHeight: 500)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") {
-                            supportDestination = nil
-                        }
-                        .accessibilityIdentifier("support.done")
+            }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Close") {
+                        supportDestination = nil
                     }
+                    .accessibilityIdentifier("support.close")
                 }
             }
         }

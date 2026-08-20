@@ -77,8 +77,8 @@ When reporting a VM problem, include the host macOS version, Mac model/chip, gue
 ## Community
 
 - [GitHub Issues](https://github.com/everettjf/easyvm/issues) for bugs and focused feature requests
-- [GitHub Discussions](https://github.com/everettjf/easyvm/discussions) for questions and design ideas
-- [Discord](https://discord.gg/uxuy3vVtWs) for informal conversation
+- [GitHub Issues](https://github.com/everettjf/easyvm/issues) for questions and design ideas
+- [Discord](https://discord.gg/eGzEaP6TzR) for informal conversation
 
 ## License
 

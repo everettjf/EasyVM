@@ -15,17 +15,6 @@ class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
         return .success
     }
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
-        
-        if context.configData.osType == .linux {
-            let imagePath = context.formData.imagePath
-            if context.configData.storageDevices.contains(where: { $0.data.type == .USB && $0.data.imagePath == imagePath }) {
-                print("already found usb for \(imagePath)")
-            } else {
-                context.configData.storageDevices.append(VMModelFieldStorageDeviceItemModel(data: VMModelFieldStorageDevice(type: .USB, size: 0, imagePath: imagePath)))
-            }
-        }
-        
-        
         return .success
     }
 }

@@ -10,6 +10,47 @@ import SwiftUI
 #if arch(arm64)
 @MainActor
 class VMCreateViewStateObject: ObservableObject {
+    enum SystemImageSelection: Hashable {
+        case latestMacOS
+        case catalog(VMSystemImageCatalogItem)
+        case remoteURL(URL)
+        case localFile(URL)
+
+        var title: String {
+            switch self {
+            case .latestMacOS:
+                return "Latest compatible macOS"
+            case .catalog(let item):
+                return item.name
+            case .remoteURL(let url):
+                return url.lastPathComponent.isEmpty ? url.absoluteString : url.lastPathComponent
+            case .localFile(let url):
+                return url.lastPathComponent
+            }
+        }
+
+        var detail: String {
+            switch self {
+            case .latestMacOS:
+                return "Downloaded from Apple when you create the virtual machine"
+            case .catalog(let item):
+                return VMImageStore.exists(fileName: Self.fileName(for: item))
+                    ? "Ready in the image cache"
+                    : "Downloaded when you create the virtual machine"
+            case .remoteURL(let url):
+                return url.absoluteString
+            case .localFile(let url):
+                return url.path(percentEncoded: false)
+            }
+        }
+
+        private static func fileName(for item: VMSystemImageCatalogItem) -> String {
+            let fallbackExtension = item.osType == .macOS ? "ipsw" : "iso"
+            let ext = item.url.pathExtension.isEmpty ? fallbackExtension : item.url.pathExtension
+            return "\(item.id).\(ext)"
+        }
+    }
+
     struct LogModel : Identifiable {
         let id = UUID()
         let time: String
@@ -32,6 +73,7 @@ class VMCreateViewStateObject: ObservableObject {
 
     // phase
     @Published var imagePath: String = ""
+    @Published var systemImageSelection: SystemImageSelection = .latestMacOS
 
     @Published var logs: [LogModel] = []
 
@@ -41,7 +83,9 @@ class VMCreateViewStateObject: ObservableObject {
 
     // creating phase status
     @Published var isCreating = false
+    @Published var canCancelCreation = false
     @Published var statusText: String = ""
+    @Published var creationStage: String = "Preparing"
 
 
     init() {
