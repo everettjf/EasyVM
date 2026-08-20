@@ -11,6 +11,13 @@ fail() {
   exit 1
 }
 
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  echo "usage: $0"
+  echo "Increments the latest patch version, tests, signs, notarizes, publishes a GitHub release, and updates Homebrew."
+  echo "Required: APPLE_ID, APPLE_SPECIFIC_PASSWORD, APPLE_TEAM_ID"
+  exit 0
+fi
+
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
 }

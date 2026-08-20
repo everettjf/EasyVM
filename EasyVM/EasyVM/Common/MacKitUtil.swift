@@ -27,7 +27,6 @@ public class MacKitUtil {
     public static func selectDirectory(title: String, completion: @escaping (_ path: URL?) -> Void) {
         let dialog = NSOpenPanel();
         dialog.title = title;
-        dialog.showsResizeIndicator = true;
         dialog.showsHiddenFiles = false;
         dialog.canChooseFiles = false;
         dialog.canChooseDirectories = true;
@@ -41,7 +40,6 @@ public class MacKitUtil {
     public static func selectFile(title: String, completion: @escaping (_ path: URL?) -> Void) {
         let dialog = NSOpenPanel();
         dialog.title = title;
-        dialog.showsResizeIndicator = true;
         dialog.showsHiddenFiles = false;
         dialog.canChooseFiles = true;
         dialog.canChooseDirectories = false;
