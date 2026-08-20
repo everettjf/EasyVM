@@ -17,7 +17,7 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 
 - Creates and runs macOS virtual machines from a local IPSW, a selectable macOS version, or Apple's latest supported restore image
 - Creates and runs ARM64 Linux virtual machines from a local ISO or a built-in list of common distributions
-- Stores machines in `~/EasyVM` by default; any other location can still be chosen
+- Stores machines in `~/Easy Virtual Machines` by default; any other location can still be chosen
 - Keeps downloaded system images in a shared store and reuses them when creating more machines
 - Takes, restores, and deletes snapshots of a stopped machine (APFS copy-on-write clones)
 - Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories

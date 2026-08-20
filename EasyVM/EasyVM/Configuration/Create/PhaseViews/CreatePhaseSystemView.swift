@@ -73,6 +73,7 @@ struct CreatePhaseSystemView: View {
         if configData.osType == .macOS {
             MacOSImageSelectionView(
                 selection: formData.systemImageSelection,
+                customURL: $customImageURL,
                 onSelect: selectImage,
                 onChooseLocal: selectFromFileSystem
             )
@@ -143,15 +144,29 @@ struct CreatePhaseSystemView: View {
 
 private struct MacOSImageSelectionView: View {
     let selection: VMCreateViewStateObject.SystemImageSelection
+    @Binding var customURL: String
     let onSelect: (VMCreateViewStateObject.SystemImageSelection) -> Void
     let onChooseLocal: () -> Void
 
+    @StateObject private var catalog = VMMacOSImageCatalogService()
+    @State private var showAllReleases = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SelectionSectionHeading(
-                title: "macOS restore image",
-                subtitle: "Official Apple restore images for Apple silicon virtual machines."
-            )
+            HStack(alignment: .firstTextBaseline) {
+                SelectionSectionHeading(
+                    title: "macOS restore image",
+                    subtitle: "Choose the newest compatible release or a specific version from Apple."
+                )
+                Spacer()
+                Button {
+                    Task { await catalog.refresh(force: true) }
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .disabled(catalog.isRefreshing)
+                .accessibilityIdentifier("refresh-macos-catalog")
+            }
 
             ImageChoiceButton(
                 title: "Latest compatible macOS",
@@ -165,29 +180,107 @@ private struct MacOSImageSelectionView: View {
                 onSelect(.latestMacOS)
             }
 
-            VStack(spacing: 8) {
-                ForEach(VMSystemImageCatalog.macOSItems) { item in
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 7) {
+                    if catalog.isRefreshing {
+                        ProgressView().controlSize(.small)
+                        Text("Updating available versions…")
+                    } else if let errorMessage = catalog.errorMessage {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Text(errorMessage)
+                    } else {
+                        Image(systemName: "network").foregroundStyle(.green)
+                        Text(catalogStatusText)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Text("Catalog data from IPSW.me · Restore images download directly from Apple. Specific releases may require newer host device support.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+
+                Text("Recommended releases")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                ForEach(catalog.featuredItems) { item in
                     ImageChoiceButton(
                         title: item.name,
                         detail: item.detail,
                         systemImage: "shippingbox",
                         accent: .indigo,
                         badge: cachedBadge(for: item),
-                        isSelected: selection == .catalog(item),
+                        isSelected: selectedCatalogID == item.id,
                         identifier: "macos-image-\(item.id)"
                     ) {
                         onSelect(.catalog(item))
                     }
                 }
+
+                DisclosureGroup("All available releases (\(catalog.items.count))", isExpanded: $showAllReleases) {
+                    LazyVStack(spacing: 8) {
+                        ForEach(catalog.items) { item in
+                            ImageChoiceButton(
+                                title: item.name,
+                                detail: item.detail,
+                                systemImage: "shippingbox",
+                                accent: .indigo,
+                                badge: cachedBadge(for: item),
+                                isSelected: selectedCatalogID == item.id,
+                                identifier: "macos-image-\(item.id)"
+                            ) {
+                                onSelect(.catalog(item))
+                            }
+                        }
+                    }
+                    .padding(.top, 8)
+                }
+            }
+
+            HStack(spacing: 10) {
+                TextField("Direct Apple IPSW URL", text: $customURL)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("macos-custom-url-field")
+                Button("Use URL") {
+                    guard let url = validatedCustomURL else { return }
+                    onSelect(.remoteURL(url))
+                }
+                .disabled(validatedCustomURL == nil)
             }
 
             LocalImageButton(fileType: "IPSW", selectedPath: localPath, action: onChooseLocal)
         }
+        .task { await catalog.refresh() }
     }
 
     private var localPath: String {
         if case .localFile(let url) = selection { return url.path(percentEncoded: false) }
         return ""
+    }
+
+    private var selectedCatalogID: String? {
+        if case .catalog(let item) = selection { return item.id }
+        return nil
+    }
+
+    private var validatedCustomURL: URL? {
+        guard let url = URL(string: customURL),
+              url.scheme?.lowercased() == "https",
+              url.pathExtension.lowercased() == "ipsw" else { return nil }
+        return url
+    }
+
+    private var catalogStatusText: String {
+        guard let lastUpdated = catalog.lastUpdated else {
+            return "Built-in catalog · refreshes automatically"
+        }
+        if abs(lastUpdated.timeIntervalSinceNow) < 60 {
+            return "Online catalog updated just now"
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return "Online catalog updated \(formatter.localizedString(for: lastUpdated, relativeTo: Date()))"
     }
 
     private func cachedBadge(for item: VMSystemImageCatalogItem) -> String? {

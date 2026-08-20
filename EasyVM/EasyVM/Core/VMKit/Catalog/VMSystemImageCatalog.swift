@@ -24,14 +24,140 @@ struct VMSystemImageCatalogItem: Identifiable, Hashable {
     let name: String
     let detail: String
     let url: URL
+    let version: String?
+    let build: String?
+    let fileSize: Int64?
 
-    init(id: String, osType: VMOSType, name: String, detail: String, urlString: String) {
+    init(
+        id: String,
+        osType: VMOSType,
+        name: String,
+        detail: String,
+        urlString: String,
+        version: String? = nil,
+        build: String? = nil,
+        fileSize: Int64? = nil
+    ) {
         self.id = id
         self.osType = osType
         self.name = name
         self.detail = detail
         self.url = URL(string: urlString)!
+        self.version = version
+        self.build = build
+        self.fileSize = fileSize
     }
+}
+
+@MainActor
+final class VMMacOSImageCatalogService: ObservableObject {
+    @Published private(set) var items = VMSystemImageCatalog.macOSItems
+    @Published private(set) var isRefreshing = false
+    @Published private(set) var lastUpdated: Date?
+    @Published private(set) var errorMessage: String?
+
+    private static let endpoint = URL(string: "https://api.ipsw.me/v4/device/VirtualMac2,1?type=ipsw")!
+    private static let cacheMaxAge: TimeInterval = 6 * 60 * 60
+
+    init() {
+        loadCache()
+    }
+
+    var featuredItems: [VMSystemImageCatalogItem] {
+        let grouped = Dictionary(grouping: items) { item in
+            item.version?.split(separator: ".").first.map(String.init) ?? item.id
+        }
+        return grouped.values.compactMap { releases in
+            releases.max { lhs, rhs in
+                (lhs.version ?? "0").compare(rhs.version ?? "0", options: .numeric) == .orderedAscending
+            }
+        }
+        .sorted { lhs, rhs in
+            (lhs.version ?? "0").compare(rhs.version ?? "0", options: .numeric) == .orderedDescending
+        }
+    }
+
+    func refresh(force: Bool = false) async {
+        if !force, let lastUpdated, Date().timeIntervalSince(lastUpdated) < Self.cacheMaxAge {
+            return
+        }
+        isRefreshing = true
+        errorMessage = nil
+        defer { isRefreshing = false }
+
+        do {
+            var request = URLRequest(url: Self.endpoint)
+            request.timeoutInterval = 20
+            request.setValue("EasyVM/3", forHTTPHeaderField: "User-Agent")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200..<300).contains(httpResponse.statusCode) else {
+                throw URLError(.badServerResponse)
+            }
+            let catalog = try JSONDecoder().decode(RemoteCatalog.self, from: data)
+            let remoteItems = catalog.firmwares.compactMap(Self.makeItem).sorted {
+                ($0.version ?? "0").compare($1.version ?? "0", options: .numeric) == .orderedDescending
+            }
+            guard !remoteItems.isEmpty else { throw CatalogError.emptyCatalog }
+            items = remoteItems
+            lastUpdated = Date()
+            try? FileManager.default.createDirectory(
+                at: cacheURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try? data.write(to: cacheURL, options: .atomic)
+            UserDefaults.standard.set(lastUpdated, forKey: "VMMacOSCatalogLastUpdated")
+        } catch {
+            errorMessage = "Couldn’t refresh the catalog. Showing saved versions."
+        }
+    }
+
+    private func loadCache() {
+        guard let data = try? Data(contentsOf: cacheURL),
+              let catalog = try? JSONDecoder().decode(RemoteCatalog.self, from: data) else { return }
+        let cachedItems = catalog.firmwares.compactMap(Self.makeItem).sorted {
+            ($0.version ?? "0").compare($1.version ?? "0", options: .numeric) == .orderedDescending
+        }
+        if !cachedItems.isEmpty { items = cachedItems }
+        lastUpdated = UserDefaults.standard.object(forKey: "VMMacOSCatalogLastUpdated") as? Date
+    }
+
+    private var cacheURL: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appending(path: "EasyVM", directoryHint: .isDirectory)
+            .appending(path: "macos-catalog.json")
+    }
+
+    private static func makeItem(_ firmware: RemoteFirmware) -> VMSystemImageCatalogItem? {
+        guard firmware.url.host?.hasSuffix("apple.com") == true else { return nil }
+        let size = ByteCountFormatter.string(fromByteCount: firmware.filesize, countStyle: .file)
+        return VMSystemImageCatalogItem(
+            id: "macos-\(firmware.version)-\(firmware.buildid)",
+            osType: .macOS,
+            name: macOSName(version: firmware.version),
+            detail: "Build \(firmware.buildid) · \(size)",
+            urlString: firmware.url.absoluteString,
+            version: firmware.version,
+            build: firmware.buildid,
+            fileSize: firmware.filesize
+        )
+    }
+
+    private static func macOSName(version: String) -> String {
+        let major = version.split(separator: ".").first.map(String.init) ?? version
+        let names = ["12": "Monterey", "13": "Ventura", "14": "Sonoma", "15": "Sequoia", "26": "Tahoe"]
+        if let name = names[major] { return "macOS \(name) \(version)" }
+        return "macOS \(version)"
+    }
+
+    private struct RemoteCatalog: Decodable { let firmwares: [RemoteFirmware] }
+    private struct RemoteFirmware: Decodable {
+        let version: String
+        let buildid: String
+        let filesize: Int64
+        let url: URL
+    }
+    private enum CatalogError: Error { case emptyCatalog }
 }
 
 struct VMSystemImageCatalog {

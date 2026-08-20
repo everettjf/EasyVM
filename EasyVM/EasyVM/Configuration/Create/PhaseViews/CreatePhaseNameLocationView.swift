@@ -13,10 +13,10 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
 
     static let lastDirectoryKey = "CreatePhaseLastSaveDirectory"
 
-    // ~/EasyVM is used when the user never picked a custom location,
+    // ~/Easy Virtual Machines is used when the user never picked a custom location,
     // so choosing a directory is optional in the create guide.
     static func defaultStorageDirectory() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser.appending(path: "EasyVM")
+        FileManager.default.homeDirectoryForCurrentUser.appending(path: "Easy Virtual Machines")
     }
 
     static func readLastDirectory() -> String {
@@ -75,7 +75,7 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
             }
         }
 
-        // make sure the base directory exists (e.g. the default ~/EasyVM)
+        // make sure the base directory exists (e.g. the default ~/Easy Virtual Machines)
         let baseDir = URL(filePath: context.formData.baseDirectory)
         if !FileManager.default.fileExists(atPath: baseDir.path(percentEncoded: false)) {
             do {
@@ -137,7 +137,7 @@ struct CreatePhaseNameLocationView: View {
                         }
 
                         HStack {
-                            Text("By default machines are stored in ~/EasyVM. Pick another directory only if you want a different location.")
+                            Text("By default machines are stored in ~/Easy Virtual Machines. Pick another directory only if you want a different location.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()
