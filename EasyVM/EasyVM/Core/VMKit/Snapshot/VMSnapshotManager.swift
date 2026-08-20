@@ -28,6 +28,8 @@ struct VMSnapshotModel: Identifiable, Codable {
     let id: String
     var name: String
     let createdAt: Date
+    // nil for root snapshots and metadata written by older versions
+    let parentSnapshotID: String?
     // missing in metadata written by older versions
     let totalSize: UInt64?
 
@@ -51,12 +53,25 @@ struct VMSnapshotModel: Identifiable, Codable {
     }
 }
 
+struct VMSnapshotTreeNode: Identifiable {
+    let snapshot: VMSnapshotModel
+    let children: [VMSnapshotTreeNode]?
+
+    var id: String { snapshot.id }
+}
+
+
+private struct VMSnapshotStoreState: Codable {
+    var currentSnapshotID: String?
+}
+
 
 class VMSnapshotManager {
 
     static let snapshotsDirectoryName = "Snapshots"
     private static let filesDirectoryName = "files"
     private static let metaFileName = "snapshot.json"
+    private static let stateFileName = "state.json"
     private static let restoreStagingDirectoryName = ".restore-staging"
     private static let restoreBackupDirectoryName = ".restore-backup"
 
@@ -74,6 +89,10 @@ class VMSnapshotManager {
 
     private static func snapshotMetaURL(vmRootPath: URL, snapshotId: String) -> URL {
         snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshotId).appending(path: metaFileName)
+    }
+
+    private static func stateURL(vmRootPath: URL) -> URL {
+        snapshotsRootURL(vmRootPath: vmRootPath).appending(path: stateFileName)
     }
 
     static func defaultSnapshotName() -> String {
@@ -110,6 +129,55 @@ class VMSnapshotManager {
         return snapshots.sorted { $0.createdAt > $1.createdAt }
     }
 
+    static func currentSnapshotID(vmRootPath: URL) -> String? {
+        guard let data = try? Data(contentsOf: stateURL(vmRootPath: vmRootPath)),
+              let state = try? jsonDecoder().decode(VMSnapshotStoreState.self, from: data),
+              let currentID = state.currentSnapshotID,
+              listSnapshots(vmRootPath: vmRootPath).contains(where: { $0.id == currentID }) else {
+            return nil
+        }
+        return currentID
+    }
+
+    static func snapshotTree(vmRootPath: URL) -> [VMSnapshotTreeNode] {
+        let snapshots = listSnapshots(vmRootPath: vmRootPath)
+        let snapshotsByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
+        var childrenByParentID: [String: [VMSnapshotModel]] = [:]
+        var roots: [VMSnapshotModel] = []
+
+        for snapshot in snapshots {
+            if let parentID = snapshot.parentSnapshotID,
+               parentID != snapshot.id,
+               snapshotsByID[parentID] != nil {
+                childrenByParentID[parentID, default: []].append(snapshot)
+            } else {
+                roots.append(snapshot)
+            }
+        }
+
+        func sorted(_ items: [VMSnapshotModel]) -> [VMSnapshotModel] {
+            items.sorted { $0.createdAt < $1.createdAt }
+        }
+
+        var included = Set<String>()
+        func makeNode(_ snapshot: VMSnapshotModel, ancestors: Set<String>) -> VMSnapshotTreeNode {
+            included.insert(snapshot.id)
+            let nextAncestors = ancestors.union([snapshot.id])
+            let childNodes = sorted(childrenByParentID[snapshot.id] ?? [])
+                .filter { !nextAncestors.contains($0.id) }
+                .map { makeNode($0, ancestors: nextAncestors) }
+            return VMSnapshotTreeNode(snapshot: snapshot, children: childNodes.isEmpty ? nil : childNodes)
+        }
+
+        var tree = sorted(roots).map { makeNode($0, ancestors: []) }
+        // Corrupt cyclic metadata has no natural root. Keep those snapshots
+        // visible as additional roots instead of silently losing them.
+        for snapshot in sorted(snapshots) where !included.contains(snapshot.id) {
+            tree.append(makeNode(snapshot, ancestors: []))
+        }
+        return tree
+    }
+
     static func snapshotCount(vmRootPath: URL) -> Int {
         listSnapshots(vmRootPath: vmRootPath).count
     }
@@ -133,10 +201,17 @@ class VMSnapshotManager {
                 try FileManager.default.copyItem(at: sourceURL, to: targetURL)
             }
 
-            let model = VMSnapshotModel(id: snapshotId, name: name, createdAt: Date(), totalSize: directoryAllocatedSize(filesDir))
+            let model = VMSnapshotModel(
+                id: snapshotId,
+                name: name,
+                createdAt: Date(),
+                parentSnapshotID: currentSnapshotID(vmRootPath: vmRootPath),
+                totalSize: directoryAllocatedSize(filesDir)
+            )
 
             let data = try Self.jsonEncoder().encode(model)
-            try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id))
+            try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id), options: .atomic)
+            try writeCurrentSnapshotID(model.id, vmRootPath: vmRootPath)
 
             return .success(model)
         } catch {
@@ -200,6 +275,19 @@ class VMSnapshotManager {
             return .failure("Failed to restore snapshot, the machine was rolled back to its previous state : \(error.localizedDescription)")
         }
 
+        do {
+            try writeCurrentSnapshotID(snapshot.id, vmRootPath: vmRootPath)
+        } catch {
+            for fileName in movedFromStaging {
+                try? fm.removeItem(at: vmRootPath.appending(path: fileName))
+            }
+            for fileName in movedToBackup {
+                try? fm.moveItem(at: backupDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
+            }
+            try? fm.removeItem(at: stagingDir)
+            try? fm.removeItem(at: backupDir)
+            return .failure("Failed to record the restored snapshot branch, so the machine was rolled back : \(error.localizedDescription)")
+        }
         try? fm.removeItem(at: stagingDir)
         try? fm.removeItem(at: backupDir)
         return .success
@@ -218,13 +306,35 @@ class VMSnapshotManager {
     }
 
     static func deleteSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
+        if listSnapshots(vmRootPath: vmRootPath).contains(where: { $0.parentSnapshotID == snapshot.id }) {
+            return .failure("Delete this snapshot's child snapshots first")
+        }
+
         let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
+        let deletingCurrentSnapshot = currentSnapshotID(vmRootPath: vmRootPath) == snapshot.id
         do {
-            try FileManager.default.removeItem(at: snapshotDir)
+            if deletingCurrentSnapshot {
+                try writeCurrentSnapshotID(snapshot.parentSnapshotID, vmRootPath: vmRootPath)
+            }
+            do {
+                try FileManager.default.removeItem(at: snapshotDir)
+            } catch {
+                if deletingCurrentSnapshot {
+                    try? writeCurrentSnapshotID(snapshot.id, vmRootPath: vmRootPath)
+                }
+                throw error
+            }
             return .success
         } catch {
             return .failure("Failed to delete snapshot : \(error.localizedDescription)")
         }
+    }
+
+    private static func writeCurrentSnapshotID(_ snapshotID: String?, vmRootPath: URL) throws {
+        let rootURL = snapshotsRootURL(vmRootPath: vmRootPath)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        let data = try jsonEncoder().encode(VMSnapshotStoreState(currentSnapshotID: snapshotID))
+        try data.write(to: stateURL(vmRootPath: vmRootPath), options: .atomic)
     }
 
     // size on disk of every regular file below url

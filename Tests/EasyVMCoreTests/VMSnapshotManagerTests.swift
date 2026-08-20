@@ -81,6 +81,85 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
     }
 
+    func testSnapshotsFormBranchesAfterRestore() throws {
+        try write("initial", to: "Disk.img")
+
+        let root = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Root")
+        )
+        XCTAssertNil(root.parentSnapshotID)
+        XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot), root.id)
+
+        try write("first branch", to: "Disk.img")
+        let firstBranch = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "First branch")
+        )
+        XCTAssertEqual(firstBranch.parentSnapshotID, root.id)
+
+        try unwrapSuccess(
+            VMSnapshotManager.restoreSnapshot(vmRootPath: temporaryRoot, snapshot: root)
+        )
+        XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot), root.id)
+
+        try write("second branch", to: "Disk.img")
+        let secondBranch = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Second branch")
+        )
+        XCTAssertEqual(secondBranch.parentSnapshotID, root.id)
+
+        let tree = VMSnapshotManager.snapshotTree(vmRootPath: temporaryRoot)
+        XCTAssertEqual(tree.map(\.id), [root.id])
+        XCTAssertEqual(Set(tree[0].children?.map(\.id) ?? []), Set([firstBranch.id, secondBranch.id]))
+        XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot), secondBranch.id)
+    }
+
+    func testDeletingTreeRequiresLeavesAndMovesCurrentBranchToParent() throws {
+        try write("initial", to: "Disk.img")
+        let root = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Root")
+        )
+        let child = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Child")
+        )
+
+        if case let .failure(message) = VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: root) {
+            XCTAssertTrue(message.contains("child snapshots"))
+        } else {
+            XCTFail("Expected a snapshot with children to be protected")
+        }
+
+        try unwrapSuccess(
+            VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: child)
+        )
+        XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot), root.id)
+
+        try unwrapSuccess(
+            VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: root)
+        )
+        XCTAssertNil(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot))
+        XCTAssertTrue(VMSnapshotManager.snapshotTree(vmRootPath: temporaryRoot).isEmpty)
+    }
+
+    func testLegacySnapshotMetadataBecomesTreeRoot() throws {
+        let snapshotID = UUID().uuidString
+        let snapshotDirectory = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+            .appendingPathComponent(snapshotID, isDirectory: true)
+        try FileManager.default.createDirectory(at: snapshotDirectory, withIntermediateDirectories: true)
+
+        let legacyMetadata: [String: Any] = [
+            "id": snapshotID,
+            "name": "Legacy",
+            "createdAt": ISO8601DateFormatter().string(from: Date())
+        ]
+        let data = try JSONSerialization.data(withJSONObject: legacyMetadata)
+        try data.write(to: snapshotDirectory.appendingPathComponent("snapshot.json"))
+
+        let snapshots = VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot)
+        XCTAssertEqual(snapshots.count, 1)
+        XCTAssertNil(snapshots[0].parentSnapshotID)
+        XCTAssertEqual(VMSnapshotManager.snapshotTree(vmRootPath: temporaryRoot).first?.id, snapshotID)
+    }
+
     private func write(_ value: String, to relativePath: String) throws {
         try Data(value.utf8).write(to: temporaryRoot.appendingPathComponent(relativePath))
     }

@@ -14,6 +14,8 @@ class MachineSnapshotsViewStateObject: ObservableObject {
     let rootPath: URL
 
     @Published var snapshots: [VMSnapshotModel] = []
+    @Published var snapshotTree: [VMSnapshotTreeNode] = []
+    @Published var currentSnapshotID: String?
     @Published var newSnapshotName: String = ""
     @Published var snapshotBeforeRestore = true
     @Published var isWorking = false
@@ -26,6 +28,8 @@ class MachineSnapshotsViewStateObject: ObservableObject {
 
     func reload() {
         snapshots = VMSnapshotManager.listSnapshots(vmRootPath: rootPath)
+        snapshotTree = VMSnapshotManager.snapshotTree(vmRootPath: rootPath)
+        currentSnapshotID = VMSnapshotManager.currentSnapshotID(vmRootPath: rootPath)
     }
 
     private func notifySnapshotsChanged() {
@@ -135,6 +139,9 @@ class MachineSnapshotsViewStateObject: ObservableObject {
 
 struct MachineSnapshotRowView: View {
     let snapshot: VMSnapshotModel
+    let parentName: String?
+    let isCurrent: Bool
+    let hasChildren: Bool
     let disableActions: Bool
     let disableRestore: Bool
     let onRestore: () -> Void
@@ -145,8 +152,25 @@ struct MachineSnapshotRowView: View {
         HStack {
             Image(systemName: "camera")
             VStack(alignment: .leading, spacing: 2) {
-                Text(snapshot.name)
+                HStack(spacing: 6) {
+                    Text(snapshot.name)
+                    if isCurrent {
+                        Text("Current branch")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.blue.opacity(0.12), in: Capsule())
+                    }
+                }
                 HStack(spacing: 4) {
+                    if let parentName {
+                        Text("From \(parentName)")
+                        Text("·")
+                    } else {
+                        Text("Root")
+                        Text("·")
+                    }
                     Text(snapshot.displayRelativeDate)
                     Text("·")
                     Text(snapshot.displayDate)
@@ -182,7 +206,8 @@ struct MachineSnapshotRowView: View {
                 Image(systemName: "trash")
             }
             .disabled(disableActions)
-            .help("Delete")
+            .disabled(hasChildren)
+            .help(hasChildren ? "Delete child snapshots first" : "Delete")
         }
         .padding(.vertical, 2)
         .contextMenu {
@@ -209,7 +234,11 @@ struct MachineSnapshotRowView: View {
                 Text("Delete")
             }
             .disabled(disableActions)
+            .disabled(hasChildren)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(isCurrent ? "\(snapshot.name), current branch" : snapshot.name)
+        .accessibilityIdentifier("snapshot-row-\(snapshot.id)")
     }
 }
 
@@ -252,7 +281,7 @@ struct MachineSnapshotsView: View {
                 }
                 .font(.caption)
             } else {
-                Text("A snapshot captures the machine's disk and configuration at a point in time. Create one before risky changes and roll back instantly.")
+                Text("Snapshots form a history tree. Restore an earlier snapshot and create a new one to start another branch.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -291,21 +320,27 @@ struct MachineSnapshotsView: View {
                 }
                 .frame(maxWidth: .infinity)
             } else {
-                List(state.snapshots) { snapshot in
-                    MachineSnapshotRowView(
-                        snapshot: snapshot,
-                        disableActions: state.isWorking,
-                        disableRestore: isMachineRunning,
-                        onRestore: {
-                            restoringSnapshot = snapshot
-                        },
-                        onRename: {
-                            renameSnapshot(snapshot)
-                        },
-                        onDelete: {
-                            deletingSnapshot = snapshot
-                        }
-                    )
+                let snapshotsByID = Dictionary(uniqueKeysWithValues: state.snapshots.map { ($0.id, $0) })
+                List {
+                    OutlineGroup(state.snapshotTree, children: \.children) { node in
+                        MachineSnapshotRowView(
+                            snapshot: node.snapshot,
+                            parentName: node.snapshot.parentSnapshotID.flatMap { snapshotsByID[$0]?.name },
+                            isCurrent: node.snapshot.id == state.currentSnapshotID,
+                            hasChildren: !(node.children?.isEmpty ?? true),
+                            disableActions: state.isWorking,
+                            disableRestore: isMachineRunning,
+                            onRestore: {
+                                restoringSnapshot = node.snapshot
+                            },
+                            onRename: {
+                                renameSnapshot(node.snapshot)
+                            },
+                            onDelete: {
+                                deletingSnapshot = node.snapshot
+                            }
+                        )
+                    }
                 }
             }
 
