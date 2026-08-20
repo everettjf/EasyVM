@@ -11,10 +11,21 @@ import SwiftUI
 #if arch(arm64)
 class SystemImageDownloadViewState : ObservableObject {
 
-    enum ImageSource : Hashable {
-        case latest_avaliable
+    enum ImageSource: Hashable, Identifiable {
+        case latestAvailable
         case catalog(VMSystemImageCatalogItem)
-        case input_url
+        case inputURL
+
+        var id: String {
+            switch self {
+            case .latestAvailable:
+                return "latest-available"
+            case .catalog(let item):
+                return "catalog-\(item.id)"
+            case .inputURL:
+                return "input-url"
+            }
+        }
     }
 
     enum DownloadStatus {
@@ -25,7 +36,7 @@ class SystemImageDownloadViewState : ObservableObject {
     @Published var stateMessage: String = ""
     @Published var current: Double = 0
 
-    @Published var downloadMethod: ImageSource = .latest_avaliable
+    @Published var downloadMethod: ImageSource = .latestAvailable
     @Published var downloadInputUrl: String = ""
 
     @Published var downloadStatus: DownloadStatus = .initial
@@ -36,12 +47,12 @@ class SystemImageDownloadViewState : ObservableObject {
     func setupDefaultMethod(vmOSType: VMOSType) {
         switch vmOSType {
         case .macOS:
-            downloadMethod = .latest_avaliable
+            downloadMethod = .latestAvailable
         case .linux:
             if let firstItem = VMSystemImageCatalog.items(for: .linux).first {
                 downloadMethod = .catalog(firstItem)
             } else {
-                downloadMethod = .input_url
+                downloadMethod = .inputURL
             }
         }
     }
@@ -79,13 +90,13 @@ class SystemImageDownloadViewState : ObservableObject {
         self.downloader = VMOSDownloaderFactory.getDownloader(vmOSType)
 
         switch downloadMethod {
-        case .latest_avaliable:
+        case .latestAvailable:
             downloadStatus = .downloading
             downloader?.downloadLatest(toLocalPath: localPath, completionHandler: completionHandler, downloadProgressHandler: progressHandler)
         case .catalog(let item):
             downloadStatus = .downloading
             downloader?.downloadURL(imageURL: item.url, toLocalPath: localPath, completionHandler: completionHandler, downloadProgressHandler: progressHandler)
-        case .input_url:
+        case .inputURL:
             guard let imageURL = URL(string: downloadInputUrl) else {
                 downloadStatus = .initial
                 downloadMessage = "Invalid image URL"
@@ -152,84 +163,90 @@ struct DownloadButtonView : View {
 
 struct SystemImageDownloadView: View {
 
-    @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var formData: VMCreateViewStateObject
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
-    @StateObject private var state = SystemImageDownloadViewState()
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var formData: VMCreateViewStateObject
+    @EnvironmentObject private var configData: VMConfigurationViewStateObject
+    @StateObject private var state: SystemImageDownloadViewState
+
+    init(initialSource: SystemImageDownloadViewState.ImageSource? = nil) {
+        let state = SystemImageDownloadViewState()
+        if let initialSource {
+            state.downloadMethod = initialSource
+        }
+        _state = StateObject(wrappedValue: state)
+    }
 
     var body: some View {
-
-        VStack {
-            HStack {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(configData.osType == .macOS ? "Download macOS Restore Image" : "Download Linux Install Image")
-                    .fontWeight(.bold)
-            }
-            Spacer()
-
-            Picker(configData.osType == .macOS ? "macOS version" : "Linux distribution", selection: $state.downloadMethod) {
-                if configData.osType == .macOS {
-                    Text("Latest available image").tag(SystemImageDownloadViewState.ImageSource.latest_avaliable)
-                }
-                ForEach(VMSystemImageCatalog.items(for: configData.osType)) { item in
-                    Text("\(item.name) (\(item.detail))").tag(SystemImageDownloadViewState.ImageSource.catalog(item))
-                }
-                Text("Custom image url").tag(SystemImageDownloadViewState.ImageSource.input_url)
-            }
-            .pickerStyle(.menu)
-
-            if case .catalog(let item) = state.downloadMethod {
-                HStack {
-                    Text(item.url.absoluteString)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .textSelection(.enabled)
-                    Spacer()
-                }
-            }
-
-            if state.downloadMethod == .input_url {
-                HStack {
-                    Text("Image URL:")
-                    TextField("Image URL", text: $state.downloadInputUrl)
-                        .lineLimit(4)
-                        .textFieldStyle(.plain)
-                }
-            }
-
-
-            HStack {
-                Text("Downloaded images are kept in the image store and reused when creating more machines.")
+                    .font(.title3.weight(.semibold))
+                Text("The image will be saved and reused for future virtual machines.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Spacer()
             }
 
-            Spacer()
+            GroupBox {
+                HStack(spacing: 12) {
+                    Image(systemName: configData.osType == .macOS ? "apple.logo" : "opticaldiscdrive")
+                        .font(.title2)
+                        .foregroundStyle(configData.osType == .macOS ? Color.blue : Color.orange)
+                        .frame(width: 32)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(sourceTitle)
+                            .font(.headline)
+                        Text(sourceDetail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let sourceURL {
+                            Text(sourceURL.absoluteString)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
+                                .truncationMode(.middle)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("download-image-summary")
 
-            HStack {
-                Text(state.getDownloadStatusText())
-                    .font(.caption)
-                Spacer()
+            if state.downloadMethod == .inputURL {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Image URL")
+                        .font(.caption.weight(.semibold))
+                    TextField("https://example.com/image.iso", text: $state.downloadInputUrl)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("custom-image-url")
+                }
             }
 
-            HStack {
-                Text(state.downloadMessage)
-                    .font(.caption)
-                Spacer()
-            }
-            HStack {
-                Text("\(String(format: "%.2f", state.current))%")
-                    .font(.caption)
+            VStack(alignment: .leading, spacing: 7) {
+                HStack {
+                    Text(state.getDownloadStatusText())
+                    Spacer()
+                    Text("\(String(format: "%.1f", state.current))%")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 ProgressView(value: state.current, total: 100)
+                if !state.downloadMessage.isEmpty {
+                    Text(state.downloadMessage)
+                        .font(.caption)
+                        .foregroundStyle(state.downloadStatus == .downloadFailed ? Color.red : Color.secondary)
+                }
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
             HStack {
                 Button {
                     state.cancelDownload()
-                    presentationMode.wrappedValue.dismiss()
+                    dismiss()
                 } label: {
                     Text("Cancel")
                 }
@@ -242,24 +259,52 @@ struct SystemImageDownloadView: View {
                     Text(state.getDownloadButtonText())
                 }
                 .disabled(state.downloadStatus == .downloading)
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("download-system-image")
             }
         }
         .padding()
-        .frame(width: 600, height:300)
-        .onAppear {
-            state.setupDefaultMethod(vmOSType: configData.osType)
+        .frame(width: 620, height: 360)
+    }
+
+    private var sourceTitle: String {
+        switch state.downloadMethod {
+        case .latestAvailable:
+            return "Latest compatible macOS"
+        case .catalog(let item):
+            return item.name
+        case .inputURL:
+            return "Custom image URL"
         }
+    }
+
+    private var sourceDetail: String {
+        switch state.downloadMethod {
+        case .latestAvailable:
+            return "Apple will provide the newest restore image supported by this Mac."
+        case .catalog(let item):
+            return item.detail
+        case .inputURL:
+            return configData.osType == .macOS ? "Enter a direct IPSW download URL." : "Enter a direct ARM64 ISO download URL."
+        }
+    }
+
+    private var sourceURL: URL? {
+        if case .catalog(let item) = state.downloadMethod {
+            return item.url
+        }
+        return nil
     }
 
     func targetFileName() -> String {
         let defaultExtension = configData.osType == .macOS ? "ipsw" : "iso"
         switch state.downloadMethod {
-        case .latest_avaliable:
+        case .latestAvailable:
             return "macOS-Latest.ipsw"
         case .catalog(let item):
             let ext = item.url.pathExtension.isEmpty ? defaultExtension : item.url.pathExtension
             return "\(item.id).\(ext)"
-        case .input_url:
+        case .inputURL:
             if let url = URL(string: state.downloadInputUrl) {
                 let fileName = url.lastPathComponent
                 if !fileName.isEmpty && fileName != "/" && fileName != "." {
@@ -279,9 +324,8 @@ struct SystemImageDownloadView: View {
         if state.downloadStatus == .initial || state.downloadStatus == .downloadFailed {
             // an image downloaded before can be reused directly
             if FileManager.default.fileExists(atPath: localPath.path(percentEncoded: false)) {
-                state.downloadStatus = .downloadSuccess
-                state.downloadMessage = "Found previously downloaded image, it will be reused"
-                state.current = 100
+                formData.imagePath = localPath.path(percentEncoded: false)
+                dismiss()
                 return
             }
             state.startDownload(vmOSType: configData.osType, localPath: localPath)
@@ -289,7 +333,7 @@ struct SystemImageDownloadView: View {
 
         if state.downloadStatus == .downloadSuccess {
             formData.imagePath = localPath.path(percentEncoded: false)
-            presentationMode.wrappedValue.dismiss()
+            dismiss()
         }
     }
 }

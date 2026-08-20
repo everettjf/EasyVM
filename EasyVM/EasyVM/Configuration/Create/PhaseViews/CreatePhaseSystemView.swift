@@ -9,67 +9,6 @@ import SwiftUI
 
 #if arch(arm64)
 
-struct SystemCardView: View {
-    let image: String
-    let name: String
-    let selected: Bool
-
-    @State private var borderColor: Color = .gray
-
-    var body: some View {
-        VStack {
-            Image(systemName: image)
-                .font(.system(size: 40))
-                .frame(width: 70, height: 60)
-
-            Text(name)
-        }
-        .padding()
-        .overlay(
-            RoundedRectangle(cornerRadius: 5)
-                .stroke(selected ? .blue : borderColor, lineWidth: selected ? 3 : 1)
-        )
-        .shadow(radius: 8)
-        .onHover { hover in
-            if hover {
-                borderColor = .blue
-            } else {
-                borderColor = .gray
-            }
-        }
-    }
-}
-
-struct SystemImageSourceTypeView: View {
-    let image: String
-    let name: String
-
-    @State private var borderColor: Color = .gray
-
-    var body: some View {
-        VStack {
-            Image(systemName: image)
-                .font(.system(size: 30))
-                .frame(width: 50, height: 40)
-
-            Text(name)
-        }
-        .padding()
-        .overlay(
-            RoundedRectangle(cornerRadius: 5)
-                .stroke(borderColor, lineWidth: 1)
-        )
-        .onHover { hover in
-            if hover {
-                borderColor = .blue
-            } else {
-                borderColor = .gray
-            }
-        }
-    }
-}
-
-
 class CreatePhaseSystemViewHandler: VMCreateStepperGuidePhaseHandler {
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         if context.formData.imagePath.isEmpty {
@@ -80,99 +19,341 @@ class CreatePhaseSystemViewHandler: VMCreateStepperGuidePhaseHandler {
         }
         return .success
     }
+
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
-        return .success
+        .success
     }
 }
 
-
 struct CreatePhaseSystemView: View {
-    @EnvironmentObject var formData: VMCreateViewStateObject
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @EnvironmentObject private var formData: VMCreateViewStateObject
+    @EnvironmentObject private var configData: VMConfigurationViewStateObject
 
-    @State private var isShowDownload = false
+    @State private var downloadSource: SystemImageDownloadViewState.ImageSource?
 
     var body: some View {
-        content
-            .sheet(isPresented: $isShowDownload, content: {
-                SystemImageDownloadView()
-            })
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                header
+                operatingSystemPicker
+                imageSelection
+                selectedImageSummary
+            }
+            .frame(maxWidth: 720, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.bottom, 12)
+        }
+        .sheet(item: $downloadSource) { source in
+            SystemImageDownloadView(initialSource: source)
+        }
     }
 
-    var content: some View {
-        VStack {
-            Text("Choose the operating system :")
-                .font(.title3)
-                .padding(.top)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Choose a system")
+                .font(.title2.weight(.semibold))
+            Text("Select an operating system and an image. Downloads are saved for reuse.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
 
-            HStack(spacing: 30) {
-                SystemCardView(image: "macpro.gen3", name: "macOS", selected: configData.osType == .macOS)
-                    .onTapGesture {
-                        switchOSType(.macOS)
-                    }
-                SystemCardView(image: "pc", name: "Linux", selected: configData.osType == .linux)
-                    .onTapGesture {
-                        switchOSType(.linux)
-                    }
-            }
-            .padding(.bottom)
+    private var operatingSystemPicker: some View {
+        Picker("Operating system", selection: Binding(
+            get: { configData.osType },
+            set: { switchOSType($0) }
+        )) {
+            Label("macOS", systemImage: "apple.logo")
+                .tag(VMOSType.macOS)
+            Label("Linux", systemImage: "pc")
+                .tag(VMOSType.linux)
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("create-os-picker")
+    }
 
-            Text(configData.osType == .macOS ? "Choose a macOS restore image :" : "Choose a Linux install image (ARM64) :")
-                .font(.title3)
+    @ViewBuilder
+    private var imageSelection: some View {
+        if configData.osType == .macOS {
+            MacOSImageSelectionView(
+                selectedPath: formData.imagePath,
+                onDownload: presentDownload,
+                onChooseLocal: selectFromFileSystem
+            )
+        } else {
+            LinuxImageSelectionView(
+                selectedPath: formData.imagePath,
+                onDownload: presentDownload,
+                onChooseLocal: selectFromFileSystem
+            )
+        }
+    }
 
-            HStack(spacing: 20) {
-                SystemImageSourceTypeView(image: "cloud", name: configData.osType == .macOS ? "Choose macOS version" : "Choose Linux distribution")
-                    .onTapGesture {
-                        isShowDownload.toggle()
-                    }
+    private var selectedImageSummary: some View {
+        GroupBox {
+            HStack(spacing: 12) {
+                Image(systemName: formData.imagePath.isEmpty ? "circle.dashed" : "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(formData.imagePath.isEmpty ? Color.secondary : Color.green)
+                    .accessibilityHidden(true)
 
-                SystemImageSourceTypeView(image: "opticaldiscdrive", name: "From local file system")
-                    .onTapGesture {
-                        selectFromFileSystem()
-                    }
-            }
-
-            Form {
-                VStack(alignment: .leading) {
-                    HStack {
-                        Text("System Image :")
-                        Spacer()
-                        if formData.imagePath.isEmpty {
-                            Text("Not selected yet")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text(formData.imagePath)
-                                .lineLimit(4)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(formData.imagePath.isEmpty ? "No system image selected" : "Ready to continue")
+                        .font(.headline)
+                    Text(formData.imagePath.isEmpty ? "Choose a download above or select an image from disk." : formData.imagePath)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
                 }
+                Spacer()
             }
-            .formStyle(.grouped)
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("selected-system-image")
     }
 
-    func switchOSType(_ osType: VMOSType) {
-        if configData.osType == osType {
-            return
-        }
+    private func presentDownload(_ source: SystemImageDownloadViewState.ImageSource) {
+        downloadSource = source
+    }
+
+    private func switchOSType(_ osType: VMOSType) {
+        guard configData.osType != osType else { return }
         configData.osType = osType
-        // devices and defaults differ between systems, so previously chosen
-        // configuration and image no longer apply
         configData.resetDefaultConfig()
         formData.imagePath = ""
     }
 
-    func selectFromFileSystem() {
-        MacKitUtil.selectFile(title: "Choose system image file(.ipsw/.iso)") { path in
-            print("choose : \(String(describing: path))")
-            guard let path = path else {
-                return
+    private func selectFromFileSystem() {
+        let fileType = configData.osType == .macOS ? "IPSW" : "ISO"
+        MacKitUtil.selectFile(title: "Choose a \(fileType) system image") { path in
+            guard let path else { return }
+            formData.imagePath = path.path(percentEncoded: false)
+        }
+    }
+}
+
+private struct MacOSImageSelectionView: View {
+    let selectedPath: String
+    let onDownload: (SystemImageDownloadViewState.ImageSource) -> Void
+    let onChooseLocal: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SelectionSectionHeading(
+                title: "macOS restore image",
+                subtitle: "Official Apple restore images for Apple silicon virtual machines."
+            )
+
+            ImageChoiceButton(
+                title: "Latest compatible macOS",
+                detail: "Automatically resolved through Apple",
+                systemImage: "sparkles",
+                accent: .blue,
+                badge: VMImageStore.exists(fileName: "macOS-Latest.ipsw") ? "Downloaded" : "Recommended",
+                identifier: "macos-latest-image"
+            ) {
+                onDownload(.latestAvailable)
             }
 
-            self.formData.imagePath = path.path(percentEncoded: false)
+            VStack(spacing: 8) {
+                ForEach(VMSystemImageCatalog.macOSItems) { item in
+                    ImageChoiceButton(
+                        title: item.name,
+                        detail: item.detail,
+                        systemImage: "shippingbox",
+                        accent: .indigo,
+                        badge: cachedBadge(for: item),
+                        identifier: "macos-image-\(item.id)"
+                    ) {
+                        onDownload(.catalog(item))
+                    }
+                }
+            }
+
+            LocalImageButton(fileType: "IPSW", selectedPath: selectedPath, action: onChooseLocal)
         }
+    }
+
+    private func cachedBadge(for item: VMSystemImageCatalogItem) -> String? {
+        let ext = item.url.pathExtension.isEmpty ? "ipsw" : item.url.pathExtension
+        return VMImageStore.exists(fileName: "\(item.id).\(ext)") ? "Downloaded" : nil
+    }
+}
+
+private struct LinuxImageSelectionView: View {
+    let selectedPath: String
+    let onDownload: (SystemImageDownloadViewState.ImageSource) -> Void
+    let onChooseLocal: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SelectionSectionHeading(
+                title: "Ubuntu & Linux install image",
+                subtitle: "ARM64 installers that run natively on Apple silicon."
+            )
+
+            VStack(spacing: 8) {
+                ForEach(VMSystemImageCatalog.linuxItems) { item in
+                    ImageChoiceButton(
+                        title: item.name,
+                        detail: linuxDetail(for: item),
+                        systemImage: linuxIcon(for: item),
+                        accent: item.id.hasPrefix("ubuntu") ? .orange : .purple,
+                        badge: linuxBadge(for: item),
+                        identifier: "linux-image-\(item.id)"
+                    ) {
+                        onDownload(.catalog(item))
+                    }
+                }
+            }
+
+            ImageChoiceButton(
+                title: "Download from a custom URL",
+                detail: "Use a direct link to another ARM64 ISO",
+                systemImage: "link",
+                accent: .orange,
+                identifier: "linux-custom-url"
+            ) {
+                onDownload(.inputURL)
+            }
+
+            LocalImageButton(fileType: "ISO", selectedPath: selectedPath, action: onChooseLocal)
+        }
+    }
+
+    private func linuxDetail(for item: VMSystemImageCatalogItem) -> String {
+        if item.id == "ubuntu-24.04-server" {
+            return "ARM64 · LTS · Lightweight server installer"
+        }
+        if item.id == "ubuntu-24.04-desktop" {
+            return "ARM64 · LTS · Full graphical desktop"
+        }
+        return item.detail
+    }
+
+    private func linuxIcon(for item: VMSystemImageCatalogItem) -> String {
+        item.id.contains("desktop") ? "display" : "terminal"
+    }
+
+    private func linuxBadge(for item: VMSystemImageCatalogItem) -> String? {
+        let ext = item.url.pathExtension.isEmpty ? "iso" : item.url.pathExtension
+        if VMImageStore.exists(fileName: "\(item.id).\(ext)") {
+            return "Downloaded"
+        }
+        return item.id == "ubuntu-24.04-server" ? "Recommended" : nil
+    }
+}
+
+private struct ImageChoiceButton: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+    let accent: Color
+    var badge: String? = nil
+    let identifier: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(accent)
+                    .frame(width: 32)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.headline)
+                        if let badge {
+                            Text(badge)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(accent)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(accent.opacity(0.12), in: Capsule())
+                        }
+                    }
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 16)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(.separator.opacity(0.5), lineWidth: 1)
+        }
+        .accessibilityLabel("\(title), \(detail)")
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+private struct LocalImageButton: View {
+    let fileType: String
+    let selectedPath: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: "externaldrive")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Choose a local \(fileType) file")
+                        .font(.headline)
+                    Text(selectedPath.isEmpty ? "Browse this Mac or an external drive" : "Replace the currently selected image")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "folder")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .padding(12)
+        }
+        .buttonStyle(.plain)
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [5]))
+                .foregroundStyle(.separator)
+        }
+        .accessibilityIdentifier("choose-local-system-image")
+    }
+}
+
+private struct SelectionSectionHeading: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.headline)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -182,7 +363,7 @@ struct CreatePhaseSystemView_Previews: PreviewProvider {
 
     static var previews: some View {
         CreatePhaseSystemView()
-            .frame(width: 600, height: 500)
+            .frame(width: 720, height: 620)
             .environmentObject(formData)
             .environmentObject(configData)
     }

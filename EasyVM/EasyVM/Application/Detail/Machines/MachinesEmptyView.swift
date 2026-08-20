@@ -43,25 +43,33 @@ struct MachinesEmptyButtonView: View {
 struct MachinesEmptyView: View {
     @Environment(\.openWindow) var openWindow
     var body: some View {
-        VStack {
+        VStack(spacing: 12) {
+            Image(systemName: "square.stack.3d.up")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
             Text("No virtual machines found")
-                .font(.title)
-                .padding(.bottom, 2)
-            Text("You could create a new virtual machine or drop an existing *.ezvm virtual machine here")
-                .font(.caption)
+                .font(.title2.weight(.semibold))
+            Text("Create your first machine, or add an existing .ezvm bundle.")
+                .foregroundStyle(.secondary)
                 .padding(.bottom, 20)
             
             HStack {
                 Spacer()
                 
-                MachinesEmptyButtonView(image: "plus.diamond", title: "Create new virtual machine")
-                    .onTapGesture {
+                Button {
                         openWindow(id: "create-machine-guide")
+                    } label: {
+                        Label("Create Virtual Machine", systemImage: "plus")
                     }
-                MachinesEmptyButtonView(image: "folder.badge.plus", title: "Add existing virtual machine")
-                    .onTapGesture {
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                Button {
                         sharedAppConfigManager.addVMPathWithSelect()
+                    } label: {
+                        Label("Add Existing", systemImage: "folder.badge.plus")
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 
                 Spacer()
             }

@@ -70,7 +70,6 @@
 		D1A6A5E428BA7AEC00CBE80A /* CommunityDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */; };
 		D1A6A5E628BA7B0300CBE80A /* IssuesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */; };
 		D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */; };
-		D1A6A5EB28BA7B9B00CBE80A /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */; };
 		D1CCB1D6290DB92D00B1F563 /* VMOSCreatorForLinux.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1528EBE106001E3664 /* VMOSCreatorForLinux.swift */; };
 		D1CCB1D7290DB92D00B1F563 /* VMConfigurationDirectorySharingDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */; };
 		D1CCB1D8290DB92D00B1F563 /* AppConfigModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */; };
@@ -100,7 +99,6 @@
 		D1CCB1F3290DB92D00B1F563 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
 		D1CCB1F4290DB92D00B1F563 /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
 		D1CCB1F5290DB92D00B1F563 /* VMOSCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EBF28E7D65000CCC04D /* VMOSCreator.swift */; };
-		D1CCB1F6290DB92D00B1F563 /* Sidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */; };
 		D1CCB1F8290DB92D00B1F563 /* VMConfigurationGraphicDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */; };
 		D1CCB1F9290DB92D00B1F563 /* VMOSRunnerForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1B28ED23F9001E3664 /* VMOSRunnerForMacOS.swift */; };
 		D1CCB1FA290DB92D00B1F563 /* VMEditConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0F28EB2581001E3664 /* VMEditConfigurationView.swift */; };
@@ -212,7 +210,6 @@
 		D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityDetailHomeView.swift; sourceTree = "<group>"; };
 		D1A6A5E528BA7B0300CBE80A /* IssuesDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuesDetailHomeView.swift; sourceTree = "<group>"; };
 		D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutDetailHomeView.swift; sourceTree = "<group>"; };
-		D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sidebar.swift; sourceTree = "<group>"; };
 		D1CCB222290DB92D00B1F563 /* EasyVM Intel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EasyVM Intel.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1CCB224290E257E00B1F563 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
@@ -483,7 +480,6 @@
 		D1CCB223290DBB4200B1F563 /* Entry */ = {
 			isa = PBXGroup;
 			children = (
-				D1A6A5EA28BA7B9B00CBE80A /* Sidebar.swift */,
 				F2C5DCA32866F7C800B2F41F /* ContentView.swift */,
 			);
 			path = Entry;
@@ -709,7 +705,6 @@
 				D1CCB1F3290DB92D00B1F563 /* MachineDetailCardView.swift in Sources */,
 				D1CCB1F4290DB92D00B1F563 /* VMModelFieldCPU.swift in Sources */,
 				D1CCB1F5290DB92D00B1F563 /* VMOSCreator.swift in Sources */,
-				D1CCB1F6290DB92D00B1F563 /* Sidebar.swift in Sources */,
 				D1CCB1F8290DB92D00B1F563 /* VMConfigurationGraphicDevicesEditView.swift in Sources */,
 				D1CCB1F9290DB92D00B1F563 /* VMOSRunnerForMacOS.swift in Sources */,
 				D1CCB1FA290DB92D00B1F563 /* VMEditConfigurationView.swift in Sources */,
@@ -787,7 +782,6 @@
 				D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */,
 				D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */,
 				D1196EC028E7D65000CCC04D /* VMOSCreator.swift in Sources */,
-				D1A6A5EB28BA7B9B00CBE80A /* Sidebar.swift in Sources */,
 				D1196EAC28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift in Sources */,
 				D184CB1C28ED23F9001E3664 /* VMOSRunnerForMacOS.swift in Sources */,
 				D184CB1028EB2581001E3664 /* VMEditConfigurationView.swift in Sources */,
@@ -850,7 +844,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 3.1.0;
+				MARKETING_VERSION = 3.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.easyvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -880,7 +874,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 3.1.0;
+				MARKETING_VERSION = 3.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.easyvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1023,7 +1017,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 3.1.0;
+				MARKETING_VERSION = 3.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.easyvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1053,7 +1047,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 3.1.0;
+				MARKETING_VERSION = 3.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.easyvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

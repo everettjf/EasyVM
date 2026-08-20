@@ -10,29 +10,8 @@ import SwiftUI
 
 #if arch(arm64)
 struct ContentView: View {
-    @State private var selectedMenuItem: SidebarMenu = .machines
-    
     var body: some View {
-        NavigationSplitView {
-            List(SidebarMenu.allCases, selection: $selectedMenuItem) { menu in
-                NavigationLink(value: menu) {
-                    SidebarItemLabel(menu: menu)
-                }
-                .listItemTint(menu.color)
-            }
-            .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 360)
-        } detail: {
-            switch selectedMenuItem {
-            case .machines:
-                MachinesDetailHomeView()
-            case .community:
-                CommunityDetailHomeView()
-            case .issues:
-                IssuesDetailHomeView()
-            case .about:
-                AboutDetailHomeView()
-            }
-        }
+        MachinesDetailHomeView()
     }
 }
 

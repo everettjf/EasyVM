@@ -29,11 +29,20 @@ struct MachinesDetailHomeView: View {
     @StateObject private var vmStore = MachinesHomeStateObject()
     @State private var editingItem: HomeItemVMModel?
     @State private var snapshotItem: HomeItemVMModel?
+    @State private var supportDestination: SupportDestination?
     
-    private let columns = [GridItem(.adaptive(minimum: 230, maximum: 230))]
+    private let columns = [GridItem(.adaptive(minimum: 300, maximum: 420), spacing: 18)]
+
+    private enum SupportDestination: String, Identifiable {
+        case community
+        case issues
+        case about
+
+        var id: String { rawValue }
+    }
     
     private var content: some View {
-        VStack {
+        VStack(spacing: 0) {
             if vmStore.vmItems.isEmpty {
                 MachinesEmptyView()
             } else {
@@ -50,24 +59,58 @@ struct MachinesDetailHomeView: View {
                 MachineSnapshotsView(machineName: model.config.name, rootPath: item.rootPath)
             }
         }
+        .sheet(item: $supportDestination) { destination in
+            NavigationStack {
+                Group {
+                    switch destination {
+                    case .community:
+                        CommunityDetailHomeView()
+                    case .issues:
+                        IssuesDetailHomeView()
+                    case .about:
+                        AboutDetailHomeView()
+                    }
+                }
+                .frame(minWidth: 580, minHeight: 500)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            supportDestination = nil
+                        }
+                        .accessibilityIdentifier("support.done")
+                    }
+                }
+            }
+        }
     }
     
     private var grid: some View {
         ScrollView {
-            LazyVGrid(columns: columns, alignment: .listRowSeparatorLeading) {
-                ForEach(vmStore.vmItems) { item in
-                    MachinesDetailCardWarpView(item: item, action: MachineDetailCardAction(onPlay: {
-                        openWindow(id: "start-machine", value: item.rootPath)
-                    }, onEdit: {
-                        editingItem = item
-                    }, onSnapshots: {
-                        snapshotItem = item
-                    }))
-                    .onTapGesture(count: 2, perform: {
-                        print("open machine")
-                        openWindow(id: "start-machine", value: item.rootPath)
-                    })
-                    .contextMenu {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Your virtual machines")
+                            .font(.title2.weight(.semibold))
+                        Text("\(vmStore.vmItems.count) machine\(vmStore.vmItems.count == 1 ? "" : "s") ready on this Mac")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
+                    ForEach(vmStore.vmItems) { item in
+                        MachinesDetailCardWarpView(item: item, action: MachineDetailCardAction(onPlay: {
+                            openWindow(id: "start-machine", value: item.rootPath)
+                        }, onEdit: {
+                            editingItem = item
+                        }, onSnapshots: {
+                            snapshotItem = item
+                        }))
+                        .onTapGesture(count: 2, perform: {
+                            print("open machine")
+                            openWindow(id: "start-machine", value: item.rootPath)
+                        })
+                        .contextMenu {
                         let isRunning = VMRunningRegistry.shared.isRunning(rootPath: item.rootPath)
 
                         Button {
@@ -142,9 +185,11 @@ struct MachinesDetailHomeView: View {
                             Image(systemName: "trash")
                             Text("Move to Trash")
                         }
+                        }
                     }
                 }
             }
+            .padding(24)
         }
     }
     
@@ -202,9 +247,7 @@ struct MachinesDetailHomeView: View {
     var body: some View {
         NavigationStack {
             content
-                .padding(.leading, 5)
-                .padding(.trailing, 5)
-                .navigationTitle("Virtual Machines - EasyVM")
+                .navigationTitle("EasyVM")
                 .toolbar(id: "toolbar") {
                     ToolbarItem(id: "new", placement: .primaryAction) {
                         Button(action: {
@@ -219,6 +262,23 @@ struct MachinesDetailHomeView: View {
                         }) {
                             Label("Add an existing virtual machine", systemImage: "folder.badge.plus")
                         }
+                    }
+                    ToolbarItem(id: "more", placement: .primaryAction) {
+                        Menu {
+                            Button("Community", systemImage: "person.2") {
+                                supportDestination = .community
+                            }
+                            Button("Issues & Feedback", systemImage: "ladybug") {
+                                supportDestination = .issues
+                            }
+                            Divider()
+                            Button("About EasyVM", systemImage: "info.circle") {
+                                supportDestination = .about
+                            }
+                        } label: {
+                            Label("More", systemImage: "ellipsis.circle")
+                        }
+                        .accessibilityIdentifier("home.more-menu")
                     }
 //                    ToolbarItem(id: "share", placement: .automatic) {
 //                        Button(action: {

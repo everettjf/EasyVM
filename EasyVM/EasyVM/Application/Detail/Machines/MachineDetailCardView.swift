@@ -42,9 +42,9 @@ struct MachineThumbnailView: View {
                     .foregroundStyle(.white.opacity(0.35))
             }
         }
-        .frame(height: 120)
+        .frame(height: 154)
         .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(alignment: .topTrailing) {
             if isRunning {
                 HStack(spacing: 4) {
@@ -82,71 +82,46 @@ struct MachineDetailCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(model.config.name)
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(model.config.name)
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                    Text(model.config.type == .linux ? "Linux virtual machine" : "macOS virtual machine")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
-                Text(model.config.type == .linux ? "Linux" : "macOS")
-                    .font(.footnote)
-                    .fontWeight(.bold)
-                    .padding(3)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 5)
-                            .stroke(.gray, lineWidth: 1)
-                    )
+                Image(systemName: model.config.type == .linux ? "pc" : "macpro.gen3")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
             }
             
             MachineThumbnailView(model: model, isRunning: isRunning)
 
 
-            Group {
-                HStack(spacing: 2) {
-                    Image(systemName: "doc.viewfinder.fill")
-                    Text("Disk: \(model.displayDiskInfo)")
-                }
-                .font(.caption2)
-                HStack(spacing: 2) {
-                    Image(systemName: "cpu")
-                    Text("CPU: \(model.config.cpu.count)")
-                }
-                .font(.caption2)
-                HStack(spacing: 2) {
-                    Image(systemName: "memorychip")
-                    Text("Memory: \(model.displayMemoryInfo)")
-                }
-                .font(.caption2)
-                
-                HStack(alignment: .top, spacing: 2) {
-                    Image(systemName: "circle.hexagonpath")
-                    Text("Attributes: \(model.displayAttributeInfo)")
-                        .lineLimit(3)
-                }
-                .font(.caption2)
-                
-                if !model.config.remark.isEmpty {
-                    HStack(alignment: .top, spacing: 2) {
-                        Image(systemName: "captions.bubble")
-                        Text("Description: \(model.config.remark)")
-                            .lineLimit(3)
-                    }
-                    .font(.caption2)
-                }
+            HStack(spacing: 18) {
+                MachineMetric(icon: "cpu", value: "\(model.config.cpu.count)", label: "CPU")
+                MachineMetric(icon: "memorychip", value: model.displayMemoryInfo, label: "Memory")
+                MachineMetric(icon: "internaldrive", value: model.displayDiskInfo, label: "Disk")
             }
 
             Spacer()
 
-            HStack {
+            HStack(spacing: 8) {
                 Button {
                     action.onPlay()
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: isRunning ? "macwindow" : "play")
                         Text(isRunning ? "Open" : "Run")
                     }
                     .fontWeight(.bold)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .accessibilityIdentifier("machine.primary-action")
 
 
                 Spacer()
@@ -163,6 +138,7 @@ struct MachineDetailCardView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Snapshots")
+                .accessibilityLabel("Snapshots")
 
                 Button {
                     action.onEdit()
@@ -170,16 +146,39 @@ struct MachineDetailCardView: View {
                     Image(systemName: "slider.vertical.3")
                 }
                 .buttonStyle(.borderless)
+                .help("Settings")
+                .accessibilityLabel("Settings")
 
             }
         }
-        .padding(.all, 10)
-        .frame(width: 230, height: 330)
-        .overlay(
-            RoundedRectangle(cornerRadius: 5)
-                .stroke(.gray, lineWidth: 1)
-        )
-        .padding(.all, 5)
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 350, alignment: .topLeading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(.separator.opacity(0.45), lineWidth: 1)
+        }
+    }
+}
+
+private struct MachineMetric: View {
+    let icon: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
     }
 }
 
