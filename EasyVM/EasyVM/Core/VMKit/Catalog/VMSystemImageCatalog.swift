@@ -10,7 +10,7 @@ import Foundation
 #if arch(arm64)
 
 /*
- A curated list of restore images (macOS) and install ISOs (Linux, aarch64)
+ A dynamic list of restore images (macOS) and curated install ISOs (Linux, aarch64)
  that can be downloaded directly from the create-machine guide, so users can
  pick a system version instead of hunting for an ipsw/iso themselves.
 
@@ -94,32 +94,44 @@ final class VMMacOSImageCatalogService: ObservableObject {
                   (200..<300).contains(httpResponse.statusCode) else {
                 throw URLError(.badServerResponse)
             }
-            let catalog = try JSONDecoder().decode(RemoteCatalog.self, from: data)
-            let remoteItems = catalog.firmwares.compactMap(Self.makeItem).sorted {
-                ($0.version ?? "0").compare($1.version ?? "0", options: .numeric) == .orderedDescending
-            }
+            let catalog = try JSONDecoder().decode(VMMacOSCatalogPayload.self, from: data)
+            let remoteItems = catalog.availableFirmwares.map(Self.makeItem)
             guard !remoteItems.isEmpty else { throw CatalogError.emptyCatalog }
             items = remoteItems
-            lastUpdated = Date()
+            let fetchedAt = Date()
+            lastUpdated = fetchedAt
             try? FileManager.default.createDirectory(
                 at: cacheURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try? data.write(to: cacheURL, options: .atomic)
-            UserDefaults.standard.set(lastUpdated, forKey: "VMMacOSCatalogLastUpdated")
+            let cache = VMMacOSCatalogCache(fetchedAt: fetchedAt, payload: catalog)
+            if let cacheData = try? JSONEncoder().encode(cache) {
+                try? cacheData.write(to: cacheURL, options: .atomic)
+            }
         } catch {
-            errorMessage = "Couldn’t refresh the catalog. Showing saved versions."
+            errorMessage = items == VMSystemImageCatalog.macOSItems
+                ? "Couldn’t reach the online catalog. Built-in versions are available, or choose Latest compatible macOS."
+                : "Couldn’t refresh the catalog. Showing the last saved version list."
         }
     }
 
     private func loadCache() {
-        guard let data = try? Data(contentsOf: cacheURL),
-              let catalog = try? JSONDecoder().decode(RemoteCatalog.self, from: data) else { return }
-        let cachedItems = catalog.firmwares.compactMap(Self.makeItem).sorted {
-            ($0.version ?? "0").compare($1.version ?? "0", options: .numeric) == .orderedDescending
+        guard let data = try? Data(contentsOf: cacheURL) else { return }
+        let decoder = JSONDecoder()
+        let cache: VMMacOSCatalogCache
+        if let currentCache = try? decoder.decode(VMMacOSCatalogCache.self, from: data) {
+            cache = currentCache
+        } else if let legacyPayload = try? decoder.decode(VMMacOSCatalogPayload.self, from: data) {
+            cache = VMMacOSCatalogCache(
+                fetchedAt: UserDefaults.standard.object(forKey: "VMMacOSCatalogLastUpdated") as? Date ?? .distantPast,
+                payload: legacyPayload
+            )
+        } else {
+            return
         }
+        let cachedItems = cache.payload.availableFirmwares.map(Self.makeItem)
         if !cachedItems.isEmpty { items = cachedItems }
-        lastUpdated = UserDefaults.standard.object(forKey: "VMMacOSCatalogLastUpdated") as? Date
+        lastUpdated = cache.fetchedAt
     }
 
     private var cacheURL: URL {
@@ -128,8 +140,7 @@ final class VMMacOSImageCatalogService: ObservableObject {
             .appending(path: "macos-catalog.json")
     }
 
-    private static func makeItem(_ firmware: RemoteFirmware) -> VMSystemImageCatalogItem? {
-        guard firmware.url.host?.hasSuffix("apple.com") == true else { return nil }
+    private static func makeItem(_ firmware: VMMacOSCatalogPayload.Firmware) -> VMSystemImageCatalogItem {
         let size = ByteCountFormatter.string(fromByteCount: firmware.filesize, countStyle: .file)
         return VMSystemImageCatalogItem(
             id: "macos-\(firmware.version)-\(firmware.buildid)",
@@ -150,13 +161,6 @@ final class VMMacOSImageCatalogService: ObservableObject {
         return "macOS \(version)"
     }
 
-    private struct RemoteCatalog: Decodable { let firmwares: [RemoteFirmware] }
-    private struct RemoteFirmware: Decodable {
-        let version: String
-        let buildid: String
-        let filesize: Int64
-        let url: URL
-    }
     private enum CatalogError: Error { case emptyCatalog }
 }
 

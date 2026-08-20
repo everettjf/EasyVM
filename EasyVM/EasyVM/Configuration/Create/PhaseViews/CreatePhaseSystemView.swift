@@ -200,7 +200,7 @@ private struct MacOSImageSelectionView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                Text("Catalog data from IPSW.me · Restore images download directly from Apple. Specific releases may require newer host device support.")
+                Text("The signed-release list updates automatically via IPSW.me. Downloads come directly from Apple; EasyVM performs the final host compatibility check before installation.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
 
