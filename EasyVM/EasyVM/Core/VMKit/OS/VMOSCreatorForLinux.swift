@@ -113,7 +113,12 @@ final class VMOSCreatorForLinux: VMOSCreator {
             progress(.info("- Storage Devices OK"))
             
             // networkDevices
-            virtualMachineConfiguration.networkDevices = model.config.networkDevices.map({$0.createConfiguration()})
+            switch VMModelFieldNetworkDevice.createConfigurations(model.config.networkDevices) {
+            case .success(let devices): virtualMachineConfiguration.networkDevices = devices
+            case .failure(let error):
+                continuation.resume(throwing: VMOSError.regularFailure(error))
+                return
+            }
             progress(.info("- Network Devices OK"))
             
             // pointingDevices

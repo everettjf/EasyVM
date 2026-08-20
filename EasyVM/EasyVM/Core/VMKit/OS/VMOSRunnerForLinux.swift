@@ -56,7 +56,10 @@ class VMOSRunnerForLinux : VMOSRunner {
         }
         
         // networkDevices
-        virtualMachineConfiguration.networkDevices = model.config.networkDevices.map({$0.createConfiguration()})
+        switch VMModelFieldNetworkDevice.createConfigurations(model.config.networkDevices) {
+        case .success(let devices): virtualMachineConfiguration.networkDevices = devices
+        case .failure(let error): return .failure(error)
+        }
         
         // pointingDevices
         virtualMachineConfiguration.pointingDevices = model.config.pointingDevices.map({$0.createConfiguration()})

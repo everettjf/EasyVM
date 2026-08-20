@@ -14,7 +14,15 @@ let package = Package(
             path: "EasyVM/EasyVM/Core/VMKit",
             exclude: [
                 "Catalog",
-                "Model",
+                "Model/VMModel.swift",
+                "Model/VMOSType.swift",
+                "Model/Fields/VMModelFieldAudioDevice.swift",
+                "Model/Fields/VMModelFieldCPU.swift",
+                "Model/Fields/VMModelFieldDirectorySharingDevice.swift",
+                "Model/Fields/VMModelFieldGraphicDevice.swift",
+                "Model/Fields/VMModelFieldMemory.swift",
+                "Model/Fields/VMModelFieldPointingDevice.swift",
+                "Model/Fields/VMModelFieldStorageDevice.swift",
                 "OS",
                 "Common/VMRunningRegistry.swift",
                 "VMOSCreator.swift",
@@ -24,6 +32,7 @@ let package = Package(
             sources: [
                 "Common/VMOSResultVoid.swift",
                 "Common/VMOSHelper.swift",
+                "Model/Fields/VMModelFieldNetworkDevice.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ]
         ),
