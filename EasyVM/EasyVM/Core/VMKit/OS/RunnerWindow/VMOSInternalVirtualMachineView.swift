@@ -8,9 +8,63 @@
 import SwiftUI
 
 #if arch(arm64)
+@MainActor
+final class VMRuntimeState: ObservableObject {
+    enum Phase: Equatable {
+        case preparing
+        case starting
+        case restoring
+        case running
+        case pausing
+        case paused
+        case saving
+        case stopping
+        case stopped
+        case failed(String)
+
+        var title: String {
+            switch self {
+            case .preparing: "Preparing"
+            case .starting: "Starting"
+            case .restoring: "Restoring"
+            case .running: "Running"
+            case .pausing: "Pausing"
+            case .paused: "Paused"
+            case .saving: "Saving"
+            case .stopping: "Stopping"
+            case .stopped: "Stopped"
+            case .failed: "Error"
+            }
+        }
+    }
+
+    @Published private(set) var phase: Phase = .preparing
+    weak var controller: VMOSInternalVirtualMachineViewController?
+
+    var errorMessage: String? {
+        guard case let .failed(message) = phase else { return nil }
+        return message
+    }
+
+    var canPause: Bool { phase == .running }
+    var canResume: Bool { phase == .paused }
+    var canRequestStop: Bool { phase == .running || phase == .paused }
+    var canSave: Bool { phase == .running || phase == .paused }
+
+    func update(_ phase: Phase) {
+        self.phase = phase
+    }
+
+    func pause() { controller?.pauseMachine() }
+    func resume() { controller?.resumeMachine() }
+    func requestStop() { controller?.requestStopMachine() }
+    func saveAndStop() { controller?.saveAndStopMachine() }
+}
+
 struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
     let rootPath: URL
     let recoveryMode: Bool
+    @ObservedObject var runtimeState: VMRuntimeState
     
     class Coordinator : NSObject {
         var parent: VMOSInternalVirtualMachineView
@@ -29,12 +83,17 @@ struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
         let vc = VMOSInternalVirtualMachineViewController()
         vc.rootPath = rootPath
         vc.recoveryMode = recoveryMode
+        vc.runtimeState = runtimeState
+        runtimeState.controller = vc
         return vc
     }
     
     func updateNSViewController(_ nsViewController: VMOSInternalVirtualMachineViewController, context: Context) {
-        print("update ns view controller")
-        
+        runtimeState.controller = nsViewController
+    }
+
+    static func dismantleNSViewController(_ nsViewController: VMOSInternalVirtualMachineViewController, coordinator: Coordinator) {
+        nsViewController.prepareForWindowClose()
     }
 }
 

@@ -46,6 +46,10 @@ struct MainApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
+
+        Settings {
+            VirtualizationFeaturesSettingsView()
+        }
     }
 #else
     
@@ -58,3 +62,48 @@ struct MainApp: App {
     
 #endif
 }
+
+#if arch(arm64)
+private struct VirtualizationFeaturesSettingsView: View {
+    @AppStorage(EasyVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioning = false
+    @AppStorage(EasyVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
+    @AppStorage(EasyVMExperimentalFeatures.usbPassthroughKey) private var usbPassthrough = false
+    @AppStorage(EasyVMExperimentalFeatures.customVirtioKey) private var customVirtio = false
+
+    var body: some View {
+        Form {
+            Section("Virtualization capabilities") {
+                ForEach(VirtualizationCapability.allCases) { capability in
+                    HStack {
+                        Label(capability.title, systemImage: capability.isAvailable ? "checkmark.circle.fill" : "xmark.circle")
+                        Spacer()
+                        Text("macOS \(capability.minimumMajorVersion)+")
+                            .foregroundStyle(.secondary)
+                    }
+                    .foregroundStyle(capability.isAvailable ? .primary : .secondary)
+                }
+            }
+
+            Section {
+                featureToggle("macOS guest provisioning", isOn: $guestProvisioning, capability: .guestProvisioning)
+                featureToggle("DiskImageKit snapshots", isOn: $diskImageKitSnapshots, capability: .diskImageKitSnapshots)
+                featureToggle("USB passthrough", isOn: $usbPassthrough, capability: .usbPassthrough)
+                featureToggle("Custom Virtio devices", isOn: $customVirtio, capability: .customVirtio)
+            } header: {
+                Text("Experimental macOS 27 features")
+            } footer: {
+                Text("These features use beta system APIs. Keep backups of important virtual machines.")
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 520, height: 560)
+        .padding()
+    }
+
+    @ViewBuilder
+    private func featureToggle(_ title: String, isOn: Binding<Bool>, capability: VirtualizationCapability) -> some View {
+        Toggle(title, isOn: isOn)
+            .disabled(!capability.isAvailable)
+    }
+}
+#endif

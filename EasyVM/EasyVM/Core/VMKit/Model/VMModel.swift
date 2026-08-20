@@ -147,6 +147,10 @@ struct VMModel: Identifiable {
         rootPath.appending(path: "screenshot.png")
     }
 
+    var savedMachineStateURL: URL {
+        rootPath.appending(path: "MachineState.vzvmsave")
+    }
+
     var stateURL: URL {
         Self.getStateURL(rootPath: rootPath)
     }

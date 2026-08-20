@@ -16,12 +16,15 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     // parameters
     var rootPath: URL? = nil
     var recoveryMode: Bool = false
+    weak var runtimeState: VMRuntimeState?
     
     // internal
     private var virtualMachineView: VZVirtualMachineView!
     private var virtualMachineResponder: VMOSInternalVirtualMachineDelegate?
     private var virtualMachine: VZVirtualMachine!
     private var screenshotTimer: Timer?
+    // Keep the controller alive while a window-close save is still running.
+    private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
     
 
     public override func loadView() {
@@ -33,6 +36,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // Do view setup here.
         
         virtualMachineView = VZVirtualMachineView()
+        virtualMachineView.translatesAutoresizingMaskIntoConstraints = false
+        if #available(macOS 14.0, *) {
+            virtualMachineView.automaticallyReconfiguresDisplay = true
+        }
         view.addSubview(virtualMachineView)
         
         NSLayoutConstraint.activate([
@@ -48,26 +55,27 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
     
     private func startMachine() {
+        runtimeState?.update(.preparing)
         
         // load model from path
         guard let rootPath = rootPath else {
-            print("root path is nil")
+            fail("The virtual machine location is unavailable.")
             return
         }
         
         if !FileManager.default.fileExists(atPath: rootPath.path(percentEncoded: false)) {
-            print("Missing Virtual Machine Bundle at \(rootPath.path(percentEncoded: false)). Run InstallationTool first to create it.")
+            fail("The virtual machine bundle is missing at \(rootPath.path(percentEncoded: false)).")
             return
         }
         
         let modelResult = VMModel.loadConfigFromFile(rootPath: rootPath)
         if case let .failure(error) = modelResult {
-            print("error load model : \(error)")
+            fail("Could not load the virtual machine: \(error)")
             return
         }
         
         guard case let .success(model) = modelResult else {
-            print("can not get model")
+            fail("Could not read the virtual machine configuration.")
             return
         }
         
@@ -75,11 +83,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         
         let virtualMachineConfigurationResult = runner.createConfiguration(model: model)
         if case let .failure(error) = virtualMachineConfigurationResult {
-            print("failed create configuration : \(error)")
+            fail("Could not create the virtual machine configuration: \(error)")
             return
         }
         guard case let .success(virtualMachineConfiguration) = virtualMachineConfigurationResult else {
-            print("failed create configuration")
+            fail("Could not create the virtual machine configuration.")
             return
         }
         
@@ -90,35 +98,183 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
 
         if recoveryMode {
+            runtimeState?.update(.starting)
             let startOptions = VZMacOSVirtualMachineStartOptions()
             startOptions.startUpFromMacOSRecovery = true
             virtualMachine.start(options: startOptions) { error in
                 if let error = error {
-                    print("error start : \(error)")
+                    Task { @MainActor in self.fail("Could not start macOS Recovery: \(error.localizedDescription)") }
                     return
                 }
 
                 // succeed start
-                print("Virtual machine successfully started.")
                 Task { @MainActor in
+                    self.runtimeState?.update(.running)
                     VMRunningRegistry.shared.markRunning(rootPath: rootPath)
                     self.startScreenshotTimer()
                 }
             }
         } else {
+            if #available(macOS 14.0, *), FileManager.default.fileExists(atPath: model.savedMachineStateURL.path(percentEncoded: false)) {
+                restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath)
+                return
+            }
+
+            runtimeState?.update(.starting)
             virtualMachine.start { result in
                 if case let .failure(error) = result {
-                    print("error start : \(error)")
+                    Task { @MainActor in self.fail("Could not start the virtual machine: \(error.localizedDescription)") }
                     return
                 }
 
                 // succeed start
-                print("Virtual machine successfully started.")
                 Task { @MainActor in
+                    self.runtimeState?.update(.running)
                     VMRunningRegistry.shared.markRunning(rootPath: rootPath)
                     self.startScreenshotTimer()
                 }
             }
+        }
+    }
+
+    @available(macOS 14.0, *)
+    private func restoreMachine(from stateURL: URL, rootPath: URL) {
+        runtimeState?.update(.restoring)
+        virtualMachine.restoreMachineStateFrom(url: stateURL) { [weak self] error in
+            guard let self else { return }
+            if let error {
+                try? FileManager.default.removeItem(at: stateURL)
+                Task { @MainActor in
+                    self.runtimeState?.update(.starting)
+                    self.startWithoutRestore(rootPath: rootPath)
+                }
+                print("saved state restore failed, starting normally: \(error)")
+                return
+            }
+            self.virtualMachine.resume { result in
+                Task { @MainActor in
+                    switch result {
+                    case .success:
+                        try? FileManager.default.removeItem(at: stateURL)
+                        self.runtimeState?.update(.running)
+                        VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                        self.startScreenshotTimer()
+                    case .failure(let error):
+                        self.fail("Could not resume the saved virtual machine: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
+
+    private func startWithoutRestore(rootPath: URL) {
+        virtualMachine.start { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.runtimeState?.update(.running)
+                    VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                    self.startScreenshotTimer()
+                case .failure(let error):
+                    self.fail("Could not start the virtual machine: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    func pauseMachine() {
+        guard virtualMachine?.canPause == true else { return }
+        runtimeState?.update(.pausing)
+        virtualMachine.pause { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success: self.runtimeState?.update(.paused)
+                case .failure(let error): self.fail("Could not pause the virtual machine: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    func resumeMachine() {
+        guard virtualMachine?.canResume == true else { return }
+        virtualMachine.resume { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success: self.runtimeState?.update(.running)
+                case .failure(let error): self.fail("Could not resume the virtual machine: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    func requestStopMachine() {
+        guard virtualMachine?.canRequestStop == true else { return }
+        runtimeState?.update(.stopping)
+        do {
+            try virtualMachine.requestStop()
+        } catch {
+            fail("The guest did not accept the shutdown request: \(error.localizedDescription)")
+        }
+    }
+
+    func saveAndStopMachine() {
+        guard #available(macOS 14.0, *), let rootPath else {
+            requestStopMachine()
+            return
+        }
+        let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
+        let save = { [weak self] in
+            guard let self else { return }
+            self.shutdownRetainer = self
+            self.runtimeState?.update(.saving)
+            try? FileManager.default.removeItem(at: stateURL)
+            self.virtualMachine.saveMachineStateTo(url: stateURL) { [weak self] error in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let error {
+                        self.fail("Could not save the virtual machine state: \(error.localizedDescription)")
+                    } else {
+                        self.runtimeState?.update(.stopped)
+                        VMRunningRegistry.shared.markStopped(rootPath: rootPath)
+                    }
+                    self.shutdownRetainer = nil
+                }
+            }
+        }
+
+        if virtualMachine.state == .paused {
+            save()
+        } else if virtualMachine.canPause {
+            runtimeState?.update(.pausing)
+            virtualMachine.pause { [weak self] result in
+                switch result {
+                case .success: save()
+                case .failure(let error):
+                    Task { @MainActor in self?.fail("Could not pause before saving: \(error.localizedDescription)") }
+                }
+            }
+        }
+    }
+
+    func prepareForWindowClose() {
+        screenshotTimer?.invalidate()
+        screenshotTimer = nil
+        captureScreenshot()
+        guard let rootPath else { return }
+        if runtimeState?.phase == .running || runtimeState?.phase == .paused {
+            saveAndStopMachine()
+        } else {
+            VMRunningRegistry.shared.markStopped(rootPath: rootPath)
+        }
+    }
+
+    private func fail(_ message: String) {
+        runtimeState?.update(.failed(message))
+        if let rootPath {
+            VMRunningRegistry.shared.markStopped(rootPath: rootPath)
         }
     }
 
@@ -149,17 +305,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     public override func viewDidDisappear() {
         super.viewDidDisappear()
-        // closing the window tears the virtual machine down with it
-        screenshotTimer?.invalidate()
-        screenshotTimer = nil
-        captureScreenshot()
-        if let rootPath = rootPath {
-            Task { @MainActor in
-                VMRunningRegistry.shared.markStopped(rootPath: rootPath)
-                // refresh the machine list so the card shows the final thumbnail
-                NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
-            }
-        }
+        NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
     }
 
 }
@@ -167,14 +313,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     
     public func guestDidStop(_ virtualMachine: VZVirtualMachine) {
-        
-        print("guest did stop")
+        runtimeState?.update(.stopped)
+        if let rootPath { VMRunningRegistry.shared.markStopped(rootPath: rootPath) }
     }
     
     
     public func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
         
-        print("did stop with error : \(error)")
+        fail("The virtual machine stopped unexpectedly: \(error.localizedDescription)")
     }
     
     public func virtualMachine(_ virtualMachine: VZVirtualMachine, networkDevice: VZNetworkDevice, attachmentWasDisconnectedWithError error: Error) {
