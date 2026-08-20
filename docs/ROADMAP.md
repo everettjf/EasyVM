@@ -12,7 +12,7 @@ The roadmap is ordered by risk reduction. Dates should be assigned only after th
 - Add a macOS CI build with signing disabled.
 - Add issue templates for VM creation, boot, networking and file sharing failures.
 - Define a compact manual smoke test: create, install, boot, stop, reopen, recovery boot and delete for macOS and one ARM64 Linux distribution.
-- Publish an explicit compatibility matrix instead of the current broad “macOS 13+” assumption.
+- Publish an explicit compatibility matrix for the macOS 26 baseline and gated macOS 27 capabilities.
 
 **Exit gate:** clean CI build plus a recorded smoke-test result on at least one supported macOS version.
 

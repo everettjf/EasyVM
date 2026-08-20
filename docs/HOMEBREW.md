@@ -36,7 +36,7 @@ cask "easyvm" do
   homepage "https://everettjf.github.io/easyvm/"
 
   depends_on arch: :arm64
-  depends_on macos: :ventura
+  depends_on macos: :tahoe
 
   app "EasyVM.app"
 

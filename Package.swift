@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "EasyVMCore",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS("26.0")],
     products: [
         .library(name: "EasyVMCore", targets: ["EasyVMCore"]),
     ],

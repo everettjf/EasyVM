@@ -2,7 +2,7 @@
 
 **A simple, native virtual machine app for Apple silicon Macs.**
 
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-111827?logo=apple)](https://support.apple.com/macos)
+[![macOS 26+](https://img.shields.io/badge/macOS-26%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
 [![License](https://img.shields.io/github/license/everettjf/easyvm)](LICENSE)
 [![Pages](https://github.com/everettjf/easyvm/actions/workflows/pages.yml/badge.svg)](https://everettjf.github.io/easyvm/)
@@ -27,7 +27,7 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 ## Requirements
 
 - An Apple silicon Mac
-- macOS 13 Ventura or later
+- macOS 26 Tahoe or later
 - An ARM64 guest image; EasyVM does not emulate x86 guests
 
 ## Install
