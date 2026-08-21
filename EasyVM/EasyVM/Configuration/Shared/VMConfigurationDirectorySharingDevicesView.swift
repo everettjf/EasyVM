@@ -21,13 +21,13 @@ struct VMConfigurationDirectorySharingDevicesView: View {
     }
     
     var content: some View {
-        LabeledContent("Directory Sharing") {
+        LabeledContent("Shared Folders") {
             VStack(alignment: .trailing) {
                 List(configData.directorySharingDevices) { item in
                     HStack {
                         Spacer()
-                        Text("\(String(describing: item.data))")
-                            .lineLimit(5)
+                        Text(item.data.items.map(\.name).joined(separator: ", "))
+                            .lineLimit(2)
                             .multilineTextAlignment(.trailing)
                     }
                 }
@@ -36,11 +36,21 @@ struct VMConfigurationDirectorySharingDevicesView: View {
                 HStack {
                     Spacer()
                     Button {
+                        MacKitUtil.selectDirectory(title: "Choose a Folder to Share") { url in
+                            guard let url else { return }
+                            _ = configData.addSharedDirectory(url)
+                        }
+                    } label: {
+                        Label("Add Shared Folder", systemImage: "folder.badge.plus")
+                    }
+                    .help("Choose a folder to share")
+
+                    Button {
                         showingEditView.toggle()
                     } label: {
-                        Image(systemName: "slider.vertical.3")
+                        Image(systemName: "ellipsis.circle")
                     }
-                    
+                    .help("Manage shared folders")
                 }
             }
         }

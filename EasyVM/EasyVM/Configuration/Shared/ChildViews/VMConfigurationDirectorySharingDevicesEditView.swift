@@ -9,162 +9,78 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMConfigurationDirectorySharingDevicesEditView: View {
-    @Environment(VMConfigurationViewStateObject.self) var configData
-    
-    @Environment(\.presentationMode) var presentationMode
-    
-    
-    @State private var inputDirectory: String = ""
-    @State private var inputName: String = ""
-    @State private var inputReadOnly: Bool = false
-    
-    
-    @State private var inputSharingItems: [VMModelFieldDirectorySharingDevice.SharingItem] = []
-    @State private var inputTag: String = ""
-    @State private var inputAutoMount: Bool = true
-    
+    @Environment(VMConfigurationViewStateObject.self) private var configData
+    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(spacing: 0) {
             Form {
-                Section("Sharing Directory Item") {
-                    HStack {
-                        Text("Sharing Directory")
-                        Spacer()
-                        Text(inputDirectory)
-                        Button("Select") {
-                            MacKitUtil.selectDirectory(title: "Select sharing directory") { path in
-                                guard let path = path else {
-                                    return
-                                }
-                                inputDirectory = path.path(percentEncoded: false)
-                                inputName = path.lastPathComponent
-                            }
-                        }
-                    }
-                    
-                    TextField("Sharing Name", text: $inputName)
-                    
-                    Toggle(isOn: $inputReadOnly) {
-                        Text("ReadOnly")
-                    }
-                    
-                    HStack {
-                        Spacer()
-                        Button {
-                            if inputDirectory.isEmpty {
-                                return
-                            }
-                            if inputName.isEmpty {
-                                return
-                            }
-                            let path = URL(filePath: inputDirectory)
-                            
-                            if inputSharingItems.contains(where: {$0.path.path(percentEncoded: false) == inputDirectory}) {
-                                return
-                            }
-                            
-                            inputSharingItems.append(VMModelFieldDirectorySharingDevice.SharingItem(name: inputName, path: path, readOnly: inputReadOnly))
-                        } label: {
-                            Text("Confirm")
-                        }
-
-                    }
-                    
-                }
-                
-                Section("Add Sharing Directory") {
-                    LabeledContent("Directories") {
-                        List {
-                            ForEach(inputSharingItems, id: \.path) { item in
-                                HStack {
-                                    Text("\(item.description)")
-                                    Spacer()
-                                    Button {
-                                        // remove
-                                        if let found = inputSharingItems.firstIndex(where: {$0.path.path(percentEncoded:false) == item.path.path(percentEncoded: false)}) {
-                                            inputSharingItems.remove(at: found)
-                                        }
-                                    } label: {
-                                        Image(systemName: "delete.left")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    if configData.osType == .macOS {
-                        Toggle(isOn: $inputAutoMount) {
-                            Text("Auto Mount")
-                        }
-                        if !inputAutoMount {
-                            TextField("Tag", text: $inputTag)
-                                .padding(.leading, 0)
-                        }
+                Section {
+                    if configData.directorySharingDevices.isEmpty {
+                        ContentUnavailableView(
+                            "No Shared Folders",
+                            systemImage: "folder",
+                            description: Text("Choose a folder once. EasyVM configures the share automatically.")
+                        )
                     } else {
-                        TextField("Tag", text: $inputTag)
-                            .padding(.leading, 0)
-                    }
-                    
-                    HStack {
-                        Spacer()
-                        Button {
-                            
-                            if inputSharingItems.isEmpty {
-                                return
-                            }
-                            var finalTag = inputTag;
-                            if configData.osType == .macOS && inputAutoMount {
-                                finalTag = VMModelFieldDirectorySharingDevice.autoMoundTag
-                            }
-                            if finalTag.isEmpty {
-                                return
-                            }
-                            configData.directorySharingDevices.append(VMModelFieldDirectorySharingDeviceItemModel(data: VMModelFieldDirectorySharingDevice(tag: finalTag, items: inputSharingItems)))
-                            
-                            // clear
-                            inputSharingItems.removeAll()
-                            inputName = ""
-                            inputDirectory = ""
-                            
-                        } label: {
-                            Text("Add")
-                        }
-
-                    }
-                }
-                
-                Section("Current Directory Sharing Devices") {
-                    List (configData.directorySharingDevices) { item in
-                        HStack {
-                            Text("\(String(describing: item.data))")
-                            Spacer()
-                            Button {
-                                // remove
-                                if let found = configData.directorySharingDevices.firstIndex(where: {$0.id == item.id}) {
-                                    configData.directorySharingDevices.remove(at: found)
+                        ForEach(configData.directorySharingDevices) { device in
+                            ForEach(device.data.items, id: \.path) { item in
+                                HStack(spacing: 12) {
+                                    Image(systemName: "folder.fill")
+                                        .foregroundStyle(.tint)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(item.name).fontWeight(.medium)
+                                        Text(item.path.path(percentEncoded: false))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    Spacer()
+                                    Toggle("Read Only", isOn: Binding(
+                                        get: { item.readOnly },
+                                        set: { configData.setSharedDirectoryReadOnly(deviceID: device.id, path: item.path, readOnly: $0) }
+                                    ))
+                                    .toggleStyle(.switch)
+                                    .controlSize(.small)
+                                    Button("Remove", systemImage: "minus.circle", role: .destructive) {
+                                        configData.removeSharedDirectory(deviceID: device.id, path: item.path)
+                                    }
+                                    .labelStyle(.iconOnly)
+                                    .buttonStyle(.borderless)
+                                    .help("Remove shared folder")
                                 }
-                                
-                            } label: {
-                                Image(systemName: "delete.left")
                             }
                         }
                     }
-                    .frame(minHeight: 100)
+                } header: {
+                    Text("Shared Folders")
+                } footer: {
+                    Text(configData.osType == .macOS
+                         ? "Folders are mounted automatically in macOS after the next start."
+                         : "Linux shares become available through VirtioFS after the next start.")
                 }
             }
             .formStyle(.grouped)
-            
-            
+
+            Divider()
             HStack {
-                Spacer()
-                Button {
-                    presentationMode.wrappedValue.dismiss()
-                } label: {
-                    Text("Close")
+                Button("Add Shared Folder…", systemImage: "folder.badge.plus") {
+                    chooseFolder()
                 }
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
             }
             .padding()
+        }
+        .frame(minWidth: 560, minHeight: 380)
+    }
+
+    private func chooseFolder() {
+        MacKitUtil.selectDirectory(title: "Choose a Folder to Share") { url in
+            guard let url else { return }
+            _ = configData.addSharedDirectory(url)
         }
     }
 }
@@ -173,7 +89,6 @@ struct VMConfigurationDirectorySharingDevicesEditView_Previews: PreviewProvider 
     static var previews: some View {
         VMConfigurationDirectorySharingDevicesEditView()
             .environment(VMConfigurationViewStateObject())
-            .frame(height: 600)
     }
 }
 

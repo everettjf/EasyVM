@@ -2,7 +2,7 @@
 
 EasyVM is a macOS application, so it should be distributed as a **Homebrew Cask**, not a source-building Formula.
 
-EasyVM 3 is published through the project's Homebrew tap:
+EasyVM is published through the project's Homebrew tap:
 
 ```sh
 brew install --cask everettjf/tap/easyvm

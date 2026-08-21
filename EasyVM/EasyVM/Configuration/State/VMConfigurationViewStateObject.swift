@@ -122,6 +122,80 @@ class VMConfigurationViewStateObject {
         
         return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices, directorySharingDevices: directorySharingDevices, linuxFeatures: osType == .linux ? linuxFeatures : nil)
     }
+
+    @discardableResult
+    func addSharedDirectory(_ url: URL, readOnly: Bool = false) -> Bool {
+        let normalizedURL = url.standardizedFileURL
+        guard !directorySharingDevices.contains(where: { device in
+            device.data.items.contains { $0.path.standardizedFileURL == normalizedURL }
+        }) else { return false }
+
+        let item = VMModelFieldDirectorySharingDevice.SharingItem(
+            name: url.lastPathComponent,
+            path: normalizedURL,
+            readOnly: readOnly
+        )
+
+        if osType == .macOS,
+           let index = directorySharingDevices.firstIndex(where: { $0.data.tag == VMModelFieldDirectorySharingDevice.autoMoundTag }) {
+            let existing = directorySharingDevices[index].data
+            directorySharingDevices[index] = VMModelFieldDirectorySharingDeviceItemModel(
+                data: VMModelFieldDirectorySharingDevice(tag: existing.tag, items: existing.items + [item])
+            )
+        } else {
+            let tag = osType == .macOS
+                ? VMModelFieldDirectorySharingDevice.autoMoundTag
+                : nextLinuxShareTag(for: url.lastPathComponent)
+            directorySharingDevices.append(
+                VMModelFieldDirectorySharingDeviceItemModel(
+                    data: VMModelFieldDirectorySharingDevice(tag: tag, items: [item])
+                )
+            )
+        }
+        return true
+    }
+
+    func removeSharedDirectory(deviceID: UUID, path: URL) {
+        guard let index = directorySharingDevices.firstIndex(where: { $0.id == deviceID }) else { return }
+        let device = directorySharingDevices[index].data
+        let remaining = device.items.filter { $0.path.standardizedFileURL != path.standardizedFileURL }
+        if remaining.isEmpty {
+            directorySharingDevices.remove(at: index)
+        } else {
+            directorySharingDevices[index] = VMModelFieldDirectorySharingDeviceItemModel(
+                data: VMModelFieldDirectorySharingDevice(tag: device.tag, items: remaining)
+            )
+        }
+    }
+
+    func setSharedDirectoryReadOnly(deviceID: UUID, path: URL, readOnly: Bool) {
+        guard let index = directorySharingDevices.firstIndex(where: { $0.id == deviceID }) else { return }
+        let device = directorySharingDevices[index].data
+        let updated = device.items.map { item in
+            guard item.path.standardizedFileURL == path.standardizedFileURL else { return item }
+            return VMModelFieldDirectorySharingDevice.SharingItem(
+                name: item.name,
+                path: item.path,
+                readOnly: readOnly
+            )
+        }
+        directorySharingDevices[index] = VMModelFieldDirectorySharingDeviceItemModel(
+            data: VMModelFieldDirectorySharingDevice(tag: device.tag, items: updated)
+        )
+    }
+
+    private func nextLinuxShareTag(for folderName: String) -> String {
+        let allowed = folderName.lowercased().unicodeScalars.map { scalar -> Character in
+            scalar.isASCII && CharacterSet.alphanumerics.contains(scalar) ? Character(String(scalar)) : "_"
+        }
+        let base = String(allowed).trimmingCharacters(in: CharacterSet(charactersIn: "_")).prefix(24)
+        let root = base.isEmpty ? "shared" : String(base)
+        let existing = Set(directorySharingDevices.map { $0.data.tag })
+        if !existing.contains(root) { return root }
+        var suffix = 2
+        while existing.contains("\(root)_\(suffix)") { suffix += 1 }
+        return "\(root)_\(suffix)"
+    }
     
 }
 #endif

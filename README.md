@@ -9,7 +9,7 @@
 
 EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to create and run macOS and Linux virtual machines with a focused SwiftUI interface. It aims to be dependable, understandable, and useful without becoming a full emulation suite.
 
-> **Project status:** EasyVM 3 is the refreshed, Developer ID-signed and Apple-notarized release. VM software can affect large disk images, so keep backups of important guests.
+> **Project status:** EasyVM is Developer ID-signed and Apple-notarized. VM software can affect large disk images, so keep backups of important guests.
 
 ## Screenshots
 

@@ -15,6 +15,9 @@ struct VMOSMainVirtualMachineView: View {
     let recoveryMode: Bool
     @State private var runtimeState = VMRuntimeState()
     @State private var isShowingCloseConfirmation = false
+    @State private var settingsModel: VMModel?
+    @State private var isShowingSharedFolderResult = false
+    @State private var sharedFolderResult = ""
     
     var body: some View {
         ZStack {
@@ -72,6 +75,18 @@ struct VMOSMainVirtualMachineView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button("Settings", systemImage: "gearshape") {
+                    openSettings()
+                }
+                .help("Edit virtual machine settings; changes apply after the next start")
+                .accessibilityHint("Open settings for this virtual machine")
+
+                Button("Add Shared Folder", systemImage: "folder.badge.plus") {
+                    addSharedFolder()
+                }
+                .help("Choose a host folder to share after the next start")
+                .accessibilityHint("Choose a folder to share with this virtual machine")
+
                 if #available(macOS 27.0, *),
                    UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey) {
                     Menu("USB", systemImage: "cable.connector") {
@@ -146,6 +161,21 @@ struct VMOSMainVirtualMachineView: View {
                     .disabled(!runtimeState.canForceStop)
                     .help("Immediately stop the virtual machine when the guest does not respond")
                 }
+
+                Menu("More", systemImage: "ellipsis.circle") {
+                    Button("Show in Finder", systemImage: "folder") {
+                        MacKitUtil.revealInFinder(rootPath.path(percentEncoded: false))
+                    }
+                    Button("Export Diagnostics…", systemImage: "square.and.arrow.up") {
+                        do {
+                            _ = try EasyVMDiagnostics.export()
+                        } catch let error as CocoaError where error.code == .userCancelled {
+                            // The save panel was intentionally dismissed.
+                        } catch {
+                            EasyVMLog.error("Diagnostic export failed: \(error.localizedDescription)")
+                        }
+                    }
+                }
             }
         }
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
@@ -166,6 +196,14 @@ struct VMOSMainVirtualMachineView: View {
         } message: {
             Text("EasyVM will save the virtual machine’s current state, stop it, and then close this window. You can resume from the same state next time.")
         }
+        .alert("Shared Folder", isPresented: $isShowingSharedFolderResult) {
+            Button("OK") {}
+        } message: {
+            Text(sharedFolderResult)
+        }
+        .sheet(item: $settingsModel) { model in
+            VMEditConfigurationView(model: model)
+        }
         .onChange(of: runtimeState.phase) { _, phase in
             guard phase.shouldDismissMachineWindow else { return }
             dismissWindow(
@@ -177,6 +215,40 @@ struct VMOSMainVirtualMachineView: View {
 
     private func memoryDescription(_ bytes: UInt64) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
+    }
+
+    private func openSettings() {
+        guard case let .success(model) = VMModel.loadConfigFromFile(rootPath: rootPath) else {
+            sharedFolderResult = "EasyVM could not load this virtual machine’s settings."
+            isShowingSharedFolderResult = true
+            return
+        }
+        settingsModel = model
+    }
+
+    private func addSharedFolder() {
+        MacKitUtil.selectDirectory(title: "Choose a Folder to Share") { url in
+            guard let url else { return }
+            guard case let .success(model) = VMModel.loadConfigFromFile(rootPath: rootPath) else {
+                sharedFolderResult = "EasyVM could not load this virtual machine’s settings."
+                isShowingSharedFolderResult = true
+                return
+            }
+            let state = VMConfigurationViewStateObject(configModel: model.config)
+            guard state.addSharedDirectory(url) else {
+                sharedFolderResult = "“\(url.lastPathComponent)” is already shared with this virtual machine."
+                isShowingSharedFolderResult = true
+                return
+            }
+            switch state.getConfigModel().writeConfigToFile(path: model.configURL) {
+            case .success:
+                NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+                sharedFolderResult = "“\(url.lastPathComponent)” was added. It will be available after the next virtual machine start."
+            case .failure(let error):
+                sharedFolderResult = "EasyVM could not add the shared folder: \(error)"
+            }
+            isShowingSharedFolderResult = true
+        }
     }
 }
 
