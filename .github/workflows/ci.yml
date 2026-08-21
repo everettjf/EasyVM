@@ -16,17 +16,29 @@ concurrency:
 jobs:
   core-tests:
     name: Core tests
-    runs-on: macos-15
+    # EasyVM targets macOS 26 and adopts APIs introduced in the macOS 27 SDK.
+    # The xcode-27 image is the GitHub-hosted macOS 26 preview runner.
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Xcode 27 toolchain
+        run: |
+          xcodebuild -version
+          sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
+          test "${sdk_version%%.*}" -ge 27
       - name: Run core tests
         run: swift test
 
   build:
     name: Build on macOS
-    runs-on: macos-15
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Xcode 27 toolchain
+        run: |
+          xcodebuild -version
+          sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
+          test "${sdk_version%%.*}" -ge 27
       - name: Build
         run: |
           set -o pipefail

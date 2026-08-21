@@ -16,7 +16,8 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-15
+    # The app targets macOS 26 and compiles macOS 27 virtualization APIs.
+    runs-on: xcode-27
     env:
       RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
       HAS_SIGNING_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_P12 != '' || secrets.BUILD_CERTIFICATE_BASE64 != '' }}
@@ -24,6 +25,12 @@ jobs:
       HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Xcode 27 toolchain
+        run: |
+          xcodebuild -version
+          sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
+          test "${sdk_version%%.*}" -ge 27
 
       - name: Import Developer ID certificate
         if: env.HAS_SIGNING_CERTIFICATE == 'true'
@@ -69,11 +76,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${RELEASE_VERSION#v}"
-          gh release create "$GITHUB_REF_NAME" \
-            "$RUNNER_TEMP/release/EasyVM-$version.zip" \
-            "$RUNNER_TEMP/release/EasyVM-$version.zip.sha256" \
-            --generate-notes \
-            --title "EasyVM $version"
+          assets=(
+            "$RUNNER_TEMP/release/EasyVM-$version.zip"
+            "$RUNNER_TEMP/release/EasyVM-$version.zip.sha256"
+          )
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "EasyVM $version"
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --generate-notes \
+              --title "EasyVM $version"
+          fi
 
       - name: Check out Homebrew tap
         if: startsWith(github.ref, 'refs/tags/') && env.HAS_SIGNING_CERTIFICATE == 'true' && env.HAS_NOTARY_CREDENTIALS == 'true' && env.HAS_TAP_TOKEN == 'true'
