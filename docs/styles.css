@@ -29,6 +29,10 @@ h1 span { color:var(--blue); }
 .stats strong { font-size:17px; }.stats span { color:var(--muted); font-size:13px; }
 .section { padding-block:120px; }
 .screenshots { padding-bottom:20px; }
+.runtime-shot { margin:0 0 18px; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:linear-gradient(145deg,#121a2b,#0c1220); box-shadow:0 24px 70px #0007; }
+.runtime-shot img { display:block; width:100%; height:auto; }
+.runtime-shot figcaption { padding:20px 22px 22px; color:var(--muted); font-size:14px; }
+.runtime-shot figcaption strong { color:var(--text); }
 .screenshot-grid { display:grid; grid-template-columns:1.65fr 1fr; gap:18px; align-items:start; }
 .screenshot-grid figure { margin:0; overflow:hidden; border:1px solid var(--line); border-radius:16px; background:linear-gradient(145deg,#121a2b,#0c1220); box-shadow:0 24px 70px #0007; }
 .screenshot-grid img { display:block; width:100%; height:auto; }
