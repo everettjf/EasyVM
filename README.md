@@ -11,7 +11,14 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 
 > **Project status:** EasyVM 3 is the refreshed, Developer ID-signed and Apple-notarized release. VM software can affect large disk images, so keep backups of important guests.
 
-![EasyVM machine library](./Assets/screenshot1.png)
+## Screenshots
+
+![EasyVM 3.2.7 machine library showing macOS and Linux virtual machines](./Assets/screenshot1.png)
+
+<p align="center">
+  <img src="./Assets/screenshot2.png" width="58%" alt="EasyVM Linux system catalog and guided creation flow">
+  <img src="./Assets/screenshot3.png" width="39%" alt="EasyVM snapshot history tree with restore and protection controls">
+</p>
 
 ## What it does
 
