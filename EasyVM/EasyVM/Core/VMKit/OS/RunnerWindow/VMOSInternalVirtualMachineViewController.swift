@@ -21,7 +21,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     
     // internal
     private var virtualMachineView: VZVirtualMachineView!
-    private var virtualMachineResponder: VMOSInternalVirtualMachineDelegate?
     private var virtualMachine: VZVirtualMachine!
     private var configuredMemorySize: UInt64 = 0
     private var screenshotTimer: Timer?
@@ -96,8 +95,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         
         configuredMemorySize = virtualMachineConfiguration.memorySize
         virtualMachine = VZVirtualMachine(configuration: virtualMachineConfiguration)
-        virtualMachineResponder = VMOSInternalVirtualMachineDelegate(rootPath: rootPath)
-        virtualMachine.delegate = virtualMachineResponder
+        // This controller owns the complete runtime lifecycle. Routing delegate
+        // callbacks elsewhere would clear the registry without transitioning
+        // the scene to `.stopped`, leaving an unusable stopped window alive.
+        virtualMachine.delegate = self
         virtualMachineView.virtualMachine = virtualMachine
 
 

@@ -390,4 +390,39 @@ struct VMMacOSCatalogCache: Codable, Equatable {
     let payload: VMMacOSCatalogPayload
 }
 
+enum VMRuntimePhase: Equatable {
+    case preparing
+    case starting
+    case restoring
+    case running
+    case pausing
+    case paused
+    case saving
+    case stopping
+    case stopped
+    case failed(String)
+
+    var title: String {
+        switch self {
+        case .preparing: "Preparing"
+        case .starting: "Starting"
+        case .restoring: "Restoring"
+        case .running: "Running"
+        case .pausing: "Pausing"
+        case .paused: "Paused"
+        case .saving: "Saving"
+        case .stopping: "Stopping"
+        case .stopped: "Stopped"
+        case .failed: "Error"
+        }
+    }
+
+    // A VZVirtualMachine cannot be started again after it reaches the stopped
+    // state. Dismantling its scene makes the next Run action create a fresh
+    // controller and VZVirtualMachine instance.
+    var shouldDismissMachineWindow: Bool {
+        self == .stopped
+    }
+}
+
 #endif

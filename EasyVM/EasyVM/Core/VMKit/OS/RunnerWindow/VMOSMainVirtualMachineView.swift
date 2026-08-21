@@ -9,6 +9,7 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMOSMainVirtualMachineView: View {
+    @Environment(\.dismissWindow) private var dismissWindow
     let rootPath: URL
     let recoveryMode: Bool
     @StateObject private var runtimeState = VMRuntimeState()
@@ -108,6 +109,13 @@ struct VMOSMainVirtualMachineView: View {
             }
         }
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
+        .onChange(of: runtimeState.phase) { _, phase in
+            guard phase.shouldDismissMachineWindow else { return }
+            dismissWindow(
+                id: recoveryMode ? "start-machine-recovery" : "start-machine",
+                value: rootPath
+            )
+        }
     }
 
     private func memoryDescription(_ bytes: UInt64) -> String {

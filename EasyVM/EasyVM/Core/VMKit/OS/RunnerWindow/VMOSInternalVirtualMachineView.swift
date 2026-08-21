@@ -10,39 +10,13 @@ import SwiftUI
 #if arch(arm64)
 @MainActor
 final class VMRuntimeState: ObservableObject {
+    typealias Phase = VMRuntimePhase
+
     struct USBAccessoryItem: Identifiable, Equatable {
         let id: UInt64
         let name: String
         let detail: String
         var isAttached: Bool
-    }
-
-    enum Phase: Equatable {
-        case preparing
-        case starting
-        case restoring
-        case running
-        case pausing
-        case paused
-        case saving
-        case stopping
-        case stopped
-        case failed(String)
-
-        var title: String {
-            switch self {
-            case .preparing: "Preparing"
-            case .starting: "Starting"
-            case .restoring: "Restoring"
-            case .running: "Running"
-            case .pausing: "Pausing"
-            case .paused: "Paused"
-            case .saving: "Saving"
-            case .stopping: "Stopping"
-            case .stopped: "Stopped"
-            case .failed: "Error"
-            }
-        }
     }
 
     @Published private(set) var phase: Phase = .preparing
