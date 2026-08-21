@@ -183,7 +183,7 @@ struct CreatePhaseNameLocationView: View {
                         HStack {
                             Text("Machine files will be saved to :")
                             Spacer()
-                            Text(formData.rootPath)
+                            Text(displayRootPath)
                                 .lineLimit(4)
                         }
 
@@ -223,6 +223,10 @@ struct CreatePhaseNameLocationView: View {
             return
         }
         formData.rootPath = CreatePhaseNameLocationViewHandler.bundlePath(baseDirectory: formData.baseDirectory, name: configData.name)
+    }
+
+    private var displayRootPath: String {
+        NSString(string: formData.rootPath).abbreviatingWithTildeInPath
     }
 }
 

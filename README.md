@@ -13,10 +13,10 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 
 ## Screenshots
 
-![EasyVM 3.2.7 machine library showing macOS and Linux virtual machines](./Assets/screenshot1.png)
+![EasyVM guided creation flow showing the dynamically updated ARM64 Linux catalog](./Assets/screenshot1.png)
 
 <p align="center">
-  <img src="./Assets/screenshot2.png" width="58%" alt="EasyVM Linux system catalog and guided creation flow">
+  <img src="./Assets/screenshot2.png" width="58%" alt="EasyVM randomly naming a virtual machine Saturn and saving it under Easy Virtual Machines">
   <img src="./Assets/screenshot3.png" width="39%" alt="EasyVM snapshot history tree with restore and protection controls">
 </p>
 
