@@ -9,7 +9,7 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMConfigurationAudioDevicesEditView: View {
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -80,7 +80,7 @@ struct VMConfigurationAudioDevicesEditView: View {
 struct VMConfigurationAudioDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationAudioDevicesEditView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

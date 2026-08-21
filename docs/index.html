@@ -12,8 +12,9 @@
   <header class="nav wrap">
     <a class="brand" href="#top" aria-label="EasyVM home"><span class="mark">E</span>EasyVM</a>
     <nav aria-label="Main navigation">
-      <a href="#principles">Principles</a>
-      <a href="#roadmap">Roadmap</a>
+      <a href="#features">Features</a>
+      <a href="#systems">Systems</a>
+      <a href="https://discord.gg/eGzEaP6TzR">Community</a>
       <a class="button small" href="https://github.com/everettjf/easyvm">GitHub</a>
     </nav>
   </header>
@@ -23,7 +24,7 @@
       <div class="hero-copy">
         <p class="eyebrow">Native on Apple silicon</p>
         <h1>Virtual machines,<br><span>kept simple.</span></h1>
-        <p class="lead">Create and run macOS and ARM64 Linux VMs with a focused SwiftUI app built on Apple's Virtualization framework.</p>
+        <p class="lead">Create, run, pause, restore, and branch macOS and ARM64 Linux virtual machines with a focused SwiftUI app built on Apple’s Virtualization framework.</p>
         <div class="actions">
           <a class="button" href="https://github.com/everettjf/easyvm/releases/latest">Download EasyVM 3</a>
           <a class="text-link" href="https://github.com/everettjf/easyvm/blob/main/docs/ROADMAP.md">Read the roadmap <span aria-hidden="true">→</span></a>
@@ -45,31 +46,34 @@
       </div>
     </section>
 
-    <section class="section wrap" id="principles">
-      <p class="eyebrow">A deliberately smaller VM app</p>
-      <h2>Useful defaults. Understandable controls.</h2>
-      <div class="cards">
-        <article><span>01</span><h3>Stable first</h3><p>Creation, boot, stop, recovery, and configuration integrity come before an expanding feature list.</p></article>
-        <article><span>02</span><h3>Native by design</h3><p>EasyVM embraces Apple silicon and Apple's virtualization stack instead of bundling a universal emulator.</p></article>
-        <article><span>03</span><h3>Agent-ready</h3><p>The future is a small, safe automation surface for disposable VMs—not an AI chat box inside every screen.</p></article>
+    <section class="section wrap" id="features">
+      <p class="eyebrow">A complete native workflow</p>
+      <h2>Powerful where it matters. Quiet everywhere else.</h2>
+      <div class="cards feature-grid">
+        <article><span>01</span><h3>Download at the end</h3><p>Choose your system and hardware first. EasyVM downloads only after you click Create, resumes interrupted downloads, and reuses saved images.</p></article>
+        <article><span>02</span><h3>Snapshot branches</h3><p>Create a history tree, restore an ancestor, branch in another direction, search snapshots, protect important points, and see their storage cost.</p></article>
+        <article><span>03</span><h3>Safe lifecycle</h3><p>Exclusive run leases protect writable disks while normal boot, Recovery, save-state, shutdown, and restart share one lifecycle.</p></article>
+        <article><span>04</span><h3>Modern storage</h3><p>ASIF disks by default, APFS copy-on-write snapshots on macOS 26, and optional DiskImageKit overlay layers on macOS 27.</p></article>
+        <article><span>05</span><h3>Real networking</h3><p>NAT, bridged and custom networks, port forwarding, configurable MTU, and clear validation before a machine starts.</p></article>
+        <article><span>06</span><h3>Native integrations</h3><p>Linux Rosetta sharing, Virtio devices, EFI Secure Boot, memory ballooning, guest provisioning, and USB passthrough when supported.</p></article>
       </div>
     </section>
 
-    <section class="section roadmap" id="roadmap">
+    <section class="section roadmap" id="systems">
       <div class="wrap roadmap-grid">
-        <div><p class="eyebrow">The refresh</p><h2>A practical path forward.</h2><p>EasyVM started in 2022. The refresh keeps its simplicity while adding the engineering foundations expected from a dependable modern macOS app.</p></div>
+        <div><p class="eyebrow">Always current</p><h2>Choose a release, not just “latest.”</h2><p>macOS signed releases update dynamically and download from Apple. The Linux installer catalog updates independently through this site, so new supported images do not require a new EasyVM build.</p></div>
         <ol>
-          <li><span>01</span><div><strong>Re-establish the baseline</strong><p>Current Xcode, compatibility matrix, CI, and repeatable smoke tests.</p></div></li>
-          <li><span>02</span><div><strong>Harden the lifecycle</strong><p>Typed errors, configuration migrations, atomic storage, cancellation, and diagnostics.</p></div></li>
-          <li><span>03</span><div><strong>Ship reliably</strong><p>Tests, signing, notarization, GitHub Releases, Homebrew Cask, accessibility, and honest support policy.</p></div></li>
-          <li><span>04</span><div><strong>Automate carefully</strong><p>A thin CLI and, later, a local MCP interface backed by the same tested VM core.</p></div></li>
+          <li><span>01</span><div><strong>macOS 12 through current releases</strong><p>Pick a signed IPSW from the refreshed catalog or let Apple resolve the newest version compatible with your Mac.</p></div></li>
+          <li><span>02</span><div><strong>Ubuntu, Debian, and Fedora ARM64</strong><p>Use curated native installers, a custom HTTPS URL, or any local ISO.</p></div></li>
+          <li><span>03</span><div><strong>Offline-friendly image store</strong><p>Downloaded images are kept once and shared by future VM creation workflows.</p></div></li>
+          <li><span>04</span><div><strong>Useful diagnostics</strong><p>Export version, host, and VM configuration details directly from Community &amp; Feedback when asking for help.</p></div></li>
         </ol>
       </div>
     </section>
 
     <section class="cta wrap">
-      <div><p class="eyebrow">Help shape EasyVM</p><h2>Small scope. Solid execution.</h2></div>
-      <a class="button" href="https://github.com/everettjf/easyvm">View on GitHub</a>
+      <div><p class="eyebrow">Ready to build?</p><h2>Install EasyVM in one command.</h2></div>
+      <div class="actions"><a class="button" href="https://github.com/everettjf/easyvm/releases/latest">Download</a><a class="text-link" href="https://github.com/everettjf/easyvm/issues">Feedback →</a></div>
     </section>
   </main>
 

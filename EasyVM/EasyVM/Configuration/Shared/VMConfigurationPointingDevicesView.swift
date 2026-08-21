@@ -9,7 +9,7 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMConfigurationPointingDevicesView: View {
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     @State private var showingEditView = false
     
     var body: some View {
@@ -46,7 +46,7 @@ struct VMConfigurationPointingDevicesView: View {
 struct VMConfigurationPointingDevicesView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationPointingDevicesView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
     }
 }
 

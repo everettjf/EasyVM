@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
+import Observation
 
 #if arch(arm64)
 @MainActor
-final class VMRuntimeState: ObservableObject {
+@Observable
+final class VMRuntimeState {
     typealias Phase = VMRuntimePhase
 
     struct USBAccessoryItem: Identifiable, Equatable {
@@ -19,11 +21,12 @@ final class VMRuntimeState: ObservableObject {
         var isAttached: Bool
     }
 
-    @Published private(set) var phase: Phase = .preparing
-    @Published private(set) var usbAccessories: [USBAccessoryItem] = []
-    @Published private(set) var usbStatusMessage: String?
-    @Published private(set) var balloonMemoryTarget: UInt64?
-    @Published private(set) var balloonMemoryMaximum: UInt64?
+    private(set) var phase: Phase = .preparing
+    private(set) var usbAccessories: [USBAccessoryItem] = []
+    private(set) var usbStatusMessage: String?
+    private(set) var balloonMemoryTarget: UInt64?
+    private(set) var balloonMemoryMaximum: UInt64?
+    @ObservationIgnored
     weak var controller: VMOSInternalVirtualMachineViewController?
 
     var errorMessage: String? {
@@ -35,6 +38,12 @@ final class VMRuntimeState: ObservableObject {
     var canResume: Bool { phase == .paused }
     var canRequestStop: Bool { phase == .running || phase == .paused }
     var canSave: Bool { phase == .running || phase == .paused }
+    var canForceStop: Bool {
+        switch phase {
+        case .starting, .restoring, .running, .pausing, .paused, .saving, .stopping: true
+        default: false
+        }
+    }
     var canManageUSB: Bool {
         if #available(macOS 27.0, *) {
             return UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey)
@@ -64,6 +73,7 @@ final class VMRuntimeState: ObservableObject {
     func resume() { controller?.resumeMachine() }
     func requestStop() { controller?.requestStopMachine() }
     func saveAndStop() { controller?.saveAndStopMachine() }
+    func forceStop() { controller?.forceStopMachine() }
     func toggleUSB(_ id: UInt64) { controller?.toggleUSBAccessory(registryID: id) }
     func setBalloonMemory(fraction: Double) { controller?.setBalloonMemory(fraction: fraction) }
 }
@@ -71,7 +81,7 @@ final class VMRuntimeState: ObservableObject {
 struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
     let rootPath: URL
     let recoveryMode: Bool
-    @ObservedObject var runtimeState: VMRuntimeState
+    var runtimeState: VMRuntimeState
     
     class Coordinator : NSObject {
         var parent: VMOSInternalVirtualMachineView
@@ -86,7 +96,6 @@ struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
     }
     
     func makeNSViewController(context: Context) -> VMOSInternalVirtualMachineViewController {
-        print("make ns view controller")
         let vc = VMOSInternalVirtualMachineViewController()
         vc.rootPath = rootPath
         vc.recoveryMode = recoveryMode

@@ -425,4 +425,34 @@ enum VMRuntimePhase: Equatable {
     }
 }
 
+enum VMDownloadValidationError: LocalizedError, Equatable {
+    case emptyFile
+    case sizeMismatch(expected: Int64, actual: Int64)
+    case insufficientDiskSpace(required: Int64, available: Int64)
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyFile: "The server returned an empty file."
+        case let .sizeMismatch(expected, actual): "Expected \(expected) bytes but downloaded \(actual) bytes."
+        case let .insufficientDiskSpace(required, available):
+            "The operation needs \(required) bytes, but only \(available) bytes are available."
+        }
+    }
+}
+
+enum VMStorageCapacity {
+    static func availableBytes(at url: URL) -> Int64? {
+        let directory = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
+        return (try? directory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+            .volumeAvailableCapacityForImportantUsage
+    }
+
+    static func validate(requiredBytes: Int64?, at url: URL, reserveBytes: Int64 = 1_073_741_824) throws {
+        guard let requiredBytes, requiredBytes > 0,
+              let available = availableBytes(at: url),
+              available < requiredBytes + reserveBytes else { return }
+        throw VMDownloadValidationError.insufficientDiskSpace(required: requiredBytes + reserveBytes, available: available)
+    }
+}
+
 #endif

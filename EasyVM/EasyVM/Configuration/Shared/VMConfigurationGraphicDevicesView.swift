@@ -10,7 +10,7 @@ import SwiftUI
 #if arch(arm64)
 struct VMConfigurationGraphicDevicesView: View {
     
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     
     @State private var showingEditView = false
     
@@ -55,7 +55,7 @@ struct VMConfigurationGraphicDevicesView_Previews: PreviewProvider {
                 VMConfigurationGraphicDevicesView()
             }
         }
-        .environmentObject(VMConfigurationViewStateObject())
+        .environment(VMConfigurationViewStateObject())
     }
 }
 

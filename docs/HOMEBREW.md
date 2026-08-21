@@ -33,7 +33,7 @@ cask "easyvm" do
   url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip"
   name "EasyVM"
   desc "Simple native virtual machines for Apple silicon Macs"
-  homepage "https://everettjf.github.io/easyvm/"
+  homepage "https://xnu.app/easyvm"
 
   depends_on arch: :arm64
   depends_on macos: :tahoe

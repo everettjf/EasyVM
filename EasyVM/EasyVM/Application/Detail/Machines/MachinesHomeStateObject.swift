@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Observation
 
 #if arch(arm64)
 struct HomeItemVMModel : Identifiable {
@@ -16,9 +17,10 @@ struct HomeItemVMModel : Identifiable {
 }
 
 @MainActor
-class MachinesHomeStateObject: ObservableObject {
-    @Published var vmItems: [HomeItemVMModel] = []
-    private var changeObserver: NSObjectProtocol?
+@Observable
+class MachinesHomeStateObject {
+    var vmItems: [HomeItemVMModel] = []
+    @ObservationIgnored nonisolated(unsafe) private var changeObserver: NSObjectProtocol?
     
     init() {
         reload()
@@ -55,7 +57,7 @@ class MachinesHomeStateObject: ObservableObject {
             let loadModelResult = VMModel.loadConfigFromFile(rootPath: rootURL)
             switch loadModelResult {
             case .failure(let error):
-                print("load vm error : \(error)")
+                EasyVMLog.error("Failed to load VM at \(rootPath): \(error)", logger: EasyVMLog.storage)
                 vmItems.append(HomeItemVMModel(rootPath: rootURL, model: nil))
                 continue
             case .success(let model):

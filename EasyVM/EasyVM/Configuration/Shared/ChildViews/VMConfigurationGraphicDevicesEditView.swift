@@ -9,7 +9,7 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMConfigurationGraphicDevicesEditView: View {
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -96,7 +96,7 @@ struct VMConfigurationGraphicDevicesEditView: View {
 struct VMConfigurationGraphicDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationGraphicDevicesEditView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

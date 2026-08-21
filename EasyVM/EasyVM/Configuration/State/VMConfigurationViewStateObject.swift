@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Observation
 
 
 #if arch(arm64)
@@ -42,24 +43,25 @@ struct VMModelFieldDirectorySharingDeviceItemModel: Identifiable {
 
 
 @MainActor
-class VMConfigurationViewStateObject: ObservableObject {
-    @Published var osType: VMOSType = .macOS
+@Observable
+class VMConfigurationViewStateObject {
+    var osType: VMOSType = .macOS
     
-    @Published var name: String = ""
-    @Published var remark: String = ""
+    var name: String = ""
+    var remark: String = ""
     
-    @Published var cpuCount: Int = 1
-    @Published var memorySize: UInt64 = 1024 * 1024 * 1024 * 4
+    var cpuCount: Int = 1
+    var memorySize: UInt64 = 1024 * 1024 * 1024 * 4
 
-    @Published var graphicDevices: [VMModelFieldGraphicDeviceItemModel] = []
-    @Published var storageDevices: [VMModelFieldStorageDeviceItemModel] = []
-    @Published var networkDevices: [VMModelFieldNetworkDeviceItemModel] = []
+    var graphicDevices: [VMModelFieldGraphicDeviceItemModel] = []
+    var storageDevices: [VMModelFieldStorageDeviceItemModel] = []
+    var networkDevices: [VMModelFieldNetworkDeviceItemModel] = []
     
-    @Published var pointingDevices: [VMModelFieldPointingDeviceItemModel] = []
-    @Published var audioDevices: [VMModelFieldAudioDeviceItemModel] = []
+    var pointingDevices: [VMModelFieldPointingDeviceItemModel] = []
+    var audioDevices: [VMModelFieldAudioDeviceItemModel] = []
     
-    @Published var directorySharingDevices: [VMModelFieldDirectorySharingDeviceItemModel] = []
-    @Published var linuxFeatures: VMLinuxFeatureConfiguration = .legacy
+    var directorySharingDevices: [VMModelFieldDirectorySharingDeviceItemModel] = []
+    var linuxFeatures: VMLinuxFeatureConfiguration = .legacy
     
     convenience init() {
         // default

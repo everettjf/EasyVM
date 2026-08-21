@@ -24,7 +24,6 @@ let package = Package(
                 "Model/Fields/VMModelFieldPointingDevice.swift",
                 "Model/Fields/VMModelFieldStorageDevice.swift",
                 "OS",
-                "Common/VMRunningRegistry.swift",
                 "VMOSCreator.swift",
                 "VMOSDownloader.swift",
                 "VMOSRunner.swift",
@@ -32,6 +31,7 @@ let package = Package(
             sources: [
                 "Common/VMOSResultVoid.swift",
                 "Common/VMOSHelper.swift",
+                "Common/VMRunningRegistry.swift",
                 "Model/Fields/VMModelFieldNetworkDevice.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ]

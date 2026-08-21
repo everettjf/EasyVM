@@ -133,6 +133,8 @@
 		D1CCB21A290DB92D00B1F563 /* VMConfigurationStorageDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EAD28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift */; };
 		D1CCB21D290DB92D00B1F563 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */; };
 		D1CCB21E290DB92D00B1F563 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA52866F7C900B2F41F /* Assets.xcassets */; };
+		CA5E5AFE000000000000E001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000E003 /* Localizable.xcstrings */; };
+		CA5E5AFE000000000000E002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000E003 /* Localizable.xcstrings */; };
 		D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
 		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
 		D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A09289E9DAD00CF27D3 /* Array.swift */; };
@@ -225,6 +227,7 @@
 		F2C5DCA32866F7C800B2F41F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		F2C5DCA52866F7C900B2F41F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		CA5E5AFE000000000000E003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F2C5DCAA2866F7C900B2F41F /* EasyVM.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EasyVM.entitlements; sourceTree = "<group>"; };
 		F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -554,6 +557,7 @@
 				D184CB0C28EB2479001E3664 /* Configuration */,
 				D184CB0D28EB24A7001E3664 /* Application */,
 				F2C5DCA52866F7C900B2F41F /* Assets.xcassets */,
+				CA5E5AFE000000000000E003 /* Localizable.xcstrings */,
 				F2C5DCAA2866F7C900B2F41F /* EasyVM.entitlements */,
 				F2C5DCA72866F7C900B2F41F /* Preview Content */,
 			);
@@ -646,6 +650,7 @@
 			files = (
 				D1CCB21D290DB92D00B1F563 /* Preview Assets.xcassets in Resources */,
 				D1CCB21E290DB92D00B1F563 /* Assets.xcassets in Resources */,
+				CA5E5AFE000000000000E001 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -655,6 +660,7 @@
 			files = (
 				F2C5DCA92866F7C900B2F41F /* Preview Assets.xcassets in Resources */,
 				F2C5DCA62866F7C900B2F41F /* Assets.xcassets in Resources */,
+				CA5E5AFE000000000000E002 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

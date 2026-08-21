@@ -144,11 +144,11 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
 
 
 struct CreatePhaseNameLocationView: View {
-    @EnvironmentObject var formData: VMCreateViewStateObject
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMCreateViewStateObject.self) var formData
+    @Environment(VMConfigurationViewStateObject.self) var configData
 
     var body: some View {
-
+        @Bindable var configData = configData
         VStack {
             Text("Name the virtual machine :")
                 .font(.title3)
@@ -194,7 +194,6 @@ struct CreatePhaseNameLocationView: View {
                             Spacer()
                             Button {
                                 MacKitUtil.selectDirectory(title: "Select a directory") { path in
-                                    print("directory = \(String(describing: path))")
                                     guard let path = path else {
                                         return
                                     }
@@ -234,8 +233,8 @@ struct CreatePhaseNameLocationView_Previews: PreviewProvider {
     static var previews: some View {
         CreatePhaseNameLocationView()
             .frame(width: 600, height: 500)
-            .environmentObject(formData)
-            .environmentObject(configData)
+            .environment(formData)
+            .environment(configData)
     }
 }
 

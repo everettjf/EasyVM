@@ -1,0 +1,29 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "About" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关于" } } } },
+    "Cancel" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "取消" } } } },
+    "Close" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭" } } } },
+    "Community & Feedback" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "社区与反馈" } } } },
+    "Create Snapshot" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "创建快照" } } } },
+    "Create a new virtual machine" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建虚拟机" } } } },
+    "Choose a system" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择系统" } } } },
+    "Download failed" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "下载失败" } } } },
+    "Downloading" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在下载" } } } },
+    "Export Diagnostic Report" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导出诊断报告" } } } },
+    "Force Stop" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "强制停止" } } } },
+    "Latest compatible macOS" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最新兼容的 macOS" } } } },
+    "No snapshots yet" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "还没有快照" } } } },
+    "Operating system" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "操作系统" } } } },
+    "Protect" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保护" } } } },
+    "Refresh" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "刷新" } } } },
+    "Restore" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复" } } } },
+    "Retry Download" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重试下载" } } } },
+    "Run" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "运行" } } } },
+    "Search snapshots" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "搜索快照" } } } },
+    "Start Download" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "开始下载" } } } },
+    "Unprotect" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "取消保护" } } } },
+    "Your virtual machines" : { "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "你的虚拟机" } } } }
+  },
+  "version" : "1.0"
+}

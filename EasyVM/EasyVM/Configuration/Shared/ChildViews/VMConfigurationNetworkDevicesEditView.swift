@@ -3,7 +3,7 @@ import Virtualization
 
 #if arch(arm64)
 struct VMConfigurationNetworkDevicesEditView: View {
-    @EnvironmentObject private var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) private var configData
     @Environment(\.dismiss) private var dismiss
 
     @State private var inputType: VMModelFieldNetworkDevice.DeviceType = .NAT
@@ -187,7 +187,7 @@ private extension String {
 struct VMConfigurationNetworkDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationNetworkDevicesEditView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
     }
 }
 #endif

@@ -75,8 +75,10 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     }
     
     static func maxDiskSize() -> UInt64 {
-        // TODO: get host disk left size
-        return 10 * 1024 * 1024 * 1024 * 1024
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let available = VMStorageCapacity.availableBytes(at: home) ?? Int64(defaultDiskSize())
+        let reserve = Int64(5 * 1024 * 1024 * 1024)
+        return UInt64(max(Int64(defaultDiskSize()), available - reserve))
     }
     
     static func `default`() -> VMModelFieldStorageDevice {

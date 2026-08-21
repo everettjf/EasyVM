@@ -11,6 +11,7 @@ import AppKit
 #if arch(arm64)
 struct CommunityDetailHomeView: View {
     @State private var copiedDiagnostics = false
+    @State private var diagnosticError: String?
 
     var body: some View {
         ScrollView {
@@ -73,6 +74,17 @@ struct CommunityDetailHomeView: View {
                     }
                     .controlSize(.small)
                 }
+                Button("Export Diagnostic Report", systemImage: "square.and.arrow.up") {
+                    do {
+                        let url = try EasyVMDiagnostics.export()
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    } catch let error as CocoaError where error.code == .userCancelled {
+                        // The user intentionally dismissed the save panel.
+                    } catch {
+                        diagnosticError = error.localizedDescription
+                    }
+                }
+                .accessibilityHint("Creates a report containing system information and virtual machine configuration")
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
@@ -81,6 +93,14 @@ struct CommunityDetailHomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("Community & Feedback - EasyVM")
+        .alert("Couldn’t export diagnostics", isPresented: Binding(
+            get: { diagnosticError != nil },
+            set: { if !$0 { diagnosticError = nil } }
+        )) {
+            Button("OK", role: .cancel) { diagnosticError = nil }
+        } message: {
+            Text(diagnosticError ?? "Unknown error")
+        }
     }
 }
 

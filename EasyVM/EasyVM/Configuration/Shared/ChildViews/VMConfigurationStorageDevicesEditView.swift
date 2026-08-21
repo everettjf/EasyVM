@@ -9,7 +9,7 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMConfigurationStorageDevicesEditView: View {
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -47,7 +47,6 @@ struct VMConfigurationStorageDevicesEditView: View {
                                     guard let path = path else {
                                         return
                                     }
-                                    print("\(path)")
                                     inputPath = path.path(percentEncoded: false)
                                 }
                             } label: {
@@ -124,7 +123,7 @@ struct VMConfigurationStorageDevicesEditView: View {
 struct VMConfigurationStorageDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationStorageDevicesEditView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

@@ -38,10 +38,11 @@ struct VMCreateConfigurationView: View {
 }
 
 struct VMLinuxFeaturesConfigurationSection: View {
-    @EnvironmentObject private var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) private var configData
     @AppStorage(EasyVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBootEnabled = false
 
     var body: some View {
+        @Bindable var configData = configData
         if configData.osType == .linux {
             Section("Linux Integration") {
                 Toggle("Rosetta for x86_64 Linux binaries", isOn: $configData.linuxFeatures.rosettaEnabled)

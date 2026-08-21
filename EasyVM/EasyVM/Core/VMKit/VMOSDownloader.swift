@@ -29,44 +29,99 @@ class VMOSDownloaderFactory {
 
 
 // Plain HTTP file download with progress, shared by the macOS and Linux downloaders.
-class VMOSHTTPFileDownloader {
-    private var downloadObserver: NSKeyValueObservation?
+class VMOSHTTPFileDownloader: NSObject, URLSessionDownloadDelegate {
     private var downloadTask: URLSessionDownloadTask?
+    private var session: URLSession?
+    private var targetURL: URL?
+    private var completionHandler: ((VMOSResultVoid) -> Void)?
+    private var progressHandler: ((Double) -> Void)?
+    private var expectedTotalSize: Int64 = -1
+
+    private var resumeDataURL: URL? {
+        targetURL?.appendingPathExtension("resumeData")
+    }
 
     func download(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
-        downloadTask = URLSession.shared.downloadTask(with: imageURL) { localURL, response, error in
-            if let error = error {
-                completionHandler(.failure("Download failed. \(error.localizedDescription)."))
-                return
-            }
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
-                completionHandler(.failure("Download failed : server returned \(httpResponse.statusCode) for \(imageURL.absoluteString)"))
-                return
-            }
-            guard let localURL = localURL else {
-                completionHandler(.failure("Download failed : local url is nil"))
-                return
-            }
+        cancel()
+        targetURL = toLocalPath
+        self.completionHandler = completionHandler
+        progressHandler = downloadProgressHandler
+        expectedTotalSize = -1
 
-            try? FileManager.default.removeItem(at: toLocalPath)
-            guard (try? FileManager.default.moveItem(at: localURL, to: toLocalPath)) != nil else {
-                completionHandler(.failure("Failed to move downloaded image to \(toLocalPath)."))
-                return
-            }
-
-            completionHandler(.success)
-        }
-
-        downloadObserver = downloadTask?.progress.observe(\.fractionCompleted, options: [.initial, .new]) { (progress, change) in
-            NSLog("Image download progress: \(change.newValue! * 100).")
-            downloadProgressHandler(change.newValue!)
+        let configuration = URLSessionConfiguration.default
+        configuration.waitsForConnectivity = true
+        configuration.timeoutIntervalForResource = 24 * 60 * 60
+        session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+        if let resumeDataURL,
+           let resumeData = try? Data(contentsOf: resumeDataURL),
+           !resumeData.isEmpty {
+            downloadTask = session?.downloadTask(withResumeData: resumeData)
+        } else {
+            downloadTask = session?.downloadTask(with: imageURL)
         }
         downloadTask?.resume()
     }
 
     func cancel() {
-        downloadTask?.cancel()
+        downloadTask?.cancel { [resumeDataURL] resumeData in
+            guard let resumeData, let resumeDataURL else { return }
+            try? resumeData.write(to: resumeDataURL, options: .atomic)
+        }
         downloadTask = nil
+        session?.finishTasksAndInvalidate()
+        session = nil
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        expectedTotalSize = totalBytesExpectedToWrite
+        progressHandler?(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        guard let targetURL else { return }
+        if let response = downloadTask.response as? HTTPURLResponse,
+           !(200..<300).contains(response.statusCode) {
+            completionHandler?(.failure("Download failed: server returned HTTP \(response.statusCode)."))
+            return
+        }
+        do {
+            let values = try location.resourceValues(forKeys: [.fileSizeKey])
+            let actualSize = Int64(values.fileSize ?? 0)
+            let expectedSize = expectedTotalSize
+            guard actualSize > 0 else { throw VMDownloadValidationError.emptyFile }
+            if expectedSize > 0, actualSize != expectedSize {
+                throw VMDownloadValidationError.sizeMismatch(expected: expectedSize, actual: actualSize)
+            }
+            try? FileManager.default.removeItem(at: targetURL)
+            try FileManager.default.moveItem(at: location, to: targetURL)
+            if let resumeDataURL { try? FileManager.default.removeItem(at: resumeDataURL) }
+            completionHandler?(.success)
+        } catch {
+            completionHandler?(.failure("Downloaded image validation failed: \(error.localizedDescription)"))
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        defer {
+            self.downloadTask = nil
+            self.session = nil
+        }
+        guard let error else { return }
+        let nsError = error as NSError
+        if let resumeData = nsError.userInfo[NSURLSessionDownloadTaskResumeData] as? Data,
+           let resumeDataURL {
+            try? resumeData.write(to: resumeDataURL, options: .atomic)
+        }
+        if nsError.code != NSURLErrorCancelled {
+            completionHandler?(.failure("Download failed. \(error.localizedDescription). It can be resumed by retrying."))
+        }
     }
 }
 

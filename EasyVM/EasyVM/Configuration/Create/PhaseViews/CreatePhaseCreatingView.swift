@@ -49,38 +49,36 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         // fill from form
         let rootPath = URL(filePath:context.formData.rootPath)
         let imagePath = imageURL
-        print("root path : \(rootPath)")
-        print("image path : \(imagePath)")
+        EasyVMLog.info("Creating VM at \(rootPath.path(percentEncoded: false)) with image \(imagePath.lastPathComponent)", logger: EasyVMLog.lifecycle)
 
         let stateModel = VMStateModel(imagePath: imagePath)
         let configModel = context.configData.getConfigModel()
         let vmModel = VMModel(rootPath: rootPath, state: stateModel, config: configModel)
 
         // create vm from vmmodel
-        print("!! Start create virtual machine")
+        EasyVMLog.info("Starting virtual machine creation", logger: EasyVMLog.lifecycle)
         context.formData.creationStage = context.configData.osType == .macOS ? "Installing macOS" : "Creating virtual machine"
         context.formData.addLog("System image is ready")
         let creator = VMOSCreateFactory.getCreator(configModel.type)
         let result = await creator.create(model: vmModel, progress: { progressInfo in
             switch progressInfo {
             case .info(let log):
-                print("LOG INFO : \(log)")
+                EasyVMLog.info(log, logger: EasyVMLog.lifecycle)
                 context.formData.addLog(log)
             case .error(let log):
-                print("LOG ERROR : \(log)")
+                EasyVMLog.error(log, logger: EasyVMLog.lifecycle)
                 context.formData.addLog("❌ ERROR : \(log)")
             case .progress(let percent):
-                print("Progress : \(percent)")
                 context.formData.changeProgress(0.35 + (percent * 0.65))
             }
         })
-        print("!! End create virtual machine")
+        EasyVMLog.info("Virtual machine creation finished", logger: EasyVMLog.lifecycle)
         context.formData.isCreating = false
 
         switch result {
         case .failure(let error):
             context.formData.creationStage = "Creation failed"
-            print("Failed to create : \(error)")
+            EasyVMLog.error("Failed to create VM: \(error)", logger: EasyVMLog.lifecycle)
         case .success:
             if context.formData.provisionsMacGuest {
                 let credential = VMGuestProvisioningCredential(
@@ -222,7 +220,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
 
 
 struct CreatePhaseCreatingView: View {
-    @EnvironmentObject var formData: VMCreateViewStateObject
+    @Environment(VMCreateViewStateObject.self) var formData
 
     @State private var showDetails = false
 
@@ -290,7 +288,7 @@ struct CreatePhaseCreatingView_Previews: PreviewProvider {
     static var previews: some View {
         let formData = VMCreateViewStateObject()
         CreatePhaseCreatingView()
-            .environmentObject(formData)
+            .environment(formData)
     }
 }
 

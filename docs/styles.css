@@ -33,6 +33,7 @@ h1 span { color:var(--blue); }
 .section { padding-block:120px; }
 h2 { max-width:760px; margin-bottom:50px; font-size:clamp(38px,5vw,60px); line-height:1.08; letter-spacing:-.045em; }
 .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+.feature-grid { grid-template-columns:repeat(3,1fr); }
 .cards article { min-height:260px; padding:30px; border:1px solid var(--line); border-radius:16px; background:linear-gradient(145deg,#121a2b,#0c1220); }
 .cards article>span { color:var(--blue); font:700 12px/1 monospace; }.cards h3 { margin:50px 0 10px; font-size:22px; }.cards p,.roadmap p { color:var(--muted); }
 .roadmap { border-block:1px solid var(--line); background:#0d1321; }

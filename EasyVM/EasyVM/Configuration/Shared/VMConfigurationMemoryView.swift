@@ -9,7 +9,7 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMConfigurationMemoryView: View {
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     
     let _1GB: UInt64 = 1024 * 1024 * 1024
     let maxMemory = VMModelFieldMemory.maxSize()
@@ -44,6 +44,7 @@ struct VMConfigurationMemoryView: View {
     }
     
     var body: some View {
+        @Bindable var configData = configData
         LabeledContent("Memory Size") {
             VStack(alignment: .trailing) {
                 TextField("", value: $configData.memorySize, format: .number)
@@ -66,7 +67,7 @@ struct VMConfigurationMemoryView: View {
 struct VMConfigurationMemoryView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationMemoryView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
     }
 }
 

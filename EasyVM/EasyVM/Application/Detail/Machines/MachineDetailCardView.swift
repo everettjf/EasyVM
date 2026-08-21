@@ -71,7 +71,7 @@ struct MachineDetailCardView: View {
     let model: VMModel
     let action: MachineDetailCardAction
 
-    @ObservedObject private var runningRegistry = VMRunningRegistry.shared
+    @State private var runningRegistry = VMRunningRegistry.shared
 
     var snapshotCount: Int {
         VMSnapshotManager.snapshotCount(vmRootPath: model.rootPath)

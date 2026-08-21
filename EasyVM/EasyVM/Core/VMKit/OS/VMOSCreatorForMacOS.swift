@@ -18,7 +18,6 @@ final class VMOSCreatorForMacOS: VMOSCreator {
     private var virtualMachine: VZVirtualMachine!
     
     deinit {
-        print("de init")
     }
     
     func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {

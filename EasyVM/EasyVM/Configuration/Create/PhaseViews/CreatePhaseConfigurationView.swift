@@ -44,8 +44,8 @@ class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
 
 
 struct CreatePhaseConfigurationView: View {
-    @EnvironmentObject private var formData: VMCreateViewStateObject
-    @EnvironmentObject private var configData: VMConfigurationViewStateObject
+    @Environment(VMCreateViewStateObject.self) private var formData
+    @Environment(VMConfigurationViewStateObject.self) private var configData
     @AppStorage(EasyVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioningEnabled = false
 
     var body: some View {
@@ -65,7 +65,8 @@ struct CreatePhaseConfigurationView: View {
     }
 
     private var guestProvisioningSection: some View {
-        GroupBox {
+        @Bindable var formData = formData
+        return GroupBox {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Create the first macOS account automatically", isOn: $formData.provisionsMacGuest)
                     .disabled(!guestProvisioningAvailable)
@@ -115,8 +116,8 @@ struct CreatePhaseConfigurationView: View {
 struct CreatePhaseConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
         CreatePhaseConfigurationView()
-            .environmentObject(VMCreateViewStateObject())
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMCreateViewStateObject())
+            .environment(VMConfigurationViewStateObject())
     }
 }
 

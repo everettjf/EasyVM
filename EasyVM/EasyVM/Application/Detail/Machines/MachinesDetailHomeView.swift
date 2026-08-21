@@ -26,7 +26,7 @@ struct MachinesDetailCardWarpView: View {
 struct MachinesDetailHomeView: View {
     @Environment(\.openWindow) private var openWindow
     
-    @StateObject private var vmStore = MachinesHomeStateObject()
+    @State private var vmStore = MachinesHomeStateObject()
     @State private var editingItem: HomeItemVMModel?
     @State private var snapshotItem: HomeItemVMModel?
     @State private var supportDestination: SupportDestination?
@@ -110,14 +110,12 @@ struct MachinesDetailHomeView: View {
                             snapshotItem = item
                         }))
                         .onTapGesture(count: 2, perform: {
-                            print("open machine")
                             openWindow(id: "start-machine", value: item.rootPath)
                         })
                         .contextMenu {
                         let isRunning = VMRunningRegistry.shared.isRunning(rootPath: item.rootPath)
 
                         Button {
-                            print("run")
                             openWindow(id: "start-machine", value: item.rootPath)
                         } label: {
                             Image(systemName: isRunning ? "macwindow" : "play")
@@ -127,7 +125,6 @@ struct MachinesDetailHomeView: View {
                         // starting a second instance on the same disk is unsafe
                         if item.model?.config.type == .macOS && !isRunning {
                             Button {
-                                print("run")
                                 openWindow(id: "start-machine-recovery", value: item.rootPath)
                             } label: {
                                 Image(systemName: "play")
@@ -138,7 +135,6 @@ struct MachinesDetailHomeView: View {
                         Divider()
 
                         Button {
-                            print("take snapshot now")
                             takeQuickSnapshot(item: item)
                         } label: {
                             Image(systemName: "camera")
@@ -146,7 +142,6 @@ struct MachinesDetailHomeView: View {
                         }
 
                         Button {
-                            print("snapshots")
                             snapshotItem = item
                         } label: {
                             Image(systemName: "camera.on.rectangle")
@@ -165,7 +160,6 @@ struct MachinesDetailHomeView: View {
                         Divider()
 
                         Button {
-                            print("edit")
                             editingItem = item
                         } label: {
                             Image(systemName: "slider.horizontal.3")
@@ -173,7 +167,6 @@ struct MachinesDetailHomeView: View {
                         }
 
                         Button {
-                            print("reveal")
                             MacKitUtil.revealInFinder(item.rootPath.path(percentEncoded: false))
                         } label: {
                             Image(systemName: "folder")
@@ -183,7 +176,6 @@ struct MachinesDetailHomeView: View {
                         Divider()
 
                         Button {
-                            print("remove from list")
                             removeFromList(item: item)
                         } label: {
                             Image(systemName: "minus.circle")
@@ -191,7 +183,6 @@ struct MachinesDetailHomeView: View {
                         }
 
                         Button {
-                            print("move to trash")
                             moveToTrash(item: item)
                         } label: {
                             Image(systemName: "trash")

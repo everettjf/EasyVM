@@ -6,13 +6,14 @@
 //
 
 import SwiftUI
+import AppKit
 
 #if arch(arm64)
 struct VMOSMainVirtualMachineView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     let rootPath: URL
     let recoveryMode: Bool
-    @StateObject private var runtimeState = VMRuntimeState()
+    @State private var runtimeState = VMRuntimeState()
     
     var body: some View {
         ZStack {
@@ -32,6 +33,22 @@ struct VMOSMainVirtualMachineView: View {
                     Text(errorMessage)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
+                        .textSelection(.enabled)
+                    HStack {
+                        Button("Copy Error", systemImage: "doc.on.doc") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(errorMessage, forType: .string)
+                        }
+                        Button("Export Diagnostics", systemImage: "square.and.arrow.up") {
+                            do {
+                                _ = try EasyVMDiagnostics.export()
+                            } catch let error as CocoaError where error.code == .userCancelled {
+                                // The save panel was intentionally dismissed.
+                            } catch {
+                                EasyVMLog.error("Diagnostic export failed: \(error.localizedDescription)")
+                            }
+                        }
+                    }
                 }
                 .padding(40)
                 .background(.regularMaterial)
@@ -105,6 +122,14 @@ struct VMOSMainVirtualMachineView: View {
                         runtimeState.requestStop()
                     }
                     .disabled(!runtimeState.canRequestStop)
+
+                    Divider()
+
+                    Button("Force Stop", systemImage: "stop.circle", role: .destructive) {
+                        runtimeState.forceStop()
+                    }
+                    .disabled(!runtimeState.canForceStop)
+                    .help("Immediately stop the virtual machine when the guest does not respond")
                 }
             }
         }

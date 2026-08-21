@@ -180,6 +180,52 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertEqual(VMSnapshotManager.selectedBackend(vmRootPath: temporaryRoot), .apfsClone)
     }
 
+    func testInterruptedRestoreRollsBackOriginalBundleAndIsIdempotent() throws {
+        try write("partially restored", to: "config.json")
+        let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)
+        let staging = temporaryRoot.appendingPathComponent(".restore-staging", isDirectory: true)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        try Data("original config".utf8).write(to: backup.appendingPathComponent("config.json"))
+        try Data("original disk".utf8).write(to: backup.appendingPathComponent("Disk.img"))
+        try Data(#"{"snapshotID":"test","phase":"installing"}"#.utf8)
+            .write(to: temporaryRoot.appendingPathComponent(".restore-transaction.json"))
+
+        try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
+
+        XCTAssertEqual(try read("config.json"), "original config")
+        XCTAssertEqual(try read("Disk.img"), "original disk")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: backup.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.path))
+        try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
+    }
+
+    func testProtectedSnapshotCannotBeDeletedUntilUnprotected() throws {
+        try write("disk", to: "Disk.img")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Keep me")
+        )
+        try unwrapSuccess(VMSnapshotManager.setSnapshotProtected(
+            vmRootPath: temporaryRoot,
+            snapshot: snapshot,
+            isProtected: true
+        ))
+        let protected = try XCTUnwrap(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).first)
+        XCTAssertTrue(protected.isProtected)
+        if case let .failure(message) = VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: protected) {
+            XCTAssertTrue(message.contains("Unprotect"))
+        } else {
+            XCTFail("Protected snapshot was deleted")
+        }
+        try unwrapSuccess(VMSnapshotManager.setSnapshotProtected(
+            vmRootPath: temporaryRoot,
+            snapshot: protected,
+            isProtected: false
+        ))
+        let unprotected = try XCTUnwrap(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).first)
+        try unwrapSuccess(VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: unprotected))
+    }
+
     private func write(_ value: String, to relativePath: String) throws {
         try Data(value.utf8).write(to: temporaryRoot.appendingPathComponent(relativePath))
     }

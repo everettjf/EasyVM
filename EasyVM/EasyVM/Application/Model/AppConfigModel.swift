@@ -67,7 +67,7 @@ class AppConfigManager {
             do {
                 try FileManager.default.copyItem(at: legacyConfigPath, to: configPath)
             } catch {
-                print("legacy app config migration failed: \(error)")
+                EasyVMLog.error("Legacy app config migration failed: \(error.localizedDescription)", logger: EasyVMLog.storage)
             }
         }
 
@@ -88,7 +88,7 @@ class AppConfigManager {
             self.appConfig.schemaVersion = AppConfigModel.currentSchemaVersion
             self.appConfig.rootPaths = Array(NSOrderedSet(array: self.appConfig.rootPaths)) as? [String] ?? self.appConfig.rootPaths
         } catch {
-            print("app config load error : \(error)")
+            EasyVMLog.error("App config load failed: \(error.localizedDescription)", logger: EasyVMLog.storage)
         }
     }
     
@@ -102,7 +102,7 @@ class AppConfigManager {
             let data = try encoder.encode(self.appConfig)
             try data.write(to: path, options: .atomic)
         } catch {
-            print("write app config failed : \(error)")
+            EasyVMLog.error("App config write failed: \(error.localizedDescription)", logger: EasyVMLog.storage)
         }
     }
     
@@ -127,8 +127,6 @@ class AppConfigManager {
             guard let path = path else {
                 return
             }
-            
-            print("path : \(path)")
             
             self.addVMPath(url: path)
             

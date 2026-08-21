@@ -11,4 +11,9 @@ final class VMRuntimePhaseTests: XCTestCase {
         XCTAssertTrue(VMRuntimePhase.stopped.shouldDismissMachineWindow)
         XCTAssertTrue(activePhases.allSatisfy { !$0.shouldDismissMachineWindow })
     }
+
+    func testStoppingPhaseRemainsDistinctFromStoppedForForceStopFallback() {
+        XCTAssertFalse(VMRuntimePhase.stopping.shouldDismissMachineWindow)
+        XCTAssertTrue(VMRuntimePhase.stopped.shouldDismissMachineWindow)
+    }
 }

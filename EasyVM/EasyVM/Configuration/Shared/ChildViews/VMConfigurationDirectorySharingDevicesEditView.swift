@@ -9,7 +9,7 @@ import SwiftUI
 
 #if arch(arm64)
 struct VMConfigurationDirectorySharingDevicesEditView: View {
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -60,8 +60,7 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                             }
                             let path = URL(filePath: inputDirectory)
                             
-                            if let found = inputSharingItems.first(where: {$0.path.path(percentEncoded: false) == inputDirectory}) {
-                                print("path already added : \(found)")
+                            if inputSharingItems.contains(where: {$0.path.path(percentEncoded: false) == inputDirectory}) {
                                 return
                             }
                             
@@ -121,8 +120,6 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                             if finalTag.isEmpty {
                                 return
                             }
-                            print("final tag : \(finalTag)")
-                            
                             configData.directorySharingDevices.append(VMModelFieldDirectorySharingDeviceItemModel(data: VMModelFieldDirectorySharingDevice(tag: finalTag, items: inputSharingItems)))
                             
                             // clear
@@ -175,7 +172,7 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
 struct VMConfigurationDirectorySharingDevicesEditView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationDirectorySharingDevicesEditView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
             .frame(height: 600)
     }
 }

@@ -6,21 +6,42 @@
 //
 
 import SwiftUI
+import Observation
 
 #if arch(arm64)
 
 @MainActor
-class MachineSnapshotsViewStateObject: ObservableObject {
+@Observable
+class MachineSnapshotsViewStateObject {
     let rootPath: URL
 
-    @Published var snapshots: [VMSnapshotModel] = []
-    @Published var snapshotTree: [VMSnapshotTreeNode] = []
-    @Published var currentSnapshotID: String?
-    @Published var selectedBackend: VMSnapshotBackend = .apfsClone
-    @Published var newSnapshotName: String = ""
-    @Published var snapshotBeforeRestore = true
-    @Published var isWorking = false
-    @Published var message: String = ""
+    var snapshots: [VMSnapshotModel] = []
+    var snapshotTree: [VMSnapshotTreeNode] = []
+    var currentSnapshotID: String?
+    var selectedBackend: VMSnapshotBackend = .apfsClone
+    var newSnapshotName: String = ""
+    var snapshotBeforeRestore = true
+    var isWorking = false
+    var message: String = ""
+    var searchText: String = ""
+
+    var filteredTree: [VMSnapshotTreeNode] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return snapshotTree }
+        func filter(_ node: VMSnapshotTreeNode) -> VMSnapshotTreeNode? {
+            let children = node.children?.compactMap(filter)
+            let matches = node.snapshot.name.localizedCaseInsensitiveContains(query)
+                || node.snapshot.displayDate.localizedCaseInsensitiveContains(query)
+            guard matches || !(children?.isEmpty ?? true) else { return nil }
+            return VMSnapshotTreeNode(snapshot: node.snapshot, children: children?.isEmpty == true ? nil : children)
+        }
+        return snapshotTree.compactMap(filter)
+    }
+
+    var totalSnapshotSize: String {
+        let total = snapshots.reduce(UInt64(0)) { $0 + ($1.totalSize ?? 0) }
+        return ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file)
+    }
 
     init(rootPath: URL) {
         self.rootPath = rootPath
@@ -136,6 +157,16 @@ class MachineSnapshotsViewStateObject: ObservableObject {
             }
         }
     }
+
+    func toggleProtection(_ snapshot: VMSnapshotModel) {
+        let result = VMSnapshotManager.setSnapshotProtected(
+            vmRootPath: rootPath,
+            snapshot: snapshot,
+            isProtected: !snapshot.isProtected
+        )
+        if case let .failure(error) = result { message = error }
+        reload()
+    }
 }
 
 
@@ -148,6 +179,7 @@ struct MachineSnapshotRowView: View {
     let disableRestore: Bool
     let onRestore: () -> Void
     let onRename: () -> Void
+    let onToggleProtection: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -156,6 +188,11 @@ struct MachineSnapshotRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(snapshot.name)
+                    if snapshot.isProtected {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Protected")
+                    }
                     if isCurrent {
                         Text("Current branch")
                             .font(.caption2)
@@ -205,13 +242,21 @@ struct MachineSnapshotRowView: View {
             .help("Rename")
 
             Button {
+                onToggleProtection()
+            } label: {
+                Image(systemName: snapshot.isProtected ? "lock.open" : "lock")
+            }
+            .disabled(disableActions)
+            .help(snapshot.isProtected ? "Unprotect" : "Protect from deletion")
+
+            Button {
                 onDelete()
             } label: {
                 Image(systemName: "trash")
             }
             .disabled(disableActions)
-            .disabled(hasChildren)
-            .help(hasChildren ? "Delete child snapshots first" : "Delete")
+            .disabled(hasChildren || snapshot.isProtected)
+            .help(snapshot.isProtected ? "Unprotect before deleting" : (hasChildren ? "Delete child snapshots first" : "Delete"))
         }
         .padding(.vertical, 2)
         .contextMenu {
@@ -231,6 +276,11 @@ struct MachineSnapshotRowView: View {
             }
             .disabled(disableActions)
 
+            Button(snapshot.isProtected ? "Unprotect" : "Protect") {
+                onToggleProtection()
+            }
+            .disabled(disableActions)
+
             Button {
                 onDelete()
             } label: {
@@ -238,7 +288,7 @@ struct MachineSnapshotRowView: View {
                 Text("Delete")
             }
             .disabled(disableActions)
-            .disabled(hasChildren)
+            .disabled(hasChildren || snapshot.isProtected)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(isCurrent ? "\(snapshot.name), current branch" : snapshot.name)
@@ -251,15 +301,15 @@ struct MachineSnapshotsView: View {
     @Environment(\.dismiss) private var dismiss
 
     let machineName: String
-    @StateObject private var state: MachineSnapshotsViewStateObject
-    @ObservedObject private var runningRegistry = VMRunningRegistry.shared
+    @State private var state: MachineSnapshotsViewStateObject
+    @State private var runningRegistry = VMRunningRegistry.shared
 
     @State private var restoringSnapshot: VMSnapshotModel?
     @State private var deletingSnapshot: VMSnapshotModel?
 
     init(machineName: String, rootPath: URL) {
         self.machineName = machineName
-        _state = StateObject(wrappedValue: MachineSnapshotsViewStateObject(rootPath: rootPath))
+        _state = State(initialValue: MachineSnapshotsViewStateObject(rootPath: rootPath))
     }
 
     var isMachineRunning: Bool {
@@ -267,6 +317,7 @@ struct MachineSnapshotsView: View {
     }
 
     var body: some View {
+        @Bindable var state = state
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "camera.on.rectangle")
@@ -288,10 +339,12 @@ struct MachineSnapshotsView: View {
                 HStack {
                     Text("Snapshots form a history tree. Restore an earlier snapshot and create a new one to start another branch.")
                     Spacer()
-                    Label(
+                Label(
                         state.selectedBackend == .diskImageKitLayered ? "ASIF layered" : "APFS clone",
                         systemImage: state.selectedBackend == .diskImageKitLayered ? "square.stack.3d.up" : "doc.on.doc"
-                    )
+                )
+                .foregroundStyle(.secondary)
+                Text("· \(state.snapshots.count) snapshots · \(state.totalSnapshotSize)")
                     .foregroundStyle(.secondary)
                 }
                 .font(.caption)
@@ -335,7 +388,7 @@ struct MachineSnapshotsView: View {
             } else {
                 let snapshotsByID = Dictionary(uniqueKeysWithValues: state.snapshots.map { ($0.id, $0) })
                 List {
-                    OutlineGroup(state.snapshotTree, children: \.children) { node in
+                    OutlineGroup(state.filteredTree, children: \.children) { node in
                         MachineSnapshotRowView(
                             snapshot: node.snapshot,
                             parentName: node.snapshot.parentSnapshotID.flatMap { snapshotsByID[$0]?.name },
@@ -349,12 +402,16 @@ struct MachineSnapshotsView: View {
                             onRename: {
                                 renameSnapshot(node.snapshot)
                             },
+                            onToggleProtection: {
+                                state.toggleProtection(node.snapshot)
+                            },
                             onDelete: {
                                 deletingSnapshot = node.snapshot
                             }
                         )
                     }
                 }
+                .searchable(text: $state.searchText, prompt: "Search snapshots")
             }
 
             Toggle(isOn: $state.snapshotBeforeRestore) {

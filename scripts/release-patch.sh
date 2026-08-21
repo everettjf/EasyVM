@@ -64,14 +64,18 @@ configured_versions="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' "$projec
 configured_version_count="$(printf '%s\n' "$configured_versions" | sed '/^$/d' | wc -l | tr -d ' ')"
 [[ "$configured_version_count" -eq 1 ]] || fail "Xcode targets do not share one marketing version"
 current_version="$configured_versions"
+configured_builds="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([^;]*\);/\1/p' "$project_file" | sort -u)"
+configured_build_count="$(printf '%s\n' "$configured_builds" | sed '/^$/d' | wc -l | tr -d ' ')"
+[[ "$configured_build_count" -eq 1 && "$configured_builds" =~ ^[0-9]+$ ]] || fail "Xcode targets do not share one numeric build number"
+next_build="$((configured_builds + 1))"
 
 if [[ "$current_version" != "$version" ]]; then
   [[ "$current_version" == "${latest_tag#v}" ]] || \
     fail "project version is $current_version, expected ${latest_tag#v} or $version"
-  ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;')" "$project_file"
-  git -C "$project_root" add -- EasyVM/EasyVM.xcodeproj/project.pbxproj
-  git -C "$project_root" commit -m "Prepare EasyVM $version"
 fi
+ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
+git -C "$project_root" add -- EasyVM/EasyVM.xcodeproj/project.pbxproj
+git -C "$project_root" commit -m "Prepare EasyVM $version (build $next_build)"
 
 echo "Running EasyVM $version release checks…"
 (cd "$project_root" && swift test)

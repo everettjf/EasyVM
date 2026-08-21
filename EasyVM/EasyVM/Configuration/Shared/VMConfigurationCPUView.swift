@@ -10,7 +10,7 @@ import SwiftUI
 #if arch(arm64)
 
 struct VMConfigurationCPUView: View {
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMConfigurationViewStateObject.self) var configData
     
     var body: some View {
         LabeledContent("CPU Count") {
@@ -43,7 +43,7 @@ struct VMConfigurationCPUView: View {
 struct VMConfigurationCPUView_Previews: PreviewProvider {
     static var previews: some View {
         VMConfigurationCPUView()
-            .environmentObject(VMConfigurationViewStateObject())
+            .environment(VMConfigurationViewStateObject())
     }
 }
 

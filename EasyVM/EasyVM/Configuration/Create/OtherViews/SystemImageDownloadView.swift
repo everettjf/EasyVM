@@ -6,10 +6,13 @@
 //
 
 import SwiftUI
+import Observation
 
 
 #if arch(arm64)
-class SystemImageDownloadViewState : ObservableObject {
+@MainActor
+@Observable
+class SystemImageDownloadViewState {
 
     enum ImageSource: Hashable, Identifiable {
         case latestAvailable
@@ -33,14 +36,14 @@ class SystemImageDownloadViewState : ObservableObject {
     }
 
 
-    @Published var stateMessage: String = ""
-    @Published var current: Double = 0
+    var stateMessage: String = ""
+    var current: Double = 0
 
-    @Published var downloadMethod: ImageSource = .latestAvailable
-    @Published var downloadInputUrl: String = ""
+    var downloadMethod: ImageSource = .latestAvailable
+    var downloadInputUrl: String = ""
 
-    @Published var downloadStatus: DownloadStatus = .initial
-    @Published var downloadMessage: String = ""
+    var downloadStatus: DownloadStatus = .initial
+    var downloadMessage: String = ""
 
     private var downloader: (any VMOSDownloader)?
 
@@ -63,6 +66,20 @@ class SystemImageDownloadViewState : ObservableObject {
     }
 
     func startDownload(vmOSType: VMOSType, localPath: URL) {
+
+        let expectedSize: Int64?
+        if case let .catalog(item) = downloadMethod {
+            expectedSize = item.fileSize
+        } else {
+            expectedSize = nil
+        }
+        do {
+            try VMStorageCapacity.validate(requiredBytes: expectedSize, at: localPath)
+        } catch {
+            downloadStatus = .downloadFailed
+            downloadMessage = error.localizedDescription
+            return
+        }
 
         let progressHandler: (Double) -> Void = { percent in
             var value = percent * 100
@@ -164,19 +181,20 @@ struct DownloadButtonView : View {
 struct SystemImageDownloadView: View {
 
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var formData: VMCreateViewStateObject
-    @EnvironmentObject private var configData: VMConfigurationViewStateObject
-    @StateObject private var state: SystemImageDownloadViewState
+    @Environment(VMCreateViewStateObject.self) private var formData
+    @Environment(VMConfigurationViewStateObject.self) private var configData
+    @State private var state: SystemImageDownloadViewState
 
     init(initialSource: SystemImageDownloadViewState.ImageSource? = nil) {
         let state = SystemImageDownloadViewState()
         if let initialSource {
             state.downloadMethod = initialSource
         }
-        _state = StateObject(wrappedValue: state)
+        _state = State(initialValue: state)
     }
 
     var body: some View {
+        @Bindable var state = state
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(configData.osType == .macOS ? "Download macOS Restore Image" : "Download Linux Install Image")

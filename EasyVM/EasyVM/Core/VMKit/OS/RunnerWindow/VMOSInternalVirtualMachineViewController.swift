@@ -25,6 +25,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var configuredMemorySize: UInt64 = 0
     private var screenshotTimer: Timer?
     private var usbAccessoryCoordinator: AnyObject?
+    private var runLease: VMRunLease?
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
     
@@ -62,6 +63,17 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // load model from path
         guard let rootPath = rootPath else {
             fail("The virtual machine location is unavailable.")
+            return
+        }
+
+        guard let lease = VMRunningRegistry.shared.acquire(rootPath: rootPath) else {
+            fail("This virtual machine is already starting or running in another window.")
+            return
+        }
+        runLease = lease
+
+        if case let .failure(error) = VMSnapshotManager.recoverInterruptedRestore(vmRootPath: rootPath) {
+            fail(error)
             return
         }
         
@@ -115,7 +127,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 // succeed start
                 Task { @MainActor in
                     self.runtimeState?.update(.running)
-                    VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                    self.markMachineRunning()
                     self.startScreenshotTimer()
                 }
             }
@@ -140,7 +152,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     self.runtimeState?.update(.starting)
                     self.startNormally(rootPath: rootPath, model: model)
                 }
-                print("saved state restore failed, starting normally: \(error)")
+                EasyVMLog.error("Saved state restore failed; falling back to normal boot: \(error.localizedDescription)")
                 return
             }
             self.virtualMachine.resume { result in
@@ -149,7 +161,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     case .success:
                         try? FileManager.default.removeItem(at: stateURL)
                         self.runtimeState?.update(.running)
-                        VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+                        self.markMachineRunning()
                         self.startScreenshotTimer()
                     case .failure(let error):
                         self.fail("Could not resume the saved virtual machine: \(error.localizedDescription)")
@@ -213,7 +225,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func didStart(rootPath: URL) {
         runtimeState?.update(.running)
-        VMRunningRegistry.shared.markRunning(rootPath: rootPath)
+        markMachineRunning()
         startScreenshotTimer()
         startUSBAccessoryDiscoveryIfEnabled()
         updateBalloonMemoryState()
@@ -268,10 +280,34 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     func requestStopMachine() {
         guard virtualMachine?.canRequestStop == true else { return }
         runtimeState?.update(.stopping)
+        markMachineStopping()
         do {
             try virtualMachine.requestStop()
         } catch {
             fail("The guest did not accept the shutdown request: \(error.localizedDescription)")
+        }
+    }
+
+    func forceStopMachine() {
+        guard virtualMachine != nil else {
+            releaseRunLease()
+            runtimeState?.update(.stopped)
+            return
+        }
+        runtimeState?.update(.stopping)
+        markMachineStopping()
+        stopUSBAccessoryDiscovery { [weak self] in
+            guard let self else { return }
+            self.virtualMachine.stop { error in
+                Task { @MainActor in
+                    if let error {
+                        self.fail("Could not force stop the virtual machine: \(error.localizedDescription)")
+                    } else {
+                        self.runtimeState?.update(.stopped)
+                        self.releaseRunLease()
+                    }
+                }
+            }
         }
     }
 
@@ -280,6 +316,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             requestStopMachine()
             return
         }
+        markMachineStopping()
         shutdownRetainer = self
         stopUSBAccessoryDiscovery { [weak self] in
             self?.saveMachineStateAndStop(rootPath: rootPath)
@@ -300,7 +337,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         self.fail("Could not save the virtual machine state: \(error.localizedDescription)")
                     } else {
                         self.runtimeState?.update(.stopped)
-                        VMRunningRegistry.shared.markStopped(rootPath: rootPath)
+                        self.releaseRunLease()
                     }
                     self.shutdownRetainer = nil
                 }
@@ -330,29 +367,44 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         screenshotTimer?.invalidate()
         screenshotTimer = nil
         captureScreenshot()
-        guard let rootPath else { return }
+        guard rootPath != nil else { return }
         if runtimeState?.phase == .running || runtimeState?.phase == .paused {
             saveAndStopMachine()
         } else {
             stopUSBAccessoryDiscovery()
-            VMRunningRegistry.shared.markStopped(rootPath: rootPath)
+            releaseRunLease()
         }
     }
 
     private func fail(_ message: String) {
         stopUSBAccessoryDiscovery()
         runtimeState?.update(.failed(message))
-        if let rootPath {
-            VMRunningRegistry.shared.markStopped(rootPath: rootPath)
-        }
+        releaseRunLease()
+    }
+
+    private func markMachineRunning() {
+        guard let runLease else { return }
+        VMRunningRegistry.shared.transition(runLease, to: .running)
+    }
+
+    private func markMachineStopping() {
+        guard let runLease else { return }
+        VMRunningRegistry.shared.transition(runLease, to: .stopping)
+    }
+
+    private func releaseRunLease() {
+        guard let runLease else { return }
+        VMRunningRegistry.shared.release(runLease)
+        self.runLease = nil
     }
 
     // keep a thumbnail of the running system for the machine card
     private func startScreenshotTimer() {
         screenshotTimer?.invalidate()
-        screenshotTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        screenshotTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.captureScreenshot()
         }
+        screenshotTimer?.tolerance = 10
     }
 
     private func captureScreenshot() {
@@ -367,9 +419,28 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             return
         }
         view.cacheDisplay(in: bounds, to: rep)
-        let image = NSImage(size: bounds.size)
-        image.addRepresentation(rep)
-        MacKitUtil.saveImage(image, atUrl: rootPath.appending(path: "screenshot.png"))
+        let capturedImage = NSImage(size: bounds.size)
+        capturedImage.addRepresentation(rep)
+
+        let maximumWidth: CGFloat = 720
+        let scale = min(1, maximumWidth / max(bounds.width, 1))
+        let thumbnailSize = NSSize(width: bounds.width * scale, height: bounds.height * scale)
+        let thumbnail = NSImage(size: thumbnailSize)
+        thumbnail.lockFocus()
+        capturedImage.draw(in: NSRect(origin: .zero, size: thumbnailSize))
+        thumbnail.unlockFocus()
+        guard let cgImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        let pngData = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
+        let destination = rootPath.appending(path: "screenshot.png")
+        if let pngData {
+            Task.detached(priority: .utility) {
+                do {
+                    try pngData.write(to: destination, options: .atomic)
+                } catch {
+                    EasyVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EasyVMLog.storage)
+                }
+            }
+        }
     }
 
     public override func viewDidDisappear() {
@@ -560,7 +631,7 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     public func guestDidStop(_ virtualMachine: VZVirtualMachine) {
         stopUSBAccessoryDiscovery()
         runtimeState?.update(.stopped)
-        if let rootPath { VMRunningRegistry.shared.markStopped(rootPath: rootPath) }
+        releaseRunLease()
     }
     
     
@@ -571,7 +642,7 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     
     public func virtualMachine(_ virtualMachine: VZVirtualMachine, networkDevice: VZNetworkDevice, attachmentWasDisconnectedWithError error: Error) {
         
-        print("network device \(networkDevice) error : \(error)")
+        EasyVMLog.error("Network device disconnected: \(error.localizedDescription)", logger: EasyVMLog.network)
     }
 }
 

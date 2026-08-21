@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Observation
 
 #if arch(arm64)
 
@@ -50,11 +51,12 @@ struct VMSystemImageCatalogItem: Identifiable, Hashable {
 }
 
 @MainActor
-final class VMMacOSImageCatalogService: ObservableObject {
-    @Published private(set) var items = VMSystemImageCatalog.macOSItems
-    @Published private(set) var isRefreshing = false
-    @Published private(set) var lastUpdated: Date?
-    @Published private(set) var errorMessage: String?
+@Observable
+final class VMMacOSImageCatalogService {
+    private(set) var items = VMSystemImageCatalog.macOSItems
+    private(set) var isRefreshing = false
+    private(set) var lastUpdated: Date?
+    private(set) var errorMessage: String?
 
     private static let endpoint = URL(string: "https://api.ipsw.me/v4/device/VirtualMac2,1?type=ipsw")!
     private static let cacheMaxAge: TimeInterval = 6 * 60 * 60
@@ -164,6 +166,96 @@ final class VMMacOSImageCatalogService: ObservableObject {
     private enum CatalogError: Error { case emptyCatalog }
 }
 
+private struct VMLinuxCatalogPayload: Codable {
+    struct Image: Codable {
+        let id: String
+        let name: String
+        let detail: String
+        let url: URL
+        let version: String?
+        let fileSize: Int64?
+    }
+    let images: [Image]
+}
+
+@MainActor
+@Observable
+final class VMLinuxImageCatalogService {
+    private(set) var items = VMSystemImageCatalog.linuxItems
+    private(set) var isRefreshing = false
+    private(set) var lastUpdated: Date?
+    private(set) var errorMessage: String?
+
+    private static let endpoint = URL(string: "https://everettjf.github.io/easyvm/catalog/linux.json")!
+    private static let allowedDownloadHosts: Set<String> = [
+        "cdimage.ubuntu.com", "cdimage.debian.org", "download.fedoraproject.org"
+    ]
+    private static let cacheMaxAge: TimeInterval = 6 * 60 * 60
+
+    init() { loadCache() }
+
+    func refresh(force: Bool = false) async {
+        if !force, let lastUpdated, Date().timeIntervalSince(lastUpdated) < Self.cacheMaxAge { return }
+        isRefreshing = true
+        errorMessage = nil
+        defer { isRefreshing = false }
+        do {
+            var request = URLRequest(url: Self.endpoint)
+            request.timeoutInterval = 20
+            request.cachePolicy = .reloadRevalidatingCacheData
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                throw URLError(.badServerResponse)
+            }
+            let payload = try JSONDecoder().decode(VMLinuxCatalogPayload.self, from: data)
+            let validated = payload.images.compactMap(Self.makeItem)
+            guard !validated.isEmpty else { throw CatalogError.emptyCatalog }
+            items = validated
+            lastUpdated = Date()
+            try FileManager.default.createDirectory(at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: cacheURL, options: .atomic)
+        } catch {
+            errorMessage = lastUpdated == nil
+                ? "Couldn’t reach the online Linux catalog. Built-in installers remain available."
+                : "Couldn’t refresh the Linux catalog. Showing the saved list."
+        }
+    }
+
+    private static func makeItem(_ image: VMLinuxCatalogPayload.Image) -> VMSystemImageCatalogItem? {
+        guard image.url.scheme == "https",
+              let host = image.url.host?.lowercased(),
+              allowedDownloadHosts.contains(host),
+              image.url.pathExtension.lowercased() == "iso",
+              !image.id.isEmpty, !image.name.isEmpty else { return nil }
+        return VMSystemImageCatalogItem(
+            id: image.id,
+            osType: .linux,
+            name: image.name,
+            detail: image.detail,
+            urlString: image.url.absoluteString,
+            version: image.version,
+            fileSize: image.fileSize
+        )
+    }
+
+    private func loadCache() {
+        guard let data = try? Data(contentsOf: cacheURL),
+              let payload = try? JSONDecoder().decode(VMLinuxCatalogPayload.self, from: data) else { return }
+        let cached = payload.images.compactMap(Self.makeItem)
+        guard !cached.isEmpty else { return }
+        items = cached
+        lastUpdated = (try? cacheURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+    }
+
+    private var cacheURL: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appending(path: "EasyVM", directoryHint: .isDirectory)
+            .appending(path: "linux-catalog.json")
+    }
+
+    private enum CatalogError: Error { case emptyCatalog }
+}
+
 struct VMSystemImageCatalog {
 
     static let macOSItems: [VMSystemImageCatalogItem] = [
@@ -259,7 +351,7 @@ class VMImageStore {
             do {
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             } catch {
-                print("failed to create image store directory : \(error)")
+                EasyVMLog.error("Failed to create image store directory: \(error.localizedDescription)", logger: EasyVMLog.storage)
                 return nil
             }
         }

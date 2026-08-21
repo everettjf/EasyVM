@@ -8,6 +8,79 @@
 import Foundation
 import AppKit
 import SwiftUI
+import OSLog
+import Darwin
+
+enum EasyVMLog {
+    static let lifecycle = Logger(subsystem: "com.everettjf.EasyVM", category: "lifecycle")
+    static let storage = Logger(subsystem: "com.everettjf.EasyVM", category: "storage")
+    static let download = Logger(subsystem: "com.everettjf.EasyVM", category: "download")
+    static let network = Logger(subsystem: "com.everettjf.EasyVM", category: "network")
+
+    static func info(_ message: String, logger: Logger = lifecycle) {
+        logger.info("\(message, privacy: .public)")
+    }
+
+    static func error(_ message: String, logger: Logger = lifecycle) {
+        logger.error("\(message, privacy: .public)")
+    }
+}
+
+@MainActor
+enum EasyVMDiagnostics {
+    static func export() throws -> URL {
+        let panel = NSSavePanel()
+        panel.title = "Export EasyVM Diagnostics"
+        panel.nameFieldStringValue = "EasyVM-Diagnostics-\(ISO8601DateFormatter().string(from: Date()).prefix(10)).txt"
+        panel.allowedContentTypes = [.plainText]
+        guard panel.runModal() == .OK, let destination = panel.url else {
+            throw CocoaError(.userCancelled)
+        }
+
+        var sections = [
+            "# EasyVM diagnostics",
+            AppInfo.diagnosticText,
+            "Architecture: \(ProcessInfo.processInfo.machineHardwareName)",
+            "Processor count: \(ProcessInfo.processInfo.processorCount)",
+            "Physical memory: \(ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory))",
+            "Generated: \(Date().formatted(.iso8601))",
+            "",
+            "# Registered virtual machines"
+        ]
+        for path in sharedAppConfigManager.appConfig.rootPaths {
+            let url = URL(fileURLWithPath: path)
+            let config = url.appending(path: "config.json")
+            sections.append("\n## \(url.lastPathComponent)\nPath: \(path)")
+            if let data = try? Data(contentsOf: config),
+               let value = String(data: data, encoding: .utf8) {
+                sections.append(value)
+            } else {
+                sections.append("Configuration unavailable")
+            }
+        }
+        sections.append("\n# Recent EasyVM logs")
+        if let store = try? OSLogStore(scope: .currentProcessIdentifier) {
+            let position = store.position(date: Date().addingTimeInterval(-3600))
+            if let entries = try? store.getEntries(at: position) {
+                for case let entry as OSLogEntryLog in entries where entry.subsystem == "com.everettjf.EasyVM" {
+                    sections.append("\(entry.date.formatted(.iso8601)) [\(entry.category)] \(entry.composedMessage)")
+                }
+            }
+        }
+        try sections.joined(separator: "\n").write(to: destination, atomically: true, encoding: .utf8)
+        return destination
+    }
+}
+
+private extension ProcessInfo {
+    var machineHardwareName: String {
+        var size = 0
+        sysctlbyname("hw.model", nil, &size, nil, 0)
+        var chars = [CChar](repeating: 0, count: size)
+        sysctlbyname("hw.model", &chars, &size, nil, 0)
+        return String(cString: chars)
+    }
+}
 
 public class MacKitUtil {
     
@@ -59,9 +132,7 @@ public class MacKitUtil {
         a.informativeText = message
         a.addButton(withTitle: "OK")
         a.alertStyle = .informational
-        a.beginSheetModal(for: window) { resp in
-            print("alert result : \(resp)")
-        }
+        a.beginSheetModal(for: window)
     }
     
     
@@ -74,9 +145,7 @@ public class MacKitUtil {
         a.informativeText = message
         a.addButton(withTitle: "OK")
         a.alertStyle = .warning
-        a.beginSheetModal(for: window) { resp in
-            print("alert result : \(resp)")
-        }
+        a.beginSheetModal(for: window)
     }
     
     public static func isSystemThemeDark() -> Bool {
@@ -100,14 +169,10 @@ public class MacKitUtil {
         a.accessoryView = inputTextField
 
         a.beginSheetModal(for: window) { resp in
-            print("input result : \(resp)")
             if resp == .alertFirstButtonReturn {
                 let inputText = inputTextField.stringValue
-                print("input : \(inputText)")
                 if inputText.trimmingCharacters(in: .whitespacesAndNewlines) != "" {
                     completionHandler(inputText)
-                } else {
-                    print("empty after trim")
                 }
             }
         }
@@ -127,7 +192,6 @@ public class MacKitUtil {
         a.addButton(withTitle: "Cancel")
         a.alertStyle = .warning
         a.beginSheetModal(for: window) { resp in
-            print("alert result : \(resp)")
             if resp == .alertFirstButtonReturn {
                 completionHandler(true)
             } else {
@@ -149,7 +213,7 @@ public class MacKitUtil {
             try pngData.write(to: url)
         }
         catch {
-            print("error saving: \(error)")
+            EasyVMLog.error("Failed to save image: \(error.localizedDescription)", logger: EasyVMLog.storage)
         }
     }
 }

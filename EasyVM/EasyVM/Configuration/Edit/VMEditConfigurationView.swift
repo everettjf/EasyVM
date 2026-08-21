@@ -12,7 +12,7 @@ import SwiftUI
 struct VMEditConfigurationView: View {
     @Environment(\.presentationMode) var presentationMode
     
-    @ObservedObject var configData: VMConfigurationViewStateObject
+    @State private var configData: VMConfigurationViewStateObject
     let model: VMModel
     
     init(model: VMModel) {
@@ -22,12 +22,13 @@ struct VMEditConfigurationView: View {
     
     var body: some View {
         content
-            .environmentObject(configData)
+            .environment(configData)
             .frame(width: 500, height: 600)
     }
     
     var content: some View {
-        VStack {
+        @Bindable var configData = configData
+        return VStack {
             Form {
                 Section ("Basic") {
                     TextField("Name", text: $configData.name).lineLimit(1)
@@ -86,11 +87,10 @@ struct VMEditConfigurationView: View {
         
         let writeResult = configModel.writeConfigToFile(path: model.configURL)
         if case let .failure(error) = writeResult {
-            print("failed save config : \(error)")
+            EasyVMLog.error("Failed to save VM configuration: \(error)", logger: EasyVMLog.storage)
             return
         }
         
-        print("succeed save")
         
         NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
     }

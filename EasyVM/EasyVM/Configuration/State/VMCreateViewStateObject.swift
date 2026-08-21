@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
+import Observation
 
 #if arch(arm64)
 @MainActor
-class VMCreateViewStateObject: ObservableObject {
+@Observable
+class VMCreateViewStateObject {
     enum SystemImageSelection: Hashable {
         case latestMacOS
         case catalog(VMSystemImageCatalogItem)
@@ -68,35 +70,35 @@ class VMCreateViewStateObject: ObservableObject {
     
     
     // phase
-    @Published var rootPath: String = ""
-    @Published var baseDirectory: String = ""
-    @Published var hasGeneratedNameSuggestion = false
+    var rootPath: String = ""
+    var baseDirectory: String = ""
+    var hasGeneratedNameSuggestion = false
 
     // phase
-    @Published var imagePath: String = ""
-    @Published var systemImageSelection: SystemImageSelection = .latestMacOS
+    var imagePath: String = ""
+    var systemImageSelection: SystemImageSelection = .latestMacOS
 
     // macOS 27 first-boot provisioning. The password lives only in this
     // in-memory form and is moved to Keychain after the VM is installed.
-    @Published var provisionsMacGuest = false
-    @Published var provisioningFullName = "EasyVM User"
-    @Published var provisioningUsername = "easyvm"
-    @Published var provisioningPassword = ""
-    @Published var provisioningPasswordConfirmation = ""
-    @Published var provisioningAutomaticLogin = false
-    @Published var provisioningRemoteLogin = false
+    var provisionsMacGuest = false
+    var provisioningFullName = "EasyVM User"
+    var provisioningUsername = "easyvm"
+    var provisioningPassword = ""
+    var provisioningPasswordConfirmation = ""
+    var provisioningAutomaticLogin = false
+    var provisioningRemoteLogin = false
 
-    @Published var logs: [LogModel] = []
+    var logs: [LogModel] = []
 
-    @Published var installingProgress: Double = 0.0
+    var installingProgress: Double = 0.0
 
-    @Published var disablePreviousButton = false
+    var disablePreviousButton = false
 
     // creating phase status
-    @Published var isCreating = false
-    @Published var canCancelCreation = false
-    @Published var statusText: String = ""
-    @Published var creationStage: String = "Preparing"
+    var isCreating = false
+    var canCancelCreation = false
+    var statusText: String = ""
+    var creationStage: String = "Preparing"
 
 
     init() {

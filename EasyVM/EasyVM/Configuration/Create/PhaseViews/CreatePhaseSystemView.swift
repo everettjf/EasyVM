@@ -24,8 +24,8 @@ class CreatePhaseSystemViewHandler: VMCreateStepperGuidePhaseHandler {
 }
 
 struct CreatePhaseSystemView: View {
-    @EnvironmentObject private var formData: VMCreateViewStateObject
-    @EnvironmentObject private var configData: VMConfigurationViewStateObject
+    @Environment(VMCreateViewStateObject.self) private var formData
+    @Environment(VMConfigurationViewStateObject.self) private var configData
 
     @State private var customImageURL = ""
 
@@ -152,7 +152,7 @@ private struct MacOSImageSelectionView: View {
     let onSelect: (VMCreateViewStateObject.SystemImageSelection) -> Void
     let onChooseLocal: () -> Void
 
-    @StateObject private var catalog = VMMacOSImageCatalogService()
+    @State private var catalog = VMMacOSImageCatalogService()
     @State private var showAllReleases = false
 
     var body: some View {
@@ -298,16 +298,38 @@ private struct LinuxImageSelectionView: View {
     @Binding var customURL: String
     let onSelect: (VMCreateViewStateObject.SystemImageSelection) -> Void
     let onChooseLocal: () -> Void
+    @State private var catalog = VMLinuxImageCatalogService()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SelectionSectionHeading(
-                title: "Ubuntu & Linux install image",
-                subtitle: "ARM64 installers that run natively on Apple silicon."
-            )
+            HStack(alignment: .firstTextBaseline) {
+                SelectionSectionHeading(
+                    title: "Ubuntu & Linux install image",
+                    subtitle: "ARM64 installers that run natively on Apple silicon."
+                )
+                Spacer()
+                Button("Refresh", systemImage: "arrow.clockwise") {
+                    Task { await catalog.refresh(force: true) }
+                }
+                .disabled(catalog.isRefreshing)
+            }
+
+            if catalog.isRefreshing {
+                Label("Updating Linux installers…", systemImage: "network")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let errorMessage = catalog.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else {
+                Label("Installer list updates without an EasyVM release", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             VStack(spacing: 8) {
-                ForEach(VMSystemImageCatalog.linuxItems) { item in
+                ForEach(catalog.items) { item in
                     ImageChoiceButton(
                         title: item.name,
                         detail: linuxDetail(for: item),
@@ -335,6 +357,7 @@ private struct LinuxImageSelectionView: View {
 
             LocalImageButton(fileType: "ISO", selectedPath: localPath, action: onChooseLocal)
         }
+        .task { await catalog.refresh() }
     }
 
     private var localPath: String {
@@ -489,8 +512,8 @@ struct CreatePhaseSystemView_Previews: PreviewProvider {
     static var previews: some View {
         CreatePhaseSystemView()
             .frame(width: 720, height: 620)
-            .environmentObject(formData)
-            .environmentObject(configData)
+            .environment(formData)
+            .environment(configData)
     }
 }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 
 #if arch(arm64)
 
@@ -70,8 +71,9 @@ struct VMCreateStepperGuideItem: Identifiable {
 }
 
 @MainActor
-final class VMCreateStepperGuideStateObject: ObservableObject {
-    @Published var current = 0
+@Observable
+final class VMCreateStepperGuideStateObject {
+    var current = 0
     let stepCount: Int
 
     init(stepCount: Int) { self.stepCount = stepCount }
@@ -91,9 +93,9 @@ final class VMCreateStepperGuideStateObject: ObservableObject {
 }
 
 struct VMCreateStepperGuideView: View {
-    @StateObject private var stepperState: VMCreateStepperGuideStateObject
-    @StateObject private var formData: VMCreateViewStateObject
-    @StateObject private var configData: VMConfigurationViewStateObject
+    @State private var stepperState: VMCreateStepperGuideStateObject
+    @State private var formData: VMCreateViewStateObject
+    @State private var configData: VMConfigurationViewStateObject
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingAlert = false
@@ -114,9 +116,9 @@ struct VMCreateStepperGuideView: View {
             VMCreateStepperGuideItem(systemImage: "checkmark.seal", name: "Completion", subtitle: "Ready to run", content: AnyView(CreatePhaseCompleteView()), handler: CreatePhaseCompleteViewHandler()),
         ]
         self.steps = steps
-        _stepperState = StateObject(wrappedValue: VMCreateStepperGuideStateObject(stepCount: steps.count))
-        _formData = StateObject(wrappedValue: VMCreateViewStateObject())
-        _configData = StateObject(wrappedValue: VMConfigurationViewStateObject())
+        _stepperState = State(initialValue: VMCreateStepperGuideStateObject(stepCount: steps.count))
+        _formData = State(initialValue: VMCreateViewStateObject())
+        _configData = State(initialValue: VMConfigurationViewStateObject())
     }
 
     var body: some View {
@@ -124,9 +126,8 @@ struct VMCreateStepperGuideView: View {
             sidebar
             mainContent
         }
-        .environmentObject(formData)
-        .environmentObject(configData)
-        .environmentObject(stepperState)
+        .environment(formData)
+        .environment(configData)
         .frame(minWidth: 860, idealWidth: 960, minHeight: 600, idealHeight: 660)
         .alert("Unable to Continue", isPresented: $showingAlert) {
             Button("OK") {}

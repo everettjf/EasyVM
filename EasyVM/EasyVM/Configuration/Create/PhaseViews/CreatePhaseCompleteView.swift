@@ -22,8 +22,8 @@ class CreatePhaseCompleteViewHandler: VMCreateStepperGuidePhaseHandler {
 
 
 struct CreatePhaseCompleteView: View {
-    @EnvironmentObject var formData: VMCreateViewStateObject
-    @EnvironmentObject var configData: VMConfigurationViewStateObject
+    @Environment(VMCreateViewStateObject.self) var formData
+    @Environment(VMConfigurationViewStateObject.self) var configData
 
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
@@ -75,8 +75,8 @@ struct CreatePhaseCompleteView_Previews: PreviewProvider {
 
     static var previews: some View {
         CreatePhaseCompleteView()
-            .environmentObject(formData)
-            .environmentObject(configData)
+            .environment(formData)
+            .environment(configData)
     }
 }
 

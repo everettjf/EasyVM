@@ -50,6 +50,7 @@ struct VMSnapshotModel: Identifiable, Codable {
     let totalSize: UInt64?
     let backend: VMSnapshotBackend
     let diskLayers: [VMSnapshotDiskLayer]
+    var isProtected: Bool
 
     init(
         id: String,
@@ -58,7 +59,8 @@ struct VMSnapshotModel: Identifiable, Codable {
         parentSnapshotID: String?,
         totalSize: UInt64?,
         backend: VMSnapshotBackend = .apfsClone,
-        diskLayers: [VMSnapshotDiskLayer] = []
+        diskLayers: [VMSnapshotDiskLayer] = [],
+        isProtected: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -67,10 +69,11 @@ struct VMSnapshotModel: Identifiable, Codable {
         self.totalSize = totalSize
         self.backend = backend
         self.diskLayers = diskLayers
+        self.isProtected = isProtected
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, parentSnapshotID, totalSize, backend, diskLayers
+        case id, name, createdAt, parentSnapshotID, totalSize, backend, diskLayers, isProtected
     }
 
     init(from decoder: Decoder) throws {
@@ -82,6 +85,7 @@ struct VMSnapshotModel: Identifiable, Codable {
         totalSize = try container.decodeIfPresent(UInt64.self, forKey: .totalSize)
         backend = try container.decodeIfPresent(VMSnapshotBackend.self, forKey: .backend) ?? .apfsClone
         diskLayers = try container.decodeIfPresent([VMSnapshotDiskLayer].self, forKey: .diskLayers) ?? []
+        isProtected = try container.decodeIfPresent(Bool.self, forKey: .isProtected) ?? false
     }
 
     var displayDate: String {
@@ -151,6 +155,12 @@ class VMSnapshotManager {
     private static let stateFileName = "state.json"
     private static let restoreStagingDirectoryName = ".restore-staging"
     private static let restoreBackupDirectoryName = ".restore-backup"
+    private static let restoreTransactionFileName = ".restore-transaction.json"
+
+    private struct RestoreTransaction: Codable {
+        let snapshotID: String
+        var phase: String
+    }
 
     static func snapshotsRootURL(vmRootPath: URL) -> URL {
         vmRootPath.appending(path: snapshotsDirectoryName)
@@ -181,7 +191,7 @@ class VMSnapshotManager {
     // machine files are everything in the bundle except the Snapshots
     // directory itself and restore working directories
     private static func listMachineFileNames(vmRootPath: URL) throws -> [String] {
-        let excluded: Set<String> = [snapshotsDirectoryName, restoreStagingDirectoryName, restoreBackupDirectoryName, ".DS_Store"]
+        let excluded: Set<String> = [snapshotsDirectoryName, restoreStagingDirectoryName, restoreBackupDirectoryName, restoreTransactionFileName, ".DS_Store"]
         let items = try FileManager.default.contentsOfDirectory(atPath: vmRootPath.path(percentEncoded: false))
         return items.filter { !excluded.contains($0) }
     }
@@ -204,6 +214,38 @@ class VMSnapshotManager {
             snapshots.append(model)
         }
         return snapshots.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Rolls an interrupted restore back to the complete pre-restore bundle.
+    /// It is safe and idempotent to call before every VM start.
+    @discardableResult
+    static func recoverInterruptedRestore(vmRootPath: URL) -> VMOSResultVoid {
+        let fm = FileManager.default
+        let stagingDir = vmRootPath.appending(path: restoreStagingDirectoryName)
+        let backupDir = vmRootPath.appending(path: restoreBackupDirectoryName)
+        let transactionURL = vmRootPath.appending(path: restoreTransactionFileName)
+        guard fm.fileExists(atPath: transactionURL.path(percentEncoded: false)) ||
+                fm.fileExists(atPath: backupDir.path(percentEncoded: false)) else {
+            try? fm.removeItem(at: stagingDir)
+            return .success
+        }
+
+        do {
+            if fm.fileExists(atPath: backupDir.path(percentEncoded: false)) {
+                for fileName in try listMachineFileNames(vmRootPath: vmRootPath) {
+                    try fm.removeItem(at: vmRootPath.appending(path: fileName))
+                }
+                for fileName in try fm.contentsOfDirectory(atPath: backupDir.path(percentEncoded: false)) {
+                    try fm.moveItem(at: backupDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
+                }
+            }
+            try? fm.removeItem(at: stagingDir)
+            try? fm.removeItem(at: backupDir)
+            try? fm.removeItem(at: transactionURL)
+            return .success
+        } catch {
+            return .failure("An interrupted snapshot restore needs repair: \(error.localizedDescription)")
+        }
     }
 
     static func currentSnapshotID(vmRootPath: URL) -> String? {
@@ -287,6 +329,10 @@ class VMSnapshotManager {
             if fileNames.isEmpty {
                 return .failure("No machine files found in \(vmRootPath.path(percentEncoded: false))")
             }
+            let requiredBytes = Int64(fileNames.reduce(UInt64(0)) {
+                $0 + directoryAllocatedSize(vmRootPath.appending(path: $1))
+            })
+            try VMStorageCapacity.validate(requiredBytes: requiredBytes, at: vmRootPath)
 
             try FileManager.default.createDirectory(at: filesDir, withIntermediateDirectories: true)
 
@@ -318,6 +364,9 @@ class VMSnapshotManager {
     }
 
     static func restoreSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
+        if case let .failure(error) = recoverInterruptedRestore(vmRootPath: vmRootPath) {
+            return .failure(error)
+        }
 #if canImport(DiskImageKit)
         if #available(macOS 27.0, *), snapshot.backend == .diskImageKitLayered {
             return restoreLayeredSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
@@ -332,12 +381,15 @@ class VMSnapshotManager {
 
         let stagingDir = vmRootPath.appending(path: restoreStagingDirectoryName)
         let backupDir = vmRootPath.appending(path: restoreBackupDirectoryName)
+        let transactionURL = vmRootPath.appending(path: restoreTransactionFileName)
         try? fm.removeItem(at: stagingDir)
         try? fm.removeItem(at: backupDir)
 
         // phase 1 : clone the snapshot into staging; the machine is untouched,
         // so a failure here is harmless
         do {
+            let transaction = RestoreTransaction(snapshotID: snapshot.id, phase: "preparing")
+            try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
             for fileName in snapshotFileNames {
                 try fm.copyItem(at: filesDir.appending(path: fileName), to: stagingDir.appending(path: fileName))
@@ -360,6 +412,9 @@ class VMSnapshotManager {
                 movedToBackup.append(fileName)
             }
 
+            let transaction = RestoreTransaction(snapshotID: snapshot.id, phase: "installing")
+            try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+
             for fileName in snapshotFileNames {
                 try fm.moveItem(at: stagingDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
                 movedFromStaging.append(fileName)
@@ -373,6 +428,7 @@ class VMSnapshotManager {
             }
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
+            try? fm.removeItem(at: transactionURL)
             return .failure("Failed to restore snapshot, the machine was rolled back to its previous state : \(error.localizedDescription)")
         }
 
@@ -387,10 +443,12 @@ class VMSnapshotManager {
             }
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
+            try? fm.removeItem(at: transactionURL)
             return .failure("Failed to record the restored snapshot branch, so the machine was rolled back : \(error.localizedDescription)")
         }
         try? fm.removeItem(at: stagingDir)
         try? fm.removeItem(at: backupDir)
+        try? fm.removeItem(at: transactionURL)
         return .success
     }
 
@@ -406,7 +464,22 @@ class VMSnapshotManager {
         }
     }
 
+    static func setSnapshotProtected(vmRootPath: URL, snapshot: VMSnapshotModel, isProtected: Bool) -> VMOSResultVoid {
+        var model = snapshot
+        model.isProtected = isProtected
+        do {
+            let data = try Self.jsonEncoder().encode(model)
+            try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id), options: .atomic)
+            return .success
+        } catch {
+            return .failure("Failed to update snapshot protection: \(error.localizedDescription)")
+        }
+    }
+
     static func deleteSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
+        if snapshot.isProtected {
+            return .failure("Unprotect this snapshot before deleting it")
+        }
         if listSnapshots(vmRootPath: vmRootPath).contains(where: { $0.parentSnapshotID == snapshot.id }) {
             return .failure("Delete this snapshot's child snapshots first")
         }
