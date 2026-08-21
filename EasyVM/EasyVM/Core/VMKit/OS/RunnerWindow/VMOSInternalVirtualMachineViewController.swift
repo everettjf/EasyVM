@@ -323,6 +323,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
+    func saveAndStopForWindowClose() {
+        screenshotTimer?.invalidate()
+        screenshotTimer = nil
+        captureScreenshot(synchronously: true)
+        saveAndStopMachine()
+    }
+
     @available(macOS 14.0, *)
     private func saveMachineStateAndStop(rootPath: URL) {
         let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
@@ -366,7 +373,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     func prepareForWindowClose() {
         screenshotTimer?.invalidate()
         screenshotTimer = nil
-        captureScreenshot()
+        captureScreenshot(synchronously: true)
         guard rootPath != nil else { return }
         if runtimeState?.phase == .running || runtimeState?.phase == .paused {
             saveAndStopMachine()
@@ -407,7 +414,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         screenshotTimer?.tolerance = 10
     }
 
-    private func captureScreenshot() {
+    private func captureScreenshot(synchronously: Bool = false) {
         guard let rootPath = rootPath, let view = virtualMachineView else {
             return
         }
@@ -432,10 +439,20 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         guard let cgImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
         let pngData = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
         let destination = rootPath.appending(path: "screenshot.png")
-        if let pngData {
+        if let pngData, synchronously {
+            do {
+                try pngData.write(to: destination, options: .atomic)
+                NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+            } catch {
+                EasyVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EasyVMLog.storage)
+            }
+        } else if let pngData {
             Task.detached(priority: .utility) {
                 do {
                     try pngData.write(to: destination, options: .atomic)
+                    await MainActor.run {
+                        NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+                    }
                 } catch {
                     EasyVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EasyVMLog.storage)
                 }
@@ -445,7 +462,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     public override func viewDidDisappear() {
         super.viewDidDisappear()
-        NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
     }
 
 }

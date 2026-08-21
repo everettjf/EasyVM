@@ -14,6 +14,7 @@ struct VMOSMainVirtualMachineView: View {
     let rootPath: URL
     let recoveryMode: Bool
     @State private var runtimeState = VMRuntimeState()
+    @State private var isShowingCloseConfirmation = false
     
     var body: some View {
         ZStack {
@@ -53,6 +54,20 @@ struct VMOSMainVirtualMachineView: View {
                 .padding(40)
                 .background(.regularMaterial)
                 .clipShape(.rect(cornerRadius: 16))
+            }
+
+            if runtimeState.isCloseInProgress {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .controlSize(.large)
+                    Text(runtimeState.phase == .saving ? "Saving Virtual Machine State…" : "Stopping Virtual Machine…")
+                        .font(.headline)
+                    Text("This window will close automatically when it is safe.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(28)
+                .background(.regularMaterial, in: .rect(cornerRadius: 16))
             }
         }
         .toolbar {
@@ -134,6 +149,23 @@ struct VMOSMainVirtualMachineView: View {
             }
         }
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
+        .background {
+            VMWindowCloseObserver {
+                runtimeState.needsCloseConfirmation
+            } shouldBlock: {
+                runtimeState.isCloseInProgress
+            } onCloseAttempt: {
+                isShowingCloseConfirmation = true
+            }
+        }
+        .alert("Save State and Close?", isPresented: $isShowingCloseConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Save State and Close") {
+                runtimeState.saveAndStopForWindowClose()
+            }
+        } message: {
+            Text("EasyVM will save the virtual machine’s current state, stop it, and then close this window. You can resume from the same state next time.")
+        }
         .onChange(of: runtimeState.phase) { _, phase in
             guard phase.shouldDismissMachineWindow else { return }
             dismissWindow(

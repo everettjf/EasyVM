@@ -24,6 +24,16 @@ enum VMRunPhase: String, Codable, Sendable {
     case stopping
 }
 
+extension VMRunPhase {
+    var cardLabel: String {
+        switch self {
+        case .starting: "Starting"
+        case .running: "Running"
+        case .stopping: "Saving State"
+        }
+    }
+}
+
 struct VMRunLease: Equatable, Sendable {
     let id: UUID
     let rootPath: URL

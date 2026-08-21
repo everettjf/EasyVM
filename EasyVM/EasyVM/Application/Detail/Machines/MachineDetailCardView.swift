@@ -23,7 +23,7 @@ struct MachineDetailCardAction {
  */
 struct MachineThumbnailView: View {
     let model: VMModel
-    let isRunning: Bool
+    let runPhase: VMRunPhase?
 
     var body: some View {
         ZStack {
@@ -46,12 +46,12 @@ struct MachineThumbnailView: View {
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(alignment: .topTrailing) {
-            if isRunning {
+            if let runPhase {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(.green)
+                        .fill(runPhase == .stopping ? .orange : .green)
                         .frame(width: 7, height: 7)
-                    Text("Running")
+                    Text(runPhase.cardLabel)
                         .font(.caption2)
                         .fontWeight(.semibold)
                 }
@@ -81,6 +81,10 @@ struct MachineDetailCardView: View {
         runningRegistry.isRunning(rootPath: model.rootPath)
     }
 
+    var runPhase: VMRunPhase? {
+        runningRegistry.phase(rootPath: model.rootPath)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -98,7 +102,7 @@ struct MachineDetailCardView: View {
                     .foregroundStyle(.secondary)
             }
             
-            MachineThumbnailView(model: model, isRunning: isRunning)
+            MachineThumbnailView(model: model, runPhase: runPhase)
 
 
             HStack(spacing: 18) {
@@ -114,14 +118,15 @@ struct MachineDetailCardView: View {
                     action.onPlay()
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: isRunning ? "macwindow" : "play")
-                        Text(isRunning ? "Open" : "Run")
+                        Image(systemName: runPhase == .stopping ? "arrow.down.circle" : (isRunning ? "macwindow" : "play"))
+                        Text(runPhase == .stopping ? "Saving…" : (isRunning ? "Open" : "Run"))
                     }
                     .fontWeight(.bold)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .accessibilityIdentifier("machine.primary-action")
+                .disabled(runPhase == .stopping)
 
 
                 Spacer()

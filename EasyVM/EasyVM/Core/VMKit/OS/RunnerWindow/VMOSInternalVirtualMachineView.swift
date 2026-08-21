@@ -55,6 +55,19 @@ final class VMRuntimeState {
         balloonMemoryMaximum != nil && (phase == .running || phase == .paused)
     }
 
+    var needsCloseConfirmation: Bool {
+        switch phase {
+        case .starting, .restoring, .running, .pausing, .paused:
+            true
+        default:
+            false
+        }
+    }
+
+    var isCloseInProgress: Bool {
+        phase == .saving || phase == .stopping
+    }
+
     func update(_ phase: Phase) {
         self.phase = phase
     }
@@ -73,9 +86,85 @@ final class VMRuntimeState {
     func resume() { controller?.resumeMachine() }
     func requestStop() { controller?.requestStopMachine() }
     func saveAndStop() { controller?.saveAndStopMachine() }
+    func saveAndStopForWindowClose() { controller?.saveAndStopForWindowClose() }
     func forceStop() { controller?.forceStopMachine() }
     func toggleUSB(_ id: UInt64) { controller?.toggleUSBAccessory(registryID: id) }
     func setBalloonMemory(fraction: Double) { controller?.setBalloonMemory(fraction: fraction) }
+}
+
+struct VMWindowCloseObserver: NSViewRepresentable {
+    let shouldConfirm: () -> Bool
+    let shouldBlock: () -> Bool
+    let onCloseAttempt: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(shouldConfirm: shouldConfirm, shouldBlock: shouldBlock, onCloseAttempt: onCloseAttempt)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { context.coordinator.attach(to: view.window) }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.shouldConfirm = shouldConfirm
+        context.coordinator.shouldBlock = shouldBlock
+        context.coordinator.onCloseAttempt = onCloseAttempt
+        DispatchQueue.main.async { context.coordinator.attach(to: nsView.window) }
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.detach()
+    }
+
+    final class Coordinator: NSObject, NSWindowDelegate {
+        var shouldConfirm: () -> Bool
+        var shouldBlock: () -> Bool
+        var onCloseAttempt: () -> Void
+        private weak var window: NSWindow?
+        private var previousDelegate: NSWindowDelegate?
+
+        init(shouldConfirm: @escaping () -> Bool, shouldBlock: @escaping () -> Bool, onCloseAttempt: @escaping () -> Void) {
+            self.shouldConfirm = shouldConfirm
+            self.shouldBlock = shouldBlock
+            self.onCloseAttempt = onCloseAttempt
+        }
+
+        func attach(to window: NSWindow?) {
+            guard let window, self.window !== window else { return }
+            detach()
+            self.window = window
+            previousDelegate = window.delegate
+            window.delegate = self
+        }
+
+        func detach() {
+            if window?.delegate === self {
+                window?.delegate = previousDelegate
+            }
+            window = nil
+            previousDelegate = nil
+        }
+
+        func windowShouldClose(_ sender: NSWindow) -> Bool {
+            if shouldBlock() { return false }
+            guard shouldConfirm() else {
+                return previousDelegate?.windowShouldClose?(sender) ?? true
+            }
+            onCloseAttempt()
+            return false
+        }
+
+        override func responds(to aSelector: Selector!) -> Bool {
+            super.responds(to: aSelector) || (previousDelegate?.responds(to: aSelector) ?? false)
+        }
+
+        override func forwardingTarget(for aSelector: Selector!) -> Any? {
+            if previousDelegate?.responds(to: aSelector) == true { return previousDelegate }
+            return super.forwardingTarget(for: aSelector)
+        }
+    }
 }
 
 struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
