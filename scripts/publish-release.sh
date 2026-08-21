@@ -79,6 +79,17 @@ xcrun notarytool submit "$archive" \
   --password "$APPLE_SPECIFIC_PASSWORD" \
   --wait
 
+app_path="${RUNNER_TEMP:-/tmp}/easyvm-release-derived-data/Build/Products/Release/EasyVM.app"
+[[ -d "$app_path" ]] || { echo "Built app not found: $app_path" >&2; exit 66; }
+xcrun stapler staple "$app_path"
+xcrun stapler validate "$app_path"
+rm -f "$archive" "$checksum"
+ditto -c -k --sequesterRsrc --keepParent "$app_path" "$archive"
+(
+  cd "$release_dir"
+  shasum -a 256 "$(basename "$archive")" > "$(basename "$checksum")"
+)
+
 gh release create "$tag" "$archive" "$checksum" \
   --repo everettjf/easyvm \
   --verify-tag \
