@@ -20,7 +20,7 @@ jobs:
     # The xcode-27 image is the GitHub-hosted macOS 26 preview runner.
     runs-on: xcode-27
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Verify Xcode 27 toolchain
         run: |
           xcodebuild -version
@@ -33,7 +33,7 @@ jobs:
     name: Build on macOS
     runs-on: xcode-27
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Verify Xcode 27 toolchain
         run: |
           xcodebuild -version

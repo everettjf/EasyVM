@@ -24,7 +24,7 @@ jobs:
       HAS_NOTARY_CREDENTIALS: ${{ secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && (secrets.APPLE_SPECIFIC_PASSWORD != '' || secrets.APPLE_APP_PASSWORD != '') }}
       HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Verify Xcode 27 toolchain
         run: |
@@ -91,7 +91,7 @@ jobs:
 
       - name: Check out Homebrew tap
         if: startsWith(github.ref, 'refs/tags/') && env.HAS_SIGNING_CERTIFICATE == 'true' && env.HAS_NOTARY_CREDENTIALS == 'true' && env.HAS_TAP_TOKEN == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: everettjf/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
