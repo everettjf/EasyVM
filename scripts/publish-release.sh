@@ -62,12 +62,14 @@ fi
 
 release_dir="$(mktemp -d /tmp/easyvm-publish.XXXXXX)"
 tap_dir="$(mktemp -d /tmp/easyvm-tap.XXXXXX)"
+derived_data="$release_dir/DerivedData"
 cleanup() {
   rm -rf "$release_dir" "$tap_dir"
 }
 trap cleanup EXIT
 
 EASYVM_SIGNING_IDENTITY="$signing_identity" \
+EASYVM_DERIVED_DATA="$derived_data" \
   "$project_root/scripts/build-release.sh" "$version" "$release_dir"
 
 archive="$release_dir/EasyVM-$version.zip"
@@ -79,16 +81,23 @@ xcrun notarytool submit "$archive" \
   --password "$APPLE_SPECIFIC_PASSWORD" \
   --wait
 
-app_path="${RUNNER_TEMP:-/tmp}/easyvm-release-derived-data/Build/Products/Release/EasyVM.app"
+app_path="$derived_data/Build/Products/Release/EasyVM.app"
 [[ -d "$app_path" ]] || { echo "Built app not found: $app_path" >&2; exit 66; }
 xcrun stapler staple "$app_path"
 xcrun stapler validate "$app_path"
+codesign --verify --deep --strict --verbose=2 "$app_path"
 rm -f "$archive" "$checksum"
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$archive"
 (
   cd "$release_dir"
   shasum -a 256 "$(basename "$archive")" > "$(basename "$checksum")"
 )
+
+install_check_dir="$release_dir/install-check"
+mkdir -p "$install_check_dir"
+ditto -x -k "$archive" "$install_check_dir"
+codesign --verify --deep --strict --verbose=2 "$install_check_dir/EasyVM.app"
+spctl --assess --type execute --verbose=4 "$install_check_dir/EasyVM.app"
 
 gh release create "$tag" "$archive" "$checksum" \
   --repo everettjf/easyvm \
