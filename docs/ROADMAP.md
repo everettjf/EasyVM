@@ -77,7 +77,7 @@ evidence that a restricted entitlement is distributable.
 | Host/guest clipboard | Partial | Spice attachment exists; success depends on a guest agent. | Detect `spice-vdagent`, expose status, and test both directions. |
 | Physical USB passthrough | Restricted | Removed from the production code in 3.2.14. | Requires macOS 27 Accessory Access and an approved entitlement. |
 | USB hot-plug management | Restricted | Not present after USB passthrough removal. | Revisit only with the same approved distribution path. |
-| Custom Virtio devices | Planned | No production device implementation exists. | Require a concrete guest-driver use case before building one. |
+| Custom Virtio devices | Planned | No production device implementation or no-op setting is exposed. | Require a concrete guest-driver use case before building one. |
 
 ### Storage, snapshots, and portability
 

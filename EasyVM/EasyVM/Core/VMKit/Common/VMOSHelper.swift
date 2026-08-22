@@ -14,15 +14,19 @@ import Virtualization
 struct VMReleaseSmokeTestConfiguration: Equatable {
     let vmRootPath: URL
     let resultPath: URL
+    let processIDPath: URL?
     let requireGuestAgent: Bool
     let requireKVM: Bool
+    let guestAgentEnrollmentURL: URL?
 }
 
 enum VMReleaseSmokeTest {
     static let vmPathEnvironmentKey = "EASYVM_RELEASE_SMOKE_VM"
     static let resultPathEnvironmentKey = "EASYVM_RELEASE_SMOKE_RESULT"
+    static let processIDPathEnvironmentKey = "EASYVM_RELEASE_SMOKE_PID"
     static let requireGuestAgentEnvironmentKey = "EASYVM_RELEASE_REQUIRE_GUEST_AGENT"
     static let requireKVMEnvironmentKey = "EASYVM_RELEASE_REQUIRE_KVM"
+    static let guestAgentEnrollmentEnvironmentKey = "EASYVM_RELEASE_AGENT_ENROLLMENT_FILE"
 
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> VMReleaseSmokeTestConfiguration? {
         guard let vmPath = environment[vmPathEnvironmentKey], !vmPath.isEmpty,
@@ -32,8 +36,14 @@ enum VMReleaseSmokeTest {
         return VMReleaseSmokeTestConfiguration(
             vmRootPath: URL(filePath: vmPath).standardizedFileURL,
             resultPath: URL(filePath: resultPath).standardizedFileURL,
+            processIDPath: environment[processIDPathEnvironmentKey].flatMap {
+                $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL
+            },
             requireGuestAgent: environment[requireGuestAgentEnvironmentKey] == "1",
-            requireKVM: environment[requireKVMEnvironmentKey] == "1"
+            requireKVM: environment[requireKVMEnvironmentKey] == "1",
+            guestAgentEnrollmentURL: environment[guestAgentEnrollmentEnvironmentKey].flatMap {
+                $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL
+            }
         )
     }
 
@@ -51,6 +61,15 @@ enum VMReleaseSmokeTest {
         } catch {
             let message = "Could not write release smoke result: \(error.localizedDescription)\n"
             FileHandle.standardError.write(Data(message.utf8))
+        }
+    }
+
+    static func reportProcessID(configuration: VMReleaseSmokeTestConfiguration) {
+        guard let path = configuration.processIDPath else { return }
+        do {
+            try "\(getpid())\n".write(to: path, atomically: true, encoding: .utf8)
+        } catch {
+            report("failed: could not write release smoke process ID: \(error.localizedDescription)", configuration: configuration)
         }
     }
 }
@@ -91,7 +110,6 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
 enum EasyVMExperimentalFeatures {
     static let guestProvisioningKey = "experimental.guestProvisioning"
     static let diskImageKitSnapshotsKey = "experimental.diskImageKitSnapshots"
-    static let customVirtioKey = "experimental.customVirtio"
     static let efiSecureBootKey = "experimental.efiSecureBoot"
 }
 

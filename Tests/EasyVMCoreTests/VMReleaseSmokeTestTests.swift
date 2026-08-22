@@ -13,13 +13,16 @@ final class VMReleaseSmokeTestTests: XCTestCase {
     func testConfigurationStandardizesPaths() throws {
         let configuration = try XCTUnwrap(VMReleaseSmokeTest.configuration(environment: [
             VMReleaseSmokeTest.vmPathEnvironmentKey: "/tmp/parent/../smoke.ezvm",
-            VMReleaseSmokeTest.resultPathEnvironmentKey: "/tmp/results/../result.txt"
+            VMReleaseSmokeTest.resultPathEnvironmentKey: "/tmp/results/../result.txt",
+            VMReleaseSmokeTest.processIDPathEnvironmentKey: "/tmp/pids/../pid.txt",
         ]))
 
         XCTAssertEqual(configuration.vmRootPath.path, "/tmp/smoke.ezvm")
         XCTAssertEqual(configuration.resultPath.path, "/tmp/result.txt")
+        XCTAssertEqual(configuration.processIDPath?.path, "/tmp/pid.txt")
         XCTAssertFalse(configuration.requireGuestAgent)
         XCTAssertFalse(configuration.requireKVM)
+        XCTAssertNil(configuration.guestAgentEnrollmentURL)
     }
 
     func testConfigurationEnablesRealGuestAgentAndKVMGatesExplicitly() throws {
@@ -28,9 +31,11 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.resultPathEnvironmentKey: "/tmp/result.txt",
             VMReleaseSmokeTest.requireGuestAgentEnvironmentKey: "1",
             VMReleaseSmokeTest.requireKVMEnvironmentKey: "1",
+            VMReleaseSmokeTest.guestAgentEnrollmentEnvironmentKey: "/tmp/agent.json",
         ]))
         XCTAssertTrue(configuration.requireGuestAgent)
         XCTAssertTrue(configuration.requireKVM)
+        XCTAssertEqual(configuration.guestAgentEnrollmentURL?.path, "/tmp/agent.json")
     }
 }
 #endif

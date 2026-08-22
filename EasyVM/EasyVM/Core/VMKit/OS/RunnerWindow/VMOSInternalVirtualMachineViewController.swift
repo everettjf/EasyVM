@@ -246,7 +246,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         markMachineRunning()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
             if smokeTest.requireGuestAgent || smokeTest.requireKVM {
-                startGuestAgent(model: model)
+                startGuestAgent(model: model, releaseSmoke: smokeTest)
                 startReleaseGuestAgentSmokeTest(smokeTest)
             } else {
                 finishReleaseSmokeTest(smokeTest)
@@ -282,10 +282,15 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func advanceReleaseGuestAgentSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
         guard let runtimeState, let deadline = releaseSmokeDeadline, Date() < deadline else {
-            failReleaseSmokeTest("timed out waiting for the Guest Agent integration test", configuration)
+            let connection = runtimeState.map { releaseSmokeConnectionDescription($0.guestAgentState) } ?? "runtime state unavailable"
+            let transfer = runtimeState.map { releaseSmokeTransferDescription($0.guestAgentTransferState) } ?? "runtime state unavailable"
+            failReleaseSmokeTest(
+                "timed out waiting for the Guest Agent integration test (stage \(releaseSmokeStage), connection: \(connection), transfer: \(transfer))",
+                configuration
+            )
             return
         }
-        if case .disconnected(let reason) = runtimeState.guestAgentState {
+        if releaseSmokeStage > 0, case .disconnected(let reason) = runtimeState.guestAgentState {
             failReleaseSmokeTest("Guest Agent disconnected: \(reason)", configuration)
             return
         }
@@ -328,10 +333,39 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
+    private func releaseSmokeConnectionDescription(_ state: VMGuestAgentConnectionState) -> String {
+        switch state {
+        case .unavailable: "unavailable"
+        case .notEnrolled: "not enrolled"
+        case .connecting: "connecting"
+        case .authenticating: "authenticating"
+        case .ready: "ready"
+        case .disconnected(let reason): "disconnected: \(reason)"
+        }
+    }
+
+    private func releaseSmokeTransferDescription(_ state: VMGuestAgentTransferState) -> String {
+        switch state {
+        case .idle: "idle"
+        case .preparing(let name): "preparing \(name)"
+        case .transferring(let direction, let name, let completed, let total):
+            "\(direction == .upload ? "uploading" : "downloading") \(name) (\(completed)/\(total))"
+        case .completed(let message): "completed: \(message)"
+        case .failed(let reason): "failed: \(reason)"
+        case .cancelled: "cancelled"
+        }
+    }
+
     private func failReleaseSmokeTest(_ reason: String, _ configuration: VMReleaseSmokeTestConfiguration) {
         cleanupReleaseSmokeFiles()
         VMReleaseSmokeTest.report("failed: \(reason)", configuration: configuration)
-        fail("Release integration test failed: \(reason)")
+        virtualMachine.stop { [weak self] _ in
+            Task { @MainActor in
+                self?.runtimeState?.update(.failed("Release integration test failed: \(reason)"))
+                self?.releaseRunLease()
+                NSApplication.shared.terminate(nil)
+            }
+        }
     }
 
     private func cleanupReleaseSmokeFiles() {
@@ -559,7 +593,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         screenshotTimer?.tolerance = 10
     }
 
-    private func startGuestAgent(model: VMModel) {
+    private func startGuestAgent(model: VMModel, releaseSmoke: VMReleaseSmokeTestConfiguration? = nil) {
         guard model.config.type == .linux,
               (model.config.linuxFeatures ?? .legacy).virtioSocketEnabled else {
             runtimeState?.updateGuestAgent(.unavailable)
@@ -573,7 +607,17 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             runtimeState?.updateGuestAgent(.disconnected("The VM machine identifier is unreadable."))
             return
         }
-        switch VMGuestAgentEnrollmentStore.load(machineIdentifierData: identifier) {
+        let enrollmentResult: VMOSResult<VMGuestAgentEnrollment?, String>
+        if let smoke = releaseSmoke ?? VMReleaseSmokeTest.configuration() {
+            guard let enrollmentURL = smoke.guestAgentEnrollmentURL else {
+                runtimeState?.updateGuestAgent(.disconnected("The release smoke enrollment file was not configured."))
+                return
+            }
+            enrollmentResult = loadReleaseSmokeEnrollment(at: enrollmentURL, machineIdentifierData: identifier)
+        } else {
+            enrollmentResult = VMGuestAgentEnrollmentStore.load(machineIdentifierData: identifier)
+        }
+        switch enrollmentResult {
         case .failure(let error):
             runtimeState?.updateGuestAgent(.disconnected(error))
         case .success(nil):
@@ -583,6 +627,25 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             let client = VMGuestAgentHostClient(device: device, enrollment: enrollment, runtimeState: runtimeState)
             guestAgentClient = client
             client.start()
+        }
+    }
+
+    private func loadReleaseSmokeEnrollment(at url: URL, machineIdentifierData: Data) -> VMOSResult<VMGuestAgentEnrollment?, String> {
+        do {
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                return .failure("The release Guest Agent enrollment must be a regular file.")
+            }
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            guard let permissions = attributes[.posixPermissions] as? NSNumber,
+                  permissions.intValue & 0o077 == 0 else {
+                return .failure("The release Guest Agent enrollment must not be accessible by group or other users (chmod 600).")
+            }
+            return .success(try VMGuestAgentEnrollmentStore.decodeInstallationConfiguration(
+                Data(contentsOf: url), machineIdentifierData: machineIdentifierData
+            ))
+        } catch {
+            return .failure("The release Guest Agent enrollment is invalid: \(error.localizedDescription)")
         }
     }
 

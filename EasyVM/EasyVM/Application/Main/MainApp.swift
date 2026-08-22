@@ -71,7 +71,6 @@ struct MainApp: App {
 private struct VirtualizationFeaturesSettingsView: View {
     @AppStorage(EasyVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioning = false
     @AppStorage(EasyVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
-    @AppStorage(EasyVMExperimentalFeatures.customVirtioKey) private var customVirtio = false
     @AppStorage(EasyVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
 
     var body: some View {
@@ -91,7 +90,6 @@ private struct VirtualizationFeaturesSettingsView: View {
             Section {
                 featureToggle("macOS guest provisioning", isOn: $guestProvisioning, capability: .guestProvisioning)
                 featureToggle("DiskImageKit snapshots", isOn: $diskImageKitSnapshots, capability: .diskImageKitSnapshots)
-                featureToggle("Custom Virtio devices", isOn: $customVirtio, capability: .customVirtio)
                 featureToggle("EFI Secure Boot", isOn: $efiSecureBoot, capability: .efiSecureBoot)
             } header: {
                 Text("Experimental macOS 27 features")

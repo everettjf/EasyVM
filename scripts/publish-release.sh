@@ -112,10 +112,13 @@ EASYVM_LAUNCH_TIMEOUT="${EASYVM_LAUNCH_TIMEOUT:-10}" \
   "$project_root/scripts/verify-release-app.sh" "$install_check_dir/EasyVM.app" "$version"
 if [[ -n "${EASYVM_RELEASE_SMOKE_VM:-}" ]]; then
   EASYVM_VM_SMOKE_TIMEOUT="${EASYVM_VM_SMOKE_TIMEOUT:-90}" \
+  EASYVM_RELEASE_SMOKE_ENROLLMENT="${EASYVM_RELEASE_SMOKE_ENROLLMENT:-}" \
     "$project_root/scripts/verify-release-cli.sh" "$install_check_dir/EasyVM.app" "$EASYVM_RELEASE_SMOKE_VM"
   EASYVM_VM_SMOKE_TIMEOUT="${EASYVM_VM_SMOKE_TIMEOUT:-90}" \
+  EASYVM_RELEASE_SMOKE_ENROLLMENT="${EASYVM_RELEASE_SMOKE_ENROLLMENT:-}" \
     "$project_root/scripts/verify-release-nested-virtualization.sh" "$install_check_dir/EasyVM.app" "$EASYVM_RELEASE_SMOKE_VM"
   EASYVM_VM_SMOKE_TIMEOUT="${EASYVM_VM_SMOKE_TIMEOUT:-90}" \
+  EASYVM_RELEASE_SMOKE_ENROLLMENT="${EASYVM_RELEASE_SMOKE_ENROLLMENT:-}" \
     "$project_root/scripts/verify-release-vm.sh" "$install_check_dir/EasyVM.app" "$EASYVM_RELEASE_SMOKE_VM"
 else
   echo "EASYVM_RELEASE_SMOKE_VM is required for a release VM boot test." >&2

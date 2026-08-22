@@ -103,6 +103,15 @@ enum VMGuestAgentEnrollmentStore {
         return try encoder.encode(enrollment)
     }
 
+    static func decodeInstallationConfiguration(_ data: Data, machineIdentifierData: Data) throws -> VMGuestAgentEnrollment {
+        let enrollment = try JSONDecoder().decode(VMGuestAgentEnrollment.self, from: data)
+        try enrollment.validate()
+        guard enrollment.machineID == machineID(machineIdentifierData: machineIdentifierData) else {
+            throw VMGuestAgentAuthenticationError.invalidMachine
+        }
+        return enrollment
+    }
+
     private static func baseQuery(machineID: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,

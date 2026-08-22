@@ -19,6 +19,22 @@ final class VMGuestAgentEnrollmentTests: XCTestCase {
         try decoded.validate()
     }
 
+    func testInstallationConfigurationMustMatchMachineIdentifier() throws {
+        let identifier = Data("fixture-machine".utf8)
+        let enrollment = VMGuestAgentEnrollment(
+            machineID: VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: identifier),
+            token: Data(repeating: 7, count: 32)
+        )
+        let data = try VMGuestAgentEnrollmentStore.installationConfiguration(enrollment)
+        XCTAssertEqual(
+            try VMGuestAgentEnrollmentStore.decodeInstallationConfiguration(data, machineIdentifierData: identifier),
+            enrollment
+        )
+        XCTAssertThrowsError(try VMGuestAgentEnrollmentStore.decodeInstallationConfiguration(
+            data, machineIdentifierData: Data("another-machine".utf8)
+        ))
+    }
+
     func testEnrollmentRejectsWrongTokenLengthSchemaAndPort() throws {
         let invalidToken = VMGuestAgentEnrollment(machineID: "machine-a", token: Data())
         XCTAssertThrowsError(try invalidToken.validate())

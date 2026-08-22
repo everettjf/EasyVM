@@ -50,19 +50,14 @@ trap cleanup EXIT
 
 "$(dirname "$0")/verify-production-entitlements.sh" "$app_path"
 
-EASYVM_GUI_READY_FILE="$ready_file" "$executable" >"$launch_log" 2>&1 &
-app_pid=$!
+open -n -g --stdout "$launch_log" --stderr "$launch_log" \
+  --env "EASYVM_GUI_READY_FILE=$ready_file" "$app_path"
 
 for ((second = 1; second <= launch_timeout; second++)); do
   for _ in {1..10}; do
     if [[ -f "$ready_file" ]]; then break 2; fi
     sleep 0.1
   done
-  if ! kill -0 "$app_pid" 2>/dev/null; then
-    wait "$app_pid" || exit_code=$?
-    cat "$launch_log" >&2
-    fail "application exited during launch with status ${exit_code:-0}"
-  fi
 done
 
 [[ -f "$ready_file" ]] || { cat "$launch_log" >&2; fail "SwiftUI did not report a visible main window"; }
@@ -74,6 +69,9 @@ ruby -rjson -e '
   abort "window is too small" unless value["windowWidth"] >= 800 && value["windowHeight"] >= 600
   abort "wrong bundle" unless value["bundleIdentifier"] == "com.everettjf.easyvm"
 ' "$ready_file"
+
+app_pid="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("pid")' "$ready_file")"
+kill -0 "$app_pid" 2>/dev/null || { cat "$launch_log" >&2; fail "application exited after reporting GUI readiness"; }
 
 process_command="$(ps -p "$app_pid" -o command=)"
 [[ "$process_command" == *"/Contents/MacOS/EasyVM"* ]] || \

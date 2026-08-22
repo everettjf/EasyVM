@@ -14,6 +14,10 @@ fail() {
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
 [[ -d "$vm_path" ]] || fail "virtual machine not found: $vm_path"
 [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "EASYVM_VM_SMOKE_TIMEOUT must be a positive integer"
+enrollment_file="${EASYVM_RELEASE_SMOKE_ENROLLMENT:-}"
+[[ -n "$enrollment_file" && -f "$enrollment_file" ]] || fail "EASYVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
+permissions="$(stat -f '%Lp' "$enrollment_file")"
+[[ "$permissions" == "600" ]] || fail "fixture enrollment must have mode 600 (found $permissions)"
 
 executable="$app_path/Contents/MacOS/EasyVM"
 [[ -x "$executable" ]] || fail "application executable not found: $executable"
@@ -22,15 +26,26 @@ smoke_parent="$(dirname "$vm_path")"
 smoke_directory="$(mktemp -d "$smoke_parent/.easyvm-release-smoke.XXXXXX")"
 smoke_vm="$smoke_directory/Smoke.ezvm"
 result_file="$smoke_directory/result.txt"
+pid_file="$smoke_directory/pid.txt"
 launch_log="$(mktemp "${TMPDIR:-/tmp}/easyvm-vm-smoke-launch.XXXXXX")"
 app_pid=""
+open_pid=""
 cleanup() {
   if [[ -n "$app_pid" ]] && kill -0 "$app_pid" 2>/dev/null; then
     kill "$app_pid" 2>/dev/null || true
     wait "$app_pid" 2>/dev/null || true
   fi
-  rm -rf "$smoke_directory"
-  rm -f "$launch_log"
+  if [[ -n "$open_pid" ]] && kill -0 "$open_pid" 2>/dev/null; then
+    kill "$open_pid" 2>/dev/null || true
+    wait "$open_pid" 2>/dev/null || true
+  fi
+  if [[ "${EASYVM_KEEP_SMOKE_ARTIFACTS:-0}" == "1" ]]; then
+    echo "verify-release-vm: retained VM clone at $smoke_vm" >&2
+    echo "verify-release-vm: retained launch log at $launch_log" >&2
+  else
+    rm -rf "$smoke_directory"
+    rm -f "$launch_log"
+  fi
 }
 trap cleanup EXIT
 
@@ -48,28 +63,39 @@ if [[ "${EASYVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
   ' "$smoke_vm/config.json"
 fi
 
-EASYVM_RELEASE_SMOKE_VM="$smoke_vm" \
-EASYVM_RELEASE_SMOKE_RESULT="$result_file" \
-EASYVM_RELEASE_REQUIRE_GUEST_AGENT=1 \
-EASYVM_RELEASE_REQUIRE_KVM="${EASYVM_RELEASE_REQUIRE_KVM:-0}" \
-  "$executable" >"$launch_log" 2>&1 &
-app_pid=$!
+open -n -g -W --stdout "$launch_log" --stderr "$launch_log" \
+  --env "EASYVM_RELEASE_SMOKE_VM=$smoke_vm" \
+  --env "EASYVM_RELEASE_SMOKE_RESULT=$result_file" \
+  --env "EASYVM_RELEASE_SMOKE_PID=$pid_file" \
+  --env "EASYVM_RELEASE_REQUIRE_GUEST_AGENT=1" \
+  --env "EASYVM_RELEASE_REQUIRE_KVM=${EASYVM_RELEASE_REQUIRE_KVM:-0}" \
+  --env "EASYVM_RELEASE_AGENT_ENROLLMENT_FILE=$enrollment_file" \
+  "$app_path" &
+open_pid=$!
 
 for ((second = 1; second <= timeout; second++)); do
   sleep 1
+  if [[ -z "$app_pid" && -f "$pid_file" ]]; then
+    app_pid="$(tr -d '\r\n' <"$pid_file")"
+    [[ "$app_pid" =~ ^[1-9][0-9]*$ ]] || fail "application reported an invalid process ID"
+  fi
   if [[ -f "$result_file" ]]; then
     result="$(tr -d '\r\n' <"$result_file")"
     if [[ "$result" == "started-and-stopped" ]]; then
-      wait "$app_pid" || true
-      app_pid=""
+      wait "$open_pid" || true
+      open_pid=""
       echo "Verified VM boot, Guest Agent authentication, upload/download byte round-trip, and clean stop: $vm_path"
       exit 0
     fi
     cat "$launch_log" >&2
     fail "$result"
   fi
-  if ! kill -0 "$app_pid" 2>/dev/null; then
-    wait "$app_pid" || exit_code=$?
+  if [[ -n "$app_pid" ]] && ! kill -0 "$app_pid" 2>/dev/null; then
+    cat "$launch_log" >&2
+    fail "application exited before writing the VM result"
+  fi
+  if ! kill -0 "$open_pid" 2>/dev/null; then
+    wait "$open_pid" || exit_code=$?
     cat "$launch_log" >&2
     fail "application exited before the VM result with status ${exit_code:-0}"
   fi

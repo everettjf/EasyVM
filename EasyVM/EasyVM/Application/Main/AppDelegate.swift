@@ -34,6 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         guard let smokeTest = VMReleaseSmokeTest.configuration() else { return }
+        VMReleaseSmokeTest.reportProcessID(configuration: smokeTest)
         let controller = NSHostingController(
             rootView: VMOSMainVirtualMachineView(rootPath: smokeTest.vmRootPath, recoveryMode: false)
         )

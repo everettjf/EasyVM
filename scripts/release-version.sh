@@ -14,7 +14,7 @@ fail() { echo "release-version: $*" >&2; exit 1; }
 for command in gh git go ruby security swift xcodebuild; do
   command -v "$command" >/dev/null 2>&1 || fail "required command not found: $command"
 done
-for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID EASYVM_RELEASE_SMOKE_VM; do
+for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID EASYVM_RELEASE_SMOKE_VM EASYVM_RELEASE_SMOKE_ENROLLMENT; do
   [[ -n "${!variable:-}" ]] || fail "required environment variable is missing: $variable"
 done
 gh auth status >/dev/null 2>&1 || fail "GitHub CLI authentication is invalid"
@@ -70,6 +70,7 @@ if [[ -z "$tag_commit" ]]; then
 fi
 
 APPLE_ID="$APPLE_ID" APPLE_SPECIFIC_PASSWORD="$APPLE_SPECIFIC_PASSWORD" APPLE_TEAM_ID="$APPLE_TEAM_ID" \
-EASYVM_RELEASE_BRANCH="$release_branch" "$project_root/scripts/publish-release.sh" "$version"
+EASYVM_RELEASE_BRANCH="$release_branch" EASYVM_RELEASE_SMOKE_ENROLLMENT="$EASYVM_RELEASE_SMOKE_ENROLLMENT" \
+  "$project_root/scripts/publish-release.sh" "$version"
 
 echo "EasyVM $version is signed, notarized, published, and verified through Homebrew."

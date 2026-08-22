@@ -1,5 +1,6 @@
 import Foundation
 import Virtualization
+import Darwin
 
 enum VMGuestAgentConnectionState: Equatable {
     case unavailable
@@ -38,7 +39,6 @@ final class VMGuestAgentHostClient {
     private let enrollment: VMGuestAgentEnrollment
     private weak var runtimeState: VMRuntimeState?
     private var connection: VZVirtioSocketConnection?
-    private var fileHandle: FileHandle?
     private var retryTask: DispatchWorkItem?
     private var heartbeatTimer: Timer?
     private var stopped = false
@@ -68,8 +68,6 @@ final class VMGuestAgentHostClient {
         retryTask = nil
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
-        fileHandle?.closeFile()
-        fileHandle = nil
         connection?.close()
         connection = nil
         sessionID = nil
@@ -126,16 +124,14 @@ final class VMGuestAgentHostClient {
     }
 
     private func begin(_ connection: VZVirtioSocketConnection) {
+        let descriptor = connection.fileDescriptor
         self.connection = connection
-        fileHandle = FileHandle(fileDescriptor: connection.fileDescriptor, closeOnDealloc: false)
         runtimeState?.updateGuestAgent(.authenticating)
-        let handle = fileHandle
         let enrollment = enrollment
-        ioQueue.async { [weak self] in self?.readLoop(handle: handle, enrollment: enrollment) }
+        ioQueue.async { [weak self] in self?.readLoop(descriptor: descriptor, enrollment: enrollment) }
     }
 
-    private nonisolated func readLoop(handle: FileHandle?, enrollment: VMGuestAgentEnrollment) {
-        guard let handle else { return }
+    private nonisolated func readLoop(descriptor: Int32, enrollment: VMGuestAgentEnrollment) {
         var buffer = VMGuestAgentFrameBuffer()
         var authenticator: VMGuestAgentAuthenticator
         do {
@@ -146,7 +142,17 @@ final class VMGuestAgentHostClient {
         }
         var activeSessionID: String?
         do {
-            while let chunk = try handle.read(upToCount: 64 * 1024), !chunk.isEmpty {
+            var bytes = [UInt8](repeating: 0, count: 64 * 1024)
+            while true {
+                let count = Darwin.read(descriptor, &bytes, bytes.count)
+                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    usleep(10_000)
+                    continue
+                }
+                if count < 0 && errno == EINTR { continue }
+                if count < 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+                if count == 0 { throw VMGuestAgentClientError.disconnected }
+                let chunk = Data(bytes.prefix(count))
                 for frame in try buffer.append(chunk) {
                     if activeSessionID == nil {
                         let hello = try VMGuestAgentFrameCodec.decode(VMGuestAgentHello.self, from: frame)
@@ -154,7 +160,7 @@ final class VMGuestAgentHostClient {
                         let hostNonce = VMGuestAgentAuthenticator.generateToken().base64EncodedString()
                         let welcome = try authenticator.makeWelcome(guestNonce: hello.guestNonce, hostNonce: hostNonce)
                         let established = try authenticator.sessionID(guestNonce: hello.guestNonce, hostNonce: hostNonce)
-                        try handle.write(contentsOf: VMGuestAgentFrameCodec.encode(welcome))
+                        try writeAll(descriptor: descriptor, data: VMGuestAgentFrameCodec.encode(welcome))
                         activeSessionID = established
                         Task { @MainActor [weak self] in self?.authenticated(sessionID: established) }
                     } else if let activeSessionID {
@@ -164,15 +170,32 @@ final class VMGuestAgentHostClient {
                     }
                 }
             }
-            throw CocoaError(.fileReadUnknown)
         } catch {
             Task { @MainActor [weak self] in self?.disconnected(error.localizedDescription) }
         }
     }
 
+    private nonisolated func writeAll(descriptor: Int32, data: Data) throws {
+        try data.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else { return }
+            var offset = 0
+            while offset < rawBuffer.count {
+                let count = Darwin.write(descriptor, baseAddress.advanced(by: offset), rawBuffer.count - offset)
+                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    usleep(10_000)
+                    continue
+                }
+                if count < 0 && errno == EINTR { continue }
+                if count < 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+                if count == 0 { throw VMGuestAgentClientError.disconnected }
+                offset += count
+            }
+        }
+    }
+
     private func write(_ data: Data) throws {
-        guard let handle = fileHandle else { throw CocoaError(.fileNoSuchFile) }
-        try handle.write(contentsOf: data)
+        guard let connection else { throw CocoaError(.fileNoSuchFile) }
+        try writeAll(descriptor: connection.fileDescriptor, data: data)
     }
 
     private func sendEnvelope(operation: VMGuestAgentOperation, requestID: String, payload: Data, sessionID: String) throws {
@@ -232,6 +255,7 @@ final class VMGuestAgentHostClient {
 
     private func disconnected(_ reason: String) {
         guard !stopped else { return }
+        let transferWasActive = transferTask != nil || !pendingRequests.isEmpty
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
         sessionID = nil
@@ -239,9 +263,9 @@ final class VMGuestAgentHostClient {
         transferTask?.cancel()
         transferTask = nil
         failPendingRequests(VMGuestAgentClientError.disconnected)
-        runtimeState?.updateGuestAgentTransfer(.failed("The guest agent disconnected during transfer."))
-        fileHandle?.closeFile()
-        fileHandle = nil
+        if transferWasActive {
+            runtimeState?.updateGuestAgentTransfer(.failed("The guest agent disconnected during transfer."))
+        }
         connection?.close()
         connection = nil
         runtimeState?.updateGuestAgent(.disconnected(reason))
