@@ -134,7 +134,7 @@ evidence that a restricted entitlement is distributable.
 
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
-| Nested virtualization | Planned | Not exposed. Apple reports support on M3 and later Macs. | Add a Linux-only availability-gated option and compatibility tests. |
+| Nested virtualization | Stable | Linux VMs have a per-machine option guarded by Apple's runtime capability check; unsupported hosts get an actionable compatibility error and old configs default off. | Add guest-side KVM diagnostics and tested distro guidance. |
 | Docker/KVM inside a Linux guest | Planned research | Depends on nested virtualization and guest configuration. | Validate only after the base nested-virtualization option is stable. |
 | macOS guest iCloud workflows | Planned research | Not exposed. | Review Apple account, entitlement, and distribution requirements first. |
 | x86 guest execution on Apple silicon | Out of scope | Virtualization.framework virtualizes the host architecture. | Use a separate emulator such as QEMU; do not mix it into the native core. |

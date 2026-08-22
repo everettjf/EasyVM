@@ -30,6 +30,34 @@ final class VMLinuxFeatureConfigurationTests: XCTestCase {
         XCTAssertTrue(configuration.directorySharingDevices.isEmpty)
     }
 
+    func testOlderFeatureJSONDefaultsNestedVirtualizationOff() throws {
+        let data = Data(#"{"rosettaEnabled":false,"memoryBalloonEnabled":true,"entropyEnabled":true,"virtioSocketEnabled":true}"#.utf8)
+        let decoded = try JSONDecoder().decode(VMLinuxFeatureConfiguration.self, from: data)
+        XCTAssertFalse(decoded.nestedVirtualizationEnabled)
+        XCTAssertTrue(decoded.memoryBalloonEnabled)
+    }
+
+    func testNestedVirtualizationRejectsUnsupportedHostWithActionableError() {
+        var features = VMLinuxFeatureConfiguration.legacy
+        features.nestedVirtualizationEnabled = true
+        let platform = VZGenericPlatformConfiguration()
+        guard case let .failure(error) = features.applyPlatform(to: platform, isSupported: false) else {
+            return XCTFail("Unsupported hosts must reject nested virtualization")
+        }
+        XCTAssertTrue(error.contains("M3"))
+        XCTAssertFalse(platform.isNestedVirtualizationEnabled)
+    }
+
+    func testNestedVirtualizationEnablesPlatformWhenSupported() {
+        var features = VMLinuxFeatureConfiguration.legacy
+        features.nestedVirtualizationEnabled = true
+        let platform = VZGenericPlatformConfiguration()
+        guard case .success = features.applyPlatform(to: platform, isSupported: true) else {
+            return XCTFail("Supported hosts should enable nested virtualization")
+        }
+        XCTAssertTrue(platform.isNestedVirtualizationEnabled)
+    }
+
     func testRosettaShareHonorsAvailabilityAndReservedTag() {
         var features = VMLinuxFeatureConfiguration.legacy
         features.rosettaEnabled = true

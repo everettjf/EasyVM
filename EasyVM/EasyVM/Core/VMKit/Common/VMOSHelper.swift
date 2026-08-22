@@ -96,6 +96,7 @@ struct VMLinuxFeatureConfiguration: Codable, Equatable {
     var entropyEnabled: Bool
     var virtioSocketEnabled: Bool
     var secureBootEnabled: Bool
+    var nestedVirtualizationEnabled: Bool
 
     static let legacy = VMLinuxFeatureConfiguration(
         rosettaEnabled: false,
@@ -103,7 +104,8 @@ struct VMLinuxFeatureConfiguration: Codable, Equatable {
         memoryBalloonEnabled: false,
         entropyEnabled: false,
         virtioSocketEnabled: false,
-        secureBootEnabled: false
+        secureBootEnabled: false,
+        nestedVirtualizationEnabled: false
     )
 
     static let recommended = VMLinuxFeatureConfiguration(
@@ -112,11 +114,49 @@ struct VMLinuxFeatureConfiguration: Codable, Equatable {
         memoryBalloonEnabled: true,
         entropyEnabled: true,
         virtioSocketEnabled: true,
-        secureBootEnabled: false
+        secureBootEnabled: false,
+        nestedVirtualizationEnabled: false
     )
+
+    private enum CodingKeys: String, CodingKey {
+        case rosettaEnabled, rosettaCachingEnabled, memoryBalloonEnabled, entropyEnabled
+        case virtioSocketEnabled, secureBootEnabled, nestedVirtualizationEnabled
+    }
+
+    init(rosettaEnabled: Bool, rosettaCachingEnabled: Bool, memoryBalloonEnabled: Bool,
+         entropyEnabled: Bool, virtioSocketEnabled: Bool, secureBootEnabled: Bool,
+         nestedVirtualizationEnabled: Bool) {
+        self.rosettaEnabled = rosettaEnabled
+        self.rosettaCachingEnabled = rosettaCachingEnabled
+        self.memoryBalloonEnabled = memoryBalloonEnabled
+        self.entropyEnabled = entropyEnabled
+        self.virtioSocketEnabled = virtioSocketEnabled
+        self.secureBootEnabled = secureBootEnabled
+        self.nestedVirtualizationEnabled = nestedVirtualizationEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        rosettaEnabled = try values.decodeIfPresent(Bool.self, forKey: .rosettaEnabled) ?? false
+        rosettaCachingEnabled = try values.decodeIfPresent(Bool.self, forKey: .rosettaCachingEnabled) ?? false
+        memoryBalloonEnabled = try values.decodeIfPresent(Bool.self, forKey: .memoryBalloonEnabled) ?? false
+        entropyEnabled = try values.decodeIfPresent(Bool.self, forKey: .entropyEnabled) ?? false
+        virtioSocketEnabled = try values.decodeIfPresent(Bool.self, forKey: .virtioSocketEnabled) ?? false
+        secureBootEnabled = try values.decodeIfPresent(Bool.self, forKey: .secureBootEnabled) ?? false
+        nestedVirtualizationEnabled = try values.decodeIfPresent(Bool.self, forKey: .nestedVirtualizationEnabled) ?? false
+    }
 }
 
 extension VMLinuxFeatureConfiguration {
+    func applyPlatform(to platform: VZGenericPlatformConfiguration,
+                       isSupported: Bool = VZGenericPlatformConfiguration.isNestedVirtualizationSupported) -> VMOSResultVoid {
+        guard !nestedVirtualizationEnabled || isSupported else {
+            return .failure("Nested virtualization requires an M3 or newer Mac. Disable it in the VM configuration to run this VM on the current host.")
+        }
+        platform.isNestedVirtualizationEnabled = nestedVirtualizationEnabled
+        return .success
+    }
+
     func applyDevices(to configuration: VZVirtualMachineConfiguration, existingDirectoryTags: Set<String>) -> VMOSResultVoid {
         if memoryBalloonEnabled {
             configuration.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]

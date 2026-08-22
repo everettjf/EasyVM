@@ -68,6 +68,10 @@ final class VMOSCreatorForLinux: VMOSCreator {
                 try machineIdentifier.dataRepresentation.write(to: model.machineIdentifierURL)
                 platform.machineIdentifier = machineIdentifier
 
+                if case let .failure(error) = (model.config.linuxFeatures ?? .legacy).applyPlatform(to: platform) {
+                    throw VMOSError.regularFailure(error)
+                }
+
                 virtualMachineConfiguration.platform = platform
             } catch {
                 continuation.resume(throwing: error)

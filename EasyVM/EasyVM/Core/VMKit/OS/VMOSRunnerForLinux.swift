@@ -112,6 +112,10 @@ class VMOSRunnerForLinux : VMOSRunner {
         }
 
         linuxPlatform.machineIdentifier = machineIdentifier
+
+        if case let .failure(error) = (model.config.linuxFeatures ?? .legacy).applyPlatform(to: linuxPlatform) {
+            return .failure(error)
+        }
         
         return .success(linuxPlatform)
     }

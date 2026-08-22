@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Virtualization
 
 
 #if arch(arm64)
@@ -51,6 +52,8 @@ struct VMLinuxFeaturesConfigurationSection: View {
                 Toggle("Dynamic memory balloon", isOn: $configData.linuxFeatures.memoryBalloonEnabled)
                 Toggle("Virtio entropy source", isOn: $configData.linuxFeatures.entropyEnabled)
                 Toggle("Virtio socket", isOn: $configData.linuxFeatures.virtioSocketEnabled)
+                Toggle("Nested virtualization", isOn: $configData.linuxFeatures.nestedVirtualizationEnabled)
+                    .disabled(!VZGenericPlatformConfiguration.isNestedVirtualizationSupported)
                 Toggle("UEFI Secure Boot", isOn: $configData.linuxFeatures.secureBootEnabled)
                     .disabled(!secureBootAvailable)
 
@@ -61,6 +64,11 @@ struct VMLinuxFeaturesConfigurationSection: View {
                 }
                 if !secureBootAvailable {
                     Text("Secure Boot requires macOS 27 and the EFI Secure Boot experimental feature in Settings.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !VZGenericPlatformConfiguration.isNestedVirtualizationSupported {
+                    Text("Nested virtualization requires an M3 or newer Mac. The VM remains portable and can run with this option disabled on older hosts.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
