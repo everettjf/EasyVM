@@ -28,7 +28,7 @@ require_environment() {
   fi
 }
 
-for command in codesign gh git ruby security xcrun; do
+for command in brew codesign gh git ruby security xcrun; do
   require_command "$command"
 done
 
@@ -95,6 +95,15 @@ ditto -x -k "$archive" "$install_check_dir"
 xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");EasyVMRelease;" "$install_check_dir/EasyVM.app"
 codesign --verify --deep --strict --verbose=2 "$install_check_dir/EasyVM.app"
 spctl --assess --type execute --verbose=4 "$install_check_dir/EasyVM.app"
+EASYVM_LAUNCH_TIMEOUT="${EASYVM_LAUNCH_TIMEOUT:-10}" \
+  "$project_root/scripts/verify-release-app.sh" "$install_check_dir/EasyVM.app" "$version"
+if [[ -n "${EASYVM_RELEASE_SMOKE_VM:-}" ]]; then
+  EASYVM_VM_SMOKE_TIMEOUT="${EASYVM_VM_SMOKE_TIMEOUT:-90}" \
+    "$project_root/scripts/verify-release-vm.sh" "$install_check_dir/EasyVM.app" "$EASYVM_RELEASE_SMOKE_VM"
+else
+  echo "EASYVM_RELEASE_SMOKE_VM is required for a release VM boot test." >&2
+  exit 78
+fi
 
 gh release create "$tag" "$archive" "$checksum" \
   --repo everettjf/easyvm \
@@ -114,5 +123,7 @@ git -C "$tap_dir/repository" add Casks/easyvm.rb
 git -C "$tap_dir/repository" diff --cached --quiet || \
   git -C "$tap_dir/repository" commit -m "Update EasyVM to $version"
 git -C "$tap_dir/repository" push
+
+"$project_root/scripts/verify-homebrew-release.sh" "$version" "$EASYVM_RELEASE_SMOKE_VM"
 
 echo "Published EasyVM $version to GitHub Releases and Homebrew."

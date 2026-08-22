@@ -60,6 +60,10 @@ codesign "${signing_options[@]}" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 codesign --display --entitlements :- "$app_path"
 
+# Fail before archiving if a restricted or accidental entitlement enters the
+# production target. Runtime launch and Gatekeeper checks run after notarization.
+"$project_root/scripts/verify-production-entitlements.sh" "$app_path"
+
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$output_dir/$archive_name"
 
 # Verify the exact archive users will install, not only the pre-archive app.

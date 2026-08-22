@@ -119,6 +119,14 @@ class VMOSRunnerForLinux : VMOSRunner {
     
     
     private func createBootLoader(model: VMModel) -> VMOSResult<VZEFIBootLoader, String> {
+        if !FileManager.default.fileExists(atPath: model.efiVariableStoreURL.path(percentEncoded: false)),
+           VMReleaseSmokeTest.configuration(for: model.rootPath) != nil {
+            do {
+                _ = try VZEFIVariableStore(creatingVariableStoreAt: model.efiVariableStoreURL)
+            } catch {
+                return .failure("Could not create the release smoke EFI variable store: \(error.localizedDescription)")
+            }
+        }
         if !FileManager.default.fileExists(atPath: model.efiVariableStoreURL.path(percentEncoded: false)) {
             return .failure("EFI variable store does not exist.")
         }

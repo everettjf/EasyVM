@@ -224,8 +224,29 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private func didStart(rootPath: URL) {
         runtimeState?.update(.running)
         markMachineRunning()
+        if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
+            finishReleaseSmokeTest(smokeTest)
+            return
+        }
         startScreenshotTimer()
         updateBalloonMemoryState()
+    }
+
+    private func finishReleaseSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
+        virtualMachine.stop { [weak self] error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let error {
+                    VMReleaseSmokeTest.report("failed: stop: \(error.localizedDescription)", configuration: configuration)
+                    self.fail("Release smoke VM started but could not stop: \(error.localizedDescription)")
+                    return
+                }
+                self.runtimeState?.update(.stopped)
+                self.releaseRunLease()
+                VMReleaseSmokeTest.report("started-and-stopped", configuration: configuration)
+                NSApplication.shared.terminate(nil)
+            }
+        }
     }
 
     func pauseMachine() {
@@ -378,6 +399,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private func fail(_ message: String) {
         runtimeState?.update(.failed(message))
         releaseRunLease()
+        if let rootPath, let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
+            VMReleaseSmokeTest.report("failed: \(message)", configuration: smokeTest)
+        }
     }
 
     private func markMachineRunning() {

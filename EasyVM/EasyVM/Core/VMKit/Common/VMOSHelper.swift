@@ -11,6 +11,44 @@ import Virtualization
 
 
 #if arch(arm64)
+struct VMReleaseSmokeTestConfiguration: Equatable {
+    let vmRootPath: URL
+    let resultPath: URL
+}
+
+enum VMReleaseSmokeTest {
+    static let vmPathEnvironmentKey = "EASYVM_RELEASE_SMOKE_VM"
+    static let resultPathEnvironmentKey = "EASYVM_RELEASE_SMOKE_RESULT"
+
+    static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> VMReleaseSmokeTestConfiguration? {
+        guard let vmPath = environment[vmPathEnvironmentKey], !vmPath.isEmpty,
+              let resultPath = environment[resultPathEnvironmentKey], !resultPath.isEmpty else {
+            return nil
+        }
+        return VMReleaseSmokeTestConfiguration(
+            vmRootPath: URL(filePath: vmPath).standardizedFileURL,
+            resultPath: URL(filePath: resultPath).standardizedFileURL
+        )
+    }
+
+    static func configuration(for rootPath: URL) -> VMReleaseSmokeTestConfiguration? {
+        guard let configuration = configuration(),
+              configuration.vmRootPath == rootPath.standardizedFileURL else {
+            return nil
+        }
+        return configuration
+    }
+
+    static func report(_ result: String, configuration: VMReleaseSmokeTestConfiguration) {
+        do {
+            try (result + "\n").write(to: configuration.resultPath, atomically: true, encoding: .utf8)
+        } catch {
+            let message = "Could not write release smoke result: \(error.localizedDescription)\n"
+            FileHandle.standardError.write(Data(message.utf8))
+        }
+    }
+}
+
 enum VirtualizationCapability: String, CaseIterable, Identifiable {
     case savedState, automaticDisplayResize, asifStorage
     case guestProvisioning, diskImageKitSnapshots, customVirtio, efiSecureBoot

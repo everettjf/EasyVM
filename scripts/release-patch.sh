@@ -30,7 +30,7 @@ for command in gh git ruby security swift xcodebuild; do
   require_command "$command"
 done
 
-for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID EASYVM_RELEASE_SMOKE_VM; do
   require_environment "$variable"
 done
 
