@@ -1,0 +1,447 @@
+import Foundation
+import CryptoKit
+import Darwin
+
+public enum EasyVMCLIExit: Int32, Sendable {
+    case success = 0
+    case invalidArguments = 64
+    case notFound = 66
+    case invalidMachine = 65
+    case unavailable = 69
+    case internalError = 70
+}
+
+public struct EasyVMCLIResponse: Codable, Equatable, Sendable {
+    public let schemaVersion: Int
+    public let command: String
+    public let success: Bool
+    public let result: JSONValue?
+    public let error: EasyVMCLIErrorPayload?
+
+    public init(command: String, result: JSONValue) {
+        schemaVersion = 1
+        self.command = command
+        success = true
+        self.result = result
+        error = nil
+    }
+
+    public init(command: String, code: String, message: String) {
+        schemaVersion = 1
+        self.command = command
+        success = false
+        result = nil
+        error = EasyVMCLIErrorPayload(code: code, message: message)
+    }
+}
+
+public struct EasyVMCLIErrorPayload: Codable, Equatable, Sendable {
+    public let code: String
+    public let message: String
+}
+
+public enum JSONValue: Codable, Equatable, Sendable {
+    case string(String), number(Double), bool(Bool), object([String: JSONValue]), array([JSONValue]), null
+
+    public init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer()
+        if value.decodeNil() { self = .null }
+        else if let item = try? value.decode(Bool.self) { self = .bool(item) }
+        else if let item = try? value.decode(Double.self) { self = .number(item) }
+        else if let item = try? value.decode(String.self) { self = .string(item) }
+        else if let item = try? value.decode([String: JSONValue].self) { self = .object(item) }
+        else { self = .array(try value.decode([JSONValue].self)) }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var value = encoder.singleValueContainer()
+        switch self {
+        case .string(let item): try value.encode(item)
+        case .number(let item): try value.encode(item)
+        case .bool(let item): try value.encode(item)
+        case .object(let item): try value.encode(item)
+        case .array(let item): try value.encode(item)
+        case .null: try value.encodeNil()
+        }
+    }
+}
+
+public struct EasyVMMachineSummary: Codable, Equatable, Sendable {
+    public let name: String
+    public let path: String
+    public let osType: String
+    public let cpuCount: Int?
+    public let memoryBytes: UInt64?
+    public let valid: Bool
+    public let problems: [String]
+}
+
+public struct EasyVMHeadlessRecord: Codable, Equatable, Sendable {
+    public let schemaVersion: Int
+    public let pid: Int32
+    public let machinePath: String
+    public let phase: String
+    public let message: String?
+    public let updatedAt: Date
+}
+
+public struct EasyVMMachineInspector {
+    public static let bundleExtensions = ["ezvm", "easyvm"]
+    private let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) { self.fileManager = fileManager }
+
+    public func discover(roots: [URL]) -> [URL] {
+        var seen = Set<String>()
+        var machines: [URL] = []
+        for root in roots {
+            let root = root.standardizedFileURL
+            guard let children = try? fileManager.contentsOfDirectory(
+                at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+            for child in children {
+                guard let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
+                      values.isDirectory == true, values.isSymbolicLink != true,
+                      fileManager.fileExists(atPath: child.appendingPathComponent("config.json").path) else { continue }
+                let path = child.standardizedFileURL.path
+                if seen.insert(path).inserted { machines.append(child.standardizedFileURL) }
+            }
+        }
+        return machines.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+    }
+
+    public func inspect(_ machineURL: URL) -> EasyVMMachineSummary {
+        let url = machineURL.standardizedFileURL
+        var problems: [String] = []
+        if isSymbolicLink(url) { problems.append("machine path is a symbolic link") }
+        let configURL = url.appendingPathComponent("config.json")
+        guard let data = try? Data(contentsOf: configURL),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return EasyVMMachineSummary(name: url.deletingPathExtension().lastPathComponent, path: url.path,
+                                        osType: "unknown", cpuCount: nil, memoryBytes: nil,
+                                        valid: false, problems: problems + ["config.json is missing or invalid JSON"])
+        }
+        let name = raw["name"] as? String ?? url.deletingPathExtension().lastPathComponent
+        let type = raw["type"] as? String ?? "unknown"
+        if !["macOS", "linux"].contains(type) { problems.append("unsupported guest type: \(type)") }
+        let cpu = integer(in: raw["cpu"])
+        let memory = unsignedInteger(in: raw["memory"])
+        if cpu == nil || cpu == 0 { problems.append("CPU count is missing or zero") }
+        if memory == nil || memory == 0 { problems.append("memory size is missing or zero") }
+        validateReferencedFiles(raw: raw, root: url, problems: &problems)
+        return EasyVMMachineSummary(name: name, path: url.path, osType: type, cpuCount: cpu,
+                                    memoryBytes: memory, valid: problems.isEmpty, problems: problems.sorted())
+    }
+
+    public func resolve(_ target: String, roots: [URL]) throws -> URL {
+        let explicit = URL(fileURLWithPath: target)
+        if target.contains("/") || explicit.path == target, fileManager.fileExists(atPath: explicit.path) {
+            return explicit.standardizedFileURL
+        }
+        let matches = discover(roots: roots).filter {
+            $0.lastPathComponent == target || $0.deletingPathExtension().lastPathComponent == target
+        }
+        guard matches.count == 1 else {
+            if matches.isEmpty { throw InspectionError.notFound(target) }
+            throw InspectionError.ambiguous(target)
+        }
+        return matches[0]
+    }
+
+    private func validateReferencedFiles(raw: [String: Any], root: URL, problems: inout [String]) {
+        guard let devices = raw["storageDevices"] as? [[String: Any]] else {
+            problems.append("storageDevices is missing")
+            return
+        }
+        for device in devices {
+            guard let path = device["imagePath"] as? String, !path.isEmpty else {
+                problems.append("a storage device has no imagePath")
+                continue
+            }
+            let isAbsolute = path.hasPrefix("/")
+            if !isAbsolute, path.split(separator: "/").contains("..") {
+                problems.append("storage path escapes the machine bundle: \(path)")
+                continue
+            }
+            let candidate = isAbsolute ? URL(fileURLWithPath: path) : root.appendingPathComponent(path)
+            let containsSymlink = isAbsolute ? isSymbolicLink(candidate) : relativePathContainsSymlink(root: root, path: path)
+            if containsSymlink {
+                problems.append("storage path contains a symbolic link: \(path)")
+            }
+            else if !fileManager.fileExists(atPath: candidate.path) { problems.append("storage file is missing: \(path)") }
+        }
+    }
+
+    private func integer(in value: Any?) -> Int? {
+        if let number = value as? NSNumber { return number.intValue }
+        if let object = value as? [String: Any] {
+            for key in ["count", "value", "cpuCount"] where object[key] != nil { return integer(in: object[key]) }
+        }
+        return nil
+    }
+
+    private func unsignedInteger(in value: Any?) -> UInt64? {
+        if let number = value as? NSNumber { return number.uint64Value }
+        if let object = value as? [String: Any] {
+            for key in ["size", "value", "memorySize"] where object[key] != nil { return unsignedInteger(in: object[key]) }
+        }
+        return nil
+    }
+
+    private func relativePathContainsSymlink(root: URL, path: String) -> Bool {
+        var current = root
+        for component in path.split(separator: "/") {
+            current.appendPathComponent(String(component))
+            if isSymbolicLink(current) { return true }
+        }
+        return false
+    }
+
+    private func isSymbolicLink(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true
+    }
+
+    public enum InspectionError: LocalizedError, Equatable {
+        case notFound(String), ambiguous(String)
+        public var errorDescription: String? {
+            switch self {
+            case .notFound(let value): "No machine matches '\(value)'."
+            case .ambiguous(let value): "More than one machine matches '\(value)'; use an absolute path."
+            }
+        }
+    }
+}
+
+public struct EasyVMCLI {
+    public let inspector: EasyVMMachineInspector
+    public init(inspector: EasyVMMachineInspector = .init()) { self.inspector = inspector }
+
+    public func run(arguments: [String], environment: [String: String] = ProcessInfo.processInfo.environment) -> (EasyVMCLIExit, EasyVMCLIResponse) {
+        let parsed: Parsed
+        do { parsed = try parse(arguments: arguments, environment: environment) }
+        catch { return (.invalidArguments, .init(command: "unknown", code: "invalid_arguments", message: error.localizedDescription)) }
+        switch parsed.command {
+        case "list":
+            guard parsed.target == nil else { return unexpectedTarget("list") }
+            let values = inspector.discover(roots: parsed.roots).map(inspector.inspect).map(summaryJSON)
+            return (.success, .init(command: "list", result: .array(values)))
+        case "inspect", "validate":
+            guard let target = parsed.target else {
+                return (.invalidArguments, .init(command: parsed.command, code: "invalid_arguments", message: "A machine name or path is required."))
+            }
+            do {
+                let summary = inspector.inspect(try inspector.resolve(target, roots: parsed.roots))
+                if parsed.command == "validate", !summary.valid {
+                    return (.invalidMachine, .init(command: "validate", code: "invalid_machine", message: summary.problems.joined(separator: "; ")))
+                }
+                return (.success, .init(command: parsed.command, result: summaryJSON(summary)))
+            } catch let error as EasyVMMachineInspector.InspectionError {
+                return (.notFound, .init(command: parsed.command, code: "machine_not_found", message: error.localizedDescription))
+            } catch {
+                return (.internalError, .init(command: parsed.command, code: "internal_error", message: error.localizedDescription))
+            }
+        case "doctor":
+            guard parsed.target == nil else { return unexpectedTarget("doctor") }
+            let arm64 = ProcessInfo.processInfo.machineArchitecture == "arm64"
+            let os26 = ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26
+            let roots = parsed.roots.map { root in
+                JSONValue.object(["path": .string(root.path), "readable": .bool(FileManager.default.isReadableFile(atPath: root.path))])
+            }
+            return (arm64 && os26 ? .success : .unavailable, .init(command: "doctor", result: .object([
+                "architecture": .string(ProcessInfo.processInfo.machineArchitecture),
+                "appleSilicon": .bool(arm64), "macOS26OrLater": .bool(os26), "roots": .array(roots)
+            ])))
+        case "start":
+            return start(parsed)
+        case "status":
+            return status(parsed)
+        case "stop":
+            return stop(parsed)
+        default:
+            return (.invalidArguments, .init(command: parsed.command, code: "unknown_command", message: "Unknown command '\(parsed.command)'."))
+        }
+    }
+
+    public func encode(_ response: EasyVMCLIResponse) throws -> Data {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(response) + Data([0x0a])
+    }
+
+    private struct Parsed { let command: String; let target: String?; let roots: [URL]; let timeout: TimeInterval }
+    private func parse(arguments: [String], environment: [String: String]) throws -> Parsed {
+        guard let command = arguments.first else { throw ParseError("Usage: easyvm <list|inspect|validate|doctor> [machine] [--root path]") }
+        var index = 1, target: String?, roots: [URL] = []
+        var timeout: TimeInterval = 30
+        while index < arguments.count {
+            if arguments[index] == "--root" {
+                guard index + 1 < arguments.count else { throw ParseError("--root requires a path") }
+                roots.append(URL(fileURLWithPath: arguments[index + 1])); index += 2
+            } else if arguments[index] == "--timeout" {
+                guard index + 1 < arguments.count, let value = Double(arguments[index + 1]), value >= 1, value <= 300 else {
+                    throw ParseError("--timeout must be between 1 and 300 seconds")
+                }
+                timeout = value; index += 2
+            } else if target == nil { target = arguments[index]; index += 1 }
+            else { throw ParseError("Unexpected argument: \(arguments[index])") }
+        }
+        if roots.isEmpty {
+            let home = environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
+            roots = [URL(fileURLWithPath: home).appendingPathComponent("Easy Virtual Machines")]
+        }
+        return Parsed(command: command, target: target, roots: roots, timeout: timeout)
+    }
+
+    private func start(_ parsed: Parsed) -> (EasyVMCLIExit, EasyVMCLIResponse) {
+        guard let target = parsed.target else { return missingTarget("start") }
+        do {
+            let machine = try inspector.resolve(target, roots: parsed.roots)
+            let summary = inspector.inspect(machine)
+            guard summary.valid else {
+                return (.invalidMachine, .init(command: "start", code: "invalid_machine", message: summary.problems.joined(separator: "; ")))
+            }
+            let stateURL = headlessStateURL(for: machine)
+            if let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record.pid) {
+                return (.invalidMachine, .init(command: "start", code: "already_running", message: "The machine already has a headless process."))
+            }
+            try? FileManager.default.removeItem(at: stateURL)
+            guard let executable = hostAppExecutable() else {
+                return (.unavailable, .init(command: "start", code: "host_app_unavailable", message: "Could not locate the EasyVM application executable."))
+            }
+            let process = Process()
+            process.executableURL = executable
+            process.arguments = ["--easyvm-headless", machine.path, "--state-file", stateURL.path]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            let deadline = Date().addingTimeInterval(parsed.timeout)
+            while Date() < deadline {
+                if let record = readHeadlessState(stateURL), record.pid == process.processIdentifier {
+                    if record.phase == "running" || record.phase == "paused" {
+                        return (.success, .init(command: "start", result: headlessJSON(record)))
+                    }
+                    if record.phase == "failed" {
+                        return (.internalError, .init(command: "start", code: "start_failed", message: record.message ?? "The virtual machine failed to start."))
+                    }
+                }
+                if !process.isRunning { break }
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            if process.isRunning { kill(process.processIdentifier, SIGTERM) }
+            return (.unavailable, .init(command: "start", code: "start_timeout", message: "The virtual machine did not reach running state within \(Int(parsed.timeout)) seconds."))
+        } catch let error as EasyVMMachineInspector.InspectionError {
+            return (.notFound, .init(command: "start", code: "machine_not_found", message: error.localizedDescription))
+        } catch {
+            return (.internalError, .init(command: "start", code: "start_failed", message: error.localizedDescription))
+        }
+    }
+
+    private func status(_ parsed: Parsed) -> (EasyVMCLIExit, EasyVMCLIResponse) {
+        guard let target = parsed.target else { return missingTarget("status") }
+        do {
+            let machine = try inspector.resolve(target, roots: parsed.roots)
+            guard let record = readHeadlessState(headlessStateURL(for: machine)), isExpectedHeadlessProcess(record.pid) else {
+                return (.success, .init(command: "status", result: .object([
+                    "machinePath": .string(machine.path), "phase": .string("stopped")
+                ])))
+            }
+            return (.success, .init(command: "status", result: headlessJSON(record)))
+        } catch let error as EasyVMMachineInspector.InspectionError {
+            return (.notFound, .init(command: "status", code: "machine_not_found", message: error.localizedDescription))
+        } catch {
+            return (.internalError, .init(command: "status", code: "internal_error", message: error.localizedDescription))
+        }
+    }
+
+    private func stop(_ parsed: Parsed) -> (EasyVMCLIExit, EasyVMCLIResponse) {
+        guard let target = parsed.target else { return missingTarget("stop") }
+        do {
+            let machine = try inspector.resolve(target, roots: parsed.roots)
+            let stateURL = headlessStateURL(for: machine)
+            guard let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record.pid) else {
+                try? FileManager.default.removeItem(at: stateURL)
+                return (.notFound, .init(command: "stop", code: "not_running", message: "The machine has no active headless process."))
+            }
+            guard kill(record.pid, SIGTERM) == 0 else {
+                return (.internalError, .init(command: "stop", code: "signal_failed", message: String(cString: strerror(errno))))
+            }
+            let deadline = Date().addingTimeInterval(parsed.timeout)
+            while Date() < deadline {
+                if let updated = readHeadlessState(stateURL), updated.phase == "stopped" {
+                    return (.success, .init(command: "stop", result: headlessJSON(updated)))
+                }
+                if kill(record.pid, 0) != 0 { break }
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            if kill(record.pid, 0) != 0 {
+                return (.success, .init(command: "stop", result: .object([
+                    "machinePath": .string(machine.path), "phase": .string("stopped")
+                ])))
+            }
+            return (.unavailable, .init(command: "stop", code: "stop_timeout", message: "The guest did not stop within \(Int(parsed.timeout)) seconds."))
+        } catch let error as EasyVMMachineInspector.InspectionError {
+            return (.notFound, .init(command: "stop", code: "machine_not_found", message: error.localizedDescription))
+        } catch {
+            return (.internalError, .init(command: "stop", code: "internal_error", message: error.localizedDescription))
+        }
+    }
+
+    private func missingTarget(_ command: String) -> (EasyVMCLIExit, EasyVMCLIResponse) {
+        (.invalidArguments, .init(command: command, code: "invalid_arguments", message: "A machine name or path is required."))
+    }
+
+    private func unexpectedTarget(_ command: String) -> (EasyVMCLIExit, EasyVMCLIResponse) {
+        (.invalidArguments, .init(command: command, code: "invalid_arguments", message: "The \(command) command does not accept a machine target."))
+    }
+
+    private func headlessStateURL(for machine: URL) -> URL {
+        let digest = SHA256.hash(data: Data(machine.standardizedFileURL.path.utf8)).map { String(format: "%02x", $0) }.joined()
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("EasyVM/Headless", isDirectory: true)
+        return base.appendingPathComponent("\(digest).json")
+    }
+
+    private func readHeadlessState(_ url: URL) -> EasyVMHeadlessRecord? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(EasyVMHeadlessRecord.self, from: data)
+    }
+
+    private func hostAppExecutable() -> URL? {
+        if let override = ProcessInfo.processInfo.environment["EASYVM_APP_EXECUTABLE"],
+           FileManager.default.isExecutableFile(atPath: override) { return URL(fileURLWithPath: override) }
+        let helperDirectory = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
+        let appExecutable = helperDirectory.deletingLastPathComponent().appendingPathComponent("MacOS/EasyVM")
+        return FileManager.default.isExecutableFile(atPath: appExecutable.path) ? appExecutable : nil
+    }
+
+    private func isExpectedHeadlessProcess(_ pid: Int32) -> Bool {
+        guard pid > 1, kill(pid, 0) == 0 else { return false }
+        var buffer = [CChar](repeating: 0, count: 4096)
+        let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
+        guard length > 0 else { return false }
+        return URL(fileURLWithPath: String(cString: buffer)).lastPathComponent == "EasyVM"
+    }
+
+    private func headlessJSON(_ value: EasyVMHeadlessRecord) -> JSONValue {
+        .object(["pid": .number(Double(value.pid)), "machinePath": .string(value.machinePath),
+                 "phase": .string(value.phase), "message": value.message.map(JSONValue.string) ?? .null,
+                 "updatedAt": .string(ISO8601DateFormatter().string(from: value.updatedAt))])
+    }
+
+    private func summaryJSON(_ value: EasyVMMachineSummary) -> JSONValue {
+        .object(["name": .string(value.name), "path": .string(value.path), "osType": .string(value.osType),
+                 "cpuCount": value.cpuCount.map { .number(Double($0)) } ?? .null,
+                 "memoryBytes": value.memoryBytes.map { .number(Double($0)) } ?? .null,
+                 "valid": .bool(value.valid), "problems": .array(value.problems.map(JSONValue.string))])
+    }
+    private struct ParseError: LocalizedError { let message: String; init(_ message: String) { self.message = message }; var errorDescription: String? { message } }
+}
+
+private extension ProcessInfo {
+    var machineArchitecture: String {
+        var value = utsname(); uname(&value)
+        return withUnsafePointer(to: &value.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) { String(cString: $0) }
+        }
+    }
+}

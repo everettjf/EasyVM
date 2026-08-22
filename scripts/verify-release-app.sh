@@ -21,6 +21,9 @@ done
 
 executable="$app_path/Contents/MacOS/EasyVM"
 [[ -x "$executable" ]] || fail "application executable not found: $executable"
+cli="$app_path/Contents/Helpers/easyvm"
+[[ -x "$cli" ]] || fail "CLI executable not found: $cli"
+"$cli" doctor | ruby -rjson -e 'JSON.parse(STDIN.read)'
 
 codesign --verify --deep --strict --verbose=2 "$app_path"
 spctl --assess --type execute --verbose=4 "$app_path"

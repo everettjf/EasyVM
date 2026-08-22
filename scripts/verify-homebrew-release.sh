@@ -29,6 +29,7 @@ installed_version="$(brew list --cask --versions easyvm | awk '{print $2}')"
   fail "Homebrew installed $installed_version, expected $version"
 
 "$project_root/scripts/verify-release-app.sh" /Applications/EasyVM.app "$version"
+"$project_root/scripts/verify-release-cli.sh" /Applications/EasyVM.app "$vm_path"
 "$project_root/scripts/verify-release-vm.sh" /Applications/EasyVM.app "$vm_path"
 
 echo "Verified published Homebrew release EasyVM $version."

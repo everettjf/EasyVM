@@ -7,6 +7,8 @@ let package = Package(
     platforms: [.macOS("26.0")],
     products: [
         .library(name: "EasyVMCore", targets: ["EasyVMCore"]),
+        .library(name: "EasyVMCLIKit", targets: ["EasyVMCLIKit"]),
+        .executable(name: "easyvm", targets: ["easyvm"]),
     ],
     targets: [
         .target(
@@ -43,6 +45,16 @@ let package = Package(
         .testTarget(
             name: "EasyVMCoreTests",
             dependencies: ["EasyVMCore"]
+        ),
+        .target(name: "EasyVMCLIKit", path: "CLI/Kit"),
+        .executableTarget(
+            name: "easyvm",
+            dependencies: ["EasyVMCLIKit"],
+            path: "CLI/Executable"
+        ),
+        .testTarget(
+            name: "EasyVMCLIKitTests",
+            dependencies: ["EasyVMCLIKit"]
         ),
     ]
 )

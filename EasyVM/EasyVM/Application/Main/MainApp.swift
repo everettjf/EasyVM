@@ -15,8 +15,12 @@ struct MainApp: App {
 #if arch(arm64)
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .frame(minWidth: 800, minHeight: 600)
+            if HeadlessLaunchConfiguration.current == nil {
+                ContentView()
+                    .frame(minWidth: 800, minHeight: 600)
+            } else {
+                EmptyView()
+            }
         }
         
         Window("Create Virtual Machine Guide", id: "create-machine-guide") {

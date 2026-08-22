@@ -54,7 +54,7 @@ evidence that a restricted entitlement is distributable.
 | Saved machine state | Stable | Saves and restores runtime state on macOS 14 and later. | Detect disk/config divergence before restore. |
 | Recovery boot for macOS | Stable | Opens a macOS VM using recovery start options. | Add an automated smoke scenario. |
 | Single-owner VM lease | Stable | Prevents the same VM bundle from running twice. | Extend to future CLI/service processes. |
-| Headless execution | Planned | The engine is currently window-oriented. | Separate display ownership from VM lifetime. |
+| Headless execution | Stable | The CLI launches a non-activating signed EasyVM process, reports lifecycle state, and supports bounded stop fallback without presenting a VM window. | Share cross-process leases with GUI and add launch-at-login supervision. |
 | Multi-VM resource policy | Planned | Multiple machines can exist, but there is no scheduler. | Add CPU/memory pressure limits and launch warnings. |
 
 ### Virtual devices and interaction
@@ -126,7 +126,7 @@ evidence that a restricted entitlement is distributable.
 | Graceful guest operations | Partial | The authenticated agent handles explicit UI shutdown and restart commands. | Add command-result visibility and audit history. |
 | Host/guest file transfer | Stable | Capability-negotiated agent transfers use bounded chunks, progress/cancel UI, streaming SHA-256, symlink rejection, and atomic destination replacement. | Add a persistent multi-job queue and drag-and-drop destinations. |
 | Drag and drop | Planned | Not implemented. | Map drops to an explicit transfer destination through the agent. |
-| CLI (`easyvm`) | Planned | No stable command contract exists. | Start read-only, then add bounded mutations. |
+| CLI (`easyvm`) | Stable | Homebrew installs `easyvm` with schema-v1 JSON `list`, `inspect`, `validate`, `doctor`, `start`, `status`, and `stop`; mutations require an exact target and bounded timeout. | Add clone/export commands after cross-process lease enforcement. |
 | Local API/MCP surface | Backlog | Not implemented. | Only after CLI schemas and authorization are stable. |
 | Shortcuts and URL actions | Backlog | Not implemented. | Add after lifecycle commands are safe and idempotent. |
 
@@ -216,10 +216,10 @@ Exit criteria:
 Work:
 
 1. Extract VM inspection and lifecycle operations into a reusable service layer.
-2. Introduce read-only CLI commands: `list`, `inspect`, `validate`, and `doctor`.
-3. Return versioned JSON and deterministic exit codes.
-4. Add `start`, `stop`, `clone`, and `delete` with timeouts and confirmation rules.
-5. Add headless mode for VMs that do not require a visible display.
+2. Introduce read-only CLI commands: `list`, `inspect`, `validate`, and `doctor`. **Done.**
+3. Return versioned JSON and deterministic exit codes. **Done.**
+4. Add bounded `start`, `status`, and `stop`; add clone/delete only after cross-process leases. **Start/status/stop done.**
+5. Add headless mode for VMs that do not require a visible display. **Done.**
 6. Consider a local MCP interface only after the CLI contract is stable.
 
 Exit criteria:

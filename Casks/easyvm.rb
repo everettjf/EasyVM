@@ -14,6 +14,7 @@ cask "easyvm" do
   depends_on macos: :tahoe
 
   app "EasyVM.app"
+  binary "#{appdir}/EasyVM.app/Contents/Helpers/easyvm"
 
   zap trash: [
     "~/Library/Application Support/EasyVM",

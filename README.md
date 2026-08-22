@@ -29,6 +29,7 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 - Takes, restores, and deletes snapshots of a stopped machine (APFS copy-on-write clones)
 - Clones stopped machines with a new hardware identity and imports/exports checksum-verified `.easyvmexport` packages
 - Integrates with an optional authenticated Linux guest agent for readiness, IP reporting, SSH links, safe file transfer, and explicit shutdown/restart commands
+- Installs an `easyvm` CLI with versioned JSON inspection, validation, diagnostics, and headless start/status/stop commands
 - Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories
 - Uses Apple's native virtualization stack—no bundled hypervisor or cross-architecture emulation
 - Keeps the app and its VM configuration format intentionally small
@@ -48,6 +49,27 @@ brew install --cask everettjf/tap/easyvm
 ```
 
 Or download the archive from [GitHub Releases](https://github.com/everettjf/easyvm/releases/latest).
+
+### Command line and headless mode
+
+The Homebrew cask links `easyvm` into Homebrew's executable prefix. Every
+command writes one schema-versioned JSON object and uses deterministic exit
+codes, making it suitable for local scripts:
+
+```sh
+easyvm list
+easyvm inspect "My Linux VM"
+easyvm validate "/path/to/My VM.ezvm"
+easyvm doctor
+easyvm start "My Linux VM" --timeout 90
+easyvm status "My Linux VM"
+easyvm stop "My Linux VM" --timeout 30
+```
+
+Use `--root /path/to/library` one or more times when machines are stored outside
+`~/Easy Virtual Machines`. Headless mode runs the signed EasyVM virtualization
+process without presenting a VM window. Stop first requests a guest shutdown
+and uses a bounded force-stop fallback.
 
 ## Build from source
 

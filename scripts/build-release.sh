@@ -46,6 +46,14 @@ xcodebuild \
   build
 
 app_path="$derived_data/Build/Products/Release/EasyVM.app"
+(cd "$project_root" && swift build -c release --product easyvm --disable-sandbox)
+cli_bin_dir="$(cd "$project_root" && swift build -c release --disable-sandbox --show-bin-path)"
+cli_path="$cli_bin_dir/easyvm"
+[[ -x "$cli_path" ]] || { echo "CLI executable not found: $cli_path" >&2; exit 66; }
+mkdir -p "$app_path/Contents/Helpers"
+cp "$cli_path" "$app_path/Contents/Helpers/easyvm"
+chmod 755 "$app_path/Contents/Helpers/easyvm"
+
 signing_identity="${EASYVM_SIGNING_IDENTITY:--}"
 entitlements_path="$project_root/EasyVM/EasyVM/EasyVM.entitlements"
 
