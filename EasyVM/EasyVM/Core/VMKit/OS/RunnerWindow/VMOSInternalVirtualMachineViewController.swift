@@ -128,7 +128,12 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // callbacks elsewhere would clear the registry without transitioning
         // the scene to `.stopped`, leaving an unusable stopped window alive.
         virtualMachine.delegate = self
-        virtualMachineView.virtualMachine = virtualMachine
+        // A headless runtime has no window hierarchy. Binding its machine to an
+        // unattached VZVirtualMachineView makes automatic display negotiation
+        // stall VM startup on recent macOS releases.
+        if HeadlessLaunchConfiguration.current == nil {
+            virtualMachineView.virtualMachine = virtualMachine
+        }
 
 
         if recoveryMode {
@@ -253,9 +258,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             }
             return
         }
-        startScreenshotTimer()
-        updateBalloonMemoryState()
-        startGuestAgent(model: model)
+        // Headless CLI processes must not initialize UI-only services or make
+        // an interactive Keychain query. Blocking here would prevent the
+        // runtime-state timer from ever publishing the already-running VM.
+        if HeadlessLaunchConfiguration.current == nil {
+            startScreenshotTimer()
+            updateBalloonMemoryState()
+            startGuestAgent(model: model)
+        }
     }
 
     private func startReleaseGuestAgentSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {

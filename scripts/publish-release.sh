@@ -75,17 +75,21 @@ archive="$release_dir/EasyVM-$version.zip"
 checksum="$archive.sha256"
 guest_archive="$release_dir/EasyVM-GuestAgent-$version-linux-arm64.tar.gz"
 guest_checksum="$guest_archive.sha256"
+source_commit_file="$release_dir/source-commit"
+source_commit="$(git -C "$project_root" rev-parse HEAD)"
 
-if [[ -f "$archive" && -f "$checksum" && -f "$guest_archive" && -f "$guest_checksum" ]] && \
+if [[ -f "$source_commit_file" && "$(tr -d '\r\n' <"$source_commit_file")" == "$source_commit" && \
+      -f "$archive" && -f "$checksum" && -f "$guest_archive" && -f "$guest_checksum" ]] && \
    (cd "$release_dir" && shasum -a 256 -c "$(basename "$checksum")" "$(basename "$guest_checksum")"); then
   echo "Reusing verified EasyVM $version release artifacts from $release_dir"
 else
-  rm -f "$archive" "$checksum" "$guest_archive" "$guest_checksum" "$release_dir/notarized"
+  rm -f "$archive" "$checksum" "$guest_archive" "$guest_checksum" "$release_dir/notarized" "$source_commit_file"
   rm -rf "$derived_data"
   EASYVM_SIGNING_IDENTITY="$signing_identity" \
   EASYVM_DERIVED_DATA="$derived_data" \
     "$project_root/scripts/build-release.sh" "$version" "$release_dir"
   "$project_root/scripts/build-guest-agent.sh" "$version" "$release_dir"
+  printf '%s\n' "$source_commit" >"$source_commit_file"
 fi
 
 if [[ ! -f "$release_dir/notarized" ]]; then
