@@ -36,6 +36,8 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertEqual(snapshot.backend, .apfsClone)
         XCTAssertTrue(snapshot.diskLayers.isEmpty)
         XCTAssertGreaterThan(snapshot.totalSize ?? 0, 0)
+        XCTAssertFalse(snapshot.fileManifest?.isEmpty ?? true)
+        XCTAssertTrue(VMSnapshotManager.auditSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot).isValid)
 
         try write("changed config", to: "config.json")
         try FileManager.default.removeItem(at: temporaryRoot.appendingPathComponent("Disk.img"))
@@ -80,6 +82,73 @@ final class VMSnapshotManagerTests: XCTestCase {
         try FileManager.default.createDirectory(at: corruptDirectory, withIntermediateDirectories: true)
         try Data("not json".utf8).write(to: corruptDirectory.appendingPathComponent("snapshot.json"))
 
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
+    }
+
+    func testListSnapshotsRejectsMetadataWhoseIdentifierDoesNotMatchDirectory() throws {
+        try write("disk", to: "Disk.img")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Original")
+        )
+        let metadataURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+            .appendingPathComponent(snapshot.id)
+            .appendingPathComponent("snapshot.json")
+        var object = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as? [String: Any])
+        object["id"] = UUID().uuidString
+        try JSONSerialization.data(withJSONObject: object).write(to: metadataURL, options: .atomic)
+
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
+        XCTAssertFalse(VMSnapshotManager.auditSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot).isValid)
+    }
+
+    func testAuditDetectsChecksumChangeAndRestoreLeavesMachineUntouched() throws {
+        try write("original config", to: "config.json")
+        try write("original disk", to: "Disk.img")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Protected data")
+        )
+        let snapshotConfig = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+            .appendingPathComponent(snapshot.id)
+            .appendingPathComponent("files/config.json")
+        try Data("tampered config".utf8).write(to: snapshotConfig)
+        try write("current config", to: "config.json")
+
+        let report = VMSnapshotManager.auditSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot)
+        XCTAssertFalse(report.isValid)
+        XCTAssertTrue(report.errors.contains { $0.contains("config.json") })
+        if case .success = VMSnapshotManager.restoreSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot) {
+            XCTFail("A corrupt snapshot must not be restored")
+        }
+        XCTAssertEqual(try read("config.json"), "current config")
+    }
+
+    func testAuditDetectsTruncatedLargeFileByLogicalSize() throws {
+        try Data(repeating: 0x5a, count: 17 * 1024 * 1024).write(
+            to: temporaryRoot.appendingPathComponent("Disk.img")
+        )
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Large disk")
+        )
+        let snapshotDisk = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+            .appendingPathComponent(snapshot.id)
+            .appendingPathComponent("files/Disk.img")
+        try FileHandle(forWritingTo: snapshotDisk).truncate(atOffset: 1024)
+
+        let report = VMSnapshotManager.auditSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot)
+        XCTAssertFalse(report.isValid)
+        XCTAssertTrue(report.errors.contains { $0.contains("size changed") })
+    }
+
+    func testSnapshotCreationRejectsSymbolicLinksAndCleansPartialSnapshot() throws {
+        try write("disk", to: "Disk.img")
+        try FileManager.default.createSymbolicLink(
+            at: temporaryRoot.appendingPathComponent("unsafe-link"),
+            withDestinationURL: URL(fileURLWithPath: "/tmp")
+        )
+
+        if case .success = VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Unsafe") {
+            XCTFail("Snapshots containing symbolic links must be rejected")
+        }
         XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
     }
 

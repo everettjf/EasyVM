@@ -167,6 +167,29 @@ class MachineSnapshotsViewStateObject {
         if case let .failure(error) = result { message = error }
         reload()
     }
+
+    func auditSnapshots() {
+        isWorking = true
+        message = "Auditing snapshot integrity ..."
+        let rootPath = self.rootPath
+        let snapshots = self.snapshots
+        Task.detached {
+            let reports = snapshots.map { ($0, VMSnapshotManager.auditSnapshot(vmRootPath: rootPath, snapshot: $0)) }
+            let invalid = reports.filter { !$0.1.isValid }
+            let warningCount = reports.reduce(0) { $0 + $1.1.warnings.count }
+            await MainActor.run {
+                self.isWorking = false
+                if invalid.isEmpty {
+                    self.message = warningCount == 0
+                        ? "All \(reports.count) snapshots passed integrity checks"
+                        : "All snapshots are structurally valid; \(warningCount) legacy warning(s)"
+                } else {
+                    let names = invalid.map { $0.0.name }.joined(separator: ", ")
+                    self.message = "\(invalid.count) snapshot(s) failed integrity checks: \(names)"
+                }
+            }
+        }
+    }
 }
 
 
@@ -365,6 +388,13 @@ struct MachineSnapshotsView: View {
                     Text("Create Snapshot")
                 }
                 .disabled(state.isWorking || isMachineRunning)
+                Button {
+                    state.auditSnapshots()
+                } label: {
+                    Image(systemName: "checkmark.shield")
+                    Text("Audit")
+                }
+                .disabled(state.isWorking || state.snapshots.isEmpty)
             }
 
             if state.snapshots.isEmpty {

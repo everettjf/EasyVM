@@ -280,7 +280,12 @@ struct VMDiskImageManager {
     }
 
     static func create(format: VMDiskImageFormat, at url: URL, size: UInt64) -> VMOSResultVoid {
-        guard !FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
+        if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+            guard format == .raw,
+                  let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                  UInt64(fileSize) == size else {
+                return .failure("A disk image already exists at the destination with a different format or size.")
+            }
             return .success
         }
 
@@ -291,7 +296,9 @@ struct VMDiskImageManager {
             guard let command = creationCommand(format: format, url: url, size: size) else {
                 return .failure("Could not prepare the ASIF creation command.")
             }
-            return run(command)
+            let result = run(command)
+            if case .failure = result { try? FileManager.default.removeItem(at: url) }
+            return result
         }
     }
 
@@ -302,7 +309,25 @@ struct VMDiskImageManager {
         guard !FileManager.default.fileExists(atPath: destinationURL.path(percentEncoded: false)) else {
             return .failure("The destination disk image already exists.")
         }
-        return run(conversionCommand(sourceURL: sourceURL, destinationURL: destinationURL))
+        return convertRawToASIF(sourceURL: sourceURL, destinationURL: destinationURL, executor: run)
+    }
+
+    static func convertRawToASIF(
+        sourceURL: URL,
+        destinationURL: URL,
+        executor: (Command) -> VMOSResultVoid
+    ) -> VMOSResultVoid {
+        guard FileManager.default.fileExists(atPath: sourceURL.path(percentEncoded: false)) else {
+            return .failure("The source disk image does not exist.")
+        }
+        guard !FileManager.default.fileExists(atPath: destinationURL.path(percentEncoded: false)) else {
+            return .failure("The destination disk image already exists.")
+        }
+        let result = executor(conversionCommand(sourceURL: sourceURL, destinationURL: destinationURL))
+        if case .failure = result {
+            try? FileManager.default.removeItem(at: destinationURL)
+        }
+        return result
     }
 
     private static func createRaw(at url: URL, size: UInt64) -> VMOSResultVoid {
@@ -337,6 +362,33 @@ struct VMDiskImageManager {
         } catch {
             return .failure("Could not run diskutil: \(error.localizedDescription)")
         }
+    }
+}
+
+enum VMSavedStateStore {
+    static func pendingURL(for stateURL: URL) -> URL {
+        stateURL.appendingPathExtension("pending")
+    }
+
+    static func prepare(stateURL: URL) throws -> URL {
+        let pending = pendingURL(for: stateURL)
+        try? FileManager.default.removeItem(at: pending)
+        return pending
+    }
+
+    static func commit(pendingURL: URL, stateURL: URL) throws {
+        guard FileManager.default.fileExists(atPath: pendingURL.path(percentEncoded: false)) else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        if FileManager.default.fileExists(atPath: stateURL.path(percentEncoded: false)) {
+            _ = try FileManager.default.replaceItemAt(stateURL, withItemAt: pendingURL)
+        } else {
+            try FileManager.default.moveItem(at: pendingURL, to: stateURL)
+        }
+    }
+
+    static func discardPending(stateURL: URL) {
+        try? FileManager.default.removeItem(at: pendingURL(for: stateURL))
     }
 }
 

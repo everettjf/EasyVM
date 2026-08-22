@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 #if canImport(DiskImageKit)
 import DiskImageKit
 #endif
@@ -21,6 +22,19 @@ enum VMSnapshotBackend: String, Codable, CaseIterable {
 struct VMSnapshotDiskLayer: Codable, Equatable {
     let baseImageName: String
     let layerPaths: [String]
+}
+
+struct VMSnapshotFileRecord: Codable, Equatable {
+    let relativePath: String
+    let logicalSize: UInt64
+    let sha256: String?
+}
+
+struct VMSnapshotIntegrityReport: Equatable {
+    let errors: [String]
+    let warnings: [String]
+
+    var isValid: Bool { errors.isEmpty }
 }
 
 /*
@@ -50,6 +64,7 @@ struct VMSnapshotModel: Identifiable, Codable {
     let totalSize: UInt64?
     let backend: VMSnapshotBackend
     let diskLayers: [VMSnapshotDiskLayer]
+    let fileManifest: [VMSnapshotFileRecord]?
     var isProtected: Bool
 
     init(
@@ -60,6 +75,7 @@ struct VMSnapshotModel: Identifiable, Codable {
         totalSize: UInt64?,
         backend: VMSnapshotBackend = .apfsClone,
         diskLayers: [VMSnapshotDiskLayer] = [],
+        fileManifest: [VMSnapshotFileRecord]? = nil,
         isProtected: Bool = false
     ) {
         self.id = id
@@ -69,11 +85,12 @@ struct VMSnapshotModel: Identifiable, Codable {
         self.totalSize = totalSize
         self.backend = backend
         self.diskLayers = diskLayers
+        self.fileManifest = fileManifest
         self.isProtected = isProtected
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, createdAt, parentSnapshotID, totalSize, backend, diskLayers, isProtected
+        case id, name, createdAt, parentSnapshotID, totalSize, backend, diskLayers, fileManifest, isProtected
     }
 
     init(from decoder: Decoder) throws {
@@ -85,6 +102,7 @@ struct VMSnapshotModel: Identifiable, Codable {
         totalSize = try container.decodeIfPresent(UInt64.self, forKey: .totalSize)
         backend = try container.decodeIfPresent(VMSnapshotBackend.self, forKey: .backend) ?? .apfsClone
         diskLayers = try container.decodeIfPresent([VMSnapshotDiskLayer].self, forKey: .diskLayers) ?? []
+        fileManifest = try container.decodeIfPresent([VMSnapshotFileRecord].self, forKey: .fileManifest)
         isProtected = try container.decodeIfPresent(Bool.self, forKey: .isProtected) ?? false
     }
 
@@ -156,6 +174,7 @@ class VMSnapshotManager {
     private static let restoreStagingDirectoryName = ".restore-staging"
     private static let restoreBackupDirectoryName = ".restore-backup"
     private static let restoreTransactionFileName = ".restore-transaction.json"
+    private static let maximumHashedFileSize: UInt64 = 16 * 1024 * 1024
 
     private struct RestoreTransaction: Codable {
         let snapshotID: String
@@ -204,6 +223,7 @@ class VMSnapshotManager {
 
         var snapshots: [VMSnapshotModel] = []
         for id in ids {
+            guard UUID(uuidString: id) != nil else { continue }
             let metaURL = snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: id)
             guard let data = try? Data(contentsOf: metaURL) else {
                 continue
@@ -211,6 +231,7 @@ class VMSnapshotManager {
             guard let model = try? Self.jsonDecoder().decode(VMSnapshotModel.self, from: data) else {
                 continue
             }
+            guard model.id == id else { continue }
             snapshots.append(model)
         }
         return snapshots.sorted { $0.createdAt > $1.createdAt }
@@ -342,13 +363,16 @@ class VMSnapshotManager {
                 try FileManager.default.copyItem(at: sourceURL, to: targetURL)
             }
 
+            let manifest = try createFileManifest(rootURL: filesDir)
+
             let model = VMSnapshotModel(
                 id: snapshotId,
                 name: name,
                 createdAt: Date(),
                 parentSnapshotID: currentSnapshotID(vmRootPath: vmRootPath),
                 totalSize: directoryAllocatedSize(filesDir),
-                backend: .apfsClone
+                backend: .apfsClone,
+                fileManifest: manifest
             )
 
             let data = try Self.jsonEncoder().encode(model)
@@ -372,6 +396,10 @@ class VMSnapshotManager {
             return restoreLayeredSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
         }
 #endif
+        let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
+        guard integrity.isValid else {
+            return .failure("Snapshot integrity check failed: \(integrity.errors.joined(separator: "; "))")
+        }
         let fm = FileManager.default
         let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
 
@@ -450,6 +478,62 @@ class VMSnapshotManager {
         try? fm.removeItem(at: backupDir)
         try? fm.removeItem(at: transactionURL)
         return .success
+    }
+
+    static func auditSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMSnapshotIntegrityReport {
+        var errors: [String] = []
+        var warnings: [String] = []
+        guard UUID(uuidString: snapshot.id) != nil else {
+            return VMSnapshotIntegrityReport(errors: ["The snapshot identifier is invalid."], warnings: [])
+        }
+
+        let directory = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
+        let metadataURL = snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
+        let filesURL = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
+        guard directory.standardizedFileURL.deletingLastPathComponent() == snapshotsRootURL(vmRootPath: vmRootPath).standardizedFileURL else {
+            return VMSnapshotIntegrityReport(errors: ["The snapshot directory escapes the snapshot store."], warnings: [])
+        }
+
+        if let data = try? Data(contentsOf: metadataURL),
+           let stored = try? jsonDecoder().decode(VMSnapshotModel.self, from: data) {
+            if stored.id != snapshot.id { errors.append("The metadata identifier does not match its directory.") }
+        } else {
+            errors.append("The snapshot metadata is missing or unreadable.")
+        }
+
+        guard FileManager.default.fileExists(atPath: filesURL.path(percentEncoded: false)) else {
+            errors.append("The snapshot files directory is missing.")
+            return VMSnapshotIntegrityReport(errors: errors, warnings: warnings)
+        }
+
+        do {
+            let actual = try createFileManifest(rootURL: filesURL)
+            if let expected = snapshot.fileManifest {
+                let actualByPath = Dictionary(uniqueKeysWithValues: actual.map { ($0.relativePath, $0) })
+                let expectedPaths = Set(expected.map(\.relativePath))
+                for record in expected {
+                    guard let current = actualByPath[record.relativePath] else {
+                        errors.append("Missing snapshot file: \(record.relativePath)")
+                        continue
+                    }
+                    if current.logicalSize != record.logicalSize {
+                        errors.append("Snapshot file size changed: \(record.relativePath)")
+                    }
+                    if let hash = record.sha256, current.sha256 != hash {
+                        errors.append("Snapshot file checksum changed: \(record.relativePath)")
+                    }
+                }
+                for path in Set(actualByPath.keys).subtracting(expectedPaths).sorted() {
+                    errors.append("Unexpected snapshot file: \(path)")
+                }
+            } else {
+                warnings.append("This legacy snapshot has no file manifest; only structural checks were performed.")
+                if actual.isEmpty { errors.append("The snapshot contains no regular files.") }
+            }
+        } catch {
+            errors.append(error.localizedDescription)
+        }
+        return VMSnapshotIntegrityReport(errors: errors, warnings: warnings)
     }
 
     static func renameSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel, newName: String) -> VMOSResultVoid {
@@ -730,6 +814,39 @@ class VMSnapshotManager {
         url.standardizedFileURL.pathComponents
             .dropFirst(root.standardizedFileURL.pathComponents.count)
             .joined(separator: "/")
+    }
+
+    private static func createFileManifest(rootURL: URL) throws -> [VMSnapshotFileRecord] {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+        guard let enumerator = FileManager.default.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: keys,
+            options: []
+        ) else {
+            throw VMSnapshotError.message("Could not enumerate snapshot files.")
+        }
+
+        var records: [VMSnapshotFileRecord] = []
+        for case let fileURL as URL in enumerator {
+            let values = try fileURL.resourceValues(forKeys: Set(keys))
+            let relativePath = fileURL.standardizedFileURL.pathComponents
+                .dropFirst(rootURL.standardizedFileURL.pathComponents.count)
+                .joined(separator: "/")
+            if values.isSymbolicLink == true {
+                throw VMSnapshotError.message("Snapshot contains a symbolic link: \(relativePath)")
+            }
+            guard values.isRegularFile == true else { continue }
+            let size = UInt64(values.fileSize ?? 0)
+            let checksum: String?
+            if size <= maximumHashedFileSize {
+                let digest = SHA256.hash(data: try Data(contentsOf: fileURL, options: .mappedIfSafe))
+                checksum = digest.map { String(format: "%02x", $0) }.joined()
+            } else {
+                checksum = nil
+            }
+            records.append(VMSnapshotFileRecord(relativePath: relativePath, logicalSize: size, sha256: checksum))
+        }
+        return records.sorted { $0.relativePath < $1.relativePath }
     }
 
     // size on disk of every regular file below url

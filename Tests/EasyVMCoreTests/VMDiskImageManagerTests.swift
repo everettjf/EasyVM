@@ -24,8 +24,17 @@ final class VMDiskImageManagerTests: XCTestCase {
 
         let marker = Data("preserve".utf8)
         try marker.write(to: url)
-        try unwrapSuccess(VMDiskImageManager.create(format: .raw, at: url, size: 8 * 1024 * 1024))
+        if case .success = VMDiskImageManager.create(format: .raw, at: url, size: 8 * 1024 * 1024) {
+            XCTFail("A mismatched existing disk must not be accepted")
+        }
         XCTAssertEqual(try Data(contentsOf: url), marker)
+    }
+
+    func testRawCreationIsIdempotentOnlyForTheExactSize() throws {
+        let url = temporaryRoot.appendingPathComponent("Disk.img")
+        try unwrapSuccess(VMDiskImageManager.create(format: .raw, at: url, size: 4096))
+        try unwrapSuccess(VMDiskImageManager.create(format: .raw, at: url, size: 4096))
+        XCTAssertEqual(try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, 4096)
     }
 
     func testASIFCreationCommandUsesNoFilesystemAndExactByteSize() {
@@ -50,6 +59,25 @@ final class VMDiskImageManagerTests: XCTestCase {
         XCTAssertEqual(command.arguments, [
             "image", "create", "from", "--format", "ASIF", source.path, destination.path,
         ])
+    }
+
+    func testFailedConversionRemovesPartialDestinationAndPreservesSource() throws {
+        let source = temporaryRoot.appendingPathComponent("Disk.img")
+        let destination = temporaryRoot.appendingPathComponent("Disk.asif")
+        let sourceData = Data("source".utf8)
+        try sourceData.write(to: source)
+
+        let result = VMDiskImageManager.convertRawToASIF(
+            sourceURL: source,
+            destinationURL: destination
+        ) { _ in
+            try? Data("partial".utf8).write(to: destination)
+            return .failure("simulated diskutil failure")
+        }
+
+        if case .success = result { XCTFail("Expected conversion failure") }
+        XCTAssertEqual(try Data(contentsOf: source), sourceData)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
     }
 
     private func unwrapSuccess(_ result: VMOSResultVoid, file: StaticString = #filePath, line: UInt = #line) throws {

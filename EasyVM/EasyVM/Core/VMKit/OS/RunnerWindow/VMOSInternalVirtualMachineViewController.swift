@@ -350,15 +350,29 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         let save = { [weak self] in
             guard let self else { return }
             self.runtimeState?.update(.saving)
-            try? FileManager.default.removeItem(at: stateURL)
-            self.virtualMachine.saveMachineStateTo(url: stateURL) { [weak self] error in
+            let pendingURL: URL
+            do {
+                pendingURL = try VMSavedStateStore.prepare(stateURL: stateURL)
+            } catch {
+                self.fail("Could not prepare the saved-state transaction: \(error.localizedDescription)")
+                self.shutdownRetainer = nil
+                return
+            }
+            self.virtualMachine.saveMachineStateTo(url: pendingURL) { [weak self] error in
                 Task { @MainActor in
                     guard let self else { return }
                     if let error {
+                        VMSavedStateStore.discardPending(stateURL: stateURL)
                         self.fail("Could not save the virtual machine state: \(error.localizedDescription)")
                     } else {
-                        self.runtimeState?.update(.stopped)
-                        self.releaseRunLease()
+                        do {
+                            try VMSavedStateStore.commit(pendingURL: pendingURL, stateURL: stateURL)
+                            self.runtimeState?.update(.stopped)
+                            self.releaseRunLease()
+                        } catch {
+                            VMSavedStateStore.discardPending(stateURL: stateURL)
+                            self.fail("Could not commit the saved machine state: \(error.localizedDescription)")
+                        }
                     }
                     self.shutdownRetainer = nil
                 }
