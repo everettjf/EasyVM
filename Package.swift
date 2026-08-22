@@ -33,6 +33,7 @@ let package = Package(
                 "Common/VMOSHelper.swift",
                 "Common/VMPortabilityManager.swift",
                 "Common/VMRunningRegistry.swift",
+                "GuestAgent/VMGuestAgentProtocol.swift",
                 "Model/Fields/VMModelFieldNetworkDevice.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ]

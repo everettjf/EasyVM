@@ -44,6 +44,8 @@
 		CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */; };
 		CA5E5AFE000000000000C008 /* VMPortabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */; };
 		CA5E5AFE000000000000D008 /* VMPortabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */; };
+		CA5E5AFE000000000000C009 /* VMGuestAgentProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */; };
+		CA5E5AFE000000000000D009 /* VMGuestAgentProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */; };
 		D132337728E28453002C26A2 /* VMOSResultVoid.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337628E28453002C26A2 /* VMOSResultVoid.swift */; };
 		D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
 		D166803428E93DA300F70110 /* MachinesEmptyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D166803328E93DA300F70110 /* MachinesEmptyView.swift */; };
@@ -173,6 +175,7 @@
 		D1196EC128E7D8D500CCC04D /* VMOSCreatorForMacOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSCreatorForMacOS.swift; sourceTree = "<group>"; };
 		D1196EC328E868BC00CCC04D /* VMOSHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSHelper.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMPortabilityManager.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMGuestAgentProtocol.swift; sourceTree = "<group>"; };
 		D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateStepperGuideView.swift; sourceTree = "<group>"; };
 		D120BD5028CF25E3009297E8 /* MacKitUtil.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacKitUtil.swift; sourceTree = "<group>"; };
 		D132336C28E27C2E002C26A2 /* VMOSDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloader.swift; sourceTree = "<group>"; };
@@ -271,6 +274,7 @@
 			children = (
 				CA5E5AFE000000000000B001 /* Catalog */,
 				D132337828E28589002C26A2 /* Common */,
+				CA5E5AFE000000000000B003 /* GuestAgent */,
 				D132336E28E27C5E002C26A2 /* Model */,
 				D132337128E282A0002C26A2 /* OS */,
 				CA5E5AFE000000000000B002 /* Snapshot */,
@@ -295,6 +299,14 @@
 				CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */,
 			);
 			path = Snapshot;
+			sourceTree = "<group>";
+		};
+		CA5E5AFE000000000000B003 /* GuestAgent */ = {
+			isa = PBXGroup;
+			children = (
+				CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */,
+			);
+			path = GuestAgent;
 			sourceTree = "<group>";
 		};
 		D132336E28E27C5E002C26A2 /* Model */ = {
@@ -741,6 +753,7 @@
 				D1CCB215290DB92D00B1F563 /* VMCreateStepperGuideView.swift in Sources */,
 				D1CCB216290DB92D00B1F563 /* VMOSHelper.swift in Sources */,
 				CA5E5AFE000000000000C008 /* VMPortabilityManager.swift in Sources */,
+				CA5E5AFE000000000000C009 /* VMGuestAgentProtocol.swift in Sources */,
 				D1CCB217290DB92D00B1F563 /* VMOSDownloader.swift in Sources */,
 				D1CCB218290DB92D00B1F563 /* VMCreateConfigurationView.swift in Sources */,
 				D1CCB219290DB92D00B1F563 /* VMConfigurationPointingDevicesView.swift in Sources */,
@@ -818,6 +831,7 @@
 				D11A80E928C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift in Sources */,
 				D1196EC428E868BC00CCC04D /* VMOSHelper.swift in Sources */,
 				CA5E5AFE000000000000D008 /* VMPortabilityManager.swift in Sources */,
+				CA5E5AFE000000000000D009 /* VMGuestAgentProtocol.swift in Sources */,
 				D132336D28E27C2E002C26A2 /* VMOSDownloader.swift in Sources */,
 				D19EC93728CEEA44004564B7 /* VMCreateConfigurationView.swift in Sources */,
 				D1196EB728E6D67400CCC04D /* VMConfigurationPointingDevicesView.swift in Sources */,
