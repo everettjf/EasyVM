@@ -27,7 +27,11 @@ struct MachineThumbnailView: View {
 
     var body: some View {
         ZStack {
-            if let image = NSImage(contentsOf: model.screenshotURL) {
+            // Decode the file contents for every notified refresh. Loading by
+            // URL can reuse an NSImage representation after the same file has
+            // been atomically replaced by the running VM.
+            if let data = try? Data(contentsOf: model.screenshotURL),
+               let image = NSImage(data: data) {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)

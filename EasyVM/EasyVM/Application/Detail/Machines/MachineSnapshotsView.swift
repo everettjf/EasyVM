@@ -206,82 +206,108 @@ struct MachineSnapshotRowView: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack {
-            Image(systemName: "camera")
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(snapshot.name)
-                    if snapshot.isProtected {
-                        Image(systemName: "lock.fill")
-                            .foregroundStyle(.secondary)
-                            .accessibilityLabel("Protected")
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "camera.fill")
+                    .font(.title3)
+                    .foregroundStyle(isCurrent ? .blue : .secondary)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        (isCurrent ? Color.blue : Color.secondary).opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 7) {
+                        Text(snapshot.name)
+                            .font(.headline)
+                            .lineLimit(1)
+                        if snapshot.isProtected {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("Protected")
+                        }
+                        if isCurrent {
+                            Text("Current branch")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.blue)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(.blue.opacity(0.12), in: Capsule())
+                        }
                     }
-                    if isCurrent {
-                        Text("Current branch")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.blue.opacity(0.12), in: Capsule())
+
+                    HStack(spacing: 5) {
+                        Image(systemName: parentName == nil ? "point.topleft.down.to.point.bottomright.curvepath" : "arrow.turn.down.right")
+                            .accessibilityHidden(true)
+                        Text(parentName.map { "From \($0)" } ?? "Root snapshot")
+                            .lineLimit(1)
+                        Text("·")
+                        Text(snapshot.displayRelativeDate)
                     }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
-                HStack(spacing: 4) {
-                    if let parentName {
-                        Text("From \(parentName)")
-                        Text("·")
-                    } else {
-                        Text("Root")
-                        Text("·")
-                    }
-                    Text(snapshot.displayRelativeDate)
-                    Text("·")
-                    Text(snapshot.displayDate)
-                    Text("·")
-                    Text(snapshot.backend == .diskImageKitLayered ? "ASIF layers" : "APFS clone")
-                    if !snapshot.displaySize.isEmpty {
-                        Text("·")
-                        Text(snapshot.displaySize)
-                    }
+                Spacer(minLength: 8)
+
+                Button {
+                    onRestore()
+                } label: {
+                    Label("Restore", systemImage: "arrow.counterclockwise.circle")
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(disableActions || disableRestore)
+            }
+
+            HStack(spacing: 6) {
+                Label(snapshot.displayDate, systemImage: "calendar")
+                    .fixedSize(horizontal: true, vertical: false)
+                Text("·")
+                Label(
+                    snapshot.backend == .diskImageKitLayered ? "ASIF layers" : "APFS clone",
+                    systemImage: snapshot.backend == .diskImageKitLayered ? "square.stack.3d.up" : "doc.on.doc"
+                )
+                if !snapshot.displaySize.isEmpty {
+                    Text("·")
+                    Label(snapshot.displaySize, systemImage: "internaldrive")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .labelStyle(.titleAndIcon)
+
+            Divider()
+
+            HStack(spacing: 8) {
+                Label(
+                    snapshot.isProtected ? "Protected from deletion" : (hasChildren ? "Has child snapshots" : "Ready"),
+                    systemImage: snapshot.isProtected ? "lock.shield.fill" : (hasChildren ? "arrow.triangle.branch" : "checkmark.circle")
+                )
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            }
-            Spacer()
+                Spacer()
 
-            Button {
-                onRestore()
-            } label: {
-                Image(systemName: "arrow.counterclockwise.circle")
-                Text("Restore")
-            }
-            .disabled(disableActions || disableRestore)
+                Button("Rename", systemImage: "pencil", action: onRename)
+                    .disabled(disableActions)
+                    .help("Rename")
 
-            Button {
-                onRename()
-            } label: {
-                Image(systemName: "pencil")
-            }
-            .disabled(disableActions)
-            .help("Rename")
+                Button(snapshot.isProtected ? "Unprotect" : "Protect", systemImage: snapshot.isProtected ? "lock.open" : "lock", action: onToggleProtection)
+                    .disabled(disableActions)
+                    .help(snapshot.isProtected ? "Unprotect" : "Protect from deletion")
 
-            Button {
-                onToggleProtection()
-            } label: {
-                Image(systemName: snapshot.isProtected ? "lock.open" : "lock")
+                Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                    .labelStyle(.iconOnly)
+                    .disabled(disableActions || hasChildren || snapshot.isProtected)
+                    .help(snapshot.isProtected ? "Unprotect before deleting" : (hasChildren ? "Delete child snapshots first" : "Delete"))
             }
-            .disabled(disableActions)
-            .help(snapshot.isProtected ? "Unprotect" : "Protect from deletion")
-
-            Button {
-                onDelete()
-            } label: {
-                Image(systemName: "trash")
-            }
-            .disabled(disableActions)
-            .disabled(hasChildren || snapshot.isProtected)
-            .help(snapshot.isProtected ? "Unprotect before deleting" : (hasChildren ? "Delete child snapshots first" : "Delete"))
         }
-        .padding(.vertical, 2)
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isCurrent ? Color.blue.opacity(0.55) : Color.secondary.opacity(0.2), lineWidth: isCurrent ? 1.5 : 1)
+        }
         .contextMenu {
             Button {
                 onRestore()
@@ -439,6 +465,16 @@ struct MachineSnapshotsView: View {
                                 deletingSnapshot = node.snapshot
                             }
                         )
+                        .listRowInsets(EdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 8))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .overlay {
+                    if state.filteredTree.isEmpty, !state.searchText.isEmpty {
+                        ContentUnavailableView.search(text: state.searchText)
                     }
                 }
                 .searchable(text: $state.searchText, prompt: "Search snapshots")

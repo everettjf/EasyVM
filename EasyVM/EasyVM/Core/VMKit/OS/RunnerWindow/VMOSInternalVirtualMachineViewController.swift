@@ -23,6 +23,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var virtualMachine: VZVirtualMachine!
     private var configuredMemorySize: UInt64 = 0
     private var screenshotTimer: Timer?
+    private var screenshotCaptureInProgress = false
     private var guestAgentClient: VMGuestAgentHostClient?
     private var runLease: VMRunLease?
     private var releaseSmokeTimer: Timer?
@@ -597,10 +598,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     // keep a thumbnail of the running system for the machine card
     private func startScreenshotTimer() {
         screenshotTimer?.invalidate()
-        screenshotTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        // The VM display is often still black when start() completes, so take a
+        // quick first sample and then refresh often enough for the home card to
+        // feel current. Common run-loop modes keep this working while the user
+        // is dragging a window or interacting with menus.
+        let timer = Timer(fire: Date().addingTimeInterval(2), interval: 10, repeats: true) { [weak self] _ in
             self?.captureScreenshot()
         }
-        screenshotTimer?.tolerance = 10
+        timer.tolerance = 1
+        RunLoop.main.add(timer, forMode: .common)
+        screenshotTimer = timer
     }
 
     private func startGuestAgent(model: VMModel, releaseSmoke: VMReleaseSmokeTestConfiguration? = nil) {
@@ -681,6 +688,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func captureScreenshot(synchronously: Bool = false) {
+        guard synchronously || !screenshotCaptureInProgress else { return }
         guard let rootPath = rootPath, let view = virtualMachineView else {
             return
         }
@@ -713,14 +721,19 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 EasyVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EasyVMLog.storage)
             }
         } else if let pngData {
+            screenshotCaptureInProgress = true
             Task.detached(priority: .utility) {
                 do {
                     try pngData.write(to: destination, options: .atomic)
                     await MainActor.run {
+                        self.screenshotCaptureInProgress = false
                         NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
                     }
                 } catch {
                     EasyVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EasyVMLog.storage)
+                    await MainActor.run {
+                        self.screenshotCaptureInProgress = false
+                    }
                 }
             }
         }
