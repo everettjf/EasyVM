@@ -14,10 +14,12 @@ cask "easyvm" do
   depends_on macos: :tahoe
 
   # macOS 27 beta can leave notarized Virtualization.framework apps suspended
-  # in dyld when Homebrew's archive quarantine is propagated to the app.
+  # in dyld when Homebrew propagates archive security metadata to the app.
   preflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-dr", "com.apple.quarantine", staged_path/"EasyVM.app"]
+    %w[com.apple.quarantine com.apple.provenance].each do |attribute|
+      system_command "/usr/bin/xattr",
+                     args: ["-dr", attribute, staged_path/"EasyVM.app"]
+    end
   end
 
   app "EasyVM.app"
