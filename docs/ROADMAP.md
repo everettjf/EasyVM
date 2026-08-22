@@ -1,6 +1,9 @@
 # EasyVM capability map and roadmap
 
-_Updated: August 21, 2026_
+_Updated: August 22, 2026_
+
+For the ordered post-3.3 implementation backlog, dependencies, and acceptance
+criteria, see [EasyVM post-3.3 execution plan](NEXT_PLAN.md).
 
 EasyVM is a native macOS application built on Apple's
 [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization).
@@ -134,7 +137,7 @@ evidence that a restricted entitlement is distributable.
 
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
-| Nested virtualization | Stable | Linux VMs have a per-machine option guarded by Apple's runtime capability check; unsupported hosts get an actionable compatibility error and old configs default off. | Add guest-side KVM diagnostics and tested distro guidance. |
+| Nested virtualization | Stable | Linux VMs have a per-machine option guarded by Apple's runtime capability check; unsupported hosts get an actionable compatibility error and old configs default off. Release automation verifies guest `/dev/kvm` with `KVM_GET_API_VERSION=12`. | Add tested distro guidance and a Docker/KVM guest profile. |
 | Docker/KVM inside a Linux guest | Planned research | Depends on nested virtualization and guest configuration. | Validate only after the base nested-virtualization option is stable. |
 | macOS guest iCloud workflows | Planned research | Not exposed. | Review Apple account, entitlement, and distribution requirements first. |
 | x86 guest execution on Apple silicon | Out of scope | Virtualization.framework virtualizes the host architecture. | Use a separate emulator such as QEMU; do not mix it into the native core. |
