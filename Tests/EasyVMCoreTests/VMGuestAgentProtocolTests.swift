@@ -81,4 +81,53 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentStatus.self, from: JSONEncoder().encode(status)), status)
         XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [.heartbeat, .status, .shutdown, .restart])
     }
+
+    func testFrameBufferHandlesPartialAndCoalescedReads() throws {
+        let auth = try VMGuestAgentAuthenticator(tokenData: token, machineID: machineID)
+        let first = try VMGuestAgentFrameCodec.encode(auth.makeHello(guestNonce: guestNonce))
+        let second = try VMGuestAgentFrameCodec.encode(auth.makeWelcome(guestNonce: guestNonce, hostNonce: hostNonce))
+        var buffer = VMGuestAgentFrameBuffer()
+        XCTAssertTrue(try buffer.append(first.prefix(3)).isEmpty)
+        XCTAssertEqual(try buffer.append(first.dropFirst(3) + second).count, 2)
+        XCTAssertTrue(buffer.data.isEmpty)
+    }
+
+    func testFrameBufferRejectsAdvertisedOversizedFrameBeforePayloadArrives() throws {
+        var length = UInt32(VMGuestAgentProtocol.maximumFrameBytes + 1).bigEndian
+        let header = Data(bytes: &length, count: 4)
+        var buffer = VMGuestAgentFrameBuffer()
+        XCTAssertThrowsError(try buffer.append(header)) {
+            XCTAssertEqual($0 as? VMGuestAgentAuthenticationError, .oversizedFrame)
+        }
+    }
+
+    func testProtocolMatchesPublishedCrossLanguageVectors() throws {
+        let authenticator = try VMGuestAgentAuthenticator(tokenData: token, machineID: machineID)
+        XCTAssertEqual(
+            try authenticator.makeHello(guestNonce: guestNonce).proof,
+            "Q2bgyj5cc0VI41gARg64PlS3qA7/poair6kJ5ISyz30="
+        )
+        XCTAssertEqual(
+            try authenticator.makeWelcome(guestNonce: guestNonce, hostNonce: hostNonce).proof,
+            "TK3n9Y+ST9leXS55GQaolfhS9ElcRZDY2OHuPvqXndo="
+        )
+        XCTAssertEqual(
+            try authenticator.makeEnvelope(
+                sessionID: "session-a", sequence: 7, requestID: "request-7",
+                operation: .status, payload: Data("payload".utf8)
+            ).proof,
+            "OtNjPmizYoCykrwAy2LUpE2yLnzThrxYkdHq77yVfi4="
+        )
+    }
+
+    func testLivenessExpiresOnlyAfterResponseTimeoutAndResets() {
+        let start = Date(timeIntervalSinceReferenceDate: 1_000)
+        var liveness = VMGuestAgentLiveness()
+        XCTAssertFalse(liveness.hasExpired(at: start.addingTimeInterval(100)))
+        liveness.markResponse(at: start)
+        XCTAssertFalse(liveness.hasExpired(at: start.addingTimeInterval(30)))
+        XCTAssertTrue(liveness.hasExpired(at: start.addingTimeInterval(30.001)))
+        liveness.reset()
+        XCTAssertFalse(liveness.hasExpired(at: start.addingTimeInterval(100)))
+    }
 }

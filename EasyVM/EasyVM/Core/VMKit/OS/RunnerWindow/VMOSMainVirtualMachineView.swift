@@ -102,6 +102,27 @@ struct VMOSMainVirtualMachineView: View {
                     .help("Request a Linux guest memory balloon target")
                 }
 
+                if runtimeState.guestAgentState != .unavailable {
+                    Menu("Guest Agent", systemImage: guestAgentSymbol) {
+                        Text(guestAgentSummary)
+                        if case let .ready(status) = runtimeState.guestAgentState {
+                            Text("Host: \(status.hostName)")
+                            Text("OS: \(status.operatingSystem)")
+                            if !status.addresses.isEmpty {
+                                Text("Addresses: \(status.addresses.joined(separator: ", "))")
+                            }
+                            Divider()
+                            Button("Shut Down Guest", systemImage: "power") {
+                                runtimeState.guestAgentShutdown()
+                            }
+                            Button("Restart Guest", systemImage: "arrow.clockwise") {
+                                runtimeState.guestAgentRestart()
+                            }
+                        }
+                    }
+                    .help(guestAgentSummary)
+                }
+
                 if runtimeState.canPause {
                     Button("Pause", systemImage: "pause") {
                         runtimeState.pause()
@@ -189,6 +210,27 @@ struct VMOSMainVirtualMachineView: View {
 
     private func memoryDescription(_ bytes: UInt64) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
+    }
+
+    private var guestAgentSymbol: String {
+        switch runtimeState.guestAgentState {
+        case .ready: "checkmark.circle"
+        case .connecting, .authenticating: "arrow.triangle.2.circlepath"
+        case .notEnrolled: "key.slash"
+        case .disconnected: "exclamationmark.triangle"
+        case .unavailable: "questionmark.circle"
+        }
+    }
+
+    private var guestAgentSummary: String {
+        switch runtimeState.guestAgentState {
+        case .unavailable: "Guest Agent unavailable"
+        case .notEnrolled: "Guest Agent is not enrolled"
+        case .connecting: "Connecting to Guest Agent"
+        case .authenticating: "Authenticating Guest Agent"
+        case .ready(let status): "Guest Agent \(status.agentVersion) is ready"
+        case .disconnected(let reason): "Guest Agent disconnected: \(reason)"
+        }
     }
 
     private func openSettings() {

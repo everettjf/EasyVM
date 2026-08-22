@@ -17,6 +17,7 @@ final class VMRuntimeState {
     private(set) var phase: Phase = .preparing
     private(set) var balloonMemoryTarget: UInt64?
     private(set) var balloonMemoryMaximum: UInt64?
+    private(set) var guestAgentState: VMGuestAgentConnectionState = .unavailable
     @ObservationIgnored
     weak var controller: VMOSInternalVirtualMachineViewController?
 
@@ -61,6 +62,10 @@ final class VMRuntimeState {
         balloonMemoryMaximum = maximum
     }
 
+    func updateGuestAgent(_ state: VMGuestAgentConnectionState) {
+        guestAgentState = state
+    }
+
     func pause() { controller?.pauseMachine() }
     func resume() { controller?.resumeMachine() }
     func requestStop() { controller?.requestStopMachine() }
@@ -68,6 +73,8 @@ final class VMRuntimeState {
     func saveAndStopForWindowClose() { controller?.saveAndStopForWindowClose() }
     func forceStop() { controller?.forceStopMachine() }
     func setBalloonMemory(fraction: Double) { controller?.setBalloonMemory(fraction: fraction) }
+    func guestAgentShutdown() { controller?.sendGuestAgentCommand(.shutdown) }
+    func guestAgentRestart() { controller?.sendGuestAgentCommand(.restart) }
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {

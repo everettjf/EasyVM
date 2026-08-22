@@ -71,7 +71,7 @@ evidence that a restricted entitlement is distributable.
 | Audio input | Stable | Provides host microphone input when authorized. | Explain and test macOS privacy permission denial. |
 | Entropy device | Stable | Linux can opt into a Virtio entropy source. | Enable in tested presets. |
 | Memory balloon | Stable | Linux can use a Virtio memory-balloon device; runtime target is adjustable. | Add host-pressure-driven recommendations, not automatic mutation yet. |
-| Virtio socket device | Stable | Linux configurations can expose a Virtio socket device. | Build a versioned guest-agent protocol on it. |
+| Virtio socket device | Stable | Linux configurations expose it for the authenticated EasyVM guest agent. | Keep protocol compatibility covered by Swift/Go vectors. |
 | Serial port terminal | Planned | Framework support exists; EasyVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
 | Host/guest clipboard | Partial | Spice attachment exists; success depends on a guest agent. | Detect `spice-vdagent`, expose status, and test both directions. |
@@ -121,9 +121,9 @@ evidence that a restricted entitlement is distributable.
 | Linux Rosetta | Stable | Configures a Rosetta directory share when available. | Add guided guest-side `binfmt_misc` setup. |
 | Rosetta translation cache | Stable | Supports caching options on compatible hosts. | Measure impact and document guest requirements. |
 | macOS guest provisioning | Experimental | Uses macOS 27 guest-provisioning APIs behind an opt-in setting. | Test account creation, secrets, retries, and final-system changes. |
-| Linux guest agent | Planned | No EasyVM-managed agent is shipped. | Define a small authenticated protocol over Virtio Socket. |
-| Guest heartbeat and readiness | Planned | Runtime state currently reflects the VM process, not guest readiness. | First guest-agent milestone. |
-| Graceful guest operations | Planned | Framework request-stop exists; no richer agent command set. | Add restart, shutdown, and status after authentication. |
+| Linux guest agent | Partial | A versioned, mutually authenticated ARM64 agent and systemd/OpenRC package are implemented for the next patch. | Publish, complete a real guest soak, and add more distro packages. |
+| Guest heartbeat and readiness | Partial | Authenticated status, IPs, boot identity, heartbeat, timeout, and reconnect are implemented. | Verify long-running reconnect and suspend/resume behavior in real guests. |
+| Graceful guest operations | Partial | The authenticated agent handles explicit UI shutdown and restart commands. | Add command-result visibility and audit history. |
 | Host/guest file transfer | Planned | Shared folders work, but there is no explicit transfer queue. | Build on VirtioFS or the guest agent. |
 | Drag and drop | Planned | Not implemented. | Map drops to an explicit transfer destination through the agent. |
 | CLI (`easyvm`) | Planned | No stable command contract exists. | Start read-only, then add bounded mutations. |

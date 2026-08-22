@@ -210,3 +210,44 @@ enum VMGuestAgentFrameCodec {
         return try JSONDecoder().decode(type, from: frame.dropFirst(4))
     }
 }
+
+struct VMGuestAgentFrameBuffer {
+    private(set) var data = Data()
+
+    mutating func append(_ chunk: Data) throws -> [Data] {
+        data.append(chunk)
+        var frames: [Data] = []
+        while data.count >= 4 {
+            let length = data.prefix(4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+            guard length <= VMGuestAgentProtocol.maximumFrameBytes else {
+                throw VMGuestAgentAuthenticationError.oversizedFrame
+            }
+            let frameSize = Int(length) + 4
+            guard data.count >= frameSize else { break }
+            frames.append(data.prefix(frameSize))
+            data.removeFirst(frameSize)
+        }
+        guard data.count <= VMGuestAgentProtocol.maximumFrameBytes + 4 else {
+            throw VMGuestAgentAuthenticationError.oversizedFrame
+        }
+        return frames
+    }
+}
+
+struct VMGuestAgentLiveness {
+    static let timeout: TimeInterval = 30
+    private(set) var lastResponseAt: Date?
+
+    mutating func markResponse(at date: Date = Date()) {
+        lastResponseAt = date
+    }
+
+    mutating func reset() {
+        lastResponseAt = nil
+    }
+
+    func hasExpired(at date: Date = Date()) -> Bool {
+        guard let lastResponseAt else { return false }
+        return date.timeIntervalSince(lastResponseAt) > Self.timeout
+    }
+}

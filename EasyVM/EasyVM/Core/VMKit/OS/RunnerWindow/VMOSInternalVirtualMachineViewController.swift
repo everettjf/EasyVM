@@ -23,6 +23,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var virtualMachine: VZVirtualMachine!
     private var configuredMemorySize: UInt64 = 0
     private var screenshotTimer: Timer?
+    private var guestAgentClient: VMGuestAgentHostClient?
     private var runLease: VMRunLease?
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
@@ -161,6 +162,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         self.runtimeState?.update(.running)
                         self.markMachineRunning()
                         self.startScreenshotTimer()
+                        self.startGuestAgent(model: model)
                     case .failure(let error):
                         self.fail("Could not resume the saved virtual machine: \(error.localizedDescription)")
                     }
@@ -194,7 +196,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                                 self.fail("Could not start the provisioned virtual machine: \(error.localizedDescription)")
                             } else {
                                 VMGuestProvisioningCredentialStore.delete(vmRootPath: rootPath)
-                                self.didStart(rootPath: rootPath)
+                                self.didStart(rootPath: rootPath, model: model)
                             }
                         }
                     }
@@ -213,7 +215,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 guard let self else { return }
                 switch result {
                 case .success:
-                    self.didStart(rootPath: rootPath)
+                    self.didStart(rootPath: rootPath, model: model)
                 case .failure(let error):
                     self.fail("Could not start the virtual machine: \(error.localizedDescription)")
                 }
@@ -221,7 +223,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
-    private func didStart(rootPath: URL) {
+    private func didStart(rootPath: URL, model: VMModel) {
         runtimeState?.update(.running)
         markMachineRunning()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
@@ -230,6 +232,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         startScreenshotTimer()
         updateBalloonMemoryState()
+        startGuestAgent(model: model)
     }
 
     private func finishReleaseSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
@@ -399,6 +402,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func prepareForWindowClose() {
+        stopGuestAgent()
         screenshotTimer?.invalidate()
         screenshotTimer = nil
         captureScreenshot(synchronously: true)
@@ -411,6 +415,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func fail(_ message: String) {
+        stopGuestAgent()
         runtimeState?.update(.failed(message))
         releaseRunLease()
         if let rootPath, let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
@@ -441,6 +446,42 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             self?.captureScreenshot()
         }
         screenshotTimer?.tolerance = 10
+    }
+
+    private func startGuestAgent(model: VMModel) {
+        guard model.config.type == .linux,
+              (model.config.linuxFeatures ?? .legacy).virtioSocketEnabled else {
+            runtimeState?.updateGuestAgent(.unavailable)
+            return
+        }
+        guard let device = virtualMachine.socketDevices.first as? VZVirtioSocketDevice else {
+            runtimeState?.updateGuestAgent(.unavailable)
+            return
+        }
+        guard let identifier = try? Data(contentsOf: model.machineIdentifierURL) else {
+            runtimeState?.updateGuestAgent(.disconnected("The VM machine identifier is unreadable."))
+            return
+        }
+        switch VMGuestAgentEnrollmentStore.load(machineIdentifierData: identifier) {
+        case .failure(let error):
+            runtimeState?.updateGuestAgent(.disconnected(error))
+        case .success(nil):
+            runtimeState?.updateGuestAgent(.notEnrolled)
+        case .success(let enrollment?):
+            guard let runtimeState else { return }
+            let client = VMGuestAgentHostClient(device: device, enrollment: enrollment, runtimeState: runtimeState)
+            guestAgentClient = client
+            client.start()
+        }
+    }
+
+    private func stopGuestAgent() {
+        guestAgentClient?.stop()
+        guestAgentClient = nil
+    }
+
+    func sendGuestAgentCommand(_ operation: VMGuestAgentOperation) {
+        guestAgentClient?.send(operation)
     }
 
     private func captureScreenshot(synchronously: Bool = false) {
@@ -498,6 +539,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     
     public func guestDidStop(_ virtualMachine: VZVirtualMachine) {
+        stopGuestAgent()
         runtimeState?.update(.stopped)
         releaseRunLease()
     }

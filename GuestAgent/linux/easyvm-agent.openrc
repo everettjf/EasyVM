@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+
+name="EasyVM Guest Agent"
+command="/usr/local/sbin/easyvm-agent"
+command_args="--config /etc/easyvm-agent/config.json"
+command_background="yes"
+pidfile="/run/easyvm-agent.pid"
+output_log="/var/log/easyvm-agent.log"
+error_log="/var/log/easyvm-agent.log"
+
+depend() {
+    after net
+}

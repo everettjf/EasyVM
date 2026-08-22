@@ -24,6 +24,7 @@ let package = Package(
                 "Model/Fields/VMModelFieldPointingDevice.swift",
                 "Model/Fields/VMModelFieldStorageDevice.swift",
                 "OS",
+                "GuestAgent/VMGuestAgentHostClient.swift",
                 "VMOSCreator.swift",
                 "VMOSDownloader.swift",
                 "VMOSRunner.swift",
@@ -34,6 +35,7 @@ let package = Package(
                 "Common/VMPortabilityManager.swift",
                 "Common/VMRunningRegistry.swift",
                 "GuestAgent/VMGuestAgentProtocol.swift",
+                "GuestAgent/VMGuestAgentEnrollmentStore.swift",
                 "Model/Fields/VMModelFieldNetworkDevice.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ]

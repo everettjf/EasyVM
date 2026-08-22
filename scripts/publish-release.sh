@@ -28,7 +28,7 @@ require_environment() {
   fi
 }
 
-for command in brew codesign gh git ruby security xcrun; do
+for command in brew codesign gh git go ruby security xcrun; do
   require_command "$command"
 done
 
@@ -74,6 +74,9 @@ EASYVM_DERIVED_DATA="$derived_data" \
 
 archive="$release_dir/EasyVM-$version.zip"
 checksum="$archive.sha256"
+"$project_root/scripts/build-guest-agent.sh" "$version" "$release_dir"
+guest_archive="$release_dir/EasyVM-GuestAgent-$version-linux-arm64.tar.gz"
+guest_checksum="$guest_archive.sha256"
 
 xcrun notarytool submit "$archive" \
   --apple-id "$APPLE_ID" \
@@ -105,7 +108,7 @@ else
   exit 78
 fi
 
-gh release create "$tag" "$archive" "$checksum" \
+gh release create "$tag" "$archive" "$checksum" "$guest_archive" "$guest_checksum" \
   --repo everettjf/easyvm \
   --verify-tag \
   --generate-notes \

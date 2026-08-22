@@ -175,6 +175,17 @@ struct MachinesDetailHomeView: View {
                             }
                         }
 
+                        if let model = item.model,
+                           model.config.type == .linux,
+                           (model.config.linuxFeatures ?? .legacy).virtioSocketEnabled {
+                            Button {
+                                exportGuestAgentEnrollment(model)
+                            } label: {
+                                Image(systemName: "key.horizontal")
+                                Text("Export Guest Agent Enrollment...")
+                            }
+                        }
+
                         Divider()
 
                         Button {
@@ -333,6 +344,41 @@ struct MachinesDetailHomeView: View {
                 switch result {
                 case .success: MacKitUtil.alertInfo(title: "Export complete", message: destination.path)
                 case .failure(let error): MacKitUtil.alertWarn(title: "Export failed", message: error)
+                }
+            }
+        }
+    }
+
+    func exportGuestAgentEnrollment(_ model: VMModel) {
+        MacKitUtil.alertWarn(
+            title: "Export Guest Agent Secret?",
+            message: "This enrollment file allows software inside the Linux guest to authenticate as “\(model.config.name)”. Keep it private, install it only in that VM, and delete the exported copy afterward."
+        ) { isOK in
+            guard isOK else { return }
+            guard let identifier = try? Data(contentsOf: model.machineIdentifierURL) else {
+                MacKitUtil.alertWarn(title: "Enrollment failed", message: "The VM machine identifier is unreadable.")
+                return
+            }
+            switch VMGuestAgentEnrollmentStore.loadOrCreate(machineIdentifierData: identifier) {
+            case .failure(let error):
+                MacKitUtil.alertWarn(title: "Enrollment failed", message: error)
+            case .success(let enrollment):
+                do {
+                    let panel = NSSavePanel()
+                    panel.title = "Export Guest Agent Enrollment"
+                    panel.nameFieldStringValue = "EasyVM-Agent-Enrollment-\(model.config.name).json"
+                    panel.canCreateDirectories = true
+                    guard panel.runModal() == .OK, var destination = panel.url else { return }
+                    if destination.pathExtension.lowercased() != "json" { destination.appendPathExtension("json") }
+                    let data = try VMGuestAgentEnrollmentStore.installationConfiguration(enrollment)
+                    try data.write(to: destination, options: [.atomic])
+                    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
+                    MacKitUtil.alertInfo(
+                        title: "Enrollment exported",
+                        message: "Install this file with the EasyVM Guest Agent inside “\(model.config.name)”, then delete the exported copy. The host token remains protected in Keychain."
+                    )
+                } catch {
+                    MacKitUtil.alertWarn(title: "Enrollment failed", message: error.localizedDescription)
                 }
             }
         }

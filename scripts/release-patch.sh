@@ -26,7 +26,7 @@ require_environment() {
   [[ -n "${!1:-}" ]] || fail "required environment variable is missing: $1"
 }
 
-for command in gh git ruby security swift xcodebuild; do
+for command in gh git go ruby security swift xcodebuild; do
   require_command "$command"
 done
 
@@ -79,6 +79,8 @@ git -C "$project_root" commit -m "Prepare EasyVM $version (build $next_build)"
 
 echo "Running EasyVM $version release checks…"
 (cd "$project_root" && swift test)
+(cd "$project_root/GuestAgent/linux" && go test ./...)
+(cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/easyvm-agent-release-check" .)
 (cd "$project_root/EasyVM" && xcodebuild \
   -quiet \
   -project EasyVM.xcodeproj \

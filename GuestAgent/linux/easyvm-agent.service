@@ -1,0 +1,16 @@
+[Unit]
+Description=EasyVM Guest Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/easyvm-agent --config /etc/easyvm-agent/config.json
+Restart=always
+RestartSec=2
+User=root
+NoNewPrivileges=true
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
