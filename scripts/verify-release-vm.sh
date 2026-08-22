@@ -37,8 +37,21 @@ trap cleanup EXIT
 cp -cR "$vm_path" "$smoke_vm"
 rm -f "$smoke_vm/NVRAM" "$smoke_vm/MachineState.vzvmsave"
 
+if [[ "${EASYVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
+  ruby -rjson -e '
+    path = ARGV.fetch(0)
+    config = JSON.parse(File.read(path))
+    features = config["linuxFeatures"] || {}
+    features["nestedVirtualizationEnabled"] = true
+    config["linuxFeatures"] = features
+    File.write(path, JSON.pretty_generate(config) + "\n")
+  ' "$smoke_vm/config.json"
+fi
+
 EASYVM_RELEASE_SMOKE_VM="$smoke_vm" \
 EASYVM_RELEASE_SMOKE_RESULT="$result_file" \
+EASYVM_RELEASE_REQUIRE_GUEST_AGENT=1 \
+EASYVM_RELEASE_REQUIRE_KVM="${EASYVM_RELEASE_REQUIRE_KVM:-0}" \
   "$executable" >"$launch_log" 2>&1 &
 app_pid=$!
 
@@ -49,7 +62,7 @@ for ((second = 1; second <= timeout; second++)); do
     if [[ "$result" == "started-and-stopped" ]]; then
       wait "$app_pid" || true
       app_pid=""
-      echo "Verified release VM start and clean stop using an isolated APFS clone: $vm_path"
+      echo "Verified VM boot, Guest Agent authentication, upload/download byte round-trip, and clean stop: $vm_path"
       exit 0
     fi
     cat "$launch_log" >&2

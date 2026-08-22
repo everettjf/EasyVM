@@ -24,6 +24,7 @@ enum VMRunPhase: String, Codable, Sendable {
     case starting
     case running
     case stopping
+    case maintaining
 }
 
 struct VMResourceUsage: Codable, Equatable, Sendable {
@@ -77,6 +78,7 @@ extension VMRunPhase {
         case .starting: "Starting"
         case .running: "Running"
         case .stopping: "Saving State"
+        case .maintaining: "Maintenance"
         }
     }
 }
@@ -106,6 +108,8 @@ final class VMRunningRegistry {
         let cpuCount: Int?
         let memoryBytes: UInt64?
         let updatedAt: Date
+        let launchID: UUID
+        let mode: String
     }
 
     private var entries: [String: Entry] = [:]
@@ -122,14 +126,19 @@ final class VMRunningRegistry {
     }
 
     @discardableResult
-    func acquire(rootPath: URL) -> VMRunLease? {
+    func acquire(rootPath: URL, phase: VMRunPhase = .starting) -> VMRunLease? {
         let key = canonicalKey(rootPath)
         guard entries[key] == nil else { return nil }
         guard let descriptor = acquireCrossProcessLock(key: key) else { return nil }
         let lease = VMRunLease(id: UUID(), rootPath: URL(fileURLWithPath: key))
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-        entries[key] = Entry(leaseID: lease.id, phase: .starting, lockHandle: handle, usage: nil)
-        writeRecord(key: key, entry: entries[key]!)
+        entries[key] = Entry(leaseID: lease.id, phase: phase, lockHandle: handle, usage: nil)
+        guard writeRecord(key: key, entry: entries[key]!) else {
+            entries.removeValue(forKey: key)
+            flock(descriptor, LOCK_UN)
+            try? handle.close()
+            return nil
+        }
         return lease
     }
 
@@ -137,16 +146,27 @@ final class VMRunningRegistry {
                             policy: VMHostResourcePolicy? = nil) -> VMResourceAssessment? {
         let key = canonicalKey(lease.rootPath)
         guard var entry = entries[key], entry.leaseID == lease.id else { return nil }
+        guard let admissionDescriptor = acquireAdmissionLock() else { return nil }
+        defer {
+            flock(admissionDescriptor, LOCK_UN)
+            close(admissionDescriptor)
+        }
         let requested = VMResourceUsage(cpuCount: cpuCount, memoryBytes: memoryBytes)
         let effectivePolicy = policy ?? VMHostResourcePolicy(
             hostCPUCount: ProcessInfo.processInfo.processorCount,
             hostMemoryBytes: ProcessInfo.processInfo.physicalMemory
         )
-        let assessment = effectivePolicy.assess(existing: activeExternalUsage(excluding: key), requested: requested)
+        guard let externalUsage = activeExternalUsage(excluding: key) else { return nil }
+        let assessment = effectivePolicy.assess(existing: externalUsage, requested: requested)
         guard assessment.allowed else { return assessment }
+        let previousUsage = entry.usage
         entry.usage = requested
         entries[key] = entry
-        writeRecord(key: key, entry: entry)
+        guard writeRecord(key: key, entry: entry) else {
+            entry.usage = previousUsage
+            entries[key] = entry
+            return nil
+        }
         return assessment
     }
 
@@ -162,6 +182,7 @@ final class VMRunningRegistry {
         let key = canonicalKey(lease.rootPath)
         guard let entry = entries[key], entry.leaseID == lease.id else { return }
         entries.removeValue(forKey: key)
+        try? FileManager.default.removeItem(at: metadataURL(key: key))
         flock(entry.lockHandle.fileDescriptor, LOCK_UN)
         try? entry.lockHandle.close()
     }
@@ -176,10 +197,26 @@ final class VMRunningRegistry {
     }
 
     private func acquireCrossProcessLock(key: String) -> Int32? {
-        try? FileManager.default.createDirectory(at: lockDirectory, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: lockDirectory, withIntermediateDirectories: true,
+                                                    attributes: [.posixPermissions: 0o700])
+        } catch {
+            return nil
+        }
         let descriptor = open(lockURL(key: key).path, O_RDWR | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR)
         guard descriptor >= 0 else { return nil }
         guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+            close(descriptor)
+            return nil
+        }
+        return descriptor
+    }
+
+    private func acquireAdmissionLock() -> Int32? {
+        let descriptor = open(lockDirectory.appendingPathComponent("admission.lock").path,
+                              O_RDWR | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR)
+        guard descriptor >= 0 else { return nil }
+        guard flock(descriptor, LOCK_EX) == 0 else {
             close(descriptor)
             return nil
         }
@@ -202,40 +239,45 @@ final class VMRunningRegistry {
         return lockDirectory.appendingPathComponent("\(digest).lock", isDirectory: false)
     }
 
-    private func writeRecord(key: String, entry: Entry) {
+    private func metadataURL(key: String) -> URL {
+        lockURL(key: key).deletingPathExtension().appendingPathExtension("json")
+    }
+
+    @discardableResult
+    private func writeRecord(key: String, entry: Entry) -> Bool {
+        let mode = entry.phase == .maintaining ? "maintenance"
+            : (ProcessInfo.processInfo.arguments.contains("--easyvm-headless") ? "headless" : "gui")
         let record = DiskRecord(schemaVersion: 1, pid: getpid(), machinePath: key, phase: entry.phase,
                                 cpuCount: entry.usage?.cpuCount, memoryBytes: entry.usage?.memoryBytes,
-                                updatedAt: Date())
-        guard let data = try? JSONEncoder().encode(record) else { return }
-        let descriptor = entry.lockHandle.fileDescriptor
-        guard ftruncate(descriptor, 0) == 0, lseek(descriptor, 0, SEEK_SET) >= 0 else { return }
-        data.withUnsafeBytes { bytes in
-            guard let base = bytes.baseAddress else { return }
-            var offset = 0
-            while offset < bytes.count {
-                let count = Darwin.write(descriptor, base.advanced(by: offset), bytes.count - offset)
-                if count <= 0 { return }
-                offset += count
-            }
+                                updatedAt: Date(), launchID: entry.leaseID, mode: mode)
+        guard let data = try? JSONEncoder().encode(record) else { return false }
+        let url = metadataURL(key: key)
+        do {
+            try data.write(to: url, options: [.atomic])
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            return true
+        } catch {
+            return false
         }
     }
 
-    private func activeExternalUsage(excluding key: String) -> [VMResourceUsage] {
+    private func activeExternalUsage(excluding key: String) -> [VMResourceUsage]? {
         let own = entries.compactMap { $0.key == key ? nil : $0.value.usage }
         guard let files = try? FileManager.default.contentsOfDirectory(at: lockDirectory,
-                                                                       includingPropertiesForKeys: nil) else { return own }
+                                                                       includingPropertiesForKeys: nil) else { return nil }
         var result = own
-        for file in files where file.pathExtension == "lock" && file != lockURL(key: key) {
-            let descriptor = open(file.path, O_RDONLY | O_CLOEXEC)
+        for file in files where file.pathExtension == "json" && file != metadataURL(key: key) {
+            let lockFile = file.deletingPathExtension().appendingPathExtension("lock")
+            let descriptor = open(lockFile.path, O_RDONLY | O_CLOEXEC)
             guard descriptor >= 0 else { continue }
             let locked = flock(descriptor, LOCK_EX | LOCK_NB) != 0 && errno == EWOULDBLOCK
             if !locked { flock(descriptor, LOCK_UN) }
             close(descriptor)
-            guard locked, let data = try? Data(contentsOf: file),
-                  let record = try? JSONDecoder().decode(DiskRecord.self, from: data),
-                  let cpu = record.cpuCount, let memory = record.memoryBytes else { continue }
+            guard locked else { continue }
+            guard let data = try? Data(contentsOf: file),
+                  let record = try? JSONDecoder().decode(DiskRecord.self, from: data) else { return nil }
             // Entries owned by this registry were already counted above.
-            if entries[record.machinePath] == nil {
+            if entries[record.machinePath] == nil, let cpu = record.cpuCount, let memory = record.memoryBytes {
                 result.append(VMResourceUsage(cpuCount: cpu, memoryBytes: memory))
             }
         }

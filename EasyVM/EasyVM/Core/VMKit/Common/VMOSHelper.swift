@@ -14,11 +14,15 @@ import Virtualization
 struct VMReleaseSmokeTestConfiguration: Equatable {
     let vmRootPath: URL
     let resultPath: URL
+    let requireGuestAgent: Bool
+    let requireKVM: Bool
 }
 
 enum VMReleaseSmokeTest {
     static let vmPathEnvironmentKey = "EASYVM_RELEASE_SMOKE_VM"
     static let resultPathEnvironmentKey = "EASYVM_RELEASE_SMOKE_RESULT"
+    static let requireGuestAgentEnvironmentKey = "EASYVM_RELEASE_REQUIRE_GUEST_AGENT"
+    static let requireKVMEnvironmentKey = "EASYVM_RELEASE_REQUIRE_KVM"
 
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> VMReleaseSmokeTestConfiguration? {
         guard let vmPath = environment[vmPathEnvironmentKey], !vmPath.isEmpty,
@@ -27,7 +31,9 @@ enum VMReleaseSmokeTest {
         }
         return VMReleaseSmokeTestConfiguration(
             vmRootPath: URL(filePath: vmPath).standardizedFileURL,
-            resultPath: URL(filePath: resultPath).standardizedFileURL
+            resultPath: URL(filePath: resultPath).standardizedFileURL,
+            requireGuestAgent: environment[requireGuestAgentEnvironmentKey] == "1",
+            requireKVM: environment[requireKVMEnvironmentKey] == "1"
         )
     }
 

@@ -5,6 +5,7 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="${1:-}"
 tap_repo="${EASYVM_HOMEBREW_TAP:-git@github.com:everettjf/homebrew-tap.git}"
+release_branch="${EASYVM_RELEASE_BRANCH:-main}"
 
 if [[ -z "$version" ]]; then
   echo "usage: $0 <version>" >&2
@@ -60,39 +61,48 @@ if [[ -z "$tag_commit" || "$tag_commit" != "$head_commit" ]]; then
   exit 65
 fi
 
-release_dir="$(mktemp -d /tmp/easyvm-publish.XXXXXX)"
+state_base="${EASYVM_RELEASE_STATE_DIR:-${TMPDIR:-/tmp}/easyvm-release-state}"
+release_dir="$state_base/$version"
 tap_dir="$(mktemp -d /tmp/easyvm-tap.XXXXXX)"
 derived_data="$release_dir/DerivedData"
 cleanup() {
-  rm -rf "$release_dir" "$tap_dir"
+  rm -rf "$tap_dir"
 }
 trap cleanup EXIT
-
-EASYVM_SIGNING_IDENTITY="$signing_identity" \
-EASYVM_DERIVED_DATA="$derived_data" \
-  "$project_root/scripts/build-release.sh" "$version" "$release_dir"
+mkdir -p "$release_dir"
 
 archive="$release_dir/EasyVM-$version.zip"
 checksum="$archive.sha256"
-"$project_root/scripts/build-guest-agent.sh" "$version" "$release_dir"
 guest_archive="$release_dir/EasyVM-GuestAgent-$version-linux-arm64.tar.gz"
 guest_checksum="$guest_archive.sha256"
 
-xcrun notarytool submit "$archive" \
-  --apple-id "$APPLE_ID" \
-  --team-id "$APPLE_TEAM_ID" \
-  --password "$APPLE_SPECIFIC_PASSWORD" \
-  --wait
+if [[ -f "$archive" && -f "$checksum" && -f "$guest_archive" && -f "$guest_checksum" ]] && \
+   (cd "$release_dir" && shasum -a 256 -c "$(basename "$checksum")" "$(basename "$guest_checksum")"); then
+  echo "Reusing verified EasyVM $version release artifacts from $release_dir"
+else
+  rm -f "$archive" "$checksum" "$guest_archive" "$guest_checksum" "$release_dir/notarized"
+  rm -rf "$derived_data"
+  EASYVM_SIGNING_IDENTITY="$signing_identity" \
+  EASYVM_DERIVED_DATA="$derived_data" \
+    "$project_root/scripts/build-release.sh" "$version" "$release_dir"
+  "$project_root/scripts/build-guest-agent.sh" "$version" "$release_dir"
+fi
+
+if [[ ! -f "$release_dir/notarized" ]]; then
+  xcrun notarytool submit "$archive" \
+    --apple-id "$APPLE_ID" \
+    --team-id "$APPLE_TEAM_ID" \
+    --password "$APPLE_SPECIFIC_PASSWORD" \
+    --wait
+  touch "$release_dir/notarized"
+fi
 
 # Do not staple the ticket into the app. On macOS 27 beta, a stapled app can
 # remain suspended in _dyld_start even though codesign, stapler, and spctl all
 # accept it. The notarized ZIP is still recognized by Gatekeeper through
 # Apple's online notarization record.
-app_path="$derived_data/Build/Products/Release/EasyVM.app"
-[[ -d "$app_path" ]] || { echo "Built app not found: $app_path" >&2; exit 66; }
-codesign --verify --deep --strict --verbose=2 "$app_path"
-
 install_check_dir="$release_dir/install-check"
+rm -rf "$install_check_dir"
 mkdir -p "$install_check_dir"
 ditto -x -k "$archive" "$install_check_dir"
 xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");EasyVMRelease;" "$install_check_dir/EasyVM.app"
@@ -112,11 +122,29 @@ else
   exit 78
 fi
 
-gh release create "$tag" "$archive" "$checksum" "$guest_archive" "$guest_checksum" \
-  --repo everettjf/easyvm \
-  --verify-tag \
-  --generate-notes \
-  --title "EasyVM $version"
+# Publish refs only after the exact candidate has passed notarization,
+# Gatekeeper, GUI readiness, and all real-VM tests.
+git -C "$project_root" push origin "HEAD:refs/heads/$release_branch" "refs/tags/$tag"
+
+if gh release view "$tag" --repo everettjf/easyvm >/dev/null 2>&1; then
+  published_checksums="$release_dir/published-checksums"
+  rm -rf "$published_checksums"
+  mkdir -p "$published_checksums"
+  gh release download "$tag" --repo everettjf/easyvm --pattern '*.sha256' --dir "$published_checksums"
+  cmp -s "$checksum" "$published_checksums/$(basename "$checksum")" || {
+    echo "Existing GitHub release has a different EasyVM checksum." >&2; exit 67;
+  }
+  cmp -s "$guest_checksum" "$published_checksums/$(basename "$guest_checksum")" || {
+    echo "Existing GitHub release has a different Guest Agent checksum." >&2; exit 67;
+  }
+  echo "GitHub release $tag already contains the verified artifacts; continuing."
+else
+  gh release create "$tag" "$archive" "$checksum" "$guest_archive" "$guest_checksum" \
+    --repo everettjf/easyvm \
+    --verify-tag \
+    --generate-notes \
+    --title "EasyVM $version"
+fi
 
 git clone "$tap_repo" "$tap_dir/repository"
 ruby "$project_root/scripts/update-cask.rb" \

@@ -58,14 +58,13 @@ type transferResult struct {
 }
 
 type uploadState struct {
-	file        *os.File
-	temporary   string
-	destination string
-	total       uint64
-	written     uint64
-	sha256      string
-	overwrite   bool
-	hash        hash.Hash
+	file      *os.File
+	target    secureUploadTarget
+	total     uint64
+	written   uint64
+	sha256    string
+	overwrite bool
+	hash      hash.Hash
 }
 
 type downloadState struct {
@@ -86,7 +85,7 @@ func newTransferSession() *transferSession {
 func (session *transferSession) close() {
 	for id, state := range session.uploads {
 		state.file.Close()
-		os.Remove(state.temporary)
+		state.target.cleanup()
 		delete(session.uploads, id)
 	}
 	for id, state := range session.downloads {
@@ -180,18 +179,17 @@ func (session *transferSession) startUpload(value uploadStart) (transferResult, 
 	} else if !os.IsNotExist(err) {
 		return transferResult{}, err
 	}
-	parent := filepath.Dir(value.DestinationPath)
-	temporary, err := os.CreateTemp(parent, ".easyvm-upload-*")
+	temporary, target, err := secureCreateUpload(value.DestinationPath)
 	if err != nil {
 		return transferResult{}, err
 	}
 	if err := temporary.Chmod(0600); err != nil {
 		temporary.Close()
-		os.Remove(temporary.Name())
+		target.cleanup()
 		return transferResult{}, err
 	}
 	session.uploads[value.TransferID] = &uploadState{
-		file: temporary, temporary: temporary.Name(), destination: value.DestinationPath,
+		file: temporary, target: target,
 		total: value.TotalBytes, sha256: strings.ToLower(value.SHA256), overwrite: value.Overwrite, hash: sha256.New(),
 	}
 	return transferResult{TransferID: value.TransferID, Success: true, Message: "ready", TotalBytes: &value.TotalBytes}, nil
@@ -231,15 +229,8 @@ func (session *transferSession) commitUpload(id string) (transferResult, error) 
 		session.abortUpload(id)
 		return transferResult{}, err
 	}
-	if !state.overwrite {
-		if _, err := os.Lstat(state.destination); err == nil {
-			os.Remove(state.temporary)
-			delete(session.uploads, id)
-			return transferResult{}, errors.New("destination appeared during upload")
-		}
-	}
-	if err := os.Rename(state.temporary, state.destination); err != nil {
-		os.Remove(state.temporary)
+	if err := state.target.commit(state.overwrite); err != nil {
+		state.target.cleanup()
 		delete(session.uploads, id)
 		return transferResult{}, err
 	}
@@ -257,7 +248,7 @@ func (session *transferSession) startDownload(value downloadInfoRequest) (transf
 	if err := validateGuestPath(value.SourcePath, true); err != nil {
 		return transferResult{}, err
 	}
-	file, err := os.Open(value.SourcePath)
+	file, err := secureOpenGuestFile(value.SourcePath)
 	if err != nil {
 		return transferResult{}, err
 	}
@@ -331,7 +322,7 @@ func (session *transferSession) cancel(id string) transferResult {
 func (session *transferSession) abortUpload(id string) {
 	if state := session.uploads[id]; state != nil {
 		state.file.Close()
-		os.Remove(state.temporary)
+		state.target.cleanup()
 		delete(session.uploads, id)
 	}
 }

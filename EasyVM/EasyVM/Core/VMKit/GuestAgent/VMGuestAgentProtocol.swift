@@ -171,9 +171,29 @@ struct VMGuestAgentStatus: Codable, Equatable {
     let bootID: String
     let uptimeSeconds: UInt64
     let capabilities: [String]?
+    let kvmAvailable: Bool?
+    let kvmAPIVersion: Int?
+    let kvmError: String?
+
+    init(agentVersion: String, operatingSystem: String, kernelVersion: String, hostName: String,
+         addresses: [String], bootID: String, uptimeSeconds: UInt64, capabilities: [String]?,
+         kvmAvailable: Bool? = nil, kvmAPIVersion: Int? = nil, kvmError: String? = nil) {
+        self.agentVersion = agentVersion
+        self.operatingSystem = operatingSystem
+        self.kernelVersion = kernelVersion
+        self.hostName = hostName
+        self.addresses = addresses
+        self.bootID = bootID
+        self.uptimeSeconds = uptimeSeconds
+        self.capabilities = capabilities
+        self.kvmAvailable = kvmAvailable
+        self.kvmAPIVersion = kvmAPIVersion
+        self.kvmError = kvmError
+    }
 
     var supportsSSH: Bool { capabilities?.contains("ssh-addresses-v1") == true }
     var supportsFileTransfer: Bool { capabilities?.contains("file-transfer-v1") == true }
+    var supportsKVMDiagnostics: Bool { capabilities?.contains("kvm-diagnostics-v1") == true }
 }
 
 enum VMGuestAgentAuthenticationError: LocalizedError, Equatable {

@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 @testable import EasyVMCore
 
 #if arch(arm64)
@@ -132,6 +133,24 @@ final class VMRunningRegistryTests: XCTestCase {
         let result = try XCTUnwrap(second.configureResources(secondLease, cpuCount: 2, memoryBytes: 4 * gib,
                                                              policy: .init(hostCPUCount: 8, hostMemoryBytes: 10 * gib)))
         XCTAssertFalse(result.allowed)
+    }
+
+    func testResourceAdmissionFailsClosedWhenLockedMetadataIsCorrupt() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EasyVMRunLeaseCorruption-\(UUID().uuidString)", isDirectory: true)
+        let first = VMRunningRegistry(lockDirectory: directory)
+        let second = VMRunningRegistry(lockDirectory: directory)
+        let firstRoot = URL(fileURLWithPath: "/tmp/EasyVM Corrupt Resource A")
+        let firstLease = try XCTUnwrap(first.acquire(rootPath: firstRoot))
+        let gib = UInt64(1_024 * 1_024 * 1_024)
+        XCTAssertNotNil(first.configureResources(firstLease, cpuCount: 2, memoryBytes: 2 * gib))
+
+        let key = firstRoot.standardizedFileURL.resolvingSymlinksInPath().path
+        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        try Data("not json".utf8).write(to: directory.appendingPathComponent("\(digest).json"), options: .atomic)
+
+        let secondLease = try XCTUnwrap(second.acquire(rootPath: URL(fileURLWithPath: "/tmp/EasyVM Corrupt Resource B")))
+        XCTAssertNil(second.configureResources(secondLease, cpuCount: 1, memoryBytes: gib))
     }
 }
 #endif

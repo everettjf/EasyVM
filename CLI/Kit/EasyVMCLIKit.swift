@@ -83,6 +83,19 @@ public struct EasyVMHeadlessRecord: Codable, Equatable, Sendable {
     public let phase: String
     public let message: String?
     public let updatedAt: Date
+    public let launchToken: String
+}
+
+private struct EasyVMSharedRuntimeRecord: Codable {
+    let schemaVersion: Int
+    let pid: Int32
+    let machinePath: String
+    let phase: String
+    let cpuCount: Int?
+    let memoryBytes: UInt64?
+    let updatedAt: Date
+    let launchID: UUID
+    let mode: String
 }
 
 public struct EasyVMMachineInspector {
@@ -301,7 +314,7 @@ public struct EasyVMCLI {
                 return (.invalidMachine, .init(command: "start", code: "invalid_machine", message: summary.problems.joined(separator: "; ")))
             }
             let stateURL = headlessStateURL(for: machine)
-            if let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record.pid) {
+            if let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record, machine: machine) {
                 return (.invalidMachine, .init(command: "start", code: "already_running", message: "The machine already has a headless process."))
             }
             try? FileManager.default.removeItem(at: stateURL)
@@ -309,14 +322,17 @@ public struct EasyVMCLI {
                 return (.unavailable, .init(command: "start", code: "host_app_unavailable", message: "Could not locate the EasyVM application executable."))
             }
             let process = Process()
+            let launchToken = UUID().uuidString
             process.executableURL = executable
-            process.arguments = ["--easyvm-headless", machine.path, "--state-file", stateURL.path]
+            process.arguments = ["--easyvm-headless", machine.path, "--state-file", stateURL.path,
+                                 "--launch-token", launchToken]
             process.standardOutput = FileHandle.nullDevice
             process.standardError = FileHandle.nullDevice
             try process.run()
             let deadline = Date().addingTimeInterval(parsed.timeout)
             while Date() < deadline {
-                if let record = readHeadlessState(stateURL), record.pid == process.processIdentifier {
+                if let record = readHeadlessState(stateURL), record.pid == process.processIdentifier,
+                   record.launchToken == launchToken {
                     if record.phase == "running" || record.phase == "paused" {
                         return (.success, .init(command: "start", result: headlessJSON(record)))
                     }
@@ -340,7 +356,10 @@ public struct EasyVMCLI {
         guard let target = parsed.target else { return missingTarget("status") }
         do {
             let machine = try inspector.resolve(target, roots: parsed.roots)
-            guard let record = readHeadlessState(headlessStateURL(for: machine)), isExpectedHeadlessProcess(record.pid) else {
+            guard let record = readHeadlessState(headlessStateURL(for: machine)), isExpectedHeadlessProcess(record, machine: machine) else {
+                if let shared = readActiveSharedRuntime(for: machine) {
+                    return (.success, .init(command: "status", result: sharedRuntimeJSON(shared)))
+                }
                 return (.success, .init(command: "status", result: .object([
                     "machinePath": .string(machine.path), "phase": .string("stopped")
                 ])))
@@ -358,7 +377,7 @@ public struct EasyVMCLI {
         do {
             let machine = try inspector.resolve(target, roots: parsed.roots)
             let stateURL = headlessStateURL(for: machine)
-            guard let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record.pid) else {
+            guard let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record, machine: machine) else {
                 try? FileManager.default.removeItem(at: stateURL)
                 return (.notFound, .init(command: "stop", code: "not_running", message: "The machine has no active headless process."))
             }
@@ -414,12 +433,50 @@ public struct EasyVMCLI {
         return FileManager.default.isExecutableFile(atPath: appExecutable.path) ? appExecutable : nil
     }
 
-    private func isExpectedHeadlessProcess(_ pid: Int32) -> Bool {
+    private func isExpectedHeadlessProcess(_ record: EasyVMHeadlessRecord, machine: URL) -> Bool {
+        let pid = record.pid
+        guard record.schemaVersion == 2, !record.launchToken.isEmpty,
+              URL(fileURLWithPath: record.machinePath).standardizedFileURL == machine.standardizedFileURL,
+              isExpectedAppProcess(pid) else { return false }
+        return true
+    }
+
+    private func isExpectedAppProcess(_ pid: Int32) -> Bool {
         guard pid > 1, kill(pid, 0) == 0 else { return false }
         var buffer = [CChar](repeating: 0, count: 4096)
         let length = proc_pidpath(pid, &buffer, UInt32(buffer.count))
         guard length > 0 else { return false }
-        return URL(fileURLWithPath: String(cString: buffer)).lastPathComponent == "EasyVM"
+        guard let expected = hostAppExecutable()?.resolvingSymlinksInPath().standardizedFileURL else { return false }
+        return URL(fileURLWithPath: String(cString: buffer)).resolvingSymlinksInPath().standardizedFileURL == expected
+    }
+
+    private func readActiveSharedRuntime(for machine: URL) -> EasyVMSharedRuntimeRecord? {
+        let key = machine.standardizedFileURL.resolvingSymlinksInPath().path
+        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("EasyVM/RunLeases", isDirectory: true)
+        let lockURL = base.appendingPathComponent("\(digest).lock")
+        let metadataURL = base.appendingPathComponent("\(digest).json")
+        let descriptor = open(lockURL.path, O_RDONLY | O_CLOEXEC)
+        guard descriptor >= 0 else { return nil }
+        defer { close(descriptor) }
+        if flock(descriptor, LOCK_EX | LOCK_NB) == 0 {
+            flock(descriptor, LOCK_UN)
+            return nil
+        }
+        guard errno == EWOULDBLOCK, let data = try? Data(contentsOf: metadataURL),
+              let record = try? JSONDecoder().decode(EasyVMSharedRuntimeRecord.self, from: data),
+              record.schemaVersion == 1, record.machinePath == key,
+              isExpectedAppProcess(record.pid) else { return nil }
+        return record
+    }
+
+    private func sharedRuntimeJSON(_ value: EasyVMSharedRuntimeRecord) -> JSONValue {
+        .object(["pid": .number(Double(value.pid)), "machinePath": .string(value.machinePath),
+                 "phase": .string(value.phase), "mode": .string(value.mode),
+                 "cpuCount": value.cpuCount.map { .number(Double($0)) } ?? .null,
+                 "memoryBytes": value.memoryBytes.map { .number(Double($0)) } ?? .null,
+                 "updatedAt": .string(ISO8601DateFormatter().string(from: value.updatedAt))])
     }
 
     private func headlessJSON(_ value: EasyVMHeadlessRecord) -> JSONValue {
@@ -429,9 +486,12 @@ public struct EasyVMCLI {
     }
 
     private func summaryJSON(_ value: EasyVMMachineSummary) -> JSONValue {
-        .object(["name": .string(value.name), "path": .string(value.path), "osType": .string(value.osType),
+        let runtime = readActiveSharedRuntime(for: URL(fileURLWithPath: value.path))
+        return .object(["name": .string(value.name), "path": .string(value.path), "osType": .string(value.osType),
                  "cpuCount": value.cpuCount.map { .number(Double($0)) } ?? .null,
                  "memoryBytes": value.memoryBytes.map { .number(Double($0)) } ?? .null,
+                 "runtimePhase": runtime.map { .string($0.phase) } ?? .string("stopped"),
+                 "runtimePID": runtime.map { .number(Double($0.pid)) } ?? .null,
                  "valid": .bool(value.valid), "problems": .array(value.problems.map(JSONValue.string))])
     }
     private struct ParseError: LocalizedError { let message: String; init(_ message: String) { self.message = message }; var errorDescription: String? { message } }

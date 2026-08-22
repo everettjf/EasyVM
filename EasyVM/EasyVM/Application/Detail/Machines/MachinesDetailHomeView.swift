@@ -298,11 +298,18 @@ struct MachinesDetailHomeView: View {
     }
 
     func cloneMachine(_ model: VMModel) {
+        guard let maintenanceLease = VMRunningRegistry.shared.acquire(rootPath: model.rootPath, phase: .maintaining) else {
+            MacKitUtil.alertWarn(title: "Machine is busy", message: "Shut down the virtual machine and wait for other maintenance operations before cloning it.")
+            return
+        }
         let panel = NSSavePanel()
         panel.title = "Clone Virtual Machine"
         panel.nameFieldStringValue = "\(model.config.name) Copy.ezvm"
         panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, var destination = panel.url else { return }
+        guard panel.runModal() == .OK, var destination = panel.url else {
+            VMRunningRegistry.shared.release(maintenanceLease)
+            return
+        }
         if destination.pathExtension != "ezvm" { destination.appendPathExtension("ezvm") }
         let cloneName = destination.deletingPathExtension().lastPathComponent
         let identifier = model.config.type == .macOS
@@ -317,6 +324,7 @@ struct MachinesDetailHomeView: View {
                 machineIdentifierData: identifier
             )
             await MainActor.run {
+                VMRunningRegistry.shared.release(maintenanceLease)
                 switch result {
                 case .success:
                     sharedAppConfigManager.addVMPathWithRefresh(url: destination)
@@ -329,11 +337,18 @@ struct MachinesDetailHomeView: View {
     }
 
     func exportMachine(_ model: VMModel) {
+        guard let maintenanceLease = VMRunningRegistry.shared.acquire(rootPath: model.rootPath, phase: .maintaining) else {
+            MacKitUtil.alertWarn(title: "Machine is busy", message: "Shut down the virtual machine and wait for other maintenance operations before exporting it.")
+            return
+        }
         let panel = NSSavePanel()
         panel.title = "Export Virtual Machine"
         panel.nameFieldStringValue = "\(model.config.name).easyvmexport"
         panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, var destination = panel.url else { return }
+        guard panel.runModal() == .OK, var destination = panel.url else {
+            VMRunningRegistry.shared.release(maintenanceLease)
+            return
+        }
         if destination.pathExtension != VMPortabilityManager.exportExtension {
             destination.appendPathExtension(VMPortabilityManager.exportExtension)
         }
@@ -341,6 +356,7 @@ struct MachinesDetailHomeView: View {
         Task.detached {
             let result = VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: destination)
             await MainActor.run {
+                VMRunningRegistry.shared.release(maintenanceLease)
                 switch result {
                 case .success: MacKitUtil.alertInfo(title: "Export complete", message: destination.path)
                 case .failure(let error): MacKitUtil.alertWarn(title: "Export failed", message: error)
@@ -403,8 +419,21 @@ struct MachinesDetailHomeView: View {
         savePanel.canCreateDirectories = true
         guard savePanel.runModal() == .OK, var destination = savePanel.url else { return }
         if destination.pathExtension != "ezvm" { destination.appendPathExtension("ezvm") }
+        let importedName = destination.deletingPathExtension().lastPathComponent
+        let exportedConfig = source
+            .appendingPathComponent(VMPortabilityManager.payloadDirectoryName, isDirectory: true)
+            .appendingPathComponent("config.json")
+        let exportedType = (try? JSONSerialization.jsonObject(with: Data(contentsOf: exportedConfig)))
+            .flatMap { $0 as? [String: Any] }?["type"] as? String
+        let identifier = exportedType == "macOS"
+            ? VZMacMachineIdentifier().dataRepresentation
+            : VZGenericMachineIdentifier().dataRepresentation
         Task.detached {
-            let result = VMPortabilityManager.importMachine(exportURL: source, destinationURL: destination)
+            let result = VMPortabilityManager.importMachine(
+                exportURL: source,
+                destinationURL: destination,
+                identityMode: .copy(machineIdentifierData: identifier, name: importedName)
+            )
             await MainActor.run {
                 switch result {
                 case .success:

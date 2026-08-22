@@ -81,9 +81,14 @@ final class VMPortabilityManagerTests: XCTestCase {
         XCTAssertEqual(Set(manifest.files.map(\.relativePath)), ["Disk.img", "MachineIdentifier", "config.json"])
 
         let imported = root.appendingPathComponent("Imported.ezvm")
-        try unwrap(VMPortabilityManager.importMachine(exportURL: export, destinationURL: imported))
+        let importedID = Data("imported identifier".utf8)
+        try unwrap(VMPortabilityManager.importMachine(
+            exportURL: export, destinationURL: imported,
+            identityMode: .copy(machineIdentifierData: importedID, name: "Imported")
+        ))
         XCTAssertEqual(try Data(contentsOf: imported.appendingPathComponent("Disk.img")), Data("disk data".utf8))
-        XCTAssertEqual(try json(imported.appendingPathComponent("config.json"))["name"] as? String, "Portable")
+        XCTAssertEqual(try Data(contentsOf: imported.appendingPathComponent("MachineIdentifier")), importedID)
+        XCTAssertEqual(try json(imported.appendingPathComponent("config.json"))["name"] as? String, "Imported")
     }
 
     func testValidationDetectsSameSizeCorruptionAndImportCreatesNothing() throws {
@@ -94,10 +99,71 @@ final class VMPortabilityManagerTests: XCTestCase {
         try Data("DIsk data".utf8).write(to: disk)
         if case .success = VMPortabilityManager.validateExport(at: export) { XCTFail("Expected checksum failure") }
         let destination = root.appendingPathComponent("Rejected.ezvm")
-        if case .success = VMPortabilityManager.importMachine(exportURL: export, destinationURL: destination) {
+        if case .success = VMPortabilityManager.importMachine(
+            exportURL: export, destinationURL: destination,
+            identityMode: .copy(machineIdentifierData: Data("new".utf8), name: "Rejected")
+        ) {
             XCTFail("Expected import failure")
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+
+    func testRestoreImportPreservesIdentityNameAndHistory() throws {
+        let source = try makeMachine(name: "Backup")
+        try FileManager.default.createDirectory(at: source.appendingPathComponent("Snapshots"), withIntermediateDirectories: true)
+        try Data("history".utf8).write(to: source.appendingPathComponent("Snapshots/item"))
+        let export = root.appendingPathComponent("Backup.easyvmexport")
+        try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+        let restored = root.appendingPathComponent("Restored.ezvm")
+
+        try unwrap(VMPortabilityManager.importMachine(exportURL: export, destinationURL: restored, identityMode: .restore))
+
+        XCTAssertEqual(try Data(contentsOf: restored.appendingPathComponent("MachineIdentifier")), Data("source identifier".utf8))
+        XCTAssertEqual(try json(restored.appendingPathComponent("config.json"))["name"] as? String, "Backup")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: restored.appendingPathComponent("Snapshots/item").path))
+    }
+
+    func testCopyImportDropsRuntimeHistoryAndRepeatedImportsUseDistinctIdentities() throws {
+        let source = try makeMachine(name: "Portable")
+        try Data("state".utf8).write(to: source.appendingPathComponent("MachineState.vzvmsave"))
+        try FileManager.default.createDirectory(at: source.appendingPathComponent("Snapshots"), withIntermediateDirectories: true)
+        let export = root.appendingPathComponent("Portable.easyvmexport")
+        try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+        let first = root.appendingPathComponent("First.ezvm")
+        let second = root.appendingPathComponent("Second.ezvm")
+
+        try unwrap(VMPortabilityManager.importMachine(
+            exportURL: export, destinationURL: first,
+            identityMode: .copy(machineIdentifierData: Data("first identity".utf8), name: "First")
+        ))
+        try unwrap(VMPortabilityManager.importMachine(
+            exportURL: export, destinationURL: second,
+            identityMode: .copy(machineIdentifierData: Data("second identity".utf8), name: "Second")
+        ))
+
+        XCTAssertNotEqual(try Data(contentsOf: first.appendingPathComponent("MachineIdentifier")),
+                          try Data(contentsOf: second.appendingPathComponent("MachineIdentifier")))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.appendingPathComponent("MachineState.vzvmsave").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.appendingPathComponent("Snapshots").path))
+    }
+
+    func testSparseEstimateUsesAllocatedBytesInsteadOfLogicalDiskSize() throws {
+        let sparse = root.appendingPathComponent("Sparse.ezvm")
+        try FileManager.default.createDirectory(at: sparse, withIntermediateDirectories: false)
+        let disk = sparse.appendingPathComponent("Disk.img")
+        XCTAssertTrue(FileManager.default.createFile(atPath: disk.path, contents: nil))
+        let handle = try FileHandle(forWritingTo: disk)
+        try handle.truncate(atOffset: 8 * 1_024 * 1_024 * 1_024)
+        try handle.close()
+
+        let estimate = try VMPortabilityManager.estimate(
+            sourceURL: sparse, destinationParent: root,
+            availableBytes: Int64(256 * 1_024 * 1_024)
+        )
+
+        XCTAssertEqual(estimate.logicalBytes, 8 * 1_024 * 1_024 * 1_024)
+        XCTAssertLessThan(estimate.allocatedBytes, 128 * 1_024 * 1_024)
+        XCTAssertTrue(estimate.hasEnoughSpace)
     }
 
     func testValidationDetectsMissingAndUnexpectedFiles() throws {

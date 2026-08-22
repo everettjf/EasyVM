@@ -92,11 +92,11 @@ echo "Running EasyVM $version release checks…"
   build)
 
 git -C "$project_root" tag -a "$tag" -m "EasyVM $version"
-git -C "$project_root" push origin "HEAD:refs/heads/$release_branch" "refs/tags/$tag"
 
 APPLE_ID="$APPLE_ID" \
 APPLE_SPECIFIC_PASSWORD="$APPLE_SPECIFIC_PASSWORD" \
 APPLE_TEAM_ID="$APPLE_TEAM_ID" \
+EASYVM_RELEASE_BRANCH="$release_branch" \
   "$project_root/scripts/publish-release.sh" "$version"
 
 echo "EasyVM $version is signed, notarized, published, and available from the Homebrew tap."

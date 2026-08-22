@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 )
 
 const protocolVersion = 1
@@ -66,6 +67,9 @@ type status struct {
 	BootID          string   `json:"bootID"`
 	UptimeSeconds   uint64   `json:"uptimeSeconds"`
 	Capabilities    []string `json:"capabilities,omitempty"`
+	KVMAvailable    bool     `json:"kvmAvailable"`
+	KVMAPIVersion   int      `json:"kvmAPIVersion,omitempty"`
+	KVMError        string   `json:"kvmError,omitempty"`
 }
 
 func main() {
@@ -269,7 +273,25 @@ func currentStatus() status {
 		}
 	}
 	sort.Strings(addresses)
-	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: []string{"file-transfer-v1", "ssh-addresses-v1"}}
+	kvmAvailable, kvmVersion, kvmError := kvmStatus()
+	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1"}, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+}
+
+func kvmStatus() (bool, int, string) {
+	file, err := os.OpenFile("/dev/kvm", os.O_RDWR, 0)
+	if err != nil {
+		return false, 0, err.Error()
+	}
+	defer file.Close()
+	// KVM_GET_API_VERSION is _IO(KVMIO, 0x00), or 0xAE00 on Linux.
+	version, _, errno := syscall.Syscall(syscall.SYS_IOCTL, file.Fd(), uintptr(0xAE00), 0)
+	if errno != 0 {
+		return false, 0, errno.Error()
+	}
+	if version != 12 {
+		return false, int(version), fmt.Sprintf("unexpected KVM API version %d", version)
+	}
+	return true, int(version), ""
 }
 
 func osName() string {

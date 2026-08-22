@@ -20,12 +20,30 @@ struct VMExportManifest: Codable, Equatable {
 
 struct VMPortabilityEstimate: Equatable {
     let logicalBytes: UInt64
+    let allocatedBytes: UInt64
     let availableBytes: Int64?
+
+    var requiredBytes: UInt64 {
+        // Copies preserve sparse extents on APFS. Keep a bounded margin for
+        // directory metadata, manifests, and allocation rounding.
+        let margin = max(UInt64(64 * 1_024 * 1_024), allocatedBytes / 20)
+        return allocatedBytes.addingReportingOverflow(margin).overflow
+            ? UInt64.max
+            : allocatedBytes + margin
+    }
 
     var hasEnoughSpace: Bool {
         guard let availableBytes else { return true }
-        return availableBytes >= 0 && UInt64(availableBytes) >= logicalBytes
+        return availableBytes >= 0 && UInt64(availableBytes) >= requiredBytes
     }
+}
+
+enum VMImportIdentityMode: Equatable {
+    /// Import as an independent copy. Runtime history and the source identity
+    /// are discarded so both machines can safely coexist.
+    case copy(machineIdentifierData: Data, name: String)
+    /// Restore the exported machine as the same logical machine.
+    case restore
 }
 
 enum VMPortabilityManager {
@@ -37,11 +55,13 @@ enum VMPortabilityManager {
         ".restore-staging", ".restore-backup", ".restore-transaction.json"
     ]
 
-    static func estimate(sourceURL: URL, destinationParent: URL) throws -> VMPortabilityEstimate {
-        let bytes = try regularFiles(in: sourceURL).reduce(UInt64(0)) { $0 + $1.size }
-        let available = try? destinationParent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-            .volumeAvailableCapacityForImportantUsage
-        return VMPortabilityEstimate(logicalBytes: bytes, availableBytes: available)
+    static func estimate(sourceURL: URL, destinationParent: URL, availableBytes override: Int64? = nil) throws -> VMPortabilityEstimate {
+        let files = try regularFiles(in: sourceURL)
+        let logical = files.reduce(UInt64(0)) { $0 + $1.size }
+        let allocated = files.reduce(UInt64(0)) { $0 + $1.allocatedSize }
+        let available = override ?? (try? destinationParent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage)
+        return VMPortabilityEstimate(logicalBytes: logical, allocatedBytes: allocated, availableBytes: available)
     }
 
     static func clone(
@@ -142,7 +162,7 @@ enum VMPortabilityManager {
         }
     }
 
-    static func importMachine(exportURL: URL, destinationURL: URL) -> VMOSResultVoid {
+    static func importMachine(exportURL: URL, destinationURL: URL, identityMode: VMImportIdentityMode) -> VMOSResultVoid {
         guard !isInside(destinationURL, parent: exportURL) else {
             return .failure("The import destination cannot be inside the export package.")
         }
@@ -159,7 +179,16 @@ enum VMPortabilityManager {
         return transactCopy(
             sourceURL: exportURL.appendingPathComponent(payloadDirectoryName, isDirectory: true),
             destinationURL: destinationURL,
-            mutation: { _ in }
+            mutation: { staging in
+                guard case .copy(let identifier, let name) = identityMode else { return }
+                guard !identifier.isEmpty else { throw CocoaError(.validationMissingMandatoryProperty) }
+                for excludedName in excludedCloneNames {
+                    try? FileManager.default.removeItem(at: staging.appendingPathComponent(excludedName))
+                }
+                try? FileManager.default.removeItem(at: staging.appendingPathComponent("Snapshots"))
+                try identifier.write(to: staging.appendingPathComponent("MachineIdentifier"), options: .atomic)
+                try rewriteMachineName(at: staging.appendingPathComponent("config.json"), name: name)
+            }
         )
     }
 
@@ -224,19 +253,20 @@ enum VMPortabilityManager {
             .write(to: configURL, options: .atomic)
     }
 
-    private static func regularFiles(in root: URL) throws -> [(url: URL, relativePath: String, size: UInt64)] {
-        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+    private static func regularFiles(in root: URL) throws -> [(url: URL, relativePath: String, size: UInt64, allocatedSize: UInt64)] {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .fileAllocatedSizeKey]
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys)) else {
             throw CocoaError(.fileReadUnknown)
         }
-        var result: [(url: URL, relativePath: String, size: UInt64)] = []
+        var result: [(url: URL, relativePath: String, size: UInt64, allocatedSize: UInt64)] = []
         for case let url as URL in enumerator {
             let values = try url.resourceValues(forKeys: keys)
             let relative = url.standardizedFileURL.pathComponents
                 .dropFirst(root.standardizedFileURL.pathComponents.count).joined(separator: "/")
             if values.isSymbolicLink == true { throw CocoaError(.fileReadUnsupportedScheme) }
             if values.isRegularFile == true {
-                result.append((url, relative, UInt64(values.fileSize ?? 0)))
+                let logicalSize = UInt64(values.fileSize ?? 0)
+                result.append((url, relative, logicalSize, UInt64(values.fileAllocatedSize ?? values.fileSize ?? 0)))
             }
         }
         return result.sorted { $0.relativePath < $1.relativePath }

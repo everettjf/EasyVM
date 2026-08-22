@@ -25,6 +25,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var screenshotTimer: Timer?
     private var guestAgentClient: VMGuestAgentHostClient?
     private var runLease: VMRunLease?
+    private var releaseSmokeTimer: Timer?
+    private var releaseSmokeStage = 0
+    private var releaseSmokeDeadline: Date?
+    private var releaseSmokePayload: Data?
+    private var releaseSmokeUploadURL: URL?
+    private var releaseSmokeDownloadURL: URL?
+    private var releaseSmokeGuestPath: String?
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
     
@@ -238,7 +245,12 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         runtimeState?.update(.running)
         markMachineRunning()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
-            finishReleaseSmokeTest(smokeTest)
+            if smokeTest.requireGuestAgent || smokeTest.requireKVM {
+                startGuestAgent(model: model)
+                startReleaseGuestAgentSmokeTest(smokeTest)
+            } else {
+                finishReleaseSmokeTest(smokeTest)
+            }
             return
         }
         startScreenshotTimer()
@@ -246,7 +258,95 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         startGuestAgent(model: model)
     }
 
+    private func startReleaseGuestAgentSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
+        let token = UUID().uuidString
+        let uploadURL = FileManager.default.temporaryDirectory.appendingPathComponent("easyvm-agent-upload-\(token)")
+        let downloadURL = FileManager.default.temporaryDirectory.appendingPathComponent("easyvm-agent-download-\(token)")
+        let payload = Data("EasyVM real guest-agent integration \(token)\n".utf8)
+        do {
+            try payload.write(to: uploadURL, options: .atomic)
+        } catch {
+            failReleaseSmokeTest("could not create host transfer fixture: \(error.localizedDescription)", configuration)
+            return
+        }
+        releaseSmokePayload = payload
+        releaseSmokeUploadURL = uploadURL
+        releaseSmokeDownloadURL = downloadURL
+        releaseSmokeGuestPath = "/tmp/easyvm-agent-integration-\(token)"
+        releaseSmokeDeadline = Date().addingTimeInterval(75)
+        releaseSmokeStage = 0
+        releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            self?.advanceReleaseGuestAgentSmokeTest(configuration)
+        }
+    }
+
+    private func advanceReleaseGuestAgentSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
+        guard let runtimeState, let deadline = releaseSmokeDeadline, Date() < deadline else {
+            failReleaseSmokeTest("timed out waiting for the Guest Agent integration test", configuration)
+            return
+        }
+        if case .disconnected(let reason) = runtimeState.guestAgentState {
+            failReleaseSmokeTest("Guest Agent disconnected: \(reason)", configuration)
+            return
+        }
+        if case .failed(let reason) = runtimeState.guestAgentTransferState {
+            failReleaseSmokeTest(reason, configuration)
+            return
+        }
+        switch releaseSmokeStage {
+        case 0:
+            guard case .ready(let status) = runtimeState.guestAgentState else { return }
+            guard status.supportsFileTransfer else {
+                failReleaseSmokeTest("Guest Agent does not advertise file-transfer-v1", configuration)
+                return
+            }
+            if configuration.requireKVM {
+                guard status.supportsKVMDiagnostics, status.kvmAvailable == true, status.kvmAPIVersion == 12 else {
+                    failReleaseSmokeTest("guest KVM check failed: \(status.kvmError ?? "KVM API unavailable")", configuration)
+                    return
+                }
+            }
+            guard let uploadURL = releaseSmokeUploadURL, let guestPath = releaseSmokeGuestPath else { return }
+            releaseSmokeStage = 1
+            guestAgentClient?.upload(localURL: uploadURL, destinationPath: guestPath, overwrite: false)
+        case 1:
+            guard case .completed = runtimeState.guestAgentTransferState,
+                  let guestPath = releaseSmokeGuestPath, let downloadURL = releaseSmokeDownloadURL else { return }
+            runtimeState.updateGuestAgentTransfer(.idle)
+            releaseSmokeStage = 2
+            guestAgentClient?.download(sourcePath: guestPath, destinationURL: downloadURL)
+        case 2:
+            guard case .completed = runtimeState.guestAgentTransferState,
+                  let expected = releaseSmokePayload, let downloadURL = releaseSmokeDownloadURL else { return }
+            guard (try? Data(contentsOf: downloadURL)) == expected else {
+                failReleaseSmokeTest("Guest Agent download did not match the uploaded bytes", configuration)
+                return
+            }
+            cleanupReleaseSmokeFiles()
+            finishReleaseSmokeTest(configuration)
+        default: return
+        }
+    }
+
+    private func failReleaseSmokeTest(_ reason: String, _ configuration: VMReleaseSmokeTestConfiguration) {
+        cleanupReleaseSmokeFiles()
+        VMReleaseSmokeTest.report("failed: \(reason)", configuration: configuration)
+        fail("Release integration test failed: \(reason)")
+    }
+
+    private func cleanupReleaseSmokeFiles() {
+        releaseSmokeTimer?.invalidate()
+        releaseSmokeTimer = nil
+        for url in [releaseSmokeUploadURL, releaseSmokeDownloadURL].compactMap({ $0 }) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        releaseSmokeUploadURL = nil
+        releaseSmokeDownloadURL = nil
+        releaseSmokePayload = nil
+    }
+
     private func finishReleaseSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
+        releaseSmokeTimer?.invalidate()
         virtualMachine.stop { [weak self] error in
             Task { @MainActor in
                 guard let self else { return }
