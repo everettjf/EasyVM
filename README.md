@@ -27,6 +27,7 @@ EasyVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 - Stores machines in `~/Easy Virtual Machines` by default; any other location can still be chosen
 - Keeps downloaded system images in a shared store and reuses them when creating more machines
 - Takes, restores, and deletes snapshots of a stopped machine (APFS copy-on-write clones)
+- Clones stopped machines with a new hardware identity and imports/exports checksum-verified `.easyvmexport` packages
 - Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories
 - Uses Apple's native virtualization stack—no bundled hypervisor or cross-architecture emulation
 - Keeps the app and its VM configuration format intentionally small

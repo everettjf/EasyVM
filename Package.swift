@@ -31,6 +31,7 @@ let package = Package(
             sources: [
                 "Common/VMOSResultVoid.swift",
                 "Common/VMOSHelper.swift",
+                "Common/VMPortabilityManager.swift",
                 "Common/VMRunningRegistry.swift",
                 "Model/Fields/VMModelFieldNetworkDevice.swift",
                 "Snapshot/VMSnapshotManager.swift",

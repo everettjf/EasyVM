@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import AppKit
+import Virtualization
 
 #if arch(arm64)
 struct MachinesDetailCardWarpView: View {
@@ -157,6 +159,22 @@ struct MachinesDetailHomeView: View {
                             }
                         }
 
+                        if let model = item.model, !isRunning {
+                            Button {
+                                cloneMachine(model)
+                            } label: {
+                                Image(systemName: "square.on.square")
+                                Text("Clone...")
+                            }
+
+                            Button {
+                                exportMachine(model)
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("Export...")
+                            }
+                        }
+
                         Divider()
 
                         Button {
@@ -268,6 +286,90 @@ struct MachinesDetailHomeView: View {
         }
     }
 
+    func cloneMachine(_ model: VMModel) {
+        let panel = NSSavePanel()
+        panel.title = "Clone Virtual Machine"
+        panel.nameFieldStringValue = "\(model.config.name) Copy.ezvm"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, var destination = panel.url else { return }
+        if destination.pathExtension != "ezvm" { destination.appendPathExtension("ezvm") }
+        let cloneName = destination.deletingPathExtension().lastPathComponent
+        let identifier = model.config.type == .macOS
+            ? VZMacMachineIdentifier().dataRepresentation
+            : VZGenericMachineIdentifier().dataRepresentation
+        let source = model.rootPath
+        Task.detached {
+            let result = VMPortabilityManager.clone(
+                sourceURL: source,
+                destinationURL: destination,
+                newName: cloneName,
+                machineIdentifierData: identifier
+            )
+            await MainActor.run {
+                switch result {
+                case .success:
+                    sharedAppConfigManager.addVMPathWithRefresh(url: destination)
+                    MacKitUtil.alertInfo(title: "Clone complete", message: "Created \(cloneName). The clone has a new machine identity and starts with a new snapshot history.")
+                case .failure(let error):
+                    MacKitUtil.alertWarn(title: "Clone failed", message: error)
+                }
+            }
+        }
+    }
+
+    func exportMachine(_ model: VMModel) {
+        let panel = NSSavePanel()
+        panel.title = "Export Virtual Machine"
+        panel.nameFieldStringValue = "\(model.config.name).easyvmexport"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, var destination = panel.url else { return }
+        if destination.pathExtension != VMPortabilityManager.exportExtension {
+            destination.appendPathExtension(VMPortabilityManager.exportExtension)
+        }
+        let source = model.rootPath
+        Task.detached {
+            let result = VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: destination)
+            await MainActor.run {
+                switch result {
+                case .success: MacKitUtil.alertInfo(title: "Export complete", message: destination.path)
+                case .failure(let error): MacKitUtil.alertWarn(title: "Export failed", message: error)
+                }
+            }
+        }
+    }
+
+    func importMachine() {
+        let openPanel = NSOpenPanel()
+        openPanel.title = "Select an EasyVM Export"
+        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = true
+        openPanel.allowsMultipleSelection = false
+        guard openPanel.runModal() == .OK, let source = openPanel.url else { return }
+        guard source.pathExtension == VMPortabilityManager.exportExtension else {
+            MacKitUtil.alertWarn(title: "Import failed", message: "Select a .easyvmexport package.")
+            return
+        }
+
+        let savePanel = NSSavePanel()
+        savePanel.title = "Import Virtual Machine"
+        let suggested = source.deletingPathExtension().lastPathComponent
+        savePanel.nameFieldStringValue = "\(suggested).ezvm"
+        savePanel.canCreateDirectories = true
+        guard savePanel.runModal() == .OK, var destination = savePanel.url else { return }
+        if destination.pathExtension != "ezvm" { destination.appendPathExtension("ezvm") }
+        Task.detached {
+            let result = VMPortabilityManager.importMachine(exportURL: source, destinationURL: destination)
+            await MainActor.run {
+                switch result {
+                case .success:
+                    sharedAppConfigManager.addVMPathWithRefresh(url: destination)
+                    MacKitUtil.alertInfo(title: "Import complete", message: destination.lastPathComponent)
+                case .failure(let error): MacKitUtil.alertWarn(title: "Import failed", message: error)
+                }
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             content
@@ -285,6 +387,11 @@ struct MachinesDetailHomeView: View {
                             sharedAppConfigManager.addVMPathWithSelect()
                         }) {
                             Label("Add an existing virtual machine", systemImage: "folder.badge.plus")
+                        }
+                    }
+                    ToolbarItem(id: "import", placement: .primaryAction) {
+                        Button(action: importMachine) {
+                            Label("Import an EasyVM export", systemImage: "square.and.arrow.down")
                         }
                     }
                     ToolbarItem(id: "more", placement: .primaryAction) {

@@ -89,11 +89,11 @@ evidence that a restricted entitlement is distributable.
 | Virtio block devices | Stable | Attaches Linux block storage through Virtio. | Expose safe caching/synchronization presets. |
 | Virtual USB mass storage | Stable | Supports virtual storage-device configuration; this is not physical USB passthrough. | Clarify terminology in the UI. |
 | APFS clone snapshots | Stable | Creates stopped-VM snapshots using APFS clone behavior where available. | Report fallback cost when copy-on-write is unavailable. |
-| Snapshot tree and branches | Stable | Tracks parent/child history, current branch, rename, protection, and restore. | Add integrity audit and orphan cleanup preview. |
+| Snapshot tree and branches | Stable | Tracks parent/child history, current branch, rename, protection, restore, and manifest-backed integrity audits. | Add orphan cleanup preview. |
 | Restore safety snapshot | Stable | Can preserve the current state before restoring another snapshot. | Add storage estimate before the operation. |
 | ASIF layered snapshots | Experimental | DiskImageKit-backed overlay stacks exist behind an experimental setting. | Validate crash recovery, compaction, and long branch chains. |
-| VM clone | Planned | Snapshot primitives exist, but there is no first-class clone workflow. | Clone IDs, config, disks, metadata, and saved state atomically. |
-| VM export/import | Planned | Bundles can be moved manually. | Add a manifest, checksums, compatibility checks, and progress. |
+| VM clone | Stable | Stopped VMs clone transactionally with a new hardware identity and name; incompatible saved state and source snapshot history are intentionally reset. | Add progress and cancellation UI. |
+| VM export/import | Stable | Native `.easyvmexport` packages use a versioned manifest, streaming SHA-256 checksums, architecture/OS compatibility checks, free-space forecasts, and transactional import. | Add progress and cancellation UI. |
 | OVF/OVA import | Planned | Not implemented. | Treat as a converter project after native bundle import is stable. |
 | OCI/image workflows | Backlog | Not implemented. | Require a concrete developer workflow before promotion. |
 
