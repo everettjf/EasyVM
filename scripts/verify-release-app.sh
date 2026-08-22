@@ -50,7 +50,10 @@ trap cleanup EXIT
 
 "$(dirname "$0")/verify-production-entitlements.sh" "$app_path"
 
-open -n -g --stdout "$launch_log" --stderr "$launch_log" \
+# Launch as an ordinary foreground app. On recent macOS releases, forcing a
+# SwiftUI WindowGroup launch into the background with `open -g` can leave the
+# process alive without creating its main window, producing a false failure.
+open -n --stdout "$launch_log" --stderr "$launch_log" \
   --env "EASYVM_GUI_READY_FILE=$ready_file" "$app_path"
 
 for ((second = 1; second <= launch_timeout; second++)); do
