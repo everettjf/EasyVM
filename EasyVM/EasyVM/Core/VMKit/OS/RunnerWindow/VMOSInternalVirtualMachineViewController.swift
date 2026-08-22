@@ -484,6 +484,18 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         guestAgentClient?.send(operation)
     }
 
+    func uploadToGuest(localURL: URL, destinationPath: String, overwrite: Bool) {
+        guestAgentClient?.upload(localURL: localURL, destinationPath: destinationPath, overwrite: overwrite)
+    }
+
+    func downloadFromGuest(sourcePath: String, destinationURL: URL) {
+        guestAgentClient?.download(sourcePath: sourcePath, destinationURL: destinationURL)
+    }
+
+    func cancelGuestAgentTransfer() {
+        guestAgentClient?.cancelTransfer()
+    }
+
     private func captureScreenshot(synchronously: Bool = false) {
         guard let rootPath = rootPath, let view = virtualMachineView else {
             return

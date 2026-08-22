@@ -108,8 +108,8 @@ evidence that a restricted entitlement is distributable.
 | Shared logical network across processes | Restricted | Not in production. | Requires vmnet serialization/XPC design and entitlement approval. |
 | vmnet port forwarding | Restricted | Removed in 3.2.14. | Same entitlement constraint as custom networking. |
 | User-space port forwarding | Planned research | Could avoid vmnet by proxying host sockets to a known guest service. | First solve guest discovery, security, lifecycle, and UDP semantics. |
-| Guest IP discovery | Planned | NAT does not currently expose a reliable product-level discovery workflow. | Prefer an authenticated guest agent over log scraping. |
-| One-click SSH | Planned | No automatic address/credential integration exists. | Build after guest-agent identity and IP discovery. |
+| Guest IP discovery | Stable | The authenticated Linux guest agent reports sorted non-loopback addresses over Virtio Socket. | Expand distro and reconnect soak coverage. |
+| One-click SSH | Stable | Capability-gated menu opens validated IPv4/IPv6 `ssh://` URLs without shell interpolation or stored credentials. | Add optional per-VM username preference after credential policy is designed. |
 
 ### Sharing, guest integration, and automation
 
@@ -121,10 +121,10 @@ evidence that a restricted entitlement is distributable.
 | Linux Rosetta | Stable | Configures a Rosetta directory share when available. | Add guided guest-side `binfmt_misc` setup. |
 | Rosetta translation cache | Stable | Supports caching options on compatible hosts. | Measure impact and document guest requirements. |
 | macOS guest provisioning | Experimental | Uses macOS 27 guest-provisioning APIs behind an opt-in setting. | Test account creation, secrets, retries, and final-system changes. |
-| Linux guest agent | Partial | A versioned, mutually authenticated ARM64 agent and systemd/OpenRC package are implemented for the next patch. | Publish, complete a real guest soak, and add more distro packages. |
+| Linux guest agent | Stable | A versioned, mutually authenticated ARM64 agent and systemd/OpenRC package ship with releases. | Complete longer real-guest soak tests and add more distro packages. |
 | Guest heartbeat and readiness | Partial | Authenticated status, IPs, boot identity, heartbeat, timeout, and reconnect are implemented. | Verify long-running reconnect and suspend/resume behavior in real guests. |
 | Graceful guest operations | Partial | The authenticated agent handles explicit UI shutdown and restart commands. | Add command-result visibility and audit history. |
-| Host/guest file transfer | Planned | Shared folders work, but there is no explicit transfer queue. | Build on VirtioFS or the guest agent. |
+| Host/guest file transfer | Stable | Capability-negotiated agent transfers use bounded chunks, progress/cancel UI, streaming SHA-256, symlink rejection, and atomic destination replacement. | Add a persistent multi-job queue and drag-and-drop destinations. |
 | Drag and drop | Planned | Not implemented. | Map drops to an explicit transfer destination through the agent. |
 | CLI (`easyvm`) | Planned | No stable command contract exists. | Start read-only, then add bounded mutations. |
 | Local API/MCP surface | Backlog | Not implemented. | Only after CLI schemas and authorization are stable. |

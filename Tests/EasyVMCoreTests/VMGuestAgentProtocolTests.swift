@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 @testable import EasyVMCore
 
@@ -40,7 +41,8 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let sessionID = try sender.sessionID(guestNonce: guestNonce, hostNonce: hostNonce)
         let payload = try JSONEncoder().encode(VMGuestAgentStatus(
             agentVersion: "1.0", operatingSystem: "Alpine Linux", kernelVersion: "6.12",
-            hostName: "easyvm", addresses: ["192.168.64.2"], bootID: "boot-a", uptimeSeconds: 12
+            hostName: "easyvm", addresses: ["192.168.64.2"], bootID: "boot-a", uptimeSeconds: 12,
+            capabilities: ["file-transfer-v1", "ssh-addresses-v1"]
         ))
         let envelope = try sender.makeEnvelope(sessionID: sessionID, sequence: 1, requestID: "request-1", operation: .status, payload: payload)
         try receiver.verifyEnvelope(envelope, sessionID: sessionID)
@@ -76,10 +78,23 @@ final class VMGuestAgentProtocolTests: XCTestCase {
     func testStatusPayloadRoundTrips() throws {
         let status = VMGuestAgentStatus(
             agentVersion: "1.2.3", operatingSystem: "Ubuntu 26.04", kernelVersion: "7.0",
-            hostName: "builder", addresses: ["10.0.2.15", "fd00::15"], bootID: "abc", uptimeSeconds: 99
+            hostName: "builder", addresses: ["10.0.2.15", "fd00::15"], bootID: "abc", uptimeSeconds: 99,
+            capabilities: ["file-transfer-v1", "ssh-addresses-v1"]
         )
         XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentStatus.self, from: JSONEncoder().encode(status)), status)
-        XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [.heartbeat, .status, .shutdown, .restart])
+        XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [
+            .heartbeat, .status, .shutdown, .restart,
+            .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,
+            .downloadInfo, .downloadChunk,
+        ])
+
+        let legacyJSON = Data(#"{"agentVersion":"1.0","operatingSystem":"Linux","kernelVersion":"6","hostName":"legacy","addresses":[],"bootID":"old","uptimeSeconds":1}"#.utf8)
+        let legacy = try JSONDecoder().decode(VMGuestAgentStatus.self, from: legacyJSON)
+        XCTAssertNil(legacy.capabilities)
+        XCTAssertFalse(legacy.supportsSSH)
+        XCTAssertFalse(legacy.supportsFileTransfer)
+        XCTAssertTrue(status.supportsSSH)
+        XCTAssertTrue(status.supportsFileTransfer)
     }
 
     func testFrameBufferHandlesPartialAndCoalescedReads() throws {
@@ -129,5 +144,92 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertTrue(liveness.hasExpired(at: start.addingTimeInterval(30.001)))
         liveness.reset()
         XCTAssertFalse(liveness.hasExpired(at: start.addingTimeInterval(100)))
+    }
+
+    func testFileTransferPayloadsRoundTripAndValidateBoundaries() throws {
+        let transferID = UUID().uuidString
+        let start = VMGuestAgentUploadStart(
+            transferID: transferID, destinationPath: "/tmp/report.txt", totalBytes: 7,
+            sha256: String(repeating: "a", count: 64), overwrite: false
+        )
+        try VMGuestAgentTransferValidator.validate(transferID: start.transferID)
+        try VMGuestAgentTransferValidator.validate(path: start.destinationPath)
+        try VMGuestAgentTransferValidator.validate(totalBytes: start.totalBytes, sha256: start.sha256)
+        XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentUploadStart.self, from: JSONEncoder().encode(start)), start)
+
+        let chunk = VMGuestAgentUploadChunk(transferID: transferID, offset: 0, data: Data("payload".utf8))
+        try VMGuestAgentTransferValidator.validate(offset: chunk.offset, data: chunk.data)
+        XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentUploadChunk.self, from: JSONEncoder().encode(chunk)), chunk)
+
+        XCTAssertThrowsError(try VMGuestAgentTransferValidator.validate(transferID: "not-a-uuid"))
+        XCTAssertThrowsError(try VMGuestAgentTransferValidator.validate(path: "relative/path"))
+        XCTAssertThrowsError(try VMGuestAgentTransferValidator.validate(path: "/tmp/invalid\0path"))
+        XCTAssertThrowsError(try VMGuestAgentTransferValidator.validate(totalBytes: 1, sha256: "short"))
+        XCTAssertThrowsError(try VMGuestAgentTransferValidator.validate(
+            totalBytes: VMGuestAgentProtocol.maximumTransferBytes + 1,
+            sha256: String(repeating: "f", count: 64)
+        ))
+        XCTAssertThrowsError(try VMGuestAgentTransferValidator.validate(
+            offset: 0, data: Data(repeating: 0, count: VMGuestAgentProtocol.fileChunkBytes + 1)
+        ))
+    }
+
+    func testSSHURLAcceptsIPv4AndIPv6WithoutShellInterpolation() {
+        XCTAssertEqual(VMGuestAgentSSH.url(username: "builder", address: "192.168.64.2")?.absoluteString, "ssh://builder@192.168.64.2")
+        XCTAssertEqual(VMGuestAgentSSH.url(username: "user_1", address: "fd00::15")?.absoluteString, "ssh://user_1@[fd00::15]")
+        XCTAssertNil(VMGuestAgentSSH.url(username: "bad user", address: "192.168.64.2"))
+        XCTAssertNil(VMGuestAgentSSH.url(username: "root;open", address: "192.168.64.2"))
+        XCTAssertNil(VMGuestAgentSSH.url(username: "root", address: "example.com"))
+        XCTAssertNil(VMGuestAgentSSH.url(username: "root", address: "fe80::1%en0"))
+    }
+
+    func testLocalFileMetadataStreamsChecksumAndRejectsSymlink() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("source.bin")
+        let content = Data(repeating: 0x5a, count: VMGuestAgentProtocol.fileChunkBytes + 37)
+        try content.write(to: file)
+        let metadata = try VMGuestAgentLocalFile.metadata(at: file)
+        XCTAssertEqual(metadata.size, UInt64(content.count))
+        XCTAssertEqual(metadata.sha256, Data(SHA256.hash(data: content)).map { String(format: "%02x", $0) }.joined())
+        XCTAssertEqual(try VMGuestAgentLocalFile.readChunk(at: file, offset: 0).count, VMGuestAgentProtocol.fileChunkBytes)
+        XCTAssertEqual(try VMGuestAgentLocalFile.readChunk(at: file, offset: UInt64(VMGuestAgentProtocol.fileChunkBytes)).count, 37)
+
+        let link = directory.appendingPathComponent("link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        XCTAssertThrowsError(try VMGuestAgentLocalFile.metadata(at: link))
+    }
+
+    func testDownloadTransactionCommitsAtomicallyAndPreservesDestinationOnFailure() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let destination = directory.appendingPathComponent("download.bin")
+        try Data("original".utf8).write(to: destination)
+        let content = Data(repeating: 0x31, count: VMGuestAgentProtocol.fileChunkBytes + 9)
+        let checksum = Data(SHA256.hash(data: content)).map { String(format: "%02x", $0) }.joined()
+
+        let transaction = try VMGuestAgentDownloadTransaction(
+            destination: destination, totalBytes: UInt64(content.count), expectedSHA256: checksum
+        )
+        try transaction.append(offset: 0, data: content.prefix(VMGuestAgentProtocol.fileChunkBytes))
+        XCTAssertThrowsError(try transaction.append(offset: 1, data: Data()))
+        try transaction.append(
+            offset: UInt64(VMGuestAgentProtocol.fileChunkBytes),
+            data: content.dropFirst(VMGuestAgentProtocol.fileChunkBytes)
+        )
+        try transaction.commit()
+        XCTAssertEqual(try Data(contentsOf: destination), content)
+
+        try Data("keep-me".utf8).write(to: destination)
+        let failed = try VMGuestAgentDownloadTransaction(
+            destination: destination, totalBytes: 1, expectedSHA256: String(repeating: "0", count: 64)
+        )
+        try failed.append(offset: 0, data: Data([1]))
+        XCTAssertThrowsError(try failed.commit())
+        failed.cancel()
+        XCTAssertEqual(try Data(contentsOf: destination), Data("keep-me".utf8))
+        XCTAssertTrue((try FileManager.default.contentsOfDirectory(atPath: directory.path)).allSatisfy { !$0.hasPrefix(".easyvm-download-") })
     }
 }

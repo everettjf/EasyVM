@@ -9,6 +9,27 @@ import SwiftUI
 import Observation
 
 #if arch(arm64)
+enum VMGuestAgentTransferDirection: Equatable {
+    case upload
+    case download
+}
+
+enum VMGuestAgentTransferState: Equatable {
+    case idle
+    case preparing(name: String)
+    case transferring(direction: VMGuestAgentTransferDirection, name: String, completedBytes: UInt64, totalBytes: UInt64)
+    case completed(String)
+    case failed(String)
+    case cancelled
+
+    var isActive: Bool {
+        switch self {
+        case .preparing, .transferring: true
+        default: false
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class VMRuntimeState {
@@ -18,6 +39,7 @@ final class VMRuntimeState {
     private(set) var balloonMemoryTarget: UInt64?
     private(set) var balloonMemoryMaximum: UInt64?
     private(set) var guestAgentState: VMGuestAgentConnectionState = .unavailable
+    private(set) var guestAgentTransferState: VMGuestAgentTransferState = .idle
     @ObservationIgnored
     weak var controller: VMOSInternalVirtualMachineViewController?
 
@@ -66,6 +88,10 @@ final class VMRuntimeState {
         guestAgentState = state
     }
 
+    func updateGuestAgentTransfer(_ state: VMGuestAgentTransferState) {
+        guestAgentTransferState = state
+    }
+
     func pause() { controller?.pauseMachine() }
     func resume() { controller?.resumeMachine() }
     func requestStop() { controller?.requestStopMachine() }
@@ -75,6 +101,13 @@ final class VMRuntimeState {
     func setBalloonMemory(fraction: Double) { controller?.setBalloonMemory(fraction: fraction) }
     func guestAgentShutdown() { controller?.sendGuestAgentCommand(.shutdown) }
     func guestAgentRestart() { controller?.sendGuestAgentCommand(.restart) }
+    func guestAgentUpload(localURL: URL, destinationPath: String, overwrite: Bool) {
+        controller?.uploadToGuest(localURL: localURL, destinationPath: destinationPath, overwrite: overwrite)
+    }
+    func guestAgentDownload(sourcePath: String, destinationURL: URL) {
+        controller?.downloadFromGuest(sourcePath: sourcePath, destinationURL: destinationURL)
+    }
+    func cancelGuestAgentTransfer() { controller?.cancelGuestAgentTransfer() }
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {

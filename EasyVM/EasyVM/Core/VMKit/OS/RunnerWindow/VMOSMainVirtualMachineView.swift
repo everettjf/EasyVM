@@ -108,9 +108,30 @@ struct VMOSMainVirtualMachineView: View {
                         if case let .ready(status) = runtimeState.guestAgentState {
                             Text("Host: \(status.hostName)")
                             Text("OS: \(status.operatingSystem)")
-                            if !status.addresses.isEmpty {
+                            if status.supportsSSH, !status.addresses.isEmpty {
                                 Text("Addresses: \(status.addresses.joined(separator: ", "))")
+                                Menu("Open SSH", systemImage: "terminal") {
+                                    ForEach(status.addresses, id: \.self) { address in
+                                        Button(address) {
+                                            openSSH(address: address)
+                                        }
+                                    }
+                                }
                             }
+                            if status.supportsFileTransfer {
+                                Divider()
+                                Button("Upload File to Guest...", systemImage: "arrow.up.doc") {
+                                    uploadFileToGuest()
+                                }
+                                .disabled(runtimeState.guestAgentTransferState.isActive)
+                                Button("Download File from Guest...", systemImage: "arrow.down.doc") {
+                                    downloadFileFromGuest()
+                                }
+                                .disabled(runtimeState.guestAgentTransferState.isActive)
+
+                                transferStatusContent
+                            }
+
                             Divider()
                             Button("Shut Down Guest", systemImage: "power") {
                                 runtimeState.guestAgentShutdown()
@@ -231,6 +252,116 @@ struct VMOSMainVirtualMachineView: View {
         case .ready(let status): "Guest Agent \(status.agentVersion) is ready"
         case .disconnected(let reason): "Guest Agent disconnected: \(reason)"
         }
+    }
+
+    @ViewBuilder
+    private var transferStatusContent: some View {
+        switch runtimeState.guestAgentTransferState {
+        case .idle:
+            EmptyView()
+        case .preparing(let name):
+            Divider()
+            Text("Preparing \(name)...")
+            Button("Cancel Transfer", role: .destructive) { runtimeState.cancelGuestAgentTransfer() }
+        case .transferring(let direction, let name, let completed, let total):
+            Divider()
+            Text("\(direction == .upload ? "Uploading" : "Downloading") \(name): \(transferProgress(completed, total))")
+            Button("Cancel Transfer", role: .destructive) { runtimeState.cancelGuestAgentTransfer() }
+        case .completed(let message):
+            Divider()
+            Text(message)
+        case .failed(let message):
+            Divider()
+            Text(message)
+        case .cancelled:
+            Divider()
+            Text("Transfer cancelled")
+        }
+    }
+
+    private func transferProgress(_ completed: UInt64, _ total: UInt64) -> String {
+        let completedText = ByteCountFormatter.string(fromByteCount: Int64(completed), countStyle: .file)
+        let totalText = ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file)
+        return "\(completedText) of \(totalText)"
+    }
+
+    private func openSSH(address: String) {
+        let alert = NSAlert()
+        alert.messageText = "Open SSH Connection"
+        alert.informativeText = "Enter the Linux username for \(address). EasyVM does not store the username or any SSH credential."
+        alert.addButton(withTitle: "Open")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(string: "")
+        field.placeholderString = "username"
+        field.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
+        alert.accessoryView = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard let url = VMGuestAgentSSH.url(username: field.stringValue, address: address) else {
+            MacKitUtil.alertWarn(title: "Invalid SSH destination", message: "Use a Linux username beginning with a letter and a valid IP address reported by the guest agent.")
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func uploadFileToGuest() {
+        let panel = NSOpenPanel()
+        panel.title = "Select a File to Upload"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let localURL = panel.url else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Upload “\(localURL.lastPathComponent)” to the Guest"
+        alert.informativeText = "Enter an absolute Linux destination. The transfer is authenticated, checksum-verified, and committed atomically."
+        alert.addButton(withTitle: "Upload")
+        alert.addButton(withTitle: "Cancel")
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.spacing = 8
+        let field = NSTextField(string: "/tmp/\(localURL.lastPathComponent)")
+        field.placeholderString = "/absolute/guest/path"
+        let overwrite = NSButton(checkboxWithTitle: "Replace an existing regular file", target: nil, action: nil)
+        stack.addArrangedSubview(field)
+        stack.addArrangedSubview(overwrite)
+        stack.frame = NSRect(x: 0, y: 0, width: 420, height: 56)
+        alert.accessoryView = stack
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try VMGuestAgentTransferValidator.validate(path: field.stringValue)
+            runtimeState.guestAgentUpload(
+                localURL: localURL, destinationPath: field.stringValue,
+                overwrite: overwrite.state == .on
+            )
+        } catch {
+            MacKitUtil.alertWarn(title: "Invalid guest destination", message: error.localizedDescription)
+        }
+    }
+
+    private func downloadFileFromGuest() {
+        let alert = NSAlert()
+        alert.messageText = "Download File from Guest"
+        alert.informativeText = "Enter the absolute path of a regular Linux file. Symbolic links are rejected."
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        let field = NSTextField(string: "/tmp/")
+        field.placeholderString = "/absolute/guest/path"
+        field.frame = NSRect(x: 0, y: 0, width: 420, height: 24)
+        alert.accessoryView = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try VMGuestAgentTransferValidator.validate(path: field.stringValue)
+        } catch {
+            MacKitUtil.alertWarn(title: "Invalid guest source", message: error.localizedDescription)
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.title = "Save File from Guest"
+        panel.nameFieldStringValue = URL(fileURLWithPath: field.stringValue).lastPathComponent
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        runtimeState.guestAgentDownload(sourcePath: field.stringValue, destinationURL: destination)
     }
 
     private func openSettings() {

@@ -65,6 +65,7 @@ type status struct {
 	Addresses       []string `json:"addresses"`
 	BootID          string   `json:"bootID"`
 	UptimeSeconds   uint64   `json:"uptimeSeconds"`
+	Capabilities    []string `json:"capabilities,omitempty"`
 }
 
 func main() {
@@ -111,6 +112,8 @@ func loadEnrollment(path string) (enrollment, error) {
 }
 
 func serve(stream io.ReadWriter, config enrollment) error {
+	transfers := newTransferSession()
+	defer transfers.close()
 	guestNonceBytes := make([]byte, 32)
 	if _, err := rand.Read(guestNonceBytes); err != nil {
 		return err
@@ -163,6 +166,17 @@ func serve(stream io.ReadWriter, config enrollment) error {
 				return err
 			}
 			go power(request.Operation)
+		case "uploadStart", "uploadChunk", "uploadCommit", "transferCancel", "downloadInfo", "downloadChunk":
+			result := transfers.handle(request.Operation, request.Payload)
+			payload, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			sentSequence++
+			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
+			if err := writeFrame(stream, response); err != nil {
+				return err
+			}
 		default:
 			return errors.New("unsupported operation")
 		}
@@ -255,7 +269,7 @@ func currentStatus() status {
 		}
 	}
 	sort.Strings(addresses)
-	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime()}
+	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: []string{"file-transfer-v1", "ssh-addresses-v1"}}
 }
 
 func osName() string {
