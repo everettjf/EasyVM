@@ -87,7 +87,10 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     
     func createConfiguration(rootPath: URL) -> VMOSResult<VZStorageDeviceConfiguration, String> {
         if self.type == .USB {
-            guard let diskImageAttachment = try? VZDiskImageStorageDeviceAttachment(url: URL(fileURLWithPath: imagePath), readOnly: false) else {
+            // The UI exposes USB-backed storage as ISO installation media.
+            // Opening it read-only lets multiple VMs safely share the same ISO
+            // and prevents a guest from mutating the host's installer image.
+            guard let diskImageAttachment = try? VZDiskImageStorageDeviceAttachment(url: URL(fileURLWithPath: imagePath), readOnly: true) else {
                 return .failure("Failed to create Disk image.")
             }
             

@@ -91,6 +91,17 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             fail("Could not read the virtual machine configuration.")
             return
         }
+
+        guard let resourceAssessment = VMRunningRegistry.shared.configureResources(
+            lease, cpuCount: model.config.cpu.count, memoryBytes: model.config.memory.size
+        ) else {
+            fail("Could not reserve host resources for this virtual machine.")
+            return
+        }
+        guard resourceAssessment.allowed else {
+            fail(resourceAssessment.denialReason ?? "Host resource policy rejected this virtual machine.")
+            return
+        }
         
         let runner = VMOSRunnerFactory.getRunner(model.config.type)
         

@@ -53,9 +53,9 @@ evidence that a restricted entitlement is distributable.
 | Force stop | Stable | Available with destructive-action handling. | Keep data-loss warning visible. |
 | Saved machine state | Stable | Saves and restores runtime state on macOS 14 and later. | Detect disk/config divergence before restore. |
 | Recovery boot for macOS | Stable | Opens a macOS VM using recovery start options. | Add an automated smoke scenario. |
-| Single-owner VM lease | Stable | Prevents the same VM bundle from running twice. | Extend to future CLI/service processes. |
+| Single-owner VM lease | Stable | A kernel-backed cross-process lease prevents the same VM bundle from running in both GUI and headless processes; leases recover automatically when a process exits. | Keep all future launch surfaces on the shared lease. |
 | Headless execution | Stable | The CLI launches a non-activating signed EasyVM process, reports lifecycle state, and supports bounded stop fallback without presenting a VM window. | Share cross-process leases with GUI and add launch-at-login supervision. |
-| Multi-VM resource policy | Planned | Multiple machines can exist, but there is no scheduler. | Add CPU/memory pressure limits and launch warnings. |
+| Multi-VM resource policy | Stable | Different VM bundles run concurrently. Cross-process records aggregate allocations; launches above 90% of host memory or twice the host logical CPU count are rejected with an actionable error. | Add live memory-pressure recommendations and user-selectable policy profiles. |
 
 ### Virtual devices and interaction
 
