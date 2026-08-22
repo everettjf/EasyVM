@@ -12,8 +12,8 @@ import Virtualization
 
 #if arch(arm64)
 enum VirtualizationCapability: String, CaseIterable, Identifiable {
-    case savedState, automaticDisplayResize, asifStorage, advancedNetworking
-    case guestProvisioning, diskImageKitSnapshots, usbPassthrough, customVirtio, efiSecureBoot
+    case savedState, automaticDisplayResize, asifStorage
+    case guestProvisioning, diskImageKitSnapshots, customVirtio, efiSecureBoot
 
     var id: String { rawValue }
 
@@ -22,10 +22,8 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
         case .savedState: "Saved machine state"
         case .automaticDisplayResize: "Automatic display resizing"
         case .asifStorage: "ASIF storage"
-        case .advancedNetworking: "Advanced networking"
         case .guestProvisioning: "macOS guest provisioning"
         case .diskImageKitSnapshots: "DiskImageKit snapshots"
-        case .usbPassthrough: "USB passthrough"
         case .customVirtio: "Custom Virtio devices"
         case .efiSecureBoot: "EFI Secure Boot management"
         }
@@ -34,8 +32,8 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
     var minimumMajorVersion: Int {
         switch self {
         case .savedState, .automaticDisplayResize: 14
-        case .asifStorage, .advancedNetworking: 26
-        case .guestProvisioning, .diskImageKitSnapshots, .usbPassthrough, .customVirtio, .efiSecureBoot: 27
+        case .asifStorage: 26
+        case .guestProvisioning, .diskImageKitSnapshots, .customVirtio, .efiSecureBoot: 27
         }
     }
 
@@ -49,7 +47,6 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
 enum EasyVMExperimentalFeatures {
     static let guestProvisioningKey = "experimental.guestProvisioning"
     static let diskImageKitSnapshotsKey = "experimental.diskImageKitSnapshots"
-    static let usbPassthroughKey = "experimental.usbPassthrough"
     static let customVirtioKey = "experimental.customVirtio"
     static let efiSecureBootKey = "experimental.efiSecureBoot"
 }
@@ -132,35 +129,6 @@ enum VMEFISecureBootManager {
             return .failure("Could not update UEFI Secure Boot: \(error.localizedDescription)")
         }
     }
-}
-
-struct VMUSBDeviceDescriptor: Equatable {
-    let vendorID: UInt16
-    let productID: UInt16
-    let deviceClass: UInt8
-
-    init?(data: Data) {
-        guard data.count >= 12, data[0] >= 12, data[1] == 1 else { return nil }
-        vendorID = UInt16(data[8]) | UInt16(data[9]) << 8
-        productID = UInt16(data[10]) | UInt16(data[11]) << 8
-        deviceClass = data[4]
-    }
-
-    var name: String {
-        switch deviceClass {
-        case 1: "USB Audio"
-        case 2: "USB Communications"
-        case 3: "USB Human Interface"
-        case 7: "USB Printer"
-        case 8: "USB Storage"
-        case 9: "USB Hub"
-        case 14: "USB Video"
-        case 224: "USB Wireless Controller"
-        default: "USB Accessory"
-        }
-    }
-
-    var identifier: String { String(format: "%04X:%04X", vendorID, productID) }
 }
 
 struct VMGuestProvisioningCredential: Codable, Equatable {

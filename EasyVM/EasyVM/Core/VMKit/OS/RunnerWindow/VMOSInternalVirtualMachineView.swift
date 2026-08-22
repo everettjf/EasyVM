@@ -14,16 +14,7 @@ import Observation
 final class VMRuntimeState {
     typealias Phase = VMRuntimePhase
 
-    struct USBAccessoryItem: Identifiable, Equatable {
-        let id: UInt64
-        let name: String
-        let detail: String
-        var isAttached: Bool
-    }
-
     private(set) var phase: Phase = .preparing
-    private(set) var usbAccessories: [USBAccessoryItem] = []
-    private(set) var usbStatusMessage: String?
     private(set) var balloonMemoryTarget: UInt64?
     private(set) var balloonMemoryMaximum: UInt64?
     @ObservationIgnored
@@ -43,13 +34,6 @@ final class VMRuntimeState {
         case .starting, .restoring, .running, .pausing, .paused, .saving, .stopping: true
         default: false
         }
-    }
-    var canManageUSB: Bool {
-        if #available(macOS 27.0, *) {
-            return UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey)
-                && (phase == .running || phase == .paused)
-        }
-        return false
     }
     var canManageBalloon: Bool {
         balloonMemoryMaximum != nil && (phase == .running || phase == .paused)
@@ -72,11 +56,6 @@ final class VMRuntimeState {
         self.phase = phase
     }
 
-    func updateUSBAccessories(_ accessories: [USBAccessoryItem], statusMessage: String? = nil) {
-        usbAccessories = accessories
-        usbStatusMessage = statusMessage
-    }
-
     func updateBalloonMemory(target: UInt64?, maximum: UInt64?) {
         balloonMemoryTarget = target
         balloonMemoryMaximum = maximum
@@ -88,7 +67,6 @@ final class VMRuntimeState {
     func saveAndStop() { controller?.saveAndStopMachine() }
     func saveAndStopForWindowClose() { controller?.saveAndStopForWindowClose() }
     func forceStop() { controller?.forceStopMachine() }
-    func toggleUSB(_ id: UInt64) { controller?.toggleUSBAccessory(registryID: id) }
     func setBalloonMemory(fraction: Double) { controller?.setBalloonMemory(fraction: fraction) }
 }
 

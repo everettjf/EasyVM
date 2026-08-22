@@ -65,12 +65,6 @@ class VMOSRunnerForMacOS : VMOSRunner {
         // keyboards
         virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
 
-        if #available(macOS 27.0, *),
-           UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey) {
-            virtualMachineConfiguration.usbControllers = [VZXHCIControllerConfiguration()]
-        }
-        
-        
         // directorySharingDevices
         virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
         

@@ -87,32 +87,6 @@ struct VMOSMainVirtualMachineView: View {
                 .help("Choose a host folder to share after the next start")
                 .accessibilityHint("Choose a folder to share with this virtual machine")
 
-                if #available(macOS 27.0, *),
-                   UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey) {
-                    Menu("USB", systemImage: "cable.connector") {
-                        if let message = runtimeState.usbStatusMessage {
-                            Text(message)
-                        }
-                        if runtimeState.usbAccessories.isEmpty {
-                            Text(runtimeState.canManageUSB ? "No accessible USB devices" : "Start the virtual machine to manage USB devices")
-                        } else {
-                            ForEach(runtimeState.usbAccessories) { accessory in
-                                Button {
-                                    runtimeState.toggleUSB(accessory.id)
-                                } label: {
-                                    Label {
-                                        Text("\(accessory.name) — \(accessory.detail)")
-                                    } icon: {
-                                        Image(systemName: accessory.isAttached ? "checkmark.circle.fill" : "circle")
-                                    }
-                                }
-                                .disabled(!runtimeState.canManageUSB)
-                            }
-                        }
-                    }
-                    .help("Attach or detach a host USB accessory")
-                }
-
                 if let target = runtimeState.balloonMemoryTarget,
                    let maximum = runtimeState.balloonMemoryMaximum {
                     Menu("Memory", systemImage: "memorychip") {

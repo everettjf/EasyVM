@@ -70,11 +70,6 @@ class VMOSRunnerForLinux : VMOSRunner {
         // keyboards
         virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
 
-        if #available(macOS 27.0, *),
-           UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey) {
-            virtualMachineConfiguration.usbControllers = [VZXHCIControllerConfiguration()]
-        }
-        
         // consoleDevices
         virtualMachineConfiguration.consoleDevices = [createSpiceAgentConsoleDeviceConfiguration()]
         

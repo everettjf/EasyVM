@@ -8,7 +8,6 @@
 import Cocoa
 import Foundation
 import Virtualization
-import AccessoryAccess
 
 
 #if arch(arm64)
@@ -24,7 +23,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var virtualMachine: VZVirtualMachine!
     private var configuredMemorySize: UInt64 = 0
     private var screenshotTimer: Timer?
-    private var usbAccessoryCoordinator: AnyObject?
     private var runLease: VMRunLease?
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
@@ -227,7 +225,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         runtimeState?.update(.running)
         markMachineRunning()
         startScreenshotTimer()
-        startUSBAccessoryDiscoveryIfEnabled()
         updateBalloonMemoryState()
     }
 
@@ -296,16 +293,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         runtimeState?.update(.stopping)
         markMachineStopping()
-        stopUSBAccessoryDiscovery { [weak self] in
-            guard let self else { return }
-            self.virtualMachine.stop { error in
-                Task { @MainActor in
-                    if let error {
-                        self.fail("Could not force stop the virtual machine: \(error.localizedDescription)")
-                    } else {
-                        self.runtimeState?.update(.stopped)
-                        self.releaseRunLease()
-                    }
+        virtualMachine.stop { [weak self] error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let error {
+                    self.fail("Could not force stop the virtual machine: \(error.localizedDescription)")
+                } else {
+                    self.runtimeState?.update(.stopped)
+                    self.releaseRunLease()
                 }
             }
         }
@@ -318,9 +313,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         markMachineStopping()
         shutdownRetainer = self
-        stopUSBAccessoryDiscovery { [weak self] in
-            self?.saveMachineStateAndStop(rootPath: rootPath)
-        }
+        saveMachineStateAndStop(rootPath: rootPath)
     }
 
     func saveAndStopForWindowClose() {
@@ -378,13 +371,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         if runtimeState?.phase == .running || runtimeState?.phase == .paused {
             saveAndStopMachine()
         } else {
-            stopUSBAccessoryDiscovery()
             releaseRunLease()
         }
     }
 
     private func fail(_ message: String) {
-        stopUSBAccessoryDiscovery()
         runtimeState?.update(.failed(message))
         releaseRunLease()
     }
@@ -466,186 +457,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
 }
 
-extension VMOSInternalVirtualMachineViewController {
-    func toggleUSBAccessory(registryID: UInt64) {
-        guard #available(macOS 27.0, *), let coordinator = usbAccessoryCoordinator as? VMUSBAccessoryCoordinator else {
-            runtimeState?.updateUSBAccessories([], statusMessage: "USB passthrough requires macOS 27.")
-            return
-        }
-        coordinator.toggle(registryID: registryID)
-    }
-
-    private func startUSBAccessoryDiscoveryIfEnabled() {
-        guard #available(macOS 27.0, *),
-              UserDefaults.standard.bool(forKey: EasyVMExperimentalFeatures.usbPassthroughKey),
-              let virtualMachine,
-              let controller = virtualMachine.usbControllers.first else { return }
-        let coordinator = VMUSBAccessoryCoordinator(controller: controller) { [weak self] items, message in
-            self?.runtimeState?.updateUSBAccessories(items, statusMessage: message)
-        }
-        usbAccessoryCoordinator = coordinator
-        coordinator.start()
-    }
-
-    private func stopUSBAccessoryDiscovery(completion: @escaping () -> Void = {}) {
-        guard #available(macOS 27.0, *), let coordinator = usbAccessoryCoordinator as? VMUSBAccessoryCoordinator else {
-            completion()
-            return
-        }
-        usbAccessoryCoordinator = nil
-        runtimeState?.updateUSBAccessories([], statusMessage: nil)
-        coordinator.stopAndDetach(completion: completion)
-    }
-}
-
-@available(macOS 27.0, *)
-private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener, VZUSBController.Delegate {
-    typealias UpdateHandler = ([VMRuntimeState.USBAccessoryItem], String?) -> Void
-
-    private let controller: VZUSBController
-    private let updateHandler: UpdateHandler
-    private var accessories: [UInt64: AAUSBAccessory] = [:]
-    private var attachedDevices: [UInt64: VZUSBPassthroughDevice] = [:]
-    private var isRegistered = false
-    private var isStopping = false
-
-    init(controller: VZUSBController, updateHandler: @escaping UpdateHandler) {
-        self.controller = controller
-        self.updateHandler = updateHandler
-        super.init()
-        controller.delegate = self
-    }
-
-    func start() {
-        AAUSBAccessoryManager.shared.registerListener(self, matchingCriteria: []) { [weak self] accessories, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if let error {
-                    self.publish(message: "USB access failed: \(error.localizedDescription)")
-                    return
-                }
-                self.isRegistered = true
-                if self.isStopping {
-                    AAUSBAccessoryManager.shared.unregisterListener(self) {}
-                    self.isRegistered = false
-                    return
-                }
-                self.accessories = Dictionary(uniqueKeysWithValues: accessories.map { ($0.registryID, $0) })
-                self.publish()
-            }
-        }
-    }
-
-    func stopAndDetach(completion: @escaping () -> Void) {
-        isStopping = true
-        controller.delegate = nil
-        if isRegistered {
-            AAUSBAccessoryManager.shared.unregisterListener(self) {}
-            isRegistered = false
-        }
-
-        let devices = Array(attachedDevices.values)
-        guard !devices.isEmpty else {
-            completion()
-            return
-        }
-        let group = DispatchGroup()
-        for device in devices {
-            group.enter()
-            controller.detach(device: device) { [weak self] _ in
-                if let self, let entry = self.attachedDevices.first(where: { $0.value === device }) {
-                    self.attachedDevices.removeValue(forKey: entry.key)
-                }
-                group.leave()
-            }
-        }
-        group.notify(queue: .main, execute: completion)
-    }
-
-    func usbAccessoryDidConnect(_ usbAccessory: AAUSBAccessory) {
-        DispatchQueue.main.async { [weak self] in
-            guard self?.isStopping == false else { return }
-            self?.accessories[usbAccessory.registryID] = usbAccessory
-            self?.publish()
-        }
-    }
-
-    func usbAccessoryDidDisconnect(_ usbAccessory: AAUSBAccessory) {
-        DispatchQueue.main.async { [weak self] in
-            guard self?.isStopping == false else { return }
-            self?.accessories.removeValue(forKey: usbAccessory.registryID)
-            self?.attachedDevices.removeValue(forKey: usbAccessory.registryID)
-            self?.publish()
-        }
-    }
-
-    func toggle(registryID: UInt64) {
-        if let device = attachedDevices[registryID] {
-            controller.detach(device: device) { [weak self] error in
-                guard let self else { return }
-                if let error {
-                    self.publish(message: "Could not detach USB device: \(error.localizedDescription)")
-                } else {
-                    self.attachedDevices.removeValue(forKey: registryID)
-                    self.publish()
-                }
-            }
-            return
-        }
-
-        guard let accessory = accessories[registryID] else {
-            publish(message: "The USB accessory is no longer connected.")
-            return
-        }
-        let configuration = VZUSBPassthroughDeviceConfiguration(device: accessory)
-        do {
-            let device = try VZUSBPassthroughDevice(configuration: configuration)
-            controller.attach(device: device) { [weak self] error in
-                guard let self else { return }
-                if let error {
-                    self.publish(message: "Could not attach USB device: \(error.localizedDescription)")
-                } else {
-                    self.attachedDevices[registryID] = device
-                    self.publish()
-                }
-            }
-        } catch {
-            publish(message: "Could not prepare USB device: \(error.localizedDescription)")
-        }
-    }
-
-    func usbController(_ usbController: VZUSBController, usbPassthroughDeviceDidDisconnect device: VZUSBPassthroughDevice) {
-        if let entry = attachedDevices.first(where: { $0.value === device }) {
-            attachedDevices.removeValue(forKey: entry.key)
-        }
-        publish(message: "A USB accessory was disconnected from the host.")
-    }
-
-    private func publish(message: String? = nil) {
-        let items = accessories.values.map { accessory in
-            let descriptor = Self.descriptor(for: accessory)
-            return VMRuntimeState.USBAccessoryItem(
-                id: accessory.registryID,
-                name: descriptor.name,
-                detail: descriptor.detail,
-                isAttached: attachedDevices[accessory.registryID] != nil
-            )
-        }.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
-        updateHandler(items, message)
-    }
-
-    private static func descriptor(for accessory: AAUSBAccessory) -> (name: String, detail: String) {
-        guard let descriptor = VMUSBDeviceDescriptor(data: accessory.deviceDescriptorData) else {
-            return ("USB Accessory", "Registry \(accessory.registryID)")
-        }
-        return (descriptor.name, descriptor.identifier)
-    }
-}
-
 extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     
     public func guestDidStop(_ virtualMachine: VZVirtualMachine) {
-        stopUSBAccessoryDiscovery()
         runtimeState?.update(.stopped)
         releaseRunLease()
     }
