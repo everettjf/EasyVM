@@ -49,6 +49,18 @@ app_path="$derived_data/Build/Products/Release/EasyVM.app"
 signing_identity="${EASYVM_SIGNING_IDENTITY:--}"
 entitlements_path="$project_root/EasyVM/EasyVM/EasyVM.entitlements"
 
+# Restricted entitlements require a matching provisioning profile even for a
+# Developer ID build. Without one, notarization can succeed while macOS refuses
+# to spawn the app with AMFI error "No matching profile found".
+if [[ ! -f "$app_path/Contents/embedded.provisionprofile" ]]; then
+  for entitlement in com.apple.vm.networking com.apple.developer.accessory-access.usb; do
+    if /usr/libexec/PlistBuddy -c "Print :$entitlement" "$entitlements_path" >/dev/null 2>&1; then
+      echo "restricted entitlement requires an embedded provisioning profile: $entitlement" >&2
+      exit 78
+    fi
+  done
+fi
+
 signing_options=(--force --deep --options runtime --entitlements "$entitlements_path" --sign "$signing_identity")
 if [[ "$signing_identity" == "-" ]]; then
   signing_options+=(--timestamp=none)
