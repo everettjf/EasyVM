@@ -30,7 +30,7 @@ cask "easyvm" do
   version "3.2.0"
   sha256 "0f7a3b22442d35a56811d26ba468b009d099ed348824f25b02e1638b08f1bec4"
 
-  url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip?stapled=1"
+  url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip?notarized=1"
   name "EasyVM"
   desc "Simple native virtual machines for Apple silicon Macs"
   homepage "https://xnu.app/easyvm"

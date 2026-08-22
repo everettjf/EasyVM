@@ -5,7 +5,7 @@ cask "easyvm" do
   version "3.0.1"
   sha256 :no_check
 
-  url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip?stapled=1"
+  url "https://github.com/everettjf/easyvm/releases/download/v#{version}/EasyVM-#{version}.zip?notarized=1"
   name "EasyVM"
   desc "Simple native virtual machines for Apple silicon Macs"
   homepage "https://xnu.app/easyvm"

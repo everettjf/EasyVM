@@ -81,21 +81,18 @@ xcrun notarytool submit "$archive" \
   --password "$APPLE_SPECIFIC_PASSWORD" \
   --wait
 
+# Do not staple the ticket into the app. On macOS 27 beta, a stapled app can
+# remain suspended in _dyld_start even though codesign, stapler, and spctl all
+# accept it. The notarized ZIP is still recognized by Gatekeeper through
+# Apple's online notarization record.
 app_path="$derived_data/Build/Products/Release/EasyVM.app"
 [[ -d "$app_path" ]] || { echo "Built app not found: $app_path" >&2; exit 66; }
-xcrun stapler staple "$app_path"
-xcrun stapler validate "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
-rm -f "$archive" "$checksum"
-ditto -c -k --sequesterRsrc --keepParent "$app_path" "$archive"
-(
-  cd "$release_dir"
-  shasum -a 256 "$(basename "$archive")" > "$(basename "$checksum")"
-)
 
 install_check_dir="$release_dir/install-check"
 mkdir -p "$install_check_dir"
 ditto -x -k "$archive" "$install_check_dir"
+xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");EasyVMRelease;" "$install_check_dir/EasyVM.app"
 codesign --verify --deep --strict --verbose=2 "$install_check_dir/EasyVM.app"
 spctl --assess --type execute --verbose=4 "$install_check_dir/EasyVM.app"
 
