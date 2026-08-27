@@ -25,6 +25,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 #if arch(arm64)
+        if let install = LinuxImageInstallConfiguration.current {
+            installLinuxImage(install)
+            return
+        }
         if let launch = HeadlessLaunchConfiguration.current {
             startHeadless(launch)
             return
@@ -109,6 +113,93 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 #if arch(arm64)
+    private func installLinuxImage(_ install: LinuxImageInstallConfiguration) {
+        NSApp.setActivationPolicy(.prohibited)
+        for window in NSApp.windows { window.orderOut(nil) }
+        Task {
+            let result = await performLinuxImageInstall(install)
+            switch result {
+            case .success:
+                print("Installed EZVM machine: \(install.destinationURL.path)")
+                fflush(stdout)
+                exit(0)
+            case .failure(let message):
+                FileHandle.standardError.write(Data("EZVM image installation failed: \(message)\n".utf8))
+                exit(70)
+            }
+        }
+    }
+
+    private func performLinuxImageInstall(_ install: LinuxImageInstallConfiguration) async -> VMOSResultVoid {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: install.imageURL.path) else {
+            return .failure("Disk image not found: \(install.imageURL.path)")
+        }
+        guard install.destinationURL.pathExtension.lowercased() == "ezvm" else {
+            return .failure("Destination must use the .ezvm extension.")
+        }
+        guard !fileManager.fileExists(atPath: install.destinationURL.path) else {
+            return .failure("Destination already exists: \(install.destinationURL.path)")
+        }
+        guard let attributes = try? fileManager.attributesOfItem(atPath: install.imageURL.path),
+              let imageSize = attributes[.size] as? NSNumber,
+              imageSize.uint64Value >= VMModelFieldStorageDevice.minDiskSize() else {
+            return .failure("The preinstalled disk image is missing or smaller than the minimum supported disk size.")
+        }
+
+        let diskURL = install.destinationURL.appending(path: "Disk.img")
+        do {
+            try fileManager.createDirectory(at: install.destinationURL, withIntermediateDirectories: false)
+            do {
+                try fileManager.moveItem(at: install.imageURL, to: diskURL)
+            } catch {
+                try fileManager.copyItem(at: install.imageURL, to: diskURL)
+            }
+        } catch {
+            try? fileManager.removeItem(at: install.destinationURL)
+            return .failure("Could not stage the disk image: \(error.localizedDescription)")
+        }
+
+        let defaults = VMConfigModel.createWithDefaultValues(osType: .linux)
+        let config = VMConfigModel(
+            type: .linux,
+            name: install.name,
+            remark: "Preinstalled AArch64 image",
+            cpu: defaults.cpu,
+            memory: defaults.memory,
+            graphicsDevices: defaults.graphicsDevices,
+            storageDevices: [VMModelFieldStorageDevice(
+                type: .Block,
+                size: imageSize.uint64Value,
+                imagePath: diskURL.lastPathComponent,
+                format: .raw
+            )],
+            networkDevices: defaults.networkDevices,
+            pointingDevices: defaults.pointingDevices,
+            audioDevices: defaults.audioDevices,
+            directorySharingDevices: defaults.directorySharingDevices,
+            linuxFeatures: .recommended
+        )
+        let model = VMModel(
+            rootPath: install.destinationURL,
+            state: VMStateModel(imagePath: diskURL),
+            config: config
+        )
+        let result = await VMOSCreatorForLinux().create(model: model) { progress in
+            switch progress {
+            case .info(let message): print(message)
+            case .error(let message): FileHandle.standardError.write(Data((message + "\n").utf8))
+            case .progress: break
+            }
+        }
+        guard case .success = result else {
+            try? fileManager.removeItem(at: install.destinationURL)
+            return result
+        }
+        sharedAppConfigManager.addVMPath(url: install.destinationURL)
+        return .success
+    }
+
     private func startHeadless(_ launch: HeadlessLaunchConfiguration) {
         NSApp.setActivationPolicy(.prohibited)
         for window in NSApp.windows { window.orderOut(nil) }
@@ -193,6 +284,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 #if arch(arm64)
+struct LinuxImageInstallConfiguration {
+    let imageURL: URL
+    let destinationURL: URL
+    let name: String
+
+    static var current: LinuxImageInstallConfiguration? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let marker = arguments.firstIndex(of: "--ezvm-install-linux-image"), marker + 1 < arguments.count,
+              let destinationMarker = arguments.firstIndex(of: "--destination"), destinationMarker + 1 < arguments.count else {
+            return nil
+        }
+        let name: String
+        if let nameMarker = arguments.firstIndex(of: "--name"), nameMarker + 1 < arguments.count {
+            name = arguments[nameMarker + 1]
+        } else {
+            name = "Imported Linux"
+        }
+        return LinuxImageInstallConfiguration(
+            imageURL: URL(fileURLWithPath: arguments[marker + 1]).standardizedFileURL,
+            destinationURL: URL(fileURLWithPath: arguments[destinationMarker + 1]).standardizedFileURL,
+            name: name
+        )
+    }
+}
+
 struct HeadlessLaunchConfiguration {
     let machineURL: URL
     let stateURL: URL
