@@ -73,7 +73,7 @@ type status struct {
 }
 
 func main() {
-	configPath := flag.String("config", "/etc/easyvm-agent/config.json", "enrollment configuration")
+	configPath := flag.String("config", "/etc/ezvm-agent/config.json", "enrollment configuration")
 	flag.Parse()
 	configuration, err := loadEnrollment(*configPath)
 	if err != nil {
@@ -84,7 +84,7 @@ func main() {
 		log.Fatalf("listen on AF_VSOCK port %d: %v", configuration.Port, err)
 	}
 	defer closeSocket(fd)
-	log.Printf("EasyVM guest agent %s listening on AF_VSOCK port %d", version, configuration.Port)
+	log.Printf("EZVM guest agent %s listening on AF_VSOCK port %d", version, configuration.Port)
 	for {
 		connection, err := acceptSocket(fd)
 		if err != nil {

@@ -102,7 +102,7 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 		syscall.Close(parentFD)
 		return nil, nil, err
 	}
-	temporaryName := ".easyvm-upload-" + hex.EncodeToString(random[:])
+	temporaryName := ".ezvm-upload-" + hex.EncodeToString(random[:])
 	fd, err := openat2(parentFD, temporaryName, syscall.O_WRONLY|syscall.O_CREAT|syscall.O_EXCL|syscall.O_CLOEXEC|oNoFollow, 0600)
 	if err != nil {
 		syscall.Close(parentFD)

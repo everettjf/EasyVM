@@ -4,7 +4,7 @@ set -euo pipefail
 
 app_path="${1:-}"
 vm_path="${2:-}"
-timeout="${EASYVM_VM_SMOKE_TIMEOUT:-90}"
+timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
 
 fail() {
   echo "verify-release-vm: $*" >&2
@@ -13,21 +13,21 @@ fail() {
 
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
 [[ -d "$vm_path" ]] || fail "virtual machine not found: $vm_path"
-[[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "EASYVM_VM_SMOKE_TIMEOUT must be a positive integer"
-enrollment_file="${EASYVM_RELEASE_SMOKE_ENROLLMENT:-}"
-[[ -n "$enrollment_file" && -f "$enrollment_file" ]] || fail "EASYVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
+[[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "EZVM_VM_SMOKE_TIMEOUT must be a positive integer"
+enrollment_file="${EZVM_RELEASE_SMOKE_ENROLLMENT:-}"
+[[ -n "$enrollment_file" && -f "$enrollment_file" ]] || fail "EZVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
 permissions="$(stat -f '%Lp' "$enrollment_file")"
 [[ "$permissions" == "600" ]] || fail "fixture enrollment must have mode 600 (found $permissions)"
 
-executable="$app_path/Contents/MacOS/EasyVM"
+executable="$app_path/Contents/MacOS/EZVM"
 [[ -x "$executable" ]] || fail "application executable not found: $executable"
 
 smoke_parent="$(dirname "$vm_path")"
-smoke_directory="$(mktemp -d "$smoke_parent/.easyvm-release-smoke.XXXXXX")"
+smoke_directory="$(mktemp -d "$smoke_parent/.ezvm-release-smoke.XXXXXX")"
 smoke_vm="$smoke_directory/Smoke.ezvm"
 result_file="$smoke_directory/result.txt"
 pid_file="$smoke_directory/pid.txt"
-launch_log="$(mktemp "${TMPDIR:-/tmp}/easyvm-vm-smoke-launch.XXXXXX")"
+launch_log="$(mktemp "${TMPDIR:-/tmp}/ezvm-vm-smoke-launch.XXXXXX")"
 app_pid=""
 open_pid=""
 cleanup() {
@@ -39,7 +39,7 @@ cleanup() {
     kill "$open_pid" 2>/dev/null || true
     wait "$open_pid" 2>/dev/null || true
   fi
-  if [[ "${EASYVM_KEEP_SMOKE_ARTIFACTS:-0}" == "1" ]]; then
+  if [[ "${EZVM_KEEP_SMOKE_ARTIFACTS:-0}" == "1" ]]; then
     echo "verify-release-vm: retained VM clone at $smoke_vm" >&2
     echo "verify-release-vm: retained launch log at $launch_log" >&2
   else
@@ -52,7 +52,7 @@ trap cleanup EXIT
 cp -cR "$vm_path" "$smoke_vm"
 rm -f "$smoke_vm/NVRAM" "$smoke_vm/MachineState.vzvmsave"
 
-if [[ "${EASYVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
+if [[ "${EZVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
   ruby -rjson -e '
     path = ARGV.fetch(0)
     config = JSON.parse(File.read(path))
@@ -64,12 +64,12 @@ if [[ "${EASYVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
 fi
 
 open -n -g -W --stdout "$launch_log" --stderr "$launch_log" \
-  --env "EASYVM_RELEASE_SMOKE_VM=$smoke_vm" \
-  --env "EASYVM_RELEASE_SMOKE_RESULT=$result_file" \
-  --env "EASYVM_RELEASE_SMOKE_PID=$pid_file" \
-  --env "EASYVM_RELEASE_REQUIRE_GUEST_AGENT=1" \
-  --env "EASYVM_RELEASE_REQUIRE_KVM=${EASYVM_RELEASE_REQUIRE_KVM:-0}" \
-  --env "EASYVM_RELEASE_AGENT_ENROLLMENT_FILE=$enrollment_file" \
+  --env "EZVM_RELEASE_SMOKE_VM=$smoke_vm" \
+  --env "EZVM_RELEASE_SMOKE_RESULT=$result_file" \
+  --env "EZVM_RELEASE_SMOKE_PID=$pid_file" \
+  --env "EZVM_RELEASE_REQUIRE_GUEST_AGENT=1" \
+  --env "EZVM_RELEASE_REQUIRE_KVM=${EZVM_RELEASE_REQUIRE_KVM:-0}" \
+  --env "EZVM_RELEASE_AGENT_ENROLLMENT_FILE=$enrollment_file" \
   "$app_path" &
 open_pid=$!
 

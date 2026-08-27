@@ -1,6 +1,6 @@
-# EasyVM Guest Agent Protocol v1
+# EZVM Guest Agent Protocol v1
 
-EasyVM's Linux guest agent uses AF_VSOCK through Virtualization.framework's
+EZVM's Linux guest agent uses AF_VSOCK through Virtualization.framework's
 Virtio Socket device. The fixed service port is `10240`. The transport never
 requires privileged host networking.
 
@@ -8,9 +8,9 @@ requires privileged host networking.
 
 Each VM receives an independent random 256-bit token. The host stores its copy
 in Keychain; installation places the guest copy in a root-readable file. The
-token is never stored in the EasyVM bundle's `config.json`, included in
+token is never stored in the EZVM bundle's `config.json`, included in
 diagnostics, or logged. It is present in the separately exported enrollment
-file and in the guest's root-only `/etc/easyvm-agent/config.json`.
+file and in the guest's root-only `/etc/ezvm-agent/config.json`.
 
 The guest starts authentication with a random nonce and an HMAC-SHA256 proof
 bound to the protocol version and VM identity. The host rejects a mismatched VM,
@@ -54,12 +54,12 @@ authentication rules.
 
 ## Install in a Linux guest
 
-EasyVM ships a separate ARM64 Linux archive with each GitHub release. It is not
+EZVM ships a separate ARM64 Linux archive with each GitHub release. It is not
 silently installed into a VM and does not need a privileged host entitlement.
 
-1. Download and verify `EasyVM-GuestAgent-<version>-linux-arm64.tar.gz` and its
+1. Download and verify `EZVM-GuestAgent-<version>-linux-arm64.tar.gz` and its
    `.sha256` file from the same release as the app.
-2. In EasyVM, right-click the stopped Linux VM and select **Export Guest Agent
+2. In EZVM, right-click the stopped Linux VM and select **Export Guest Agent
    Enrollment...**. This creates or retrieves that VM's token from Keychain and
    writes a mode-`0600` enrollment file.
 3. Copy the archive and enrollment file into that same VM. Extract the archive,
@@ -68,11 +68,11 @@ silently installed into a VM and does not need a privileged host entitlement.
    the configuration as root-readable mode `0600`, enables the service, and
    starts it.
 5. Delete the copied enrollment file and any other unneeded copy. Restart the
-   VM window if it was already running. EasyVM's **Guest Agent** toolbar menu
+   VM window if it was already running. EZVM's **Guest Agent** toolbar menu
    will show authentication, readiness, guest metadata, IP addresses, and the
    explicit shutdown/restart actions. Current agents also expose validated SSH
    links and explicit upload/download actions with progress and cancellation.
 
 If the agent is absent or misconfigured, the VM continues to boot normally and
-EasyVM retries the connection. A connection that stops responding is discarded
+EZVM retries the connection. A connection that stops responding is discarded
 and retried; it is not left displayed as ready.

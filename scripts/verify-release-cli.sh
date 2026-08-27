@@ -4,20 +4,20 @@ set -euo pipefail
 
 app_path="${1:-}"
 vm_path="${2:-}"
-timeout="${EASYVM_VM_SMOKE_TIMEOUT:-90}"
+timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
 
 fail() {
   echo "verify-release-cli: $*" >&2
   exit 1
 }
 
-[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <EasyVM.app> <smoke-vm>"
+[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <EZVM.app> <smoke-vm>"
 [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
-cli="$app_path/Contents/Helpers/easyvm"
+cli="$app_path/Contents/Helpers/ezvm"
 [[ -x "$cli" ]] || fail "CLI executable not found: $cli"
 
 smoke_parent="$(dirname "$vm_path")"
-smoke_directory="$(mktemp -d "$smoke_parent/.easyvm-cli-smoke.XXXXXX")"
+smoke_directory="$(mktemp -d "$smoke_parent/.ezvm-cli-smoke.XXXXXX")"
 smoke_vm="$smoke_directory/CLI-Smoke.ezvm"
 second_vm="$smoke_directory/CLI-Smoke-Second.ezvm"
 cleanup() {

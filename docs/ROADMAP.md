@@ -1,11 +1,11 @@
-# EasyVM capability map and roadmap
+# EZVM capability map and roadmap
 
 _Updated: August 22, 2026_
 
-For the ordered post-3.3 implementation backlog, dependencies, and acceptance
-criteria, see [EasyVM post-3.3 execution plan](NEXT_PLAN.md).
+For the ordered post-5.0 implementation backlog, dependencies, and acceptance
+criteria, see [EZVM post-5.0 execution plan](NEXT_PLAN.md).
 
-EasyVM is a native macOS application built on Apple's
+EZVM is a native macOS application built on Apple's
 [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization).
 Its product boundary is macOS and ARM64 Linux virtualization on Apple silicon.
 It is not intended to become a general CPU emulator or a replacement for QEMU.
@@ -23,7 +23,7 @@ entitlements, and capabilities that the framework does not provide.
 | **Planned** | Fits the product and can be implemented without a restricted entitlement. |
 | **Experimental** | Implemented or prototyped against beta/new system APIs; disabled by default. |
 | **Restricted** | Requires an Apple-approved entitlement or another distribution approval. |
-| **Out of scope** | Unsupported by Virtualization.framework or inconsistent with EasyVM's native focus. |
+| **Out of scope** | Unsupported by Virtualization.framework or inconsistent with EZVM's native focus. |
 
 ## Distribution rule
 
@@ -57,7 +57,7 @@ evidence that a restricted entitlement is distributable.
 | Saved machine state | Stable | Saves and restores runtime state on macOS 14 and later. | Detect disk/config divergence before restore. |
 | Recovery boot for macOS | Stable | Opens a macOS VM using recovery start options. | Add an automated smoke scenario. |
 | Single-owner VM lease | Stable | A kernel-backed cross-process lease prevents the same VM bundle from running in both GUI and headless processes; leases recover automatically when a process exits. | Keep all future launch surfaces on the shared lease. |
-| Headless execution | Stable | The CLI launches a non-activating signed EasyVM process, reports lifecycle state, and supports bounded stop fallback without presenting a VM window. | Share cross-process leases with GUI and add launch-at-login supervision. |
+| Headless execution | Stable | The CLI launches a non-activating signed EZVM process, reports lifecycle state, and supports bounded stop fallback without presenting a VM window. | Share cross-process leases with GUI and add launch-at-login supervision. |
 | Multi-VM resource policy | Stable | Different VM bundles run concurrently. Cross-process records aggregate allocations; launches above 90% of host memory or twice the host logical CPU count are rejected with an actionable error. | Add live memory-pressure recommendations and user-selectable policy profiles. |
 
 ### Virtual devices and interaction
@@ -74,11 +74,11 @@ evidence that a restricted entitlement is distributable.
 | Audio input | Stable | Provides host microphone input when authorized. | Explain and test macOS privacy permission denial. |
 | Entropy device | Stable | Linux can opt into a Virtio entropy source. | Enable in tested presets. |
 | Memory balloon | Stable | Linux can use a Virtio memory-balloon device; runtime target is adjustable. | Add host-pressure-driven recommendations, not automatic mutation yet. |
-| Virtio socket device | Stable | Linux configurations expose it for the authenticated EasyVM guest agent. | Keep protocol compatibility covered by Swift/Go vectors. |
-| Serial port terminal | Planned | Framework support exists; EasyVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
+| Virtio socket device | Stable | Linux configurations expose it for the authenticated EZVM guest agent. | Keep protocol compatibility covered by Swift/Go vectors. |
+| Serial port terminal | Planned | Framework support exists; EZVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
 | Host/guest clipboard | Partial | Spice attachment exists; success depends on a guest agent. | Detect `spice-vdagent`, expose status, and test both directions. |
-| Physical USB passthrough | Restricted | Removed from the production code in 3.2.14. | Requires macOS 27 Accessory Access and an approved entitlement. |
+| Physical USB passthrough | Restricted | Not included in EZVM 5.0.0. | Requires macOS 27 Accessory Access and an approved entitlement. |
 | USB hot-plug management | Restricted | Not present after USB passthrough removal. | Revisit only with the same approved distribution path. |
 | Custom Virtio devices | Planned | No production device implementation or no-op setting is exposed. | Require a concrete guest-driver use case before building one. |
 
@@ -96,7 +96,7 @@ evidence that a restricted entitlement is distributable.
 | Restore safety snapshot | Stable | Can preserve the current state before restoring another snapshot. | Add storage estimate before the operation. |
 | ASIF layered snapshots | Experimental | DiskImageKit-backed overlay stacks exist behind an experimental setting. | Validate crash recovery, compaction, and long branch chains. |
 | VM clone | Stable | Stopped VMs clone transactionally with a new hardware identity and name; incompatible saved state and source snapshot history are intentionally reset. | Add progress and cancellation UI. |
-| VM export/import | Stable | Native `.easyvmexport` packages use a versioned manifest, streaming SHA-256 checksums, architecture/OS compatibility checks, free-space forecasts, and transactional import. | Add progress and cancellation UI. |
+| VM export/import | Stable | Native `.ezvmexport` packages use a versioned manifest, streaming SHA-256 checksums, architecture/OS compatibility checks, free-space forecasts, and transactional import. | Add progress and cancellation UI. |
 | OVF/OVA import | Planned | Not implemented. | Treat as a converter project after native bundle import is stable. |
 | OCI/image workflows | Backlog | Not implemented. | Require a concrete developer workflow before promotion. |
 
@@ -105,11 +105,11 @@ evidence that a restricted entitlement is distributable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | Standard NAT | Stable | Production builds use `VZNATNetworkDeviceAttachment`. | Add connectivity diagnostics and tested DNS behavior. |
-| Bridged networking | Restricted | Removed in 3.2.14. | Requires `com.apple.vm.networking` approval and profile validation. |
-| Host-only networking | Restricted | Removed in 3.2.14; previous implementation used vmnet logical networks. | Restore only after entitlement approval. |
-| Custom network topology | Restricted | Removed in 3.2.14. | Depends on vmnet and should remain an experimental branch. |
+| Bridged networking | Restricted | Not included in EZVM 5.0.0. | Requires `com.apple.vm.networking` approval and profile validation. |
+| Host-only networking | Restricted | Not included in EZVM 5.0.0; previous implementation used vmnet logical networks. | Restore only after entitlement approval. |
+| Custom network topology | Restricted | Not included in EZVM 5.0.0. | Depends on vmnet and should remain an experimental branch. |
 | Shared logical network across processes | Restricted | Not in production. | Requires vmnet serialization/XPC design and entitlement approval. |
-| vmnet port forwarding | Restricted | Removed in 3.2.14. | Same entitlement constraint as custom networking. |
+| vmnet port forwarding | Restricted | Not included in EZVM 5.0.0. | Same entitlement constraint as custom networking. |
 | User-space port forwarding | Planned research | Could avoid vmnet by proxying host sockets to a known guest service. | First solve guest discovery, security, lifecycle, and UDP semantics. |
 | Guest IP discovery | Stable | The authenticated Linux guest agent reports sorted non-loopback addresses over Virtio Socket. | Expand distro and reconnect soak coverage. |
 | One-click SSH | Stable | Capability-gated menu opens validated IPv4/IPv6 `ssh://` URLs without shell interpolation or stored credentials. | Add optional per-VM username preference after credential policy is designed. |
@@ -129,7 +129,7 @@ evidence that a restricted entitlement is distributable.
 | Graceful guest operations | Partial | The authenticated agent handles explicit UI shutdown and restart commands. | Add command-result visibility and audit history. |
 | Host/guest file transfer | Stable | Capability-negotiated agent transfers use bounded chunks, progress/cancel UI, streaming SHA-256, symlink rejection, and atomic destination replacement. | Add a persistent multi-job queue and drag-and-drop destinations. |
 | Drag and drop | Planned | Not implemented. | Map drops to an explicit transfer destination through the agent. |
-| CLI (`easyvm`) | Stable | Homebrew installs `easyvm` with schema-v1 JSON `list`, `inspect`, `validate`, `doctor`, `start`, `status`, and `stop`; mutations require an exact target and bounded timeout. | Add clone/export commands after cross-process lease enforcement. |
+| CLI (`ezvm`) | Stable | Homebrew installs `ezvm` with schema-v1 JSON `list`, `inspect`, `validate`, `doctor`, `start`, `status`, and `stop`; mutations require an exact target and bounded timeout. | Add clone/export commands after cross-process lease enforcement. |
 | Local API/MCP surface | Backlog | Not implemented. | Only after CLI schemas and authorization are stable. |
 | Shortcuts and URL actions | Backlog | Not implemented. | Add after lifecycle commands are safe and idempotent. |
 
@@ -177,7 +177,7 @@ bundle surgery.
 Work:
 
 1. Add first-class clone with new machine identifiers and atomic destination creation.
-2. Add native EasyVM export/import manifests with checksums and schema versions.
+2. Add native EZVM export/import manifests with checksums and schema versions.
 3. Add disk-space forecasts to creation, conversion, snapshot, clone, and export.
 4. Add snapshot integrity audit and dry-run orphan cleanup.
 5. Stress-test APFS and ASIF snapshot branches, interrupted restore, and rollback.
@@ -192,7 +192,7 @@ Exit criteria:
 
 ### Milestone C — Guest integration
 
-**Goal:** EasyVM knows whether a guest is ready and can provide safe, explicit
+**Goal:** EZVM knows whether a guest is ready and can provide safe, explicit
 integration features without privileged host networking.
 
 Work:
@@ -252,13 +252,13 @@ story, and automated test before its experimental toggle can be removed.
 Bridged networking, vmnet logical networks, vmnet port forwarding, and physical
 USB passthrough may return only when all of the following are true:
 
-1. Apple has approved the exact entitlement for the EasyVM App ID.
+1. Apple has approved the exact entitlement for the EZVM App ID.
 2. A Developer ID provisioning profile contains that entitlement.
 3. The profile is embedded in the signed application.
 4. `codesign` shows only expected entitlements in the final archive.
 5. Notarization, Gatekeeper, and launch tests pass on a clean Homebrew install.
 6. The feature has a runtime availability check and a safe fallback.
-7. Removing or denying the capability does not prevent EasyVM from launching.
+7. Removing or denying the capability does not prevent EZVM from launching.
 8. Release automation rejects an unauthorized restricted entitlement.
 
 Until then, those features belong in design documents or isolated experimental

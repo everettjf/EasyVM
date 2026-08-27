@@ -3,17 +3,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "EasyVMCore",
+    name: "EZVMCore",
     platforms: [.macOS("26.0")],
     products: [
-        .library(name: "EasyVMCore", targets: ["EasyVMCore"]),
-        .library(name: "EasyVMCLIKit", targets: ["EasyVMCLIKit"]),
-        .executable(name: "easyvm", targets: ["easyvm"]),
+        .library(name: "EZVMCore", targets: ["EZVMCore"]),
+        .library(name: "EZVMCLIKit", targets: ["EZVMCLIKit"]),
+        .executable(name: "ezvm", targets: ["ezvm"]),
     ],
     targets: [
         .target(
-            name: "EasyVMCore",
-            path: "EasyVM/EasyVM/Core/VMKit",
+            name: "EZVMCore",
+            path: "EZVM/EZVM/Core/VMKit",
             exclude: [
                 "Catalog",
                 "Model/VMModel.swift",
@@ -43,18 +43,18 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "EasyVMCoreTests",
-            dependencies: ["EasyVMCore"]
+            name: "EZVMCoreTests",
+            dependencies: ["EZVMCore"]
         ),
-        .target(name: "EasyVMCLIKit", path: "CLI/Kit"),
+        .target(name: "EZVMCLIKit", path: "CLI/Kit"),
         .executableTarget(
-            name: "easyvm",
-            dependencies: ["EasyVMCLIKit"],
+            name: "ezvm",
+            dependencies: ["EZVMCLIKit"],
             path: "CLI/Executable"
         ),
         .testTarget(
-            name: "EasyVMCLIKitTests",
-            dependencies: ["EasyVMCLIKit"]
+            name: "EZVMCLIKitTests",
+            dependencies: ["EZVMCLIKit"]
         ),
     ]
 )

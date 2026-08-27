@@ -1,14 +1,14 @@
-# EasyVM post-3.3 execution plan
+# EZVM post-5.0 execution plan
 
-_Baseline: EasyVM 3.3.0 — August 22, 2026_
+_Baseline: EZVM 5.0.0 — August 27, 2026_
 
 This document turns the broader [capability roadmap](ROADMAP.md) into an
-ordered engineering plan. It covers only work that remains after 3.3.0 and
+ordered engineering plan. It covers only work that remains after 5.0.0 and
 uses evidence-based promotion rules: compiling against an API is not enough;
 a feature becomes stable only after the final signed Homebrew artifact passes
 the relevant real-VM scenario.
 
-## 3.3.0 baseline
+## 5.0.0 baseline
 
 The next cycle starts with these foundations already delivered:
 
@@ -16,7 +16,7 @@ The next cycle starts with these foundations already delivered:
   notarization, Gatekeeper, GUI readiness, GitHub, and Homebrew gates;
 - cross-process single-owner leases, atomic runtime metadata, multi-VM resource
   admission, and two-VM headless CLI coverage;
-- native clone and `.easyvmexport` import/export with explicit copy-versus-
+- native clone and `.ezvmexport` import/export with explicit copy-versus-
   restore identity semantics, checksums, rollback, and sparse allocation
   estimates;
 - APFS snapshots, saved state, raw and ASIF disks, and interrupted-restore
@@ -43,7 +43,7 @@ The next cycle starts with these foundations already delivered:
 
 | Workstream | Deliverable | Acceptance criteria |
 | --- | --- | --- |
-| Headless failure cleanup | Make start timeout/cancellation terminate a VM that is stuck in `starting`, even if its bundle disappears; reap stale state files and release resource leases. | Fault-injection tests cover pre-start, start-callback-never-arrives, deleted bundle, SIGTERM, and forced-stop fallback; no EasyVM process or lease remains. |
+| Headless failure cleanup | Make start timeout/cancellation terminate a VM that is stuck in `starting`, even if its bundle disappears; reap stale state files and release resource leases. | Fault-injection tests cover pre-start, start-callback-never-arrives, deleted bundle, SIGTERM, and forced-stop fallback; no EZVM process or lease remains. |
 | Release fixture ownership | Add a documented builder for the Alpine Agent fixture, including EFI variable store, disk provenance, Agent version, enrollment generation, and checksum manifest. Keep secrets and the mutable disk outside Git. | A new fixture can be reproduced from documented inputs; CI/release rejects a fixture whose manifest, machine identity, Agent version, permissions, or checksum is wrong. |
 | Release diagnostic bundle | Preserve logs, state JSON, candidate checksum, host/SDK build, VM config, and failure stage automatically when any release gate fails; redact enrollment tokens. | A failed gate produces one timestamped archive that explains whether failure occurred at launch, VM start, Agent auth, transfer, KVM, stop, or Homebrew install. |
 | Candidate identity chain | Extend the existing source-commit marker to record toolchain version, signing identity fingerprint, Agent source commit, and fixture manifest digest. | Every published checksum can be traced to one commit and build context; resume refuses any mismatch. |
@@ -56,7 +56,7 @@ failure messages.
 
 ## P1 — Finish current workflows
 
-**Target:** 3.4.0.
+**Target:** 5.1.0.
 
 | Feature | Scope | Acceptance criteria |
 | --- | --- | --- |
@@ -96,7 +96,7 @@ and two supported host OS releases before promotion.
 | macOS 27 guest provisioning | Account creation and retry semantics, secret lifetime, cancellation, partially provisioned guest recovery, final-system inspection, and Developer ID/Homebrew validation. |
 | EFI Secure Boot management | Enrollment/disable/reenable lifecycle, corrupted variable store recovery, saved-state compatibility, distro matrix, and clear ownership of keys. |
 | Custom Virtio device | No work until a concrete product use case and maintained guest driver exist; there is intentionally no generic toggle. |
-| OCI/image distribution | Decide whether a local cache/import adapter solves a real workflow without turning EasyVM into a registry or CI platform. |
+| OCI/image distribution | Decide whether a local cache/import adapter solves a real workflow without turning EZVM into a registry or CI platform. |
 | Local API or MCP | Threat model, per-operation authorization, local peer identity, audit log, cancellation, and stable CLI schemas first. Start read-only. |
 | macOS guest iCloud workflow | Legal/product/security review of Apple account behavior before any UI or automation work. |
 
@@ -133,10 +133,10 @@ Every promoted capability must have:
 
 1. **3.3.x:** P0 only—headless cleanup, fixture builder, diagnostics, provenance,
    compatibility matrix, and transaction fault injection.
-2. **3.4.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
+2. **5.1.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
    shares, portability UX, snapshot maintenance, CLI clone/export, and distro
    presets.
-3. **3.5.0:** serial terminal, carefully scoped TCP forwarding, guided Rosetta,
+3. **5.2.0:** serial terminal, carefully scoped TCP forwarding, guided Rosetta,
    Docker/KVM profile, recovery automation, and selected Shortcuts actions.
 4. **Later:** promote individual P3 experiments only when their evidence is
    complete; do not bundle experimental graduation into a deadline-driven

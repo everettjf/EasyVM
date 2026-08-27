@@ -24,7 +24,7 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 	if err := validateGuestPath(path, false); err != nil {
 		return nil, nil, err
 	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".easyvm-upload-*")
+	file, err := os.CreateTemp(filepath.Dir(path), ".ezvm-upload-*")
 	if err != nil {
 		return nil, nil, err
 	}

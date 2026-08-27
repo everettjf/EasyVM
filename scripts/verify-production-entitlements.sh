@@ -9,10 +9,10 @@ fail() {
   exit 1
 }
 
-[[ -n "$app_path" ]] || fail "usage: $0 <EasyVM.app>"
+[[ -n "$app_path" ]] || fail "usage: $0 <EZVM.app>"
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
 
-entitlements_file="$(mktemp "${TMPDIR:-/tmp}/easyvm-entitlements.XXXXXX")"
+entitlements_file="$(mktemp "${TMPDIR:-/tmp}/ezvm-entitlements.XXXXXX")"
 cleanup() {
   rm -f "$entitlements_file"
 }

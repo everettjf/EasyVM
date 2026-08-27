@@ -11,4 +11,4 @@ content = File.read(template_path)
 content.sub!(/version "[^"]+"/, %(version "#{version}"))
 content.sub!(/sha256 (?:"[^"]+"|:no_check)/, %(sha256 "#{sha256}"))
 File.write(output_path, content)
-puts "Updated #{output_path} to EasyVM #{version} (#{sha256})"
+puts "Updated #{output_path} to EZVM #{version} (#{sha256})"

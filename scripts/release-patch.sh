@@ -3,8 +3,8 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-project_file="$project_root/EasyVM/EasyVM.xcodeproj/project.pbxproj"
-release_branch="${EASYVM_RELEASE_BRANCH:-main}"
+project_file="$project_root/EZVM/EZVM.xcodeproj/project.pbxproj"
+release_branch="${EZVM_RELEASE_BRANCH:-main}"
 
 fail() {
   echo "release-patch: $*" >&2
@@ -30,7 +30,7 @@ for command in gh git go ruby security swift xcodebuild; do
   require_command "$command"
 done
 
-for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID EASYVM_RELEASE_SMOKE_VM; do
+for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID EZVM_RELEASE_SMOKE_VM; do
   require_environment "$variable"
 done
 
@@ -74,29 +74,29 @@ if [[ "$current_version" != "$version" ]]; then
     fail "project version is $current_version, expected ${latest_tag#v} or $version"
 fi
 ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
-git -C "$project_root" add -- EasyVM/EasyVM.xcodeproj/project.pbxproj
-git -C "$project_root" commit -m "Prepare EasyVM $version (build $next_build)"
+git -C "$project_root" add -- EZVM/EZVM.xcodeproj/project.pbxproj
+git -C "$project_root" commit -m "Prepare EZVM $version (build $next_build)"
 
-echo "Running EasyVM $version release checks…"
+echo "Running EZVM $version release checks…"
 (cd "$project_root" && swift test)
 (cd "$project_root/GuestAgent/linux" && go test ./...)
-(cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/easyvm-agent-release-check" .)
-(cd "$project_root/EasyVM" && xcodebuild \
+(cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/ezvm-agent-release-check" .)
+(cd "$project_root/EZVM" && xcodebuild \
   -quiet \
-  -project EasyVM.xcodeproj \
-  -scheme EasyVM \
+  -project EZVM.xcodeproj \
+  -scheme EZVM \
   -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath "${TMPDIR:-/tmp}/easyvm-release-check-$version" \
+  -derivedDataPath "${TMPDIR:-/tmp}/ezvm-release-check-$version" \
   CODE_SIGNING_ALLOWED=NO \
   build)
 
-git -C "$project_root" tag -a "$tag" -m "EasyVM $version"
+git -C "$project_root" tag -a "$tag" -m "EZVM $version"
 
 APPLE_ID="$APPLE_ID" \
 APPLE_SPECIFIC_PASSWORD="$APPLE_SPECIFIC_PASSWORD" \
 APPLE_TEAM_ID="$APPLE_TEAM_ID" \
-EASYVM_RELEASE_BRANCH="$release_branch" \
+EZVM_RELEASE_BRANCH="$release_branch" \
   "$project_root/scripts/publish-release.sh" "$version"
 
-echo "EasyVM $version is signed, notarized, published, and available from the Homebrew tap."
+echo "EZVM $version is signed, notarized, published, and available from the Homebrew tap."

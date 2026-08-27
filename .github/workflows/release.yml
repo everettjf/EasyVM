@@ -44,7 +44,7 @@ jobs:
         run: |
           identity=$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)
           test -n "$identity"
-          echo "EASYVM_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+          echo "EZVM_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
 
       - name: Build release archive
         run: |
@@ -64,7 +64,7 @@ jobs:
           APPLE_SPECIFIC_PASSWORD: ${{ secrets.APPLE_SPECIFIC_PASSWORD || secrets.APPLE_APP_PASSWORD }}
         run: |
           version="${RELEASE_VERSION#v}"
-          xcrun notarytool submit "$RUNNER_TEMP/release/EasyVM-$version.zip" \
+          xcrun notarytool submit "$RUNNER_TEMP/release/EZVM-$version.zip" \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_SPECIFIC_PASSWORD" \
@@ -77,16 +77,16 @@ jobs:
         run: |
           version="${RELEASE_VERSION#v}"
           assets=(
-            "$RUNNER_TEMP/release/EasyVM-$version.zip"
-            "$RUNNER_TEMP/release/EasyVM-$version.zip.sha256"
+            "$RUNNER_TEMP/release/EZVM-$version.zip"
+            "$RUNNER_TEMP/release/EZVM-$version.zip.sha256"
           )
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
-            gh release edit "$GITHUB_REF_NAME" --title "EasyVM $version"
+            gh release edit "$GITHUB_REF_NAME" --title "EZVM $version"
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
               --generate-notes \
-              --title "EasyVM $version"
+              --title "EZVM $version"
           fi
 
       - name: Check out Homebrew tap
@@ -104,19 +104,19 @@ jobs:
           mkdir -p homebrew-tap/Casks
           ruby scripts/update-cask.rb \
             "$version" \
-            "$RUNNER_TEMP/release/EasyVM-$version.zip" \
-            Casks/easyvm.rb \
-            homebrew-tap/Casks/easyvm.rb
+            "$RUNNER_TEMP/release/EZVM-$version.zip" \
+            Casks/ezvm.rb \
+            homebrew-tap/Casks/ezvm.rb
           cd homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/easyvm.rb
-          git diff --cached --quiet || git commit -m "Update EasyVM to $version"
+          git add Casks/ezvm.rb
+          git diff --cached --quiet || git commit -m "Update EZVM to $version"
           git push
 
       - name: Upload candidate build
         if: github.event_name == 'workflow_dispatch' || env.HAS_SIGNING_CERTIFICATE != 'true' || env.HAS_NOTARY_CREDENTIALS != 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: EasyVM-${{ env.RELEASE_VERSION }}
+          name: EZVM-${{ env.RELEASE_VERSION }}
           path: ${{ runner.temp }}/release/*

@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+
+name="EZVM Guest Agent"
+command="/usr/local/sbin/ezvm-agent"
+command_args="--config /etc/ezvm-agent/config.json"
+command_background="yes"
+pidfile="/run/ezvm-agent.pid"
+output_log="/var/log/ezvm-agent.log"
+error_log="/var/log/ezvm-agent.log"
+
+depend() {
+    after net
+}

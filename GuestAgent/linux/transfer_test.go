@@ -29,7 +29,7 @@ func checksum(data []byte) string {
 func TestUploadCommitsAtomicallyWithChecksumAndPrivateMode(t *testing.T) {
 	directory := resolvedTempDir(t)
 	destination := filepath.Join(directory, "uploaded.bin")
-	content := bytes.Repeat([]byte("easyvm-transfer"), 80_000)
+	content := bytes.Repeat([]byte("ezvm-transfer"), 80_000)
 	session := newTransferSession()
 	defer session.close()
 
@@ -64,7 +64,7 @@ func TestUploadCommitsAtomicallyWithChecksumAndPrivateMode(t *testing.T) {
 	if err != nil || info.Mode().Perm() != 0600 {
 		t.Fatalf("unexpected destination mode: %v", info.Mode())
 	}
-	if matches, _ := filepath.Glob(filepath.Join(directory, ".easyvm-upload-*")); len(matches) != 0 {
+	if matches, _ := filepath.Glob(filepath.Join(directory, ".ezvm-upload-*")); len(matches) != 0 {
 		t.Fatalf("temporary files remain: %v", matches)
 	}
 }

@@ -1,0 +1,16 @@
+[Unit]
+Description=EZVM Guest Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/ezvm-agent --config /etc/ezvm-agent/config.json
+Restart=always
+RestartSec=2
+User=root
+NoNewPrivileges=true
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

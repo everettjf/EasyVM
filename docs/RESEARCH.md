@@ -1,4 +1,4 @@
-# EasyVM ecosystem research
+# EZVM ecosystem research
 
 _Reviewed: August 5, 2026_
 
@@ -6,7 +6,7 @@ This is a lightweight product and engineering survey, not an exhaustive benchmar
 
 ## Comparable projects
 
-| Project | Positioning | What it does well | Lesson for EasyVM |
+| Project | Positioning | What it does well | Lesson for EZVM |
 | --- | --- | --- | --- |
 | [UTM](https://github.com/utmapp/UTM) | Full-featured virtualization and emulation for macOS and iOS | Broad guest/architecture support, mature distribution, strong user-facing catalog | Do not compete on breadth. Native Apple-silicon-only scope is a useful constraint. |
 | [VirtualBuddy](https://github.com/insidegui/VirtualBuddy) | Native macOS VM GUI for Apple silicon, especially developer testing | Excellent macOS installation flow, guest integration, recovery and saved-state features | Treat the macOS developer workflow and guest experience as the closest quality bar. |
@@ -24,11 +24,11 @@ The mature projects divide into three groups:
 2. **Developer and CI automation:** repeatable images, CLI/API control, headless execution and distribution.
 3. **Agent sandboxes:** isolated desktops with programmatic lifecycle and computer-control interfaces.
 
-EasyVM already has the basis of a fourth, intentionally modest position: a native GUI that exposes understandable VM primitives and can later be automated without turning into infrastructure software.
+EZVM already has the basis of a fourth, intentionally modest position: a native GUI that exposes understandable VM primitives and can later be automated without turning into infrastructure software.
 
 ## Recommended product position
 
-> EasyVM is the small, native VM workbench for Apple silicon: create a macOS or ARM64 Linux machine, understand its configuration, run it reliably, and automate the same safe operations when needed.
+> EZVM is the small, native VM workbench for Apple silicon: create a macOS or ARM64 Linux machine, understand its configuration, run it reliably, and automate the same safe operations when needed.
 
 ### Principles
 
@@ -53,12 +53,12 @@ EasyVM already has the basis of a fourth, intentionally modest position: a nativ
 The smallest useful automation contract would support:
 
 ```text
-easyvm list --json
-easyvm inspect <name> --json
-easyvm start <name> [--headless]
-easyvm stop <name> [--timeout 30]
-easyvm clone <source> <name>
-easyvm delete <name> --confirm <name>
+ezvm list --json
+ezvm inspect <name> --json
+ezvm start <name> [--headless]
+ezvm stop <name> [--timeout 30]
+ezvm clone <source> <name>
+ezvm delete <name> --confirm <name>
 ```
 
 Later, the same service could expose a local socket or MCP server. Mutating actions should require explicit policy or confirmation, commands should return stable JSON and exit codes, and an agent should be able to operate on disposable clones without receiving unrestricted host access.

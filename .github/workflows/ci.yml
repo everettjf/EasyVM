@@ -16,7 +16,7 @@ concurrency:
 jobs:
   core-tests:
     name: Core tests
-    # EasyVM targets macOS 26 and adopts APIs introduced in the macOS 27 SDK.
+    # EZVM targets macOS 26 and adopts APIs introduced in the macOS 27 SDK.
     # The xcode-27 image is the GitHub-hosted macOS 26 preview runner.
     runs-on: xcode-27
     steps:
@@ -43,11 +43,11 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild \
-            -project EasyVM/EasyVM.xcodeproj \
-            -scheme EasyVM \
+            -project EZVM/EZVM.xcodeproj \
+            -scheme EZVM \
             -configuration Debug \
             -destination 'platform=macOS,arch=arm64' \
-            -derivedDataPath "$RUNNER_TEMP/EasyVMDerivedData" \
+            -derivedDataPath "$RUNNER_TEMP/EZVMDerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             build | xcpretty
       - name: Validate documentation and workflows
