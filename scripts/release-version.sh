@@ -77,8 +77,8 @@ if [[ -z "$tag_commit" ]]; then
   git -C "$project_root" tag -a "$tag" -m "EZVM $version"
 fi
 
-APPLE_ID="$APPLE_ID" APPLE_SPECIFIC_PASSWORD="$APPLE_SPECIFIC_PASSWORD" APPLE_TEAM_ID="$APPLE_TEAM_ID" \
-EZVM_RELEASE_BRANCH="$release_branch" EZVM_RELEASE_SMOKE_ENROLLMENT="$EZVM_RELEASE_SMOKE_ENROLLMENT" \
+APPLE_ID="${APPLE_ID:-}" APPLE_SPECIFIC_PASSWORD="${APPLE_SPECIFIC_PASSWORD:-}" APPLE_TEAM_ID="${APPLE_TEAM_ID:-}" \
+EZVM_RELEASE_BRANCH="$release_branch" EZVM_RELEASE_SMOKE_ENROLLMENT="${EZVM_RELEASE_SMOKE_ENROLLMENT:-}" \
   "$project_root/scripts/publish-release.sh" "$version"
 
 echo "EZVM $version is signed, notarized, published, and verified through Homebrew."
