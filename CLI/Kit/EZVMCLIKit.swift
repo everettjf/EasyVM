@@ -3,12 +3,26 @@ import CryptoKit
 import Darwin
 
 enum EZVMExecutableLocation {
-    static func resolved(_ path: String) -> URL {
-        URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+    static func resolved(_ path: String, environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+        if path.contains("/") {
+            return URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+        }
+        for directory in environment["PATH", default: ""].split(separator: ":", omittingEmptySubsequences: false) {
+            let root = directory.isEmpty ? FileManager.default.currentDirectoryPath : String(directory)
+            let candidate = URL(fileURLWithPath: root).appendingPathComponent(path)
+            if FileManager.default.isExecutableFile(atPath: candidate.path) {
+                return candidate.standardizedFileURL.resolvingSymlinksInPath()
+            }
+        }
+        return URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
     }
 
-    static func hostAppExecutable(for path: String, fileManager: FileManager = .default) -> URL? {
-        let helperDirectory = resolved(path).deletingLastPathComponent()
+    static func hostAppExecutable(
+        for path: String,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        let helperDirectory = resolved(path, environment: environment).deletingLastPathComponent()
         let appExecutable = helperDirectory.deletingLastPathComponent().appendingPathComponent("MacOS/EZVM")
         return fileManager.isExecutableFile(atPath: appExecutable.path) ? appExecutable : nil
     }

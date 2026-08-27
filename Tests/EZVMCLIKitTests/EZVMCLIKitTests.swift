@@ -23,10 +23,15 @@ final class EZVMCLIKitTests: XCTestCase {
         try FileManager.default.createDirectory(at: bin.deletingLastPathComponent(), withIntermediateDirectories: true)
         XCTAssertTrue(FileManager.default.createFile(atPath: helper.path, contents: Data()))
         XCTAssertTrue(FileManager.default.createFile(atPath: executable.path, contents: Data()))
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: helper.path)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
         try FileManager.default.createSymbolicLink(at: bin, withDestinationURL: helper)
 
         XCTAssertEqual(EZVMExecutableLocation.hostAppExecutable(for: bin.path), executable)
+        XCTAssertEqual(
+            EZVMExecutableLocation.hostAppExecutable(for: "ezvm", environment: ["PATH": bin.deletingLastPathComponent().path]),
+            executable
+        )
     }
 
     func testListIsSortedAndReportsValidMachineMetadata() throws {
