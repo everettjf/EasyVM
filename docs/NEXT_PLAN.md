@@ -37,9 +37,26 @@ The next cycle starts with these foundations already delivered:
 5. Restricted entitlements are not implementation backlog. They have a
    separate re-entry gate and do not consume normal milestone capacity.
 
+## Completed for the next 5.0.x patch
+
+- A versioned, product-neutral `preinstalled-image` manifest is the source of
+  truth for raw ARM64 guest identity, compatibility, logical size, and SHA-256.
+- `ezvm install-image` validates the manifest and decoded disk before invoking
+  the signed app; the app validates both again before creating host identity
+  and EFI state.
+- Preinstalled-image creation stages a hidden sibling bundle and commits it by
+  atomic rename. Timeout, failure, SIGINT, and SIGTERM remove partial output.
+- The Omarchy latest installer consumes the published manifest rather than
+  embedding a second copy of image and part metadata.
+- Unit and interruption tests cover invalid manifests, modified images,
+  successful app handoff, timeout, and partial-destination cleanup.
+
+These items become part of the release baseline after the Homebrew-installed
+5.0.x artifact passes the end-to-end Omarchy scenario.
+
 ## P0 — Reliability and release reproducibility
 
-**Target:** 3.3.x. No new product surface.
+**Target:** 5.0.x. No unrelated new product surface.
 
 | Workstream | Deliverable | Acceptance criteria |
 | --- | --- | --- |
@@ -72,7 +89,7 @@ failure messages.
 
 ## P2 — New bounded capabilities
 
-**Target:** 3.5+ after P0 and the relevant P1 dependency are complete.
+**Target:** 5.2.0+ after P0 and the relevant P1 dependency are complete.
 
 | Feature | Dependency | Promotion gate |
 | --- | --- | --- |
@@ -131,8 +148,9 @@ Every promoted capability must have:
 
 ## Suggested release sequence
 
-1. **3.3.x:** P0 only—headless cleanup, fixture builder, diagnostics, provenance,
-   compatibility matrix, and transaction fault injection.
+1. **5.0.x:** P0 only—headless cleanup, fixture builder, diagnostics, provenance,
+   compatibility matrix, preinstalled-image release verification, and transaction
+   fault injection.
 2. **5.1.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
    shares, portability UX, snapshot maintenance, CLI clone/export, and distro
    presets.

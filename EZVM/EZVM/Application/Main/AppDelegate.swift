@@ -8,6 +8,7 @@
 import Foundation
 import Cocoa
 import SwiftUI
+import CryptoKit
 
 
 @MainActor
@@ -21,12 +22,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var headlessTimer: Timer?
     private var terminationSources: [DispatchSourceSignal] = []
     private var headlessStopRequested = false
+    private var imageInstallStagingURL: URL?
+    private var imageInstallTerminationSources: [DispatchSourceSignal] = []
 #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 #if arch(arm64)
-        if let install = LinuxImageInstallConfiguration.current {
-            installLinuxImage(install)
+        if let install = PreinstalledImageInstallConfiguration.current {
+            installPreinstalledImage(install)
             return
         }
         if let launch = HeadlessLaunchConfiguration.current {
@@ -113,11 +116,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 #if arch(arm64)
-    private func installLinuxImage(_ install: LinuxImageInstallConfiguration) {
+    private func installPreinstalledImage(_ install: PreinstalledImageInstallConfiguration) {
         NSApp.setActivationPolicy(.prohibited)
         for window in NSApp.windows { window.orderOut(nil) }
+        installImageTerminationHandlers()
         Task {
-            let result = await performLinuxImageInstall(install)
+            let result = await performPreinstalledImageInstall(install)
+            imageInstallTerminationSources.forEach { $0.cancel() }
+            imageInstallTerminationSources.removeAll()
             switch result {
             case .success:
                 print("Installed EZVM machine: \(install.destinationURL.path)")
@@ -130,8 +136,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func performLinuxImageInstall(_ install: LinuxImageInstallConfiguration) async -> VMOSResultVoid {
+    private func performPreinstalledImageInstall(_ install: PreinstalledImageInstallConfiguration) async -> VMOSResultVoid {
         let fileManager = FileManager.default
+        let manifest: PreinstalledImageManifest
+        do {
+            manifest = try PreinstalledImageManifest.load(from: install.manifestURL)
+        } catch {
+            return .failure("Invalid preinstalled-image manifest: \(error.localizedDescription)")
+        }
         guard fileManager.fileExists(atPath: install.imageURL.path) else {
             return .failure("Disk image not found: \(install.imageURL.path)")
         }
@@ -143,28 +155,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard let attributes = try? fileManager.attributesOfItem(atPath: install.imageURL.path),
               let imageSize = attributes[.size] as? NSNumber,
-              imageSize.uint64Value >= VMModelFieldStorageDevice.minDiskSize() else {
-            return .failure("The preinstalled disk image is missing or smaller than the minimum supported disk size.")
+              imageSize.uint64Value == manifest.disk.virtualSize else {
+            return .failure("The preinstalled disk image size does not match its manifest.")
         }
-
-        let diskURL = install.destinationURL.appending(path: "Disk.img")
         do {
-            try fileManager.createDirectory(at: install.destinationURL, withIntermediateDirectories: false)
-            do {
-                try fileManager.moveItem(at: install.imageURL, to: diskURL)
-            } catch {
-                try fileManager.copyItem(at: install.imageURL, to: diskURL)
+            guard try Self.sha256(of: install.imageURL) == manifest.disk.sha256.lowercased() else {
+                return .failure("The preinstalled disk image SHA-256 does not match its manifest.")
             }
         } catch {
-            try? fileManager.removeItem(at: install.destinationURL)
+            return .failure("Could not verify the preinstalled disk image: \(error.localizedDescription)")
+        }
+
+        let stagingURL = install.destinationURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(install.destinationURL.lastPathComponent).install-\(install.stagingToken)", isDirectory: true)
+        imageInstallStagingURL = stagingURL
+        defer {
+            try? fileManager.removeItem(at: stagingURL)
+            imageInstallStagingURL = nil
+        }
+        let diskURL = stagingURL.appending(path: "Disk.img")
+        do {
+            try fileManager.createDirectory(at: install.destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: stagingURL, withIntermediateDirectories: false)
+            try fileManager.copyItem(at: install.imageURL, to: diskURL)
+        } catch {
             return .failure("Could not stage the disk image: \(error.localizedDescription)")
         }
 
         let defaults = VMConfigModel.createWithDefaultValues(osType: .linux)
         let config = VMConfigModel(
             type: .linux,
-            name: install.name,
-            remark: "Preinstalled AArch64 image",
+            name: install.name ?? manifest.virtualMachine.name,
+            remark: manifest.virtualMachine.remark ?? "Preinstalled \(manifest.product.name) \(manifest.product.version)",
             cpu: defaults.cpu,
             memory: defaults.memory,
             graphicsDevices: defaults.graphicsDevices,
@@ -181,7 +203,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             linuxFeatures: .recommended
         )
         let model = VMModel(
-            rootPath: install.destinationURL,
+            rootPath: stagingURL,
             state: VMStateModel(imagePath: diskURL),
             config: config
         )
@@ -193,11 +215,42 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         guard case .success = result else {
-            try? fileManager.removeItem(at: install.destinationURL)
             return result
+        }
+        do {
+            try fileManager.moveItem(at: stagingURL, to: install.destinationURL)
+        } catch {
+            return .failure("Could not commit the installed machine: \(error.localizedDescription)")
         }
         sharedAppConfigManager.addVMPath(url: install.destinationURL)
         return .success
+    }
+
+    private func installImageTerminationHandlers() {
+        signal(SIGTERM, SIG_IGN)
+        signal(SIGINT, SIG_IGN)
+        for signalNumber in [SIGTERM, SIGINT] {
+            let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+            source.setEventHandler { [weak self] in
+                guard let self else { return }
+                if let stagingURL = self.imageInstallStagingURL { try? FileManager.default.removeItem(at: stagingURL) }
+                exit(128 + signalNumber)
+            }
+            source.resume()
+            imageInstallTerminationSources.append(source)
+        }
+    }
+
+    nonisolated private static func sha256(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let data = try handle.read(upToCount: 4 * 1024 * 1024) ?? Data()
+            if data.isEmpty { break }
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     private func startHeadless(_ launch: HeadlessLaunchConfiguration) {
@@ -284,28 +337,72 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 #if arch(arm64)
-struct LinuxImageInstallConfiguration {
+struct PreinstalledImageInstallConfiguration {
+    let manifestURL: URL
     let imageURL: URL
     let destinationURL: URL
-    let name: String
+    let name: String?
+    let stagingToken: String
 
-    static var current: LinuxImageInstallConfiguration? {
+    static var current: PreinstalledImageInstallConfiguration? {
         let arguments = ProcessInfo.processInfo.arguments
-        guard let marker = arguments.firstIndex(of: "--ezvm-install-linux-image"), marker + 1 < arguments.count,
-              let destinationMarker = arguments.firstIndex(of: "--destination"), destinationMarker + 1 < arguments.count else {
+        guard let marker = arguments.firstIndex(of: "--ezvm-install-preinstalled-image"), marker + 1 < arguments.count,
+              let imageMarker = arguments.firstIndex(of: "--image"), imageMarker + 1 < arguments.count,
+              let destinationMarker = arguments.firstIndex(of: "--destination"), destinationMarker + 1 < arguments.count,
+              let stagingMarker = arguments.firstIndex(of: "--staging-token"), stagingMarker + 1 < arguments.count,
+              UUID(uuidString: arguments[stagingMarker + 1]) != nil else {
             return nil
         }
-        let name: String
-        if let nameMarker = arguments.firstIndex(of: "--name"), nameMarker + 1 < arguments.count {
-            name = arguments[nameMarker + 1]
-        } else {
-            name = "Imported Linux"
-        }
-        return LinuxImageInstallConfiguration(
-            imageURL: URL(fileURLWithPath: arguments[marker + 1]).standardizedFileURL,
+        let nameMarker = arguments.firstIndex(of: "--name")
+        return PreinstalledImageInstallConfiguration(
+            manifestURL: URL(fileURLWithPath: arguments[marker + 1]).standardizedFileURL,
+            imageURL: URL(fileURLWithPath: arguments[imageMarker + 1]).standardizedFileURL,
             destinationURL: URL(fileURLWithPath: arguments[destinationMarker + 1]).standardizedFileURL,
-            name: name
+            name: nameMarker.flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil },
+            stagingToken: arguments[stagingMarker + 1]
         )
+    }
+}
+
+struct PreinstalledImageManifest: Decodable {
+    static let kind = "io.github.everettjf.ezvm.preinstalled-image"
+    struct Product: Decodable { let id: String; let name: String; let version: String }
+    struct Disk: Decodable { let format: String; let virtualSize: UInt64; let sha256: String }
+    struct VirtualMachine: Decodable { let name: String; let remark: String? }
+
+    let schemaVersion: Int
+    let kind: String
+    let architecture: String
+    let minimumEZVMVersion: String
+    let product: Product
+    let disk: Disk
+    let virtualMachine: VirtualMachine
+
+    static func load(from url: URL) throws -> Self {
+        let value = try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
+        guard value.schemaVersion == 1, value.kind == kind, value.architecture == "arm64",
+              value.disk.format == "raw", value.disk.virtualSize >= VMModelFieldStorageDevice.minDiskSize(),
+              value.disk.sha256.count == 64, value.disk.sha256.allSatisfy({ $0.isHexDigit }),
+              !value.product.id.isEmpty, !value.product.name.isEmpty, !value.product.version.isEmpty,
+              !value.virtualMachine.name.isEmpty else {
+            throw ManifestError.invalid
+        }
+        let runningVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        guard runningVersion.compare(value.minimumEZVMVersion, options: .numeric) != .orderedAscending else {
+            throw ManifestError.version(required: value.minimumEZVMVersion, actual: runningVersion)
+        }
+        return value
+    }
+
+    enum ManifestError: LocalizedError {
+        case invalid
+        case version(required: String, actual: String)
+        var errorDescription: String? {
+            switch self {
+            case .invalid: "The manifest identity, schema, architecture, disk, or product metadata is invalid."
+            case .version(let required, let actual): "This image requires EZVM \(required) or newer; this app is \(actual)."
+            }
+        }
     }
 }
 

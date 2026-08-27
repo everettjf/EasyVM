@@ -33,4 +33,11 @@ installed_version="$(brew list --cask --versions ezvm | awk '{print $2}')"
 "$project_root/scripts/verify-release-nested-virtualization.sh" /Applications/EZVM.app "$vm_path"
 "$project_root/scripts/verify-release-vm.sh" /Applications/EZVM.app "$vm_path"
 
+if [[ -n ${EZVM_RELEASE_PREINSTALLED_MANIFEST:-} || -n ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
+  [[ -n ${EZVM_RELEASE_PREINSTALLED_MANIFEST:-} && -n ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]] ||
+    fail "EZVM_RELEASE_PREINSTALLED_MANIFEST and EZVM_RELEASE_PREINSTALLED_IMAGE must be set together"
+  "$project_root/scripts/verify-homebrew-preinstalled-image.sh" \
+    "$EZVM_RELEASE_PREINSTALLED_MANIFEST" "$EZVM_RELEASE_PREINSTALLED_IMAGE"
+fi
+
 echo "Verified published Homebrew release EZVM $version."

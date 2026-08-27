@@ -64,12 +64,19 @@ ezvm doctor
 ezvm start "My Linux VM" --timeout 90
 ezvm status "My Linux VM"
 ezvm stop "My Linux VM" --timeout 30
+ezvm install-image preinstalled-image.json --image disk.raw \
+  --destination "$HOME/EZVM Virtual Machines/My Linux VM.ezvm" --timeout 300
 ```
 
 Use `--root /path/to/library` one or more times when machines are stored outside
 `~/EZVM Virtual Machines`. Headless mode runs the signed EZVM virtualization
 process without presenting a VM window. Stop first requests a guest shutdown
 and uses a bounded force-stop fallback.
+
+`install-image` imports a decoded, bootable ARM64 raw disk described by the
+versioned [preinstalled-image manifest](docs/PREINSTALLED_IMAGE_MANIFEST.md).
+Both the CLI and signed app verify its logical size and SHA-256, and interrupted
+installation leaves no partial machine bundle.
 
 ## Build from source
 
