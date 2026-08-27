@@ -124,8 +124,18 @@ if [[ -n "${EZVM_RELEASE_SMOKE_VM:-}" ]]; then
   EZVM_VM_SMOKE_TIMEOUT="${EZVM_VM_SMOKE_TIMEOUT:-90}" \
   EZVM_RELEASE_SMOKE_ENROLLMENT="${EZVM_RELEASE_SMOKE_ENROLLMENT:-}" \
     "$project_root/scripts/verify-release-vm.sh" "$install_check_dir/EZVM.app" "$EZVM_RELEASE_SMOKE_VM"
-else
-  echo "EZVM_RELEASE_SMOKE_VM is required for a release VM boot test." >&2
+fi
+if [[ -n ${EZVM_RELEASE_PREINSTALLED_MANIFEST:-} || -n ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
+  [[ -n ${EZVM_RELEASE_PREINSTALLED_MANIFEST:-} && -n ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]] || {
+    echo "EZVM_RELEASE_PREINSTALLED_MANIFEST and EZVM_RELEASE_PREINSTALLED_IMAGE must be set together." >&2
+    exit 78
+  }
+  EZVM_APP_PATH="$install_check_dir/EZVM.app" \
+    "$project_root/scripts/verify-homebrew-preinstalled-image.sh" \
+    "$EZVM_RELEASE_PREINSTALLED_MANIFEST" "$EZVM_RELEASE_PREINSTALLED_IMAGE"
+fi
+if [[ -z ${EZVM_RELEASE_SMOKE_VM:-} && -z ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
+  echo "A standard smoke VM or preinstalled-image fixture is required for a release VM boot test." >&2
   exit 78
 fi
 
@@ -166,6 +176,6 @@ git -C "$tap_dir/repository" diff --cached --quiet || \
   git -C "$tap_dir/repository" commit -m "Update EZVM to $version"
 git -C "$tap_dir/repository" push
 
-"$project_root/scripts/verify-homebrew-release.sh" "$version" "$EZVM_RELEASE_SMOKE_VM"
+"$project_root/scripts/verify-homebrew-release.sh" "$version" "${EZVM_RELEASE_SMOKE_VM:-}"
 
 echo "Published EZVM $version to GitHub Releases and Homebrew."

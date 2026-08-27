@@ -5,14 +5,15 @@ set -euo pipefail
 manifest=${1:-}
 image=${2:-}
 timeout=${EZVM_PREINSTALLED_SMOKE_TIMEOUT:-180}
+app_path=${EZVM_APP_PATH:-/Applications/EZVM.app}
 
 fail() { echo "verify-homebrew-preinstalled-image: $*" >&2; exit 1; }
 
 [[ -f $manifest && -f $image ]] || fail "usage: $0 <preinstalled-image-manifest.json> <decoded-disk.raw>"
 [[ $timeout =~ ^[1-9][0-9]*$ ]] || fail "EZVM_PREINSTALLED_SMOKE_TIMEOUT must be a positive integer"
-[[ -d /Applications/EZVM.app ]] || fail "Homebrew-installed EZVM was not found in /Applications"
-cli=/Applications/EZVM.app/Contents/Helpers/ezvm
-[[ -x $cli ]] || fail "the Homebrew-installed EZVM CLI is missing"
+[[ -d $app_path ]] || fail "EZVM app was not found: $app_path"
+cli="$app_path/Contents/Helpers/ezvm"
+[[ -x $cli ]] || fail "the EZVM CLI is missing from $app_path"
 
 work=$(mktemp -d /tmp/ezvm-preinstalled-e2e.XXXXXX)
 destination="$work/Preinstalled Smoke.ezvm"
@@ -52,4 +53,4 @@ jq -e '.success == true and .result.phase == "stopped"' <<<"$stop_result" >/dev/
   fail "installed machine did not stop cleanly"
 started=0
 
-echo "Verified Homebrew preinstalled-image manifest, import, validation, boot, status, and clean stop."
+echo "Verified preinstalled-image manifest, import, validation, boot, status, and clean stop with $app_path."

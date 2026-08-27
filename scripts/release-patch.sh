@@ -30,9 +30,12 @@ for command in gh git go ruby security swift xcodebuild; do
   require_command "$command"
 done
 
-for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID EZVM_RELEASE_SMOKE_VM; do
+for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
   require_environment "$variable"
 done
+if [[ -z ${EZVM_RELEASE_SMOKE_VM:-} && -z ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
+  fail "set EZVM_RELEASE_SMOKE_VM or EZVM_RELEASE_PREINSTALLED_MANIFEST and EZVM_RELEASE_PREINSTALLED_IMAGE"
+fi
 
 [[ -f "$project_file" ]] || fail "Xcode project not found: $project_file"
 [[ -z "$(git -C "$project_root" status --porcelain)" ]] || fail "commit or stash all changes before releasing"

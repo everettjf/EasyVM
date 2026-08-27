@@ -14,9 +14,15 @@ fail() { echo "release-version: $*" >&2; exit 1; }
 for command in gh git go ruby security swift xcodebuild; do
   command -v "$command" >/dev/null 2>&1 || fail "required command not found: $command"
 done
-for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID EZVM_RELEASE_SMOKE_VM EZVM_RELEASE_SMOKE_ENROLLMENT; do
+for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
   [[ -n "${!variable:-}" ]] || fail "required environment variable is missing: $variable"
 done
+if [[ -z ${EZVM_RELEASE_SMOKE_VM:-} && -z ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
+  fail "set EZVM_RELEASE_SMOKE_VM or EZVM_RELEASE_PREINSTALLED_MANIFEST and EZVM_RELEASE_PREINSTALLED_IMAGE"
+fi
+if [[ -n ${EZVM_RELEASE_SMOKE_VM:-} && -z ${EZVM_RELEASE_SMOKE_ENROLLMENT:-} ]]; then
+  fail "EZVM_RELEASE_SMOKE_ENROLLMENT is required with EZVM_RELEASE_SMOKE_VM"
+fi
 gh auth status >/dev/null 2>&1 || fail "GitHub CLI authentication is invalid"
 [[ -f "$project_file" ]] || fail "Xcode project not found: $project_file"
 
