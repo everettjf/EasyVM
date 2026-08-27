@@ -1,4 +1,4 @@
-import EZVMCLIKit
+@testable import EZVMCLIKit
 import CryptoKit
 import Foundation
 import XCTest
@@ -12,6 +12,22 @@ final class EZVMCLIKitTests: XCTestCase {
     }
 
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: root) }
+
+    func testHostAppLocationResolvesHomebrewStyleCLISymlink() throws {
+        let app = root.appendingPathComponent("EZVM.app/Contents")
+        let helper = app.appendingPathComponent("Helpers/ezvm")
+        let executable = app.appendingPathComponent("MacOS/EZVM")
+        let bin = root.appendingPathComponent("bin/ezvm")
+        try FileManager.default.createDirectory(at: helper.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: bin.deletingLastPathComponent(), withIntermediateDirectories: true)
+        XCTAssertTrue(FileManager.default.createFile(atPath: helper.path, contents: Data()))
+        XCTAssertTrue(FileManager.default.createFile(atPath: executable.path, contents: Data()))
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        try FileManager.default.createSymbolicLink(at: bin, withDestinationURL: helper)
+
+        XCTAssertEqual(EZVMExecutableLocation.hostAppExecutable(for: bin.path), executable)
+    }
 
     func testListIsSortedAndReportsValidMachineMetadata() throws {
         try makeMachine("Zulu.ezvm", name: "Zulu")

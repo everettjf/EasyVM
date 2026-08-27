@@ -2,6 +2,18 @@ import Foundation
 import CryptoKit
 import Darwin
 
+enum EZVMExecutableLocation {
+    static func resolved(_ path: String) -> URL {
+        URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+    }
+
+    static func hostAppExecutable(for path: String, fileManager: FileManager = .default) -> URL? {
+        let helperDirectory = resolved(path).deletingLastPathComponent()
+        let appExecutable = helperDirectory.deletingLastPathComponent().appendingPathComponent("MacOS/EZVM")
+        return fileManager.isExecutableFile(atPath: appExecutable.path) ? appExecutable : nil
+    }
+}
+
 public enum EZVMCLIExit: Int32, Sendable {
     case success = 0
     case invalidArguments = 64
@@ -146,7 +158,7 @@ public struct EZVMPreinstalledImageManifest: Codable, Equatable, Sendable {
     public static var runningVersion: String {
         if let override = ProcessInfo.processInfo.environment["EZVM_VERSION"], !override.isEmpty { return override }
         if let bundled = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String { return bundled }
-        let executable = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
+        let executable = EZVMExecutableLocation.resolved(CommandLine.arguments[0])
         let appInfo = executable.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Info.plist")
         if let values = NSDictionary(contentsOf: appInfo),
            let appVersion = values["CFBundleShortVersionString"] as? String { return appVersion }
@@ -621,9 +633,7 @@ public struct EZVMCLI {
     private func hostAppExecutable() -> URL? {
         if let override = ProcessInfo.processInfo.environment["EZVM_APP_EXECUTABLE"],
            FileManager.default.isExecutableFile(atPath: override) { return URL(fileURLWithPath: override) }
-        let helperDirectory = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
-        let appExecutable = helperDirectory.deletingLastPathComponent().appendingPathComponent("MacOS/EZVM")
-        return FileManager.default.isExecutableFile(atPath: appExecutable.path) ? appExecutable : nil
+        return EZVMExecutableLocation.hostAppExecutable(for: CommandLine.arguments[0])
     }
 
     private func isExpectedHeadlessProcess(_ record: EZVMHeadlessRecord, machine: URL) -> Bool {
