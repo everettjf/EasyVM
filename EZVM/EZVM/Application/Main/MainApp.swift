@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreGraphics
 
 @main
 struct MainApp: App {
@@ -72,6 +73,8 @@ private struct VirtualizationFeaturesSettingsView: View {
     @AppStorage(EZVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioning = false
     @AppStorage(EZVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
     @AppStorage(EZVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
+    @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
+    @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedThumbnailStyle = VMGeneratedThumbnailStyle.arcade.rawValue
 
     var body: some View {
         Form {
@@ -96,9 +99,38 @@ private struct VirtualizationFeaturesSettingsView: View {
             } footer: {
                 Text("These features use beta system APIs. Keep backups of important virtual machines.")
             }
+
+            Section {
+                Toggle("Capture the virtual machine display", isOn: $screenCaptureThumbnails)
+                    .onChange(of: screenCaptureThumbnails) { _, enabled in
+                        if enabled && !CGPreflightScreenCaptureAccess() {
+                            screenCaptureThumbnails = CGRequestScreenCaptureAccess()
+                        }
+                    }
+
+                Picker("Generated cover style", selection: $generatedThumbnailStyle) {
+                    ForEach(VMGeneratedThumbnailStyle.allCases) { style in
+                        Text(style.title).tag(style.rawValue)
+                    }
+                }
+
+                GeneratedMachineThumbnailView(
+                    title: "Omarchy",
+                    type: .linux,
+                    style: VMGeneratedThumbnailStyle(rawValue: generatedThumbnailStyle) ?? .arcade
+                )
+                .frame(height: 112)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } header: {
+                Text("Thumbnails")
+            } footer: {
+                Text(screenCaptureThumbnails
+                    ? "Enabled by you. macOS requires Screen & System Audio Recording permission. Turn this off to stop EZVM from capturing VM windows."
+                    : "Off by default. EZVM uses a generated title cover and never requests screen recording permission.")
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 560)
+        .frame(width: 560, height: 720)
         .padding()
     }
 

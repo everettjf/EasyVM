@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 #if arch(arm64)
 struct VMOSMainVirtualMachineView: View {
@@ -18,6 +19,7 @@ struct VMOSMainVirtualMachineView: View {
     @State private var settingsModel: VMModel?
     @State private var isShowingSharedFolderResult = false
     @State private var sharedFolderResult = ""
+    @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     
     var body: some View {
         ZStack {
@@ -179,11 +181,17 @@ struct VMOSMainVirtualMachineView: View {
                 }
 
                 Menu("More", systemImage: "ellipsis.circle") {
-                    Button("Use Current Display as Thumbnail", systemImage: "photo.badge.checkmark") {
-                        runtimeState.useCurrentDisplayAsThumbnail()
+                    Button("Choose Thumbnail Image…", systemImage: "photo") {
+                        chooseThumbnailImage()
                     }
-                    .disabled(runtimeState.phase != .running && runtimeState.phase != .paused)
-                    .help("Replace the machine card thumbnail with the current virtual machine display")
+
+                    if screenCaptureThumbnails {
+                        Button("Use Current Display as Thumbnail", systemImage: "photo.badge.checkmark") {
+                            runtimeState.useCurrentDisplayAsThumbnail()
+                        }
+                        .disabled(runtimeState.phase != .running && runtimeState.phase != .paused)
+                        .help("Replace the machine card thumbnail with the current virtual machine display")
+                    }
 
                     Divider()
 
@@ -403,6 +411,37 @@ struct VMOSMainVirtualMachineView: View {
                 sharedFolderResult = "EZVM could not add the shared folder: \(error)"
             }
             isShowingSharedFolderResult = true
+        }
+    }
+
+    private func chooseThumbnailImage() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose a Thumbnail Image"
+        panel.allowedContentTypes = [.png, .jpeg, .heic]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK,
+              let source = panel.url,
+              let image = NSImage(contentsOf: source) else { return }
+
+        let maximumWidth: CGFloat = 720
+        let scale = min(1, maximumWidth / max(image.size.width, 1))
+        let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+        let thumbnail = NSImage(size: size)
+        thumbnail.lockFocus()
+        image.draw(in: NSRect(origin: .zero, size: size))
+        thumbnail.unlockFocus()
+        guard let cgImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let png = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]) else {
+            MacKitUtil.alertWarn(title: "Invalid thumbnail", message: "EZVM could not decode this image.")
+            return
+        }
+        do {
+            try png.write(to: rootPath.appending(path: "screenshot.png"), options: .atomic)
+            NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+        } catch {
+            MacKitUtil.alertWarn(title: "Thumbnail not saved", message: error.localizedDescription)
         }
     }
 }

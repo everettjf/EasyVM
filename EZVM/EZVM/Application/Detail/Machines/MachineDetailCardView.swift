@@ -17,14 +17,97 @@ struct MachineDetailCardAction {
     let onRemove: () -> Void
 }
 
+enum VMGeneratedThumbnailStyle: String, CaseIterable, Identifiable {
+    case arcade
+    case rounded
+    case terminal
+    case editorial
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+}
+
+struct GeneratedMachineThumbnailView: View {
+    let title: String
+    let type: VMOSType
+    let style: VMGeneratedThumbnailStyle
+
+    var body: some View {
+        ZStack {
+            background
+            switch style {
+            case .arcade:
+                arcadeTitle
+            case .rounded:
+                titleText(.system(size: 46, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .blue.opacity(0.7), radius: 14)
+            case .terminal:
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 5) {
+                        Circle().fill(.red).frame(width: 7, height: 7)
+                        Circle().fill(.yellow).frame(width: 7, height: 7)
+                        Circle().fill(.green).frame(width: 7, height: 7)
+                    }
+                    titleText(.system(size: 38, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color(red: 0.45, green: 1, blue: 0.62))
+                    Text("$ ezvm run")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                .padding(22)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            case .editorial:
+                VStack(spacing: 5) {
+                    Text(type == .linux ? "LINUX VIRTUAL MACHINE" : "MAC VIRTUAL MACHINE")
+                        .font(.system(size: 9, weight: .semibold, design: .serif))
+                        .tracking(2.4)
+                        .foregroundStyle(.white.opacity(0.55))
+                    titleText(.system(size: 48, weight: .bold, design: .serif))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+    }
+
+    private var background: some View {
+        LinearGradient(
+            colors: style == .arcade
+                ? [Color(red: 0.07, green: 0.08, blue: 0.13), Color(red: 0.11, green: 0.12, blue: 0.18)]
+                : (type == .linux ? [Color(red: 0.08, green: 0.12, blue: 0.18), Color(red: 0.12, green: 0.19, blue: 0.25)] : [.indigo, .blue]),
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var arcadeTitle: some View {
+        ZStack {
+            titleText(.system(size: 46, weight: .black, design: .monospaced))
+                .foregroundStyle(Color.cyan.opacity(0.9))
+                .offset(x: -3, y: 3)
+            titleText(.system(size: 46, weight: .black, design: .monospaced))
+                .foregroundStyle(Color(red: 0.65, green: 0.86, blue: 0.38))
+        }
+    }
+
+    private func titleText(_ font: Font) -> some View {
+        Text(title.uppercased())
+            .font(font)
+            .lineLimit(1)
+            .minimumScaleFactor(0.35)
+            .padding(.horizontal, 22)
+    }
+}
+
 /*
- Thumbnail area of a machine card: shows the latest screenshot captured
- from the running system when available, otherwise an OS themed
- placeholder, with a live running badge on top.
+ Thumbnail area of a machine card: shows a bundled, selected, or captured
+ image when available, otherwise a generated title cover, with a live
+ running badge on top.
  */
 struct MachineThumbnailView: View {
     let model: VMModel
     let runPhase: VMRunPhase?
+    @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedStyleRaw = VMGeneratedThumbnailStyle.arcade.rawValue
 
     var body: some View {
         ZStack {
@@ -37,14 +120,11 @@ struct MachineThumbnailView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
-                LinearGradient(
-                    colors: model.config.type == .macOS ? [Color.blue, Color.indigo] : [Color.orange, Color.pink],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                GeneratedMachineThumbnailView(
+                    title: model.config.name,
+                    type: model.config.type,
+                    style: VMGeneratedThumbnailStyle(rawValue: generatedStyleRaw) ?? .arcade
                 )
-                Image(systemName: model.config.type == .macOS ? "macpro.gen3" : "pc")
-                    .font(.system(size: 54))
-                    .foregroundStyle(.white.opacity(0.35))
             }
         }
         .frame(height: 154)

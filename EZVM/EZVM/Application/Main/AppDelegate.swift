@@ -217,6 +217,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard case .success = result else {
             return result
         }
+        if let thumbnailURL = install.thumbnailURL {
+            guard let fileSize = try? thumbnailURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                  fileSize <= 20 * 1024 * 1024,
+                  let image = NSImage(contentsOf: thumbnailURL), image.isValid else {
+                return .failure("The supplied thumbnail is not a valid image or exceeds 20 MB.")
+            }
+            let scale = min(1, 720 / max(image.size.width, 1))
+            let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+            let thumbnail = NSImage(size: size)
+            thumbnail.lockFocus()
+            image.draw(in: NSRect(origin: .zero, size: size))
+            thumbnail.unlockFocus()
+            guard let cgImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                  let pngData = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]) else {
+                return .failure("The supplied thumbnail is not a valid image.")
+            }
+            do {
+                try pngData.write(to: stagingURL.appending(path: "screenshot.png"), options: .atomic)
+            } catch {
+                return .failure("Could not install the supplied thumbnail: \(error.localizedDescription)")
+            }
+        }
         let committedState = VMStateModel(
             imagePath: install.destinationURL.appending(path: diskURL.lastPathComponent)
         )
@@ -348,6 +370,7 @@ struct PreinstalledImageInstallConfiguration {
     let imageURL: URL
     let destinationURL: URL
     let name: String?
+    let thumbnailURL: URL?
     let stagingToken: String
 
     static var current: PreinstalledImageInstallConfiguration? {
@@ -360,11 +383,15 @@ struct PreinstalledImageInstallConfiguration {
             return nil
         }
         let nameMarker = arguments.firstIndex(of: "--name")
+        let thumbnailMarker = arguments.firstIndex(of: "--thumbnail")
         return PreinstalledImageInstallConfiguration(
             manifestURL: URL(fileURLWithPath: arguments[marker + 1]).standardizedFileURL,
             imageURL: URL(fileURLWithPath: arguments[imageMarker + 1]).standardizedFileURL,
             destinationURL: URL(fileURLWithPath: arguments[destinationMarker + 1]).standardizedFileURL,
             name: nameMarker.flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil },
+            thumbnailURL: thumbnailMarker.flatMap {
+                $0 + 1 < arguments.count ? URL(fileURLWithPath: arguments[$0 + 1]).standardizedFileURL : nil
+            },
             stagingToken: arguments[stagingMarker + 1]
         )
     }

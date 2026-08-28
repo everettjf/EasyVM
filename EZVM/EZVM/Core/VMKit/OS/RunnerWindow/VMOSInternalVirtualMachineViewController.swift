@@ -609,6 +609,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     // keep a thumbnail of the running system for the machine card
     private func startScreenshotTimer() {
         screenshotTimer?.invalidate()
+        guard UserDefaults.standard.bool(forKey: VMThumbnailPreferences.screenCaptureEnabledKey) else {
+            screenshotTimer = nil
+            return
+        }
         guard !hasMeaningfulThumbnail() else {
             screenshotTimer = nil
             return
@@ -707,6 +711,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func captureScreenshot(synchronously: Bool = false, allowReplacement: Bool = false) {
+        guard UserDefaults.standard.bool(forKey: VMThumbnailPreferences.screenCaptureEnabledKey) else { return }
         guard synchronously || !screenshotCaptureInProgress else { return }
         guard allowReplacement || !hasMeaningfulThumbnail() else { return }
         guard let rootPath, let view = virtualMachineView, let window = view.window else { return }

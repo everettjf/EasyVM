@@ -405,6 +405,7 @@ public struct EZVMCLI {
         let roots: [URL]
         let timeout: TimeInterval
         let image: URL?
+        let thumbnail: URL?
         let destination: URL?
         let name: String?
     }
@@ -412,7 +413,7 @@ public struct EZVMCLI {
         guard let command = arguments.first else { throw ParseError("Usage: ezvm <list|inspect|validate|doctor> [machine] [--root path]") }
         var index = 1, target: String?, roots: [URL] = []
         var timeout: TimeInterval = 30
-        var image: URL?, destination: URL?, name: String?
+        var image: URL?, thumbnail: URL?, destination: URL?, name: String?
         while index < arguments.count {
             if arguments[index] == "--root" {
                 guard index + 1 < arguments.count else { throw ParseError("--root requires a path") }
@@ -425,6 +426,9 @@ public struct EZVMCLI {
             } else if arguments[index] == "--image" {
                 guard index + 1 < arguments.count else { throw ParseError("--image requires a path") }
                 image = URL(fileURLWithPath: arguments[index + 1]).standardizedFileURL; index += 2
+            } else if arguments[index] == "--thumbnail" {
+                guard index + 1 < arguments.count else { throw ParseError("--thumbnail requires a path") }
+                thumbnail = URL(fileURLWithPath: arguments[index + 1]).standardizedFileURL; index += 2
             } else if arguments[index] == "--destination" {
                 guard index + 1 < arguments.count else { throw ParseError("--destination requires a path") }
                 destination = URL(fileURLWithPath: arguments[index + 1]).standardizedFileURL; index += 2
@@ -439,13 +443,13 @@ public struct EZVMCLI {
             roots = [URL(fileURLWithPath: home).appendingPathComponent("EZVM Virtual Machines")]
         }
         return Parsed(command: command, target: target, roots: roots, timeout: timeout,
-                      image: image, destination: destination, name: name)
+                      image: image, thumbnail: thumbnail, destination: destination, name: name)
     }
 
     private func installImage(_ parsed: Parsed) -> (EZVMCLIExit, EZVMCLIResponse) {
         guard let manifestPath = parsed.target, let image = parsed.image, let destination = parsed.destination else {
             return (.invalidArguments, .init(command: "install-image", code: "invalid_arguments",
-                message: "Usage: ezvm install-image <manifest.json> --image <disk.raw> --destination <machine.ezvm> [--name name] [--timeout seconds]"))
+                message: "Usage: ezvm install-image <manifest.json> --image <disk.raw> --destination <machine.ezvm> [--thumbnail image.png] [--name name] [--timeout seconds]"))
         }
         let manifestURL = URL(fileURLWithPath: manifestPath).standardizedFileURL
         guard destination.pathExtension.lowercased() == "ezvm" else {
@@ -463,6 +467,10 @@ public struct EZVMCLI {
             guard try sha256(of: image) == manifest.disk.sha256.lowercased() else {
                 return (.invalidMachine, .init(command: "install-image", code: "image_checksum_mismatch", message: "Disk image SHA-256 does not match the manifest."))
             }
+            if let thumbnail = parsed.thumbnail,
+               !FileManager.default.isReadableFile(atPath: thumbnail.path) {
+                return (.invalidMachine, .init(command: "install-image", code: "invalid_thumbnail", message: "Thumbnail image is not readable: \(thumbnail.path)"))
+            }
             guard let executable = hostAppExecutable() else {
                 return (.unavailable, .init(command: "install-image", code: "host_app_unavailable", message: "Could not locate the EZVM application executable."))
             }
@@ -474,6 +482,9 @@ public struct EZVMCLI {
             process.arguments = ["--ezvm-install-preinstalled-image", manifestURL.path, "--image", image.path,
                                  "--destination", destination.path, "--name", parsed.name ?? manifest.virtualMachine.name,
                                  "--staging-token", stagingToken]
+            if let thumbnail = parsed.thumbnail {
+                process.arguments?.append(contentsOf: ["--thumbnail", thumbnail.path])
+            }
             process.standardOutput = stdout
             process.standardError = stderr
             try process.run()

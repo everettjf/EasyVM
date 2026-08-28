@@ -141,6 +141,35 @@ final class EZVMCLIKitTests: XCTestCase {
         XCTAssertEqual(value["name"], .string("Test VM"))
     }
 
+    func testInstallImagePassesOptionalThumbnailToHostApp() throws {
+        let disk = Data("preinstalled image with thumbnail".utf8)
+        let imageURL = root.appendingPathComponent("image.raw")
+        try disk.write(to: imageURL)
+        let thumbnailURL = root.appendingPathComponent("thumbnail.png")
+        try Data("thumbnail".utf8).write(to: thumbnailURL)
+        let manifestURL = try makeManifest(disk: disk)
+        let destination = root.appendingPathComponent("Installed.ezvm")
+        let fakeApp = try makeFakeApp(body: """
+        destination=''
+        thumbnail=''
+        while [ "$#" -gt 0 ]; do
+          if [ "$1" = '--destination' ]; then destination=$2; shift 2
+          elif [ "$1" = '--thumbnail' ]; then thumbnail=$2; shift 2
+          else shift; fi
+        done
+        test "$thumbnail" = "\(thumbnailURL.path)"
+        mkdir -p "$destination"
+        """)
+        setenv("EZVM_APP_EXECUTABLE", fakeApp.path, 1)
+        defer { unsetenv("EZVM_APP_EXECUTABLE") }
+
+        let result = EZVMCLI(minimumPreinstalledDiskSize: 1).run(arguments: [
+            "install-image", manifestURL.path, "--image", imageURL.path,
+            "--destination", destination.path, "--thumbnail", thumbnailURL.path, "--timeout", "5",
+        ])
+        XCTAssertEqual(result.0, .success)
+    }
+
     func testInstallImageTimeoutRemovesPartialDestination() throws {
         let disk = Data("interrupted image".utf8)
         let imageURL = root.appendingPathComponent("image.raw")

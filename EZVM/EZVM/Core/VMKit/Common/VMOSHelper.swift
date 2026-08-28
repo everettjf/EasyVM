@@ -597,4 +597,9 @@ enum VMThumbnailValidator {
     }
 }
 
+enum VMThumbnailPreferences {
+    static let screenCaptureEnabledKey = "thumbnail.screen-capture-enabled"
+    static let generatedStyleKey = "thumbnail.generated-style"
+}
+
 #endif
