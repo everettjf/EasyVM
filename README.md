@@ -11,13 +11,27 @@
 [![License](https://img.shields.io/github/license/everettjf/ezvm)](LICENSE)
 [![Pages](https://github.com/everettjf/ezvm/actions/workflows/pages.yml/badge.svg)](https://everettjf.github.io/ezvm/)
 
+![EZVM running Omarchy, macOS, and Ubuntu virtual machines together in layered native windows](./Assets/screenshot1.png)
+
+## Run Omarchy in one command
+
+On an Apple silicon Mac running **macOS 26 Tahoe or later**, this installs or
+updates the signed EZVM app and imports the latest verified Omarchy AArch64
+image:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)"
+```
+
+Requires [Homebrew](https://brew.sh) and at least **15 GiB of available disk
+space**. The installer verifies the published checksums before importing the
+image into `~/EZVM Virtual Machines/Omarchy.ezvm`.
+
 EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to create and run macOS and Linux virtual machines with a focused SwiftUI interface. It aims to be dependable, understandable, and useful without becoming a full emulation suite.
 
 > **Project status:** EZVM is Developer ID-signed and Apple-notarized. VM software can affect large disk images, so keep backups of important guests.
 
 ## Screenshots
-
-![EZVM running Omarchy, macOS, and Ubuntu virtual machines together in layered native windows](./Assets/screenshot1.png)
 
 <p align="center">
   <img src="./Assets/screenshot2.png" width="58%" alt="EZVM randomly naming a virtual machine Saturn and saving it under EZVM Virtual Machines">
