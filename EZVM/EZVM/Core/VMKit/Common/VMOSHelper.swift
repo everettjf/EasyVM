@@ -577,4 +577,24 @@ enum VMStorageCapacity {
     }
 }
 
+enum VMThumbnailValidator {
+    static func isMeaningfulRGBA(
+        _ pixels: [UInt8],
+        brightnessThreshold: UInt8 = 18,
+        minimumBrightFraction: Double = 0.01
+    ) -> Bool {
+        guard pixels.count >= 4, pixels.count.isMultiple(of: 4) else { return false }
+        var brightPixels = 0
+        let pixelCount = pixels.count / 4
+        let requiredBrightPixels = max(1, Int(ceil(Double(pixelCount) * minimumBrightFraction)))
+        for offset in stride(from: 0, to: pixels.count, by: 4) {
+            if max(pixels[offset], pixels[offset + 1], pixels[offset + 2]) > brightnessThreshold {
+                brightPixels += 1
+                if brightPixels >= requiredBrightPixels { return true }
+            }
+        }
+        return false
+    }
+}
+
 #endif

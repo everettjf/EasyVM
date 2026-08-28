@@ -98,6 +98,7 @@ final class VMRuntimeState {
     func saveAndStop() { controller?.saveAndStopMachine() }
     func saveAndStopForWindowClose() { controller?.saveAndStopForWindowClose() }
     func forceStop() { controller?.forceStopMachine() }
+    func useCurrentDisplayAsThumbnail() { controller?.useCurrentDisplayAsThumbnail() }
     func setBalloonMemory(fraction: Double) { controller?.setBalloonMemory(fraction: fraction) }
     func guestAgentShutdown() { controller?.sendGuestAgentCommand(.shutdown) }
     func guestAgentRestart() { controller?.sendGuestAgentCommand(.restart) }

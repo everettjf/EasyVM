@@ -608,6 +608,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     // keep a thumbnail of the running system for the machine card
     private func startScreenshotTimer() {
         screenshotTimer?.invalidate()
+        guard !hasMeaningfulThumbnail() else {
+            screenshotTimer = nil
+            return
+        }
         // The VM display is often still black when start() completes, so take a
         // quick first sample and then refresh often enough for the home card to
         // feel current. Common run-loop modes keep this working while the user
@@ -697,8 +701,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         guestAgentClient?.cancelTransfer()
     }
 
-    private func captureScreenshot(synchronously: Bool = false) {
+    func useCurrentDisplayAsThumbnail() {
+        captureScreenshot(synchronously: true, allowReplacement: true)
+    }
+
+    private func captureScreenshot(synchronously: Bool = false, allowReplacement: Bool = false) {
         guard synchronously || !screenshotCaptureInProgress else { return }
+        guard allowReplacement || !hasMeaningfulThumbnail() else { return }
         guard let rootPath = rootPath, let view = virtualMachineView else {
             return
         }
@@ -721,11 +730,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         capturedImage.draw(in: NSRect(origin: .zero, size: thumbnailSize))
         thumbnail.unlockFocus()
         guard let cgImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        guard allowReplacement || isMeaningfulThumbnail(cgImage) else { return }
         let pngData = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
         let destination = rootPath.appending(path: "screenshot.png")
         if let pngData, synchronously {
             do {
                 try pngData.write(to: destination, options: .atomic)
+                if !allowReplacement {
+                    screenshotTimer?.invalidate()
+                    screenshotTimer = nil
+                }
                 NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
             } catch {
                 EZVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EZVMLog.storage)
@@ -737,6 +751,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     try pngData.write(to: destination, options: .atomic)
                     await MainActor.run {
                         self.screenshotCaptureInProgress = false
+                        if !allowReplacement {
+                            self.screenshotTimer?.invalidate()
+                            self.screenshotTimer = nil
+                        }
                         NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
                     }
                 } catch {
@@ -747,6 +765,34 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 }
             }
         }
+    }
+
+    private func hasMeaningfulThumbnail() -> Bool {
+        guard let rootPath,
+              let image = NSImage(contentsOf: rootPath.appending(path: "screenshot.png")),
+              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return false }
+        return isMeaningfulThumbnail(cgImage)
+    }
+
+    private func isMeaningfulThumbnail(_ image: CGImage) -> Bool {
+        let sampleWidth = 32
+        let sampleHeight = 32
+        var pixels = [UInt8](repeating: 0, count: sampleWidth * sampleHeight * 4)
+        let rendered = pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(
+                data: buffer.baseAddress,
+                width: sampleWidth,
+                height: sampleHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: sampleWidth * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.interpolationQuality = .low
+            context.draw(image, in: CGRect(x: 0, y: 0, width: sampleWidth, height: sampleHeight))
+            return true
+        }
+        return rendered && VMThumbnailValidator.isMeaningfulRGBA(pixels)
     }
 
     public override func viewDidDisappear() {

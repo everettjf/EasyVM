@@ -179,6 +179,14 @@ struct VMOSMainVirtualMachineView: View {
                 }
 
                 Menu("More", systemImage: "ellipsis.circle") {
+                    Button("Use Current Display as Thumbnail", systemImage: "photo.badge.checkmark") {
+                        runtimeState.useCurrentDisplayAsThumbnail()
+                    }
+                    .disabled(runtimeState.phase != .running && runtimeState.phase != .paused)
+                    .help("Replace the machine card thumbnail with the current virtual machine display")
+
+                    Divider()
+
                     Button("Show in Finder", systemImage: "folder") {
                         MacKitUtil.revealInFinder(rootPath.path(percentEncoded: false))
                     }
