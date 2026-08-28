@@ -48,6 +48,17 @@ Install the signed and notarized release from the EZVM Homebrew tap:
 brew install --cask everettjf/tap/ezvm
 ```
 
+To install both EZVM and the latest verified Omarchy AArch64 image with one
+command on an Apple Silicon Mac with Homebrew:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)"
+```
+
+The script installs or updates EZVM, verifies the published Omarchy installer
+against its Release checksum, and installs the preinstalled image at
+`~/EZVM Virtual Machines/Omarchy.ezvm`.
+
 Or download the archive from [GitHub Releases](https://github.com/everettjf/ezvm/releases/latest).
 
 ### Command line and headless mode
