@@ -39,7 +39,13 @@ validate_result=$("$cli" validate "$destination")
 jq -e '.success == true and .result.valid == true and .result.osType == "linux"' \
   <<<"$validate_result" >/dev/null || fail "installed machine did not validate"
 [[ -f $destination/Disk.img && -f $destination/config.json && -f $destination/NVRAM && \
-   -f $destination/MachineIdentifier ]] || fail "installed bundle is incomplete"
+   -f $destination/MachineIdentifier && -f $destination/state.json ]] ||
+  fail "installed bundle is incomplete"
+state_image_path=$(jq -r '.imagePath // empty' "$destination/state.json")
+[[ $state_image_path == file://* && $state_image_path == *"/Preinstalled%20Smoke.ezvm/Disk.img" ]] ||
+  fail "installed state does not reference the committed disk image: $state_image_path"
+[[ $state_image_path != *".install-"* ]] ||
+  fail "installed state still references the staging directory"
 
 start_result=$("$cli" start "$destination" --timeout "$timeout")
 jq -e '.success == true and (.result.phase == "running" or .result.phase == "paused")' \

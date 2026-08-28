@@ -526,6 +526,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     } else {
                         do {
                             try VMSavedStateStore.commit(pendingURL: pendingURL, stateURL: stateURL)
+                            self.releaseVirtualMachineAfterStop()
                             self.runtimeState?.update(.stopped)
                             self.releaseRunLease()
                         } catch {
@@ -555,6 +556,15 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         } else {
             shutdownRetainer = nil
         }
+    }
+
+    private func releaseVirtualMachineAfterStop() {
+        stopGuestAgent()
+        screenshotTimer?.invalidate()
+        screenshotTimer = nil
+        virtualMachineView?.virtualMachine = nil
+        virtualMachine?.delegate = nil
+        virtualMachine = nil
     }
 
     func prepareForWindowClose() {

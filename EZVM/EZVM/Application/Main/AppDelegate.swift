@@ -217,6 +217,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard case .success = result else {
             return result
         }
+        let committedState = VMStateModel(
+            imagePath: install.destinationURL.appending(path: diskURL.lastPathComponent)
+        )
+        if case let .failure(error) = committedState.writeStateToFile(path: model.stateURL) {
+            return .failure("Could not finalize the installed machine state: \(error)")
+        }
         do {
             try fileManager.moveItem(at: stagingURL, to: install.destinationURL)
         } catch {
