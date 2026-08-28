@@ -10,24 +10,36 @@ import SwiftUI
 #if arch(arm64)
 struct MachineDetailInvalidCardView: View {
     let item: HomeItemVMModel
+    let onRemove: () -> Void
     
     var body: some View {
-        VStack {
-            Text("Invalid")
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
                 .font(.title)
-                .padding(.all)
+                .foregroundStyle(.secondary)
+            Text("Machine Not Found")
+                .font(.title3.weight(.semibold))
             Text(item.rootPath.path(percentEncoded: false))
                 .font(.caption)
                 .lineLimit(5)
-                .multilineTextAlignment(.leading)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button(role: .destructive, action: onRemove) {
+                Label("Remove from List", systemImage: "minus.circle")
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("invalid-machine.remove")
         }
-        .padding(.all, 10)
-        .frame(width: 230, height: 330)
-        .overlay(
-            RoundedRectangle(cornerRadius: 5)
-                .stroke(.gray, lineWidth: 1)
-        )
-        .padding(.all, 5)
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 350, alignment: .top)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(.separator.opacity(0.45), lineWidth: 1)
+        }
     }
 }
 

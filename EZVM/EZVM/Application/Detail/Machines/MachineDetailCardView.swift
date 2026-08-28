@@ -14,6 +14,7 @@ struct MachineDetailCardAction {
     let onPlay: () -> Void
     let onEdit: () -> Void
     let onSnapshots: () -> Void
+    let onRemove: () -> Void
 }
 
 /*

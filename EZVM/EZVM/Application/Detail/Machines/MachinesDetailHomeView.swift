@@ -19,7 +19,7 @@ struct MachinesDetailCardWarpView: View {
         if let model = item.model {
             MachineDetailCardView(item: item, model: model, action: action)
         } else {
-            MachineDetailInvalidCardView(item: item)
+            MachineDetailInvalidCardView(item: item, onRemove: action.onRemove)
         }
     }
 }
@@ -110,6 +110,8 @@ struct MachinesDetailHomeView: View {
                             editingItem = item
                         }, onSnapshots: {
                             snapshotItem = item
+                        }, onRemove: {
+                            removeFromList(item: item)
                         }))
                         .onTapGesture(count: 2, perform: {
                             openWindow(id: "start-machine", value: item.rootPath)
