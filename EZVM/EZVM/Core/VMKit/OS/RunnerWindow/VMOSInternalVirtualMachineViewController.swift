@@ -7,6 +7,7 @@
 
 import Cocoa
 import Foundation
+import ScreenCaptureKit
 import Virtualization
 
 
@@ -708,61 +709,59 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private func captureScreenshot(synchronously: Bool = false, allowReplacement: Bool = false) {
         guard synchronously || !screenshotCaptureInProgress else { return }
         guard allowReplacement || !hasMeaningfulThumbnail() else { return }
-        guard let rootPath = rootPath, let view = virtualMachineView else {
-            return
-        }
-        let bounds = view.bounds
-        guard bounds.width > 1, bounds.height > 1 else {
-            return
-        }
-        guard let rep = view.bitmapImageRepForCachingDisplay(in: bounds) else {
-            return
-        }
-        view.cacheDisplay(in: bounds, to: rep)
-        let capturedImage = NSImage(size: bounds.size)
-        capturedImage.addRepresentation(rep)
+        guard let rootPath, let view = virtualMachineView, let window = view.window else { return }
+        let viewRect = view.convert(view.bounds, to: nil)
+        guard viewRect.width > 1, viewRect.height > 1 else { return }
 
-        let maximumWidth: CGFloat = 720
-        let scale = min(1, maximumWidth / max(bounds.width, 1))
-        let thumbnailSize = NSSize(width: bounds.width * scale, height: bounds.height * scale)
-        let thumbnail = NSImage(size: thumbnailSize)
-        thumbnail.lockFocus()
-        capturedImage.draw(in: NSRect(origin: .zero, size: thumbnailSize))
-        thumbnail.unlockFocus()
-        guard let cgImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-        guard allowReplacement || isMeaningfulThumbnail(cgImage) else { return }
-        let pngData = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
-        let destination = rootPath.appending(path: "screenshot.png")
-        if let pngData, synchronously {
+        screenshotCaptureInProgress = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             do {
-                try pngData.write(to: destination, options: .atomic)
+                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+                guard let capturedWindow = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
+                    screenshotCaptureInProgress = false
+                    return
+                }
+                let filter = SCContentFilter(desktopIndependentWindow: capturedWindow)
+                let configuration = SCScreenshotConfiguration()
+                configuration.ignoreShadows = true
+                configuration.showsCursor = false
+                configuration.includeChildWindows = false
+                configuration.sourceRect = CGRect(
+                    x: viewRect.minX,
+                    y: window.frame.height - viewRect.maxY,
+                    width: viewRect.width,
+                    height: viewRect.height
+                )
+                let scale = min(1, 720 / max(viewRect.width, 1))
+                configuration.width = max(1, Int(viewRect.width * scale))
+                configuration.height = max(1, Int(viewRect.height * scale))
+                let output = try await SCScreenshotManager.captureScreenshot(
+                    contentFilter: filter,
+                    configuration: configuration
+                )
+                guard let image = output.sdrImage else {
+                    screenshotCaptureInProgress = false
+                    return
+                }
+                guard allowReplacement || isMeaningfulThumbnail(image) else {
+                    screenshotCaptureInProgress = false
+                    return
+                }
+                guard let pngData = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
+                    screenshotCaptureInProgress = false
+                    return
+                }
+                try pngData.write(to: rootPath.appending(path: "screenshot.png"), options: .atomic)
+                screenshotCaptureInProgress = false
                 if !allowReplacement {
                     screenshotTimer?.invalidate()
                     screenshotTimer = nil
                 }
                 NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
             } catch {
-                EZVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EZVMLog.storage)
-            }
-        } else if let pngData {
-            screenshotCaptureInProgress = true
-            Task.detached(priority: .utility) {
-                do {
-                    try pngData.write(to: destination, options: .atomic)
-                    await MainActor.run {
-                        self.screenshotCaptureInProgress = false
-                        if !allowReplacement {
-                            self.screenshotTimer?.invalidate()
-                            self.screenshotTimer = nil
-                        }
-                        NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
-                    }
-                } catch {
-                    EZVMLog.error("Failed to save VM thumbnail: \(error.localizedDescription)", logger: EZVMLog.storage)
-                    await MainActor.run {
-                        self.screenshotCaptureInProgress = false
-                    }
-                }
+                screenshotCaptureInProgress = false
+                EZVMLog.error("Failed to capture VM thumbnail: \(error.localizedDescription)", logger: EZVMLog.storage)
             }
         }
     }
