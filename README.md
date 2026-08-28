@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./Assets/EZVM-mark.png" width="160" height="160" alt="EZVM blue and orange interlocking hexagon icon">
+</p>
+
 # EZVM
 
 **A simple, native virtual machine app for Apple silicon Macs.**

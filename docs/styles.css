@@ -1,4 +1,4 @@
-:root { color-scheme: dark; --bg:#080c17; --panel:#101727; --line:#263047; --text:#f6f7fb; --muted:#a5afc2; --blue:#71a7ff; --cyan:#6ee7d8; --radius:18px; }
+:root { color-scheme: dark; --bg:#07152f; --panel:#101b34; --line:#263b61; --text:#f6f8ff; --muted:#a8b6ce; --blue:#42a5ff; --cyan:#50d5ff; --orange:#ff9f1a; --radius:18px; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { min-width:320px; margin:0; overflow-x:hidden; background:radial-gradient(circle at 76% 9%,#24498224 0,transparent 28%),radial-gradient(circle at 18% 42%,#226d6720 0,transparent 24%),var(--bg); color:var(--text); font:16px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
@@ -6,7 +6,7 @@ a { color:inherit; text-decoration:none; }
 .wrap { width:min(1120px,calc(100% - 40px)); margin-inline:auto; }
 .nav { position:relative; z-index:10; height:76px; display:flex; align-items:center; justify-content:space-between; }
 .brand { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:700; letter-spacing:-.02em; }
-.mark { display:grid; place-items:center; width:32px; height:32px; border:1px solid #fff4; border-radius:10px; background:linear-gradient(145deg,var(--blue),var(--cyan)); box-shadow:0 8px 24px #5da5ff36; color:#07101e; }
+.mark { display:block; width:36px; height:36px; border-radius:10px; box-shadow:0 8px 25px #2196ff42,0 3px 18px #ff9f1a26; }
 nav { display:flex; align-items:center; gap:28px; color:var(--muted); font-size:14px; }
 nav a,.text-link,.button { transition:color .2s ease,background .2s ease,transform .2s ease,box-shadow .2s ease; }
 nav a:hover,.text-link:hover { color:var(--text); }
@@ -19,7 +19,7 @@ nav a:hover,.text-link:hover { color:var(--text); }
 .eyebrow { margin:0 0 16px; color:var(--cyan); font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
 h1,h2,h3,p { margin-top:0; }
 h1 { margin-bottom:24px; font-size:clamp(52px,6vw,82px); line-height:.98; letter-spacing:-.06em; }
-h1 span { color:var(--blue); }
+h1 span { color:var(--blue); background:linear-gradient(90deg,var(--blue),var(--cyan) 58%,var(--orange)); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
 .lead { max-width:590px; color:var(--muted); font-size:19px; }
 .actions { display:flex; gap:22px; align-items:center; margin-top:34px; }
 .text-link { font-weight:700; font-size:14px; }
