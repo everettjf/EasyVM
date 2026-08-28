@@ -57,6 +57,8 @@ checksum and installs the preinstalled image at
 available space on the destination volume and stops unless at least 15 GiB is
 available.
 
+![Omarchy reaching its first-run welcome screen inside EZVM](./docs/assets/omarchy-ezvm.png)
+
 ### EZVM only
 
 Install the signed and notarized release from the EZVM Homebrew tap:

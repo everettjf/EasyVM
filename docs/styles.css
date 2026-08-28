@@ -34,6 +34,10 @@ h1 span { color:var(--blue); }
 .stats strong { font-size:17px; }.stats span { color:var(--muted); font-size:13px; }
 .section { padding-block:120px; }
 .screenshots { padding-bottom:32px; }
+.omarchy-shot { margin:30px 0 0; overflow:hidden; border:1px solid var(--line); border-radius:var(--radius); background:#111827; box-shadow:0 24px 70px #0007; }
+.omarchy-shot img { display:block; width:100%; height:auto; }
+.omarchy-shot figcaption { padding:16px 18px 18px; color:var(--muted); font-size:14px; }
+.omarchy-shot figcaption strong { color:var(--text); }
 .runtime-shot { width:min(1320px,calc(100vw - 32px)); margin:0 0 24px 50%; overflow:hidden; border:1px solid #33405a; border-radius:var(--radius); background:linear-gradient(145deg,#121a2b,#0c1220); box-shadow:0 34px 100px #0009,0 0 70px #497ad016; transform:translateX(-50%); }
 .runtime-shot img { display:block; width:100%; height:auto; }
 .runtime-shot figcaption { display:flex; gap:8px; justify-content:center; padding:20px 24px 22px; color:var(--muted); font-size:14px; text-align:center; }
@@ -51,6 +55,7 @@ h2 { max-width:760px; margin-bottom:50px; font-size:clamp(38px,5vw,60px); line-h
 .cards article>span { color:var(--blue); font:700 12px/1 monospace; }.cards h3 { margin:50px 0 10px; font-size:22px; }.cards p,.roadmap p { color:var(--muted); }
 .roadmap { border-block:1px solid var(--line); background:#0d1321; }
 .roadmap-grid { display:grid; grid-template-columns:.9fr 1.1fr; gap:100px; }
+.roadmap-grid > * { min-width:0; }
 .roadmap-grid h2 { margin-bottom:24px; }.roadmap ol { list-style:none; margin:0; padding:0; }
 .roadmap li { display:grid; grid-template-columns:48px 1fr; gap:18px; padding:22px 0; border-top:1px solid var(--line); }
 .roadmap li>span { color:var(--blue); font:700 12px/1.8 monospace; }.roadmap li strong { font-size:17px; }.roadmap li p { margin:4px 0 0; font-size:14px; }
