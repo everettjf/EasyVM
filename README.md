@@ -17,7 +17,7 @@ EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/docum
 
 ## Screenshots
 
-![EZVM library with Omarchy, macOS, and Ubuntu virtual machines ready side by side](./Assets/screenshot1.png)
+![EZVM running Omarchy, macOS, and Ubuntu virtual machines together in layered native windows](./Assets/screenshot1.png)
 
 <p align="center">
   <img src="./Assets/screenshot2.png" width="58%" alt="EZVM randomly naming a virtual machine Saturn and saving it under EZVM Virtual Machines">
