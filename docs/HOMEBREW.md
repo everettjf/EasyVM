@@ -28,7 +28,7 @@ GitHub Releases should remain the source of truth. The Cask is a small installat
 
 cask "ezvm" do
   version "1.0.0"
-  sha256 "2c4c95a2f88d7b98fbdc0c1e3a079337918898b2f02734d878b624f8019ad194"
+  sha256 "ede1daa13cc26a4ce9840c6481ff1e15e264fccccca5034329d524b6c513e36f"
 
   url "https://github.com/everettjf/ezvm/releases/download/v#{version}/EZVM-#{version}.zip?notarized=1"
   name "EZVM"

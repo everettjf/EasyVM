@@ -3,7 +3,7 @@
 
 cask "ezvm" do
   version "1.0.0"
-  sha256 :no_check
+  sha256 "ede1daa13cc26a4ce9840c6481ff1e15e264fccccca5034329d524b6c513e36f"
 
   url "https://github.com/everettjf/ezvm/releases/download/v#{version}/EZVM-#{version}.zip?notarized=1"
   name "EZVM"
