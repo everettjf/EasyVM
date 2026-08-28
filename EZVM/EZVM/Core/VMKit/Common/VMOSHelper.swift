@@ -454,6 +454,43 @@ enum VMSavedStateStore {
     static func discardPending(stateURL: URL) {
         try? FileManager.default.removeItem(at: pendingURL(for: stateURL))
     }
+
+    static func recoverInterruptedTransaction(stateURL: URL) {
+        discardPending(stateURL: stateURL)
+    }
+}
+
+enum VMEFIVariableStoreRecovery {
+    static func isInvalidBootLoaderError(_ message: String) -> Bool {
+        let value = message.lowercased()
+        return value.contains("boot loader") && value.contains("invalid")
+    }
+
+    /// Replaces a store only after Virtualization.framework explicitly rejects
+    /// its boot loader. The rejected bytes are retained for diagnostics.
+    static func replaceRejectedStore(at storeURL: URL) throws -> URL? {
+        let fileManager = FileManager.default
+        let replacementURL = storeURL.appendingPathExtension("replacement")
+        let backupURL = storeURL.appendingPathExtension("invalid-backup")
+        try? fileManager.removeItem(at: replacementURL)
+        try? fileManager.removeItem(at: backupURL)
+        _ = try VZEFIVariableStore(creatingVariableStoreAt: replacementURL)
+
+        let hadOriginal = fileManager.fileExists(atPath: storeURL.path)
+        if hadOriginal {
+            try fileManager.moveItem(at: storeURL, to: backupURL)
+        }
+        do {
+            try fileManager.moveItem(at: replacementURL, to: storeURL)
+            return hadOriginal ? backupURL : nil
+        } catch {
+            try? fileManager.removeItem(at: replacementURL)
+            if hadOriginal, !fileManager.fileExists(atPath: storeURL.path) {
+                try? fileManager.moveItem(at: backupURL, to: storeURL)
+            }
+            throw error
+        }
+    }
 }
 
 class VMOSHelper {

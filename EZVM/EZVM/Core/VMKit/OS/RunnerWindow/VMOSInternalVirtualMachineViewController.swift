@@ -22,7 +22,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     // internal
     private var virtualMachineView: VZVirtualMachineView!
     private var virtualMachine: VZVirtualMachine!
+    private var virtualMachineConfiguration: VZVirtualMachineConfiguration?
     private var configuredMemorySize: UInt64 = 0
+    private var lifecycleGeneration = 0
+    private var attemptedEFIBootRecovery = false
     private var screenshotTimer: Timer?
     private var screenshotCaptureInProgress = false
     private var guestAgentClient: VMGuestAgentHostClient?
@@ -125,7 +128,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         
         configuredMemorySize = virtualMachineConfiguration.memorySize
-        virtualMachine = VZVirtualMachine(configuration: virtualMachineConfiguration)
+        self.virtualMachineConfiguration = virtualMachineConfiguration
+        installVirtualMachine(configuration: virtualMachineConfiguration)
+        VMSavedStateStore.recoverInterruptedTransaction(stateURL: model.savedMachineStateURL)
+        startConfiguredMachine(rootPath: rootPath, model: model)
+    }
+
+    private func installVirtualMachine(configuration: VZVirtualMachineConfiguration) {
+        virtualMachine?.delegate = nil
+        virtualMachineView?.virtualMachine = nil
+        virtualMachine = VZVirtualMachine(configuration: configuration)
         // This controller owns the complete runtime lifecycle. Routing delegate
         // callbacks elsewhere would clear the registry without transitioning
         // the scene to `.stopped`, leaving an unusable stopped window alive.
@@ -136,8 +148,50 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         if HeadlessLaunchConfiguration.current == nil {
             virtualMachineView.virtualMachine = virtualMachine
         }
+    }
 
+    private func rebuildVirtualMachine() -> Bool {
+        guard let configuration = virtualMachineConfiguration else { return false }
+        stopGuestAgent()
+        installVirtualMachine(configuration: configuration)
+        return true
+    }
 
+    private func retryWithColdBoot(rootPath: URL, model: VMModel, reason: String) {
+        try? FileManager.default.removeItem(at: model.savedMachineStateURL)
+        VMSavedStateStore.discardPending(stateURL: model.savedMachineStateURL)
+        guard rebuildVirtualMachine() else {
+            fail("Could not rebuild the virtual machine after \(reason).")
+            return
+        }
+        runtimeState?.update(.starting)
+        startNormally(rootPath: rootPath, model: model)
+    }
+
+    private func recoverInvalidEFIBootIfPossible(error: Error, rootPath: URL, model: VMModel) -> Bool {
+        guard model.config.type == .linux,
+              !attemptedEFIBootRecovery,
+              VMEFIVariableStoreRecovery.isInvalidBootLoaderError(error.localizedDescription) else { return false }
+        attemptedEFIBootRecovery = true
+        do {
+            let backup = try VMEFIVariableStoreRecovery.replaceRejectedStore(at: model.efiVariableStoreURL)
+            EZVMLog.info("Rejected EFI variable store was replaced; backup: \(backup?.path ?? "none")")
+            let runner = VMOSRunnerFactory.getRunner(model.config.type)
+            guard case let .success(configuration) = runner.createConfiguration(model: model) else {
+                fail("Could not rebuild the virtual machine after repairing its EFI variable store.")
+                return true
+            }
+            virtualMachineConfiguration = configuration
+            installVirtualMachine(configuration: configuration)
+            runtimeState?.update(.starting)
+            startNormally(rootPath: rootPath, model: model)
+        } catch {
+            fail("The EFI variable store is damaged and could not be repaired: \(error.localizedDescription)")
+        }
+        return true
+    }
+
+    private func startConfiguredMachine(rootPath: URL, model: VMModel) {
         if recoveryMode {
             runtimeState?.update(.starting)
             let startOptions = VZMacOSVirtualMachineStartOptions()
@@ -171,10 +225,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         virtualMachine.restoreMachineStateFrom(url: stateURL) { [weak self] error in
             guard let self else { return }
             if let error {
-                try? FileManager.default.removeItem(at: stateURL)
                 Task { @MainActor in
-                    self.runtimeState?.update(.starting)
-                    self.startNormally(rootPath: rootPath, model: model)
+                    self.retryWithColdBoot(rootPath: rootPath, model: model, reason: "saved-state restore failed")
                 }
                 EZVMLog.error("Saved state restore failed; falling back to normal boot: \(error.localizedDescription)")
                 return
@@ -189,7 +241,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         self.startScreenshotTimer()
                         self.startGuestAgent(model: model)
                     case .failure(let error):
-                        self.fail("Could not resume the saved virtual machine: \(error.localizedDescription)")
+                        EZVMLog.error("Saved state resume failed; falling back to normal boot: \(error.localizedDescription)")
+                        self.retryWithColdBoot(rootPath: rootPath, model: model, reason: "saved-state resume failed")
                     }
                 }
             }
@@ -218,7 +271,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         Task { @MainActor in
                             guard let self else { return }
                             if let error {
-                                self.fail("Could not start the provisioned virtual machine: \(error.localizedDescription)")
+                                if !self.recoverInvalidEFIBootIfPossible(error: error, rootPath: rootPath, model: model) {
+                                    self.fail("Could not start the provisioned virtual machine: \(error.localizedDescription)")
+                                }
                             } else {
                                 VMGuestProvisioningCredentialStore.delete(vmRootPath: rootPath)
                                 self.didStart(rootPath: rootPath, model: model)
@@ -242,7 +297,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.didStart(rootPath: rootPath, model: model)
                 case .failure(let error):
-                    self.fail("Could not start the virtual machine: \(error.localizedDescription)")
+                    if !self.recoverInvalidEFIBootIfPossible(error: error, rootPath: rootPath, model: model) {
+                        self.fail("Could not start the virtual machine: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -467,6 +524,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func forceStopMachine() {
+        lifecycleGeneration += 1
+        if let rootPath {
+            let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
+            VMSavedStateStore.discardPending(stateURL: stateURL)
+            try? FileManager.default.removeItem(at: stateURL)
+        }
+        shutdownRetainer = nil
         guard virtualMachine != nil else {
             releaseRunLease()
             runtimeState?.update(.stopped)
@@ -480,6 +544,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 if let error {
                     self.fail("Could not force stop the virtual machine: \(error.localizedDescription)")
                 } else {
+                    self.releaseVirtualMachineAfterStop()
                     self.runtimeState?.update(.stopped)
                     self.releaseRunLease()
                 }
@@ -507,8 +572,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     @available(macOS 14.0, *)
     private func saveMachineStateAndStop(rootPath: URL) {
         let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
+        lifecycleGeneration += 1
+        let operationGeneration = lifecycleGeneration
         let save = { [weak self] in
-            guard let self else { return }
+            guard let self, self.lifecycleGeneration == operationGeneration else { return }
             self.runtimeState?.update(.saving)
             let pendingURL: URL
             do {
@@ -521,6 +588,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             self.virtualMachine.saveMachineStateTo(url: pendingURL) { [weak self] error in
                 Task { @MainActor in
                     guard let self else { return }
+                    guard self.lifecycleGeneration == operationGeneration else {
+                        VMSavedStateStore.discardPending(stateURL: stateURL)
+                        return
+                    }
                     if let error {
                         VMSavedStateStore.discardPending(stateURL: stateURL)
                         self.fail("Could not save the virtual machine state: \(error.localizedDescription)")
@@ -545,12 +616,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         } else if virtualMachine.canPause {
             runtimeState?.update(.pausing)
             virtualMachine.pause { [weak self] result in
+                guard let self, self.lifecycleGeneration == operationGeneration else { return }
                 switch result {
                 case .success: save()
                 case .failure(let error):
                     Task { @MainActor in
-                        self?.fail("Could not pause before saving: \(error.localizedDescription)")
-                        self?.shutdownRetainer = nil
+                        self.fail("Could not pause before saving: \(error.localizedDescription)")
+                        self.shutdownRetainer = nil
                     }
                 }
             }

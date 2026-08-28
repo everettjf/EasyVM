@@ -60,4 +60,35 @@ second_stop_json="$("$cli" stop "$second_vm" --timeout 30)" || fail "second head
 stop_json="$("$cli" stop "$smoke_vm" --timeout 30)" || fail "headless stop failed: $stop_json"
 [[ "$stop_json" == *'"phase":"stopped"'* ]] || fail "stop did not report stopped: $stop_json"
 
-echo "Verified CLI JSON, duplicate-start rejection, and two concurrent real headless VMs."
+# Abrupt host termination must never strand a lease or make the next boot
+# depend on process cleanup that did not run.
+crash_start_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "pre-crash start failed: $crash_start_json"
+crash_pid="$(ruby -rjson -e 'puts JSON.parse(STDIN.read).dig("result", "pid")' <<<"$crash_start_json")"
+[[ "$crash_pid" =~ ^[1-9][0-9]*$ ]] || fail "start did not return a runtime PID: $crash_start_json"
+kill -KILL "$crash_pid"
+for _ in {1..100}; do
+  kill -0 "$crash_pid" >/dev/null 2>&1 || break
+  sleep 0.1
+done
+kill -0 "$crash_pid" >/dev/null 2>&1 && fail "SIGKILL did not terminate runtime PID $crash_pid"
+restart_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "restart after SIGKILL failed: $restart_json"
+[[ "$restart_json" == *'"phase":"running"'* ]] || fail "restart after SIGKILL did not report running: $restart_json"
+"$cli" stop "$smoke_vm" --timeout 30 >/dev/null || fail "stop after SIGKILL restart failed"
+
+# A corrupt saved state is disposable. EZVM must rebuild its VZVirtualMachine
+# instance and cold boot rather than present a persistent restore error.
+cp "$smoke_vm/config.json" "$smoke_vm/MachineState.vzvmsave"
+saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "cold boot after corrupt saved state failed: $saved_state_json"
+[[ "$saved_state_json" == *'"phase":"running"'* ]] || fail "saved-state fallback did not report running: $saved_state_json"
+[[ ! -e "$smoke_vm/MachineState.vzvmsave" ]] || fail "corrupt saved state was not discarded"
+"$cli" stop "$smoke_vm" --timeout 30 >/dev/null || fail "stop after saved-state fallback failed"
+
+# Reproduce the exact Virtualization.framework failure seen in production. A
+# rejected EFI store must be preserved as a diagnostic backup and replaced once.
+truncate -s 0 "$second_vm/NVRAM"
+efi_recovery_json="$("$cli" start "$second_vm" --timeout "$timeout")" || fail "EFI recovery start failed: $efi_recovery_json"
+[[ "$efi_recovery_json" == *'"phase":"running"'* ]] || fail "EFI recovery did not report running: $efi_recovery_json"
+[[ -s "$second_vm/NVRAM" && -e "$second_vm/NVRAM.invalid-backup" ]] || fail "EFI recovery did not replace and back up NVRAM"
+"$cli" stop "$second_vm" --timeout 30 >/dev/null || fail "stop after EFI recovery failed"
+
+echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, saved-state fallback, and EFI boot recovery."

@@ -48,4 +48,36 @@ final class VMSavedStateStoreTests: XCTestCase {
 
         XCTAssertEqual(try Data(contentsOf: state), Data("first".utf8))
     }
+
+    func testInterruptedPendingSaveIsDiscardedWithoutRemovingCommittedState() throws {
+        let state = root.appendingPathComponent("MachineState.vzvmsave")
+        try Data("committed".utf8).write(to: state)
+        let pending = VMSavedStateStore.pendingURL(for: state)
+        try Data("partial".utf8).write(to: pending)
+
+        VMSavedStateStore.recoverInterruptedTransaction(stateURL: state)
+
+        XCTAssertEqual(try Data(contentsOf: state), Data("committed".utf8))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: pending.path))
+    }
+
+    func testInvalidBootLoaderErrorRecognitionIsNarrow() {
+        XCTAssertTrue(VMEFIVariableStoreRecovery.isInvalidBootLoaderError(
+            "Invalid virtual machine configuration. The boot loader is invalid."
+        ))
+        XCTAssertFalse(VMEFIVariableStoreRecovery.isInvalidBootLoaderError(
+            "Invalid virtual machine configuration. The network device is invalid."
+        ))
+    }
+
+    func testRejectedEFIStoreIsBackedUpAndReplaced() throws {
+        let store = root.appendingPathComponent("NVRAM")
+        try Data("damaged".utf8).write(to: store)
+
+        let backup = try XCTUnwrap(VMEFIVariableStoreRecovery.replaceRejectedStore(at: store))
+
+        XCTAssertEqual(try Data(contentsOf: backup), Data("damaged".utf8))
+        XCTAssertGreaterThan(try Data(contentsOf: store).count, 1_024)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.appendingPathExtension("replacement").path))
+    }
 }
