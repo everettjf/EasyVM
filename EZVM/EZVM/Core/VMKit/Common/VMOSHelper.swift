@@ -345,9 +345,18 @@ struct VMDiskImageManager {
 
     static func create(format: VMDiskImageFormat, at url: URL, size: UInt64) -> VMOSResultVoid {
         if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
-            guard format == .raw,
-                  let fileSize = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
-                  UInt64(fileSize) == size else {
+            let matches: Bool
+            switch format {
+            case .raw:
+                matches = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize)
+                    .map { UInt64($0) == size } ?? false
+            case .asif:
+                // ASIF is sparse, so its physical file size is unrelated to
+                // its logical capacity. Once created, the image itself is the
+                // capacity authority and must never be recreated on startup.
+                matches = existingASIFImageHasValidHeader(url: url)
+            }
+            guard matches else {
                 return .failure("A disk image already exists at the destination with a different format or size.")
             }
             return .success
@@ -405,6 +414,13 @@ struct VMDiskImageManager {
             return .failure("Could not resize the raw disk image.")
         }
         return .success
+    }
+
+    static func existingASIFImageHasValidHeader(url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let header = try? handle.read(upToCount: 4) else { return false }
+        return header == Data([0x73, 0x68, 0x64, 0x77])
     }
 
     private static func run(_ command: Command) -> VMOSResultVoid {

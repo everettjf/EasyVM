@@ -51,6 +51,21 @@ final class VMDiskImageManagerTests: XCTestCase {
         ])
     }
 
+    func testASIFHeaderValidationRejectsOtherExistingFiles() throws {
+        let url = temporaryRoot.appendingPathComponent("Disk.asif")
+        try Data("shdw-payload".utf8).write(to: url)
+        XCTAssertTrue(VMDiskImageManager.existingASIFImageHasValidHeader(url: url))
+        try Data("not-an-asif".utf8).write(to: url)
+        XCTAssertFalse(VMDiskImageManager.existingASIFImageHasValidHeader(url: url))
+    }
+
+    func testExistingASIFCreationIsIdempotentForMatchingLogicalSize() throws {
+        let url = temporaryRoot.appendingPathComponent("Disk.asif")
+        let size: UInt64 = 64 * 1024 * 1024
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: url, size: size))
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: url, size: size))
+    }
+
     func testRawToASIFConversionCommandKeepsSourceAndDestinationSeparate() {
         let source = temporaryRoot.appendingPathComponent("Disk.img")
         let destination = temporaryRoot.appendingPathComponent("Disk.asif")
