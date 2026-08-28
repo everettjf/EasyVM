@@ -208,7 +208,7 @@ final class EZVMCLIKitTests: XCTestCase {
             "schemaVersion": 1,
             "kind": "io.github.everettjf.ezvm.preinstalled-image",
             "architecture": "arm64",
-            "minimumEZVMVersion": "5.0.0",
+            "minimumEZVMVersion": "1.0.0",
             "product": ["id": "example.image", "name": "Example", "version": "1.0.0"],
             "disk": ["format": "raw", "virtualSize": disk.count, "sha256": digest],
             "virtualMachine": ["name": "Example VM", "remark": "Test image"],

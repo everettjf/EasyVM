@@ -1,14 +1,14 @@
 # EZVM post-5.0 execution plan
 
-_Baseline: EZVM 5.0.0 — August 27, 2026_
+_Baseline: EZVM 1.0.0 — August 27, 2026_
 
 This document turns the broader [capability roadmap](ROADMAP.md) into an
-ordered engineering plan. It covers only work that remains after 5.0.0 and
+ordered engineering plan. It covers only work that remains after 1.0.0 and
 uses evidence-based promotion rules: compiling against an API is not enough;
 a feature becomes stable only after the final signed Homebrew artifact passes
 the relevant real-VM scenario.
 
-## 5.0.0 baseline
+## 1.0.0 baseline
 
 The next cycle starts with these foundations already delivered:
 
@@ -37,7 +37,7 @@ The next cycle starts with these foundations already delivered:
 5. Restricted entitlements are not implementation backlog. They have a
    separate re-entry gate and do not consume normal milestone capacity.
 
-## Completed for the next 5.0.x patch
+## Completed for the 1.0.0 release
 
 - A versioned, product-neutral `preinstalled-image` manifest is the source of
   truth for raw ARM64 guest identity, compatibility, logical size, and SHA-256.
@@ -52,11 +52,11 @@ The next cycle starts with these foundations already delivered:
   successful app handoff, timeout, and partial-destination cleanup.
 
 These items become part of the release baseline after the Homebrew-installed
-5.0.x artifact passes the end-to-end Omarchy scenario.
+1.0.x artifact passes the end-to-end Omarchy scenario.
 
 ## P0 — Reliability and release reproducibility
 
-**Target:** 5.0.x. No unrelated new product surface.
+**Target:** 1.0.x. No unrelated new product surface.
 
 | Workstream | Deliverable | Acceptance criteria |
 | --- | --- | --- |
@@ -89,7 +89,7 @@ failure messages.
 
 ## P2 — New bounded capabilities
 
-**Target:** 5.2.0+ after P0 and the relevant P1 dependency are complete.
+**Target:** 1.2.0+ after P0 and the relevant P1 dependency are complete.
 
 | Feature | Dependency | Promotion gate |
 | --- | --- | --- |
@@ -148,13 +148,13 @@ Every promoted capability must have:
 
 ## Suggested release sequence
 
-1. **5.0.x:** P0 only—headless cleanup, fixture builder, diagnostics, provenance,
+1. **1.0.x:** P0 only—headless cleanup, fixture builder, diagnostics, provenance,
    compatibility matrix, preinstalled-image release verification, and transaction
    fault injection.
 2. **5.1.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
    shares, portability UX, snapshot maintenance, CLI clone/export, and distro
    presets.
-3. **5.2.0:** serial terminal, carefully scoped TCP forwarding, guided Rosetta,
+3. **1.2.0:** serial terminal, carefully scoped TCP forwarding, guided Rosetta,
    Docker/KVM profile, recovery automation, and selected Shortcuts actions.
 4. **Later:** promote individual P3 experiments only when their evidence is
    complete; do not bundle experimental graduation into a deadline-driven

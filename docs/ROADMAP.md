@@ -78,7 +78,7 @@ evidence that a restricted entitlement is distributable.
 | Serial port terminal | Planned | Framework support exists; EZVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
 | Host/guest clipboard | Partial | Spice attachment exists; success depends on a guest agent. | Detect `spice-vdagent`, expose status, and test both directions. |
-| Physical USB passthrough | Restricted | Not included in EZVM 5.0.0. | Requires macOS 27 Accessory Access and an approved entitlement. |
+| Physical USB passthrough | Restricted | Not included in EZVM 1.0.0. | Requires macOS 27 Accessory Access and an approved entitlement. |
 | USB hot-plug management | Restricted | Not present after USB passthrough removal. | Revisit only with the same approved distribution path. |
 | Custom Virtio devices | Planned | No production device implementation or no-op setting is exposed. | Require a concrete guest-driver use case before building one. |
 
@@ -105,11 +105,11 @@ evidence that a restricted entitlement is distributable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | Standard NAT | Stable | Production builds use `VZNATNetworkDeviceAttachment`. | Add connectivity diagnostics and tested DNS behavior. |
-| Bridged networking | Restricted | Not included in EZVM 5.0.0. | Requires `com.apple.vm.networking` approval and profile validation. |
-| Host-only networking | Restricted | Not included in EZVM 5.0.0; previous implementation used vmnet logical networks. | Restore only after entitlement approval. |
-| Custom network topology | Restricted | Not included in EZVM 5.0.0. | Depends on vmnet and should remain an experimental branch. |
+| Bridged networking | Restricted | Not included in EZVM 1.0.0. | Requires `com.apple.vm.networking` approval and profile validation. |
+| Host-only networking | Restricted | Not included in EZVM 1.0.0; previous implementation used vmnet logical networks. | Restore only after entitlement approval. |
+| Custom network topology | Restricted | Not included in EZVM 1.0.0. | Depends on vmnet and should remain an experimental branch. |
 | Shared logical network across processes | Restricted | Not in production. | Requires vmnet serialization/XPC design and entitlement approval. |
-| vmnet port forwarding | Restricted | Not included in EZVM 5.0.0. | Same entitlement constraint as custom networking. |
+| vmnet port forwarding | Restricted | Not included in EZVM 1.0.0. | Same entitlement constraint as custom networking. |
 | User-space port forwarding | Planned research | Could avoid vmnet by proxying host sockets to a known guest service. | First solve guest discovery, security, lifecycle, and UDP semantics. |
 | Guest IP discovery | Stable | The authenticated Linux guest agent reports sorted non-loopback addresses over Virtio Socket. | Expand distro and reconnect soak coverage. |
 | One-click SSH | Stable | Capability-gated menu opens validated IPv4/IPv6 `ssh://` URLs without shell interpolation or stored credentials. | Add optional per-VM username preference after credential policy is designed. |

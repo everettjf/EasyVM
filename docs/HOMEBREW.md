@@ -10,7 +10,7 @@ brew install --cask everettjf/tap/ezvm
 
 ## Current release
 
-The `v5.0.0` release meets the distribution requirements:
+The `v1.0.0` release meets the distribution requirements:
 
 - The release is tagged and hosted by GitHub Releases.
 - The app is signed with Developer ID Application team `YPV49M8592`.
@@ -27,7 +27,7 @@ GitHub Releases should remain the source of truth. The Cask is a small installat
 # frozen_string_literal: true
 
 cask "ezvm" do
-  version "5.0.0"
+  version "1.0.0"
   sha256 "2c4c95a2f88d7b98fbdc0c1e3a079337918898b2f02734d878b624f8019ad194"
 
   url "https://github.com/everettjf/ezvm/releases/download/v#{version}/EZVM-#{version}.zip?notarized=1"

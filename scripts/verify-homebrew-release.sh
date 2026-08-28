@@ -22,6 +22,10 @@ command -v brew >/dev/null 2>&1 || fail "Homebrew is required"
 brew update
 if brew list --cask --versions ezvm >/dev/null 2>&1; then
   HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade --cask "$cask"
+  installed_version="$(brew list --cask --versions ezvm | awk '{print $2}')"
+  if [[ $installed_version != "$version" ]]; then
+    HOMEBREW_NO_AUTO_UPDATE=1 brew reinstall --cask "$cask"
+  fi
 else
   HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask "$cask"
 fi

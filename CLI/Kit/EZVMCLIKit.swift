@@ -176,7 +176,7 @@ public struct EZVMPreinstalledImageManifest: Codable, Equatable, Sendable {
         let appInfo = executable.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Info.plist")
         if let values = NSDictionary(contentsOf: appInfo),
            let appVersion = values["CFBundleShortVersionString"] as? String { return appVersion }
-        return "5.0.0"
+        return "1.0.0"
     }
 
     private static func isVersion(_ required: String, atMost actual: String) -> Bool {

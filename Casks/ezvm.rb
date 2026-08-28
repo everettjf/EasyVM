@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 cask "ezvm" do
-  version "5.0.0"
+  version "1.0.0"
   sha256 :no_check
 
   url "https://github.com/everettjf/ezvm/releases/download/v#{version}/EZVM-#{version}.zip?notarized=1"

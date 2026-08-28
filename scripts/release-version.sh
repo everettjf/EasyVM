@@ -7,6 +7,7 @@ project_file="$project_root/EZVM/EZVM.xcodeproj/project.pbxproj"
 version="${1#v}"
 release_branch="${EZVM_RELEASE_BRANCH:-main}"
 tag="v$version"
+version_reset="${EZVM_RELEASE_VERSION_RESET:-0}"
 
 fail() { echo "release-version: $*" >&2; exit 1; }
 [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || fail "usage: $0 <major.minor.patch>"
@@ -42,7 +43,9 @@ else
   [[ "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || fail "could not determine latest semantic version"
   latest_major="${BASH_REMATCH[1]}"; latest_minor="${BASH_REMATCH[2]}"; latest_patch="${BASH_REMATCH[3]}"
   target_major="${version%%.*}"; remainder="${version#*.}"; target_minor="${remainder%%.*}"; target_patch="${version##*.}"
-  if [[ "$target_minor" == 0 && "$target_patch" == 0 && "$target_major" -gt "$latest_major" ]]; then
+  if [[ $version_reset == 1 ]]; then
+    [[ $version == 1.0.0 ]] || fail "EZVM_RELEASE_VERSION_RESET only supports the explicit 1.0.0 product reset"
+  elif [[ "$target_minor" == 0 && "$target_patch" == 0 && "$target_major" -gt "$latest_major" ]]; then
     : # An explicitly requested new product generation may advance the major version.
   elif [[ "$target_patch" == 0 ]]; then
     [[ "$target_major" == "$latest_major" && "$target_minor" -eq $((latest_minor + 1)) ]] || \
@@ -57,7 +60,7 @@ else
   [[ "$current_build" =~ ^[0-9]+$ ]] || fail "Xcode targets do not share one numeric build number"
   [[ "$current_version" == "${latest_tag#v}" || "$current_version" == "$version" ]] || \
     fail "project version is $current_version, expected ${latest_tag#v} or $version"
-  next_build="$((current_build + 1))"
+  if [[ $version_reset == 1 ]]; then next_build=1; else next_build="$((current_build + 1))"; fi
   ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
   git -C "$project_root" add -- EZVM/EZVM.xcodeproj/project.pbxproj
   git -C "$project_root" commit -m "Prepare EZVM $version (build $next_build)"

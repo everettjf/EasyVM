@@ -9,7 +9,7 @@ fields of its own, but these fields are the stable EZVM contract:
   "schemaVersion": 1,
   "kind": "io.github.everettjf.ezvm.preinstalled-image",
   "architecture": "arm64",
-  "minimumEZVMVersion": "5.0.1",
+  "minimumEZVMVersion": "1.0.0",
   "product": {
     "id": "org.example.linux",
     "name": "Example Linux",
