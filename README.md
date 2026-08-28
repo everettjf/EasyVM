@@ -53,7 +53,9 @@ latest verified Omarchy AArch64 image with one command:
 
 The script verifies the published Omarchy installer against its Release
 checksum and installs the preinstalled image at
-`~/EZVM Virtual Machines/Omarchy.ezvm`.
+`~/EZVM Virtual Machines/Omarchy.ezvm`. Before downloading, it displays the
+available space on the destination volume and stops unless at least 15 GiB is
+available.
 
 ### EZVM only
 

@@ -28,7 +28,7 @@ fi
 [[ $(uname -m) == arm64 ]] || fail "this installer requires an Apple Silicon Mac"
 [[ -z $destination || $destination == *.ezvm ]] || fail "destination must end in .ezvm"
 
-for command in awk brew curl mktemp shasum; do
+for command in awk brew curl df dirname mktemp shasum; do
   command -v "$command" >/dev/null 2>&1 || {
     if [[ $command == brew ]]; then
       fail "Homebrew is required. Install it from https://brew.sh and run this command again."
@@ -36,6 +36,21 @@ for command in awk brew curl mktemp shasum; do
     fail "required command not found: $command"
   }
 done
+
+required_kib=$((15 * 1024 * 1024))
+space_target=${destination:-"$HOME/EZVM Virtual Machines/Omarchy.ezvm"}
+space_probe=$(dirname "$space_target")
+while [[ ! -e $space_probe ]]; do
+  parent=$(dirname "$space_probe")
+  [[ $parent != "$space_probe" ]] || fail "could not locate the destination volume"
+  space_probe=$parent
+done
+available_kib=$(df -Pk "$space_probe" | awk 'END { print $4 }')
+[[ $available_kib =~ ^[0-9]+$ ]] || fail "could not determine available space on the destination volume"
+available_gib=$(awk -v kib="$available_kib" 'BEGIN { printf "%.1f", kib / 1024 / 1024 }')
+printf 'Available space on the destination volume: %s GiB (15 GiB required).\n' "$available_gib"
+((available_kib >= required_kib)) || \
+  fail "not enough disk space: at least 15 GiB of available space is required"
 
 printf 'Installing or updating EZVM with Homebrew…\n'
 brew update
