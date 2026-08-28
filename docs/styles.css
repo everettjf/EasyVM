@@ -16,6 +16,8 @@ nav a:hover,.text-link:hover { color:var(--text); }
 .button:focus-visible,a:focus-visible { outline:2px solid var(--cyan); outline-offset:4px; }
 .button.small { padding:8px 14px; }
 .hero { min-height:680px; display:grid; grid-template-columns:.88fr 1.12fr; gap:68px; align-items:center; padding-block:70px 100px; }
+.hero-copy,.hero-visual { min-width:0; }
+.hero .install-command { max-width:100%; }
 .eyebrow { margin:0 0 16px; color:var(--cyan); font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
 h1,h2,h3,p { margin-top:0; }
 h1 { margin-bottom:24px; font-size:clamp(52px,6vw,82px); line-height:.98; letter-spacing:-.06em; }
@@ -27,6 +29,9 @@ h1 span { color:var(--blue); background:linear-gradient(90deg,var(--blue),var(--
 .window { overflow:hidden; border:1px solid #33405a; border-radius:18px; background:#161c29; box-shadow:0 35px 90px #0009,0 0 80px #467bd224; transform:perspective(1000px) rotateY(-2deg); transition:transform .4s ease,box-shadow .4s ease; }
 .window:hover { transform:perspective(1000px) rotateY(0) translateY(-3px); box-shadow:0 42px 105px #000a,0 0 90px #467bd22e; }
 .window img { display:block; width:100%; height:auto; }
+.hero-visual { margin:0; }
+.hero-visual figcaption { margin-top:16px; color:var(--muted); font-size:13px; text-align:center; }
+.hero-visual figcaption strong { color:var(--text); }
 .strip { border-block:1px solid var(--line); background:#0b111f; }
 .stats { display:grid; grid-template-columns:repeat(3,1fr); padding-block:28px; }
 .stats div { display:flex; flex-direction:column; padding-left:28px; border-left:1px solid var(--line); }
