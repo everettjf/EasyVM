@@ -31,17 +31,24 @@
   </header>
 
   <main id="top">
-    <section class="hero wrap">
+    <section class="hero wrap" id="install">
       <div class="hero-copy">
         <p class="eyebrow">Native on Apple silicon · macOS 26+</p>
         <h1>Virtual machines.<br><span>Made easy.</span></h1>
         <p class="lead">Create and run macOS or ARM64 Linux in minutes with a focused native app built on Apple’s Virtualization framework.</p>
-        <div class="actions">
-          <a class="button" href="#install">Install EZVM</a>
-          <a class="text-link" href="https://github.com/everettjf/ezvm/releases/latest" target="_blank" rel="noopener noreferrer">GitHub Releases <span aria-hidden="true">→</span></a>
+        <div class="hero-installs" aria-label="Installation options">
+          <div class="hero-install-step">
+            <div class="hero-install-heading"><span class="step-number">1</span><strong>Install EZVM</strong><span class="step-detail">Recommended first step</span></div>
+            <div class="install-command" role="group" aria-label="Install EZVM with Homebrew"><code>brew install --cask everettjf/tap/ezvm</code><button class="copy-button" type="button" data-copy="brew install --cask everettjf/tap/ezvm" aria-label="Copy EZVM Homebrew installation command">Copy</button></div>
+            <p class="note">Signed and notarized · Apple silicon · macOS 26+</p>
+          </div>
+          <div class="hero-install-step popular">
+            <div class="hero-install-heading"><span class="popular-badge">Popular</span><strong>EZVM + Omarchy</strong><span class="step-detail">Ready-to-run Arch Linux</span></div>
+            <div class="install-command" role="group" aria-label="Install EZVM and Omarchy"><code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)"</code><button class="copy-button" type="button" data-copy="/bin/bash -c &quot;$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)&quot;" aria-label="Copy EZVM and Omarchy installation command">Copy</button></div>
+            <p class="note">Installs EZVM first · At least 15 GiB free</p>
+          </div>
         </div>
-        <div class="install-command" role="group" aria-label="Install EZVM with Homebrew"><code>brew install --cask everettjf/tap/ezvm</code><button class="copy-button" type="button" data-copy="brew install --cask everettjf/tap/ezvm" aria-label="Copy EZVM Homebrew installation command">Copy</button></div>
-        <p class="note">Signed and notarized · Apple silicon · macOS 26+</p>
+        <a class="text-link hero-release-link" href="https://github.com/everettjf/ezvm/releases/latest" target="_blank" rel="noopener noreferrer">Or download from GitHub Releases <span aria-hidden="true">→</span></a>
       </div>
       <figure class="hero-visual">
         <div class="window" aria-label="EZVM running three virtual machines">
@@ -56,27 +63,6 @@
         <div><strong>Native</strong><span>Virtualization.framework</span></div>
         <div><strong>Focused</strong><span>macOS + ARM64 Linux</span></div>
         <div><strong>Local</strong><span>No account required</span></div>
-      </div>
-    </section>
-
-    <section class="section wrap install-section" id="install" aria-labelledby="install-title">
-      <p class="eyebrow">Choose your install</p>
-      <h2 id="install-title">Start with EZVM. Add a system when you want it.</h2>
-      <div class="install-options">
-        <article class="install-option">
-          <div class="install-option-heading"><span class="install-kicker">EZVM</span></div>
-          <h3>Install the native app.</h3>
-          <p>The standard install. Create your own macOS or ARM64 Linux virtual machines from local or curated system images.</p>
-          <div class="install-command" role="group" aria-label="Install EZVM with Homebrew"><code>brew install --cask everettjf/tap/ezvm</code><button class="copy-button" type="button" data-copy="brew install --cask everettjf/tap/ezvm" aria-label="Copy EZVM Homebrew installation command">Copy</button></div>
-          <p class="note">Homebrew · Signed and notarized · macOS 26+</p>
-        </article>
-        <article class="install-option featured">
-          <div class="install-option-heading"><span class="install-kicker">EZVM + Omarchy</span><span class="popular-badge">Popular</span></div>
-          <h3>Start with Omarchy ready to run.</h3>
-          <p>Installs or updates EZVM, then downloads, verifies, and imports the latest preinstalled Omarchy AArch64 image.</p>
-          <div class="install-command" role="group" aria-label="Install EZVM and Omarchy"><code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)"</code><button class="copy-button" type="button" data-copy="/bin/bash -c &quot;$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)&quot;" aria-label="Copy EZVM and Omarchy installation command">Copy</button></div>
-          <p class="note">Homebrew · At least 15 GiB free · macOS 26+</p>
-        </article>
       </div>
     </section>
 
