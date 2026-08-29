@@ -274,9 +274,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         defer { try? handle.close() }
         var hasher = SHA256()
         while true {
-            let data = try handle.read(upToCount: 4 * 1024 * 1024) ?? Data()
-            if data.isEmpty { break }
-            hasher.update(data: data)
+            // FileHandle bridges through Foundation on macOS. Drain each
+            // autoreleased read buffer so importing a large sparse disk stays
+            // constant-memory under system memory pressure.
+            let reachedEnd = try autoreleasepool {
+                let data = try handle.read(upToCount: 4 * 1024 * 1024) ?? Data()
+                guard !data.isEmpty else { return true }
+                hasher.update(data: data)
+                return false
+            }
+            if reachedEnd { break }
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }

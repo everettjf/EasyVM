@@ -15,7 +15,7 @@ struct MainApp: App {
     
 #if arch(arm64)
     var body: some Scene {
-        WindowGroup {
+        Window("Control Center", id: "control-center") {
             if HeadlessLaunchConfiguration.current == nil {
                 ContentView()
                     .frame(minWidth: 800, minHeight: 600)
@@ -23,6 +23,9 @@ struct MainApp: App {
                 EmptyView()
             }
         }
+        .defaultPosition(.center)
+        .defaultSize(width: 1080, height: 760)
+        .windowResizability(.contentMinSize)
         
         Window("Create Virtual Machine Guide", id: "create-machine-guide") {
             VMCreateStepperGuideView()
@@ -40,6 +43,9 @@ struct MainApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
+        .commands {
+            ControlCenterCommands()
+        }
         
         
         WindowGroup(id: "start-machine-recovery", for: URL.self) { $modelRootPath in
@@ -51,6 +57,9 @@ struct MainApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
+        .commands {
+            ControlCenterCommands()
+        }
 
         Settings {
             VirtualizationFeaturesSettingsView()
@@ -67,6 +76,23 @@ struct MainApp: App {
     
 #endif
 }
+
+#if arch(arm64)
+private struct ControlCenterCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(before: .windowList) {
+            Button("Show Control Center") {
+                openWindow(id: "control-center")
+            }
+            .keyboardShortcut("0", modifiers: .command)
+
+            Divider()
+        }
+    }
+}
+#endif
 
 #if arch(arm64)
 private struct VirtualizationFeaturesSettingsView: View {

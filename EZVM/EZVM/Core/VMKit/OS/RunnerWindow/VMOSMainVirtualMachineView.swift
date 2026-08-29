@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 #if arch(arm64)
 struct VMOSMainVirtualMachineView: View {
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openWindow) private var openWindow
     let rootPath: URL
     let recoveryMode: Bool
     @State private var runtimeState = VMRuntimeState()
@@ -181,6 +182,13 @@ struct VMOSMainVirtualMachineView: View {
                 }
 
                 Menu("More", systemImage: "ellipsis.circle") {
+                    Button("Show Control Center", systemImage: "rectangle.grid.1x2") {
+                        openWindow(id: "control-center")
+                    }
+                    .keyboardShortcut("0", modifiers: .command)
+
+                    Divider()
+
                     Button("Choose Thumbnail Image…", systemImage: "photo") {
                         chooseThumbnailImage()
                     }
