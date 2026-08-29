@@ -50,14 +50,26 @@ trap cleanup EXIT
 
 "$(dirname "$0")/verify-production-entitlements.sh" "$app_path"
 
-# Launch as an ordinary foreground app. On recent macOS releases, forcing a
-# SwiftUI WindowGroup launch into the background with `open -g` can leave the
-# process alive without creating its main window, producing a false failure.
+# Launch through Launch Services so macOS applies the same sandbox extensions
+# as a normal Finder/Homebrew launch. Track the newly created process even when
+# it never reaches the readiness marker, so the cleanup trap can still stop it.
+existing_pids=" $(pgrep -x EZVM 2>/dev/null | tr '\n' ' ' || true)"
 open -n --stdout "$launch_log" --stderr "$launch_log" \
   --env "EZVM_GUI_READY_FILE=$ready_file" "$app_path"
 
+find_new_app_pid() {
+  local pid
+  for pid in $(pgrep -x EZVM 2>/dev/null || true); do
+    if [[ "$existing_pids" != *" $pid "* ]]; then
+      printf '%s\n' "$pid"
+      return
+    fi
+  done
+}
+
 for ((second = 1; second <= launch_timeout; second++)); do
   for _ in {1..10}; do
+    if [[ -z "$app_pid" ]]; then app_pid="$(find_new_app_pid)"; fi
     if [[ -f "$ready_file" ]]; then break 2; fi
     sleep 0.1
   done

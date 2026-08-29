@@ -15,7 +15,7 @@ struct MainApp: App {
     
 #if arch(arm64)
     var body: some Scene {
-        Window("Control Center", id: "control-center") {
+        WindowGroup("Control Center", id: "control-center") {
             if HeadlessLaunchConfiguration.current == nil {
                 ContentView()
                     .frame(minWidth: 800, minHeight: 600)
