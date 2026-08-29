@@ -4,7 +4,7 @@
 
 # EZVM
 
-**A simple, native virtual machine app for Apple silicon Macs.**
+**Virtual machines, made easy — a focused native app for Apple silicon Macs.**
 
 [![macOS 26+](https://img.shields.io/badge/macOS-26%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
@@ -13,11 +13,19 @@
 
 ![EZVM running Omarchy, macOS, and Ubuntu virtual machines together in layered native windows](./Assets/screenshot1.png)
 
-## Run Omarchy in one command
+## Install EZVM
 
-On an Apple silicon Mac running **macOS 26 Tahoe or later**, this installs or
-updates the signed EZVM app and imports the latest verified Omarchy AArch64
-image:
+On an Apple silicon Mac running **macOS 26 Tahoe or later**, install the signed
+and notarized app with Homebrew:
+
+```bash
+brew install --cask everettjf/tap/ezvm
+```
+
+### Popular: EZVM + Omarchy
+
+Want a ready-to-run system? This command installs or updates EZVM and imports
+the latest verified Omarchy AArch64 image:
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)"
@@ -58,9 +66,19 @@ EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/docum
 - macOS 26 Tahoe or later
 - An ARM64 guest image; EZVM does not emulate x86 guests
 
-## Install
+## Installation details
 
-### EZVM + Omarchy in one command
+### EZVM only
+
+Install the signed and notarized release from the EZVM Homebrew tap:
+
+```sh
+brew install --cask everettjf/tap/ezvm
+```
+
+Or download the archive from [GitHub Releases](https://github.com/everettjf/ezvm/releases/latest).
+
+### Popular: EZVM + Omarchy in one command
 
 On an Apple Silicon Mac with Homebrew, install or update EZVM and install the
 latest verified Omarchy AArch64 image with one command:
@@ -76,16 +94,6 @@ available space on the destination volume and stops unless at least 15 GiB is
 available.
 
 ![Omarchy reaching its first-run welcome screen inside EZVM](./docs/assets/omarchy-ezvm.png)
-
-### EZVM only
-
-Install the signed and notarized release from the EZVM Homebrew tap:
-
-```sh
-brew install --cask everettjf/tap/ezvm
-```
-
-Or download the archive from [GitHub Releases](https://github.com/everettjf/ezvm/releases/latest).
 
 ### Command line and headless mode
 
