@@ -4,7 +4,7 @@
 
 # EZVM
 
-**A simple, native virtual machine app for Apple silicon Macs.**
+**Virtual machines, made easy — a focused native app for Apple silicon Macs.**
 
 [![macOS 26+](https://img.shields.io/badge/macOS-26%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
