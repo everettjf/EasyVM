@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/github/license/everettjf/ezvm)](LICENSE)
 [![Pages](https://github.com/everettjf/ezvm/actions/workflows/pages.yml/badge.svg)](https://everettjf.github.io/ezvm/)
 
-![EZVM running Omarchy, macOS, and Ubuntu virtual machines together in layered native windows](./Assets/screenshot1.png)
+![EZVM showing a running Omarchy desktop beside its virtual machine library](./Assets/screenshot1.jpg)
 
 ## Install EZVM
 
