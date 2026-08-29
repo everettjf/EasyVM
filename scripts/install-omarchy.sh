@@ -11,6 +11,40 @@ fail() {
   exit 1
 }
 
+celebrate() {
+  local cyan='' green='' gold='' reset=''
+  if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then
+    cyan=$'\033[1;36m'
+    green=$'\033[1;32m'
+    gold=$'\033[1;33m'
+    reset=$'\033[0m'
+    local frame
+    for frame in '.          .' '.*        *.' '✦  *  ✦  *  ✦'; do
+      printf '\r%s%*s%s' "$gold" 28 "$frame" "$reset"
+      sleep 0.18
+    done
+    printf '\r%*s\r' 40 ''
+  fi
+
+  printf '\n%s' "$cyan"
+  printf '%s\n' ' _____ _______     ____  __'
+  printf '%s\n' '| ____|__  /\ \   / /  \/  |'
+  printf '%s\n' '|  _|   / /  \ \ / /| |\/| |'
+  printf '%s\n' '| |___ / /_   \ V / | |  | |'
+  printf '%s\n' '|_____/____|   \_/  |_|  |_|'
+  printf '%s\n' "$reset"
+  printf '%s%17s%s\n\n' "$gold" '+' "$reset"
+  printf '%s' "$green"
+  printf '%s\n' '  ___  __  __    _    ____   ____ _   ___   __'
+  printf '%s\n' ' / _ \|  \/  |  / \  |  _ \ / ___| | | \ \ / /'
+  printf '%s\n' '| | | | |\/| | / _ \ | |_) | |   | |_| |\ V /'
+  printf '%s\n' '| |_| | |  | |/ ___ \|  _ <| |___|  _  | | |'
+  printf '%s\n' ' \___/|_|  |_/_/   \_\_| \_\\____|_| |_| |_|'
+  printf '%s\n\n' "$reset"
+  printf '%s%sEZVM and Omarchy are ready.%s\n' "$gold" "$green" "$reset"
+  printf 'Open EZVM and press Run. Enjoy!\n'
+}
+
 if [[ ${1:-} == --help || ${1:-} == -h ]]; then
   cat <<'EOF'
 Install EZVM and the latest verified Omarchy AArch64 image.
@@ -91,4 +125,4 @@ else
   /bin/bash "$installer"
 fi
 
-printf '\nEZVM and Omarchy are ready.\n'
+celebrate
