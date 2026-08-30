@@ -463,6 +463,12 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             flags: request.littleEndianUInt32(at: 64)
         )
         guard renderer.createResource(arguments) else {
+            print(
+                "[stage3] rejected 3D resource \(resourceID): "
+                + "target=\(arguments.target), format=\(arguments.format), bind=\(arguments.bind), "
+                + "size=\(width)x\(height)x\(depth), array=\(arraySize), levels=\(lastLevel), "
+                + "samples=\(sampleCount), flags=\(arguments.flags)"
+            )
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
         resources[resourceID] = Resource(
