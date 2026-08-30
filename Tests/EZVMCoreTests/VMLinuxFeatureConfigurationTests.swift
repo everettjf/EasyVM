@@ -4,6 +4,28 @@ import XCTest
 @testable import EZVMCore
 
 final class VMLinuxFeatureConfigurationTests: XCTestCase {
+    func testCustomVirGLPreferenceDefaultsOnAndRespectsExplicitOptOut() throws {
+        let suiteName = "VMLinuxFeatureConfigurationTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertTrue(EZVMExperimentalFeatures.customVirGLGraphicsEnabled(defaults: defaults))
+        defaults.set(false, forKey: EZVMExperimentalFeatures.customVirGLGraphicsKey)
+        XCTAssertFalse(EZVMExperimentalFeatures.customVirGLGraphicsEnabled(defaults: defaults))
+    }
+
+    func testCustomVirGLNeverActivatesForMacOSGuests() {
+        let selection = VMGraphicsBackendSelection.resolve(
+            isLinux: false,
+            hostSupportsCustomVirtio: true,
+            experimentalEnabled: true,
+            customBackendImplemented: true
+        )
+        XCTAssertEqual(selection.requested, .appleVirtio)
+        XCTAssertEqual(selection.active, .appleVirtio)
+        XCTAssertNil(selection.fallbackReason)
+    }
+
     func testCustomVirGLSelectionDefaultsToAppleBackend() {
         let selection = VMGraphicsBackendSelection.resolve(
             isLinux: true,

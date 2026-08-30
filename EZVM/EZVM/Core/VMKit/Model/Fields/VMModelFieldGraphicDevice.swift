@@ -352,9 +352,7 @@ enum VMGraphicsBackendFactory {
         VMGraphicsBackendSelection.resolve(
             isLinux: forLinux,
             hostSupportsCustomVirtio: VirtualizationCapability.customVirtio.isAvailable,
-            experimentalEnabled: UserDefaults.standard.bool(
-                forKey: EZVMExperimentalFeatures.customVirGLGraphicsKey
-            ),
+            experimentalEnabled: EZVMExperimentalFeatures.customVirGLGraphicsEnabled(),
             customBackendImplemented: customBackendImplemented
         )
     }

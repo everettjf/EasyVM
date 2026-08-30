@@ -4,7 +4,9 @@ import PackageDescription
 
 let package = Package(
     name: "VZVirtioGPUPrototype",
-    platforms: [.macOS("27.0")],
+    // The library back-deploys so EZVM can retain macOS 26 compatibility;
+    // every Custom Virtio entry point remains runtime-gated to macOS 27.
+    platforms: [.macOS("26.0")],
     products: [
         .library(name: "EZVMVirGLRuntime", targets: ["EZVMVirGLRuntime"]),
         .executable(name: "vz-virtio-gpu-prototype", targets: ["VZVirtioGPUPrototype"]),

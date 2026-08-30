@@ -99,7 +99,7 @@ private struct VirtualizationFeaturesSettingsView: View {
     @AppStorage(EZVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioning = false
     @AppStorage(EZVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
     @AppStorage(EZVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
-    @AppStorage(EZVMExperimentalFeatures.customVirGLGraphicsKey) private var customVirGLGraphics = false
+    @AppStorage(EZVMExperimentalFeatures.customVirGLGraphicsKey) private var customVirGLGraphics = true
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedThumbnailStyle = VMGeneratedThumbnailStyle.arcade.rawValue
 
@@ -122,14 +122,14 @@ private struct VirtualizationFeaturesSettingsView: View {
                 featureToggle("DiskImageKit snapshots", isOn: $diskImageKitSnapshots, capability: .diskImageKitSnapshots)
                 featureToggle("EFI Secure Boot", isOn: $efiSecureBoot, capability: .efiSecureBoot)
                 featureToggle(
-                    "Custom VirGL graphics backend",
+                    "High-performance VirGL graphics for Linux",
                     isOn: $customVirGLGraphics,
                     capability: .customVirtio
                 )
             } header: {
                 Text("Experimental macOS 27 features")
             } footer: {
-                Text("The VirGL switch currently enables backend selection and safe fallback only; the existing Apple display backend remains active until the runtime module is linked. These features use beta system APIs.")
+                Text("On macOS 27 or later, Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack. These features use beta system APIs.")
             }
 
             Section {

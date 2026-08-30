@@ -151,6 +151,15 @@ enum EZVMExperimentalFeatures {
     static let diskImageKitSnapshotsKey = "experimental.diskImageKitSnapshots"
     static let efiSecureBootKey = "experimental.efiSecureBoot"
     static let customVirGLGraphicsKey = "experimental.customVirGLGraphics"
+
+    static func customVirGLGraphicsEnabled(
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        guard defaults.object(forKey: customVirGLGraphicsKey) != nil else {
+            return true
+        }
+        return defaults.bool(forKey: customVirGLGraphicsKey)
+    }
 }
 
 enum VMGraphicsBackendKind: String, Codable, Equatable {

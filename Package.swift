@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "EZVMCore",
-    platforms: [.macOS("27.0")],
+    platforms: [.macOS("26.0")],
     products: [
         .library(name: "EZVMCore", targets: ["EZVMCore"]),
         .library(name: "EZVMCLIKit", targets: ["EZVMCLIKit"]),
