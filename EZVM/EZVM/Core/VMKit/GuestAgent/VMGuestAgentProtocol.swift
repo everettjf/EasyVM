@@ -1,3 +1,4 @@
+import AppKit
 import CryptoKit
 import Darwin
 import Foundation
@@ -69,15 +70,33 @@ enum VMGuestAgentKeyboard {
         31: 24, 32: 22, 33: 26, 34: 23, 35: 25, 36: 28, 37: 38,
         38: 36, 39: 40, 40: 37, 41: 39, 42: 43, 43: 51, 44: 53,
         45: 49, 46: 50, 47: 52, 48: 15, 49: 57, 50: 41, 51: 14,
-        53: 1, 55: 125, 56: 42, 57: 58, 58: 56, 59: 29,
+        53: 1, 54: 126, 55: 125, 56: 42, 57: 58, 58: 56, 59: 29,
         60: 54, 61: 100, 62: 97, 122: 59, 120: 60, 99: 61,
         118: 62, 96: 63, 97: 64, 98: 65, 100: 66, 101: 67,
-        109: 68, 103: 87, 111: 88, 123: 105, 124: 106, 125: 108,
-        126: 103,
+        109: 68, 103: 87, 111: 88, 105: 183, 107: 184, 113: 185,
+        106: 186, 64: 187, 79: 188, 80: 189, 90: 190,
+        65: 83, 67: 55, 69: 78, 71: 69, 75: 98,
+        76: 96, 78: 74, 81: 117, 82: 82, 83: 79, 84: 80,
+        85: 81, 86: 75, 87: 76, 88: 77, 89: 71, 91: 72,
+        92: 73, 117: 111, 115: 102, 116: 104, 119: 107,
+        121: 109, 123: 105, 124: 106, 125: 108, 126: 103,
+    ]
+
+    private static let modifierFlags: [UInt16: NSEvent.ModifierFlags] = [
+        54: .command, 55: .command,
+        56: .shift, 60: .shift,
+        57: .capsLock,
+        58: .option, 61: .option,
+        59: .control, 62: .control,
     ]
 
     static func linuxKeyCode(forMacVirtualKey keyCode: UInt16) -> UInt16? {
         macToLinux[keyCode]
+    }
+
+    static func modifierPressed(forMacVirtualKey keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool? {
+        guard let modifier = modifierFlags[keyCode] else { return nil }
+        return flags.intersection(.deviceIndependentFlagsMask).contains(modifier)
     }
 }
 

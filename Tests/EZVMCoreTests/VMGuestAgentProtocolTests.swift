@@ -22,7 +22,13 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(VMGuestAgentInputBatch.maximumEventCount, 64)
         XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 36), 28)
         XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 0), 30)
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 117), 111)
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 82), 82)
         XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: UInt16.max), nil)
+        XCTAssertEqual(VMGuestAgentKeyboard.modifierPressed(forMacVirtualKey: 56, flags: [.shift]), true)
+        XCTAssertEqual(VMGuestAgentKeyboard.modifierPressed(forMacVirtualKey: 56, flags: []), false)
+        XCTAssertEqual(VMGuestAgentKeyboard.modifierPressed(forMacVirtualKey: 59, flags: [.control]), true)
+        XCTAssertNil(VMGuestAgentKeyboard.modifierPressed(forMacVirtualKey: 0, flags: [.shift]))
     }
 
     func testMutualAuthenticationRoundTrip() throws {

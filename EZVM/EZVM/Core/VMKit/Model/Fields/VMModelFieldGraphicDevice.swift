@@ -116,6 +116,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var cursorPosition = CGPoint.zero
     private var cursorHotspot = CGPoint.zero
     private var cursorImageSize = CGSize.zero
+    private var pressedKeys = Set<UInt16>()
+    private var pressedButtons = Set<UInt16>()
+    private var pointerCaptured = false
+    private var windowObservers: [NSObjectProtocol] = []
     private let guestSize: CGSize
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
@@ -136,12 +140,21 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     required init?(coder: NSCoder) { nil }
 
+    deinit {
+        windowObservers.forEach(NotificationCenter.default.removeObserver)
+        releaseInputCapture()
+    }
+
     override var acceptsFirstResponder: Bool { true }
 
     override func keyDown(with event: NSEvent) {
+        if releaseShortcutIsActive(event) {
+            releaseInputCapture()
+            return
+        }
         if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
            let guestInputHandler {
-            guestInputHandler(VMGuestAgentInputBatch.key(code: code, pressed: true).events)
+            sendKey(code: code, pressed: true, using: guestInputHandler)
         } else if event.keyCode == 36 {
             runtime?.sendLinuxKey(code: 28, pressed: true)
         } else {
@@ -152,7 +165,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     override func keyUp(with event: NSEvent) {
         if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
            let guestInputHandler {
-            guestInputHandler(VMGuestAgentInputBatch.key(code: code, pressed: false).events)
+            sendKey(code: code, pressed: false, using: guestInputHandler)
         } else if event.keyCode == 36 {
             runtime?.sendLinuxKey(code: 28, pressed: false)
         } else {
@@ -160,16 +173,85 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         }
     }
 
+    override func flagsChanged(with event: NSEvent) {
+        if pointerCaptured, releaseShortcutIsActive(event) {
+            releaseInputCapture()
+            return
+        }
+        guard let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
+              let flagIsSet = VMGuestAgentKeyboard.modifierPressed(
+                forMacVirtualKey: event.keyCode,
+                flags: event.modifierFlags
+              ),
+              let guestInputHandler else {
+            super.flagsChanged(with: event)
+            return
+        }
+        // AppKit reports one combined flag for the left and right variant.
+        // Track each physical key so releasing left Shift while right Shift is
+        // still held cannot turn left Shift back on in the guest.
+        let pressed: Bool
+        if event.keyCode == 57 { // Caps Lock is a host-side toggle, not a held flag.
+            sendKey(code: code, pressed: true, using: guestInputHandler)
+            sendKey(code: code, pressed: false, using: guestInputHandler)
+            return
+        } else if !flagIsSet {
+            pressed = false
+        } else {
+            pressed = !pressedKeys.contains(code)
+        }
+        sendKey(code: code, pressed: pressed, using: guestInputHandler)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard pointerCaptured,
+              !releaseShortcutIsActive(event),
+              let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
+              let guestInputHandler else {
+            return super.performKeyEquivalent(with: event)
+        }
+        sendKey(code: code, pressed: true, using: guestInputHandler)
+        sendKey(code: code, pressed: false, using: guestInputHandler)
+        return true
+    }
+
     override func mouseMoved(with event: NSEvent) { sendRelativeMotion(event) }
     override func mouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
     override func rightMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
     override func otherMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
-    override func mouseDown(with event: NSEvent) { sendButton(code: 272, pressed: true) }
-    override func mouseUp(with event: NSEvent) { sendButton(code: 272, pressed: false) }
-    override func rightMouseDown(with event: NSEvent) { sendButton(code: 273, pressed: true) }
+    override func mouseDown(with event: NSEvent) {
+        guard pointerCaptured else {
+            capturePointer()
+            return
+        }
+        sendButton(code: 272, pressed: true)
+    }
+    override func mouseUp(with event: NSEvent) {
+        guard pointerCaptured else { return }
+        sendButton(code: 272, pressed: false)
+    }
+    override func rightMouseDown(with event: NSEvent) {
+        guard pointerCaptured else {
+            capturePointer()
+            return
+        }
+        sendButton(code: 273, pressed: true)
+    }
     override func rightMouseUp(with event: NSEvent) { sendButton(code: 273, pressed: false) }
+    override func otherMouseDown(with event: NSEvent) {
+        guard pointerCaptured else {
+            capturePointer()
+            return
+        }
+        sendButton(code: 274, pressed: true)
+    }
+    override func otherMouseUp(with event: NSEvent) {
+        guard pointerCaptured else { return }
+        sendButton(code: 274, pressed: false)
+    }
 
     override func scrollWheel(with event: NSEvent) {
+        guard pointerCaptured else { return }
         let value = Int32(max(-32767, min(32767, Int(event.scrollingDeltaY.rounded()))))
         guard value != 0 else { return }
         guestInputHandler?([
@@ -179,6 +261,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     private func sendRelativeMotion(_ event: NSEvent) {
+        guard pointerCaptured else { return }
         let x = Int32(max(-32767, min(32767, Int(event.deltaX.rounded()))))
         let y = Int32(max(-32767, min(32767, Int(event.deltaY.rounded()))))
         guard x != 0 || y != 0 else { return }
@@ -190,7 +273,46 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     private func sendButton(code: UInt16, pressed: Bool) {
+        if pressed { pressedButtons.insert(code) } else { pressedButtons.remove(code) }
         guestInputHandler?(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
+    }
+
+    private func sendKey(
+        code: UInt16,
+        pressed: Bool,
+        using handler: ([VMGuestAgentInputEvent]) -> Void
+    ) {
+        if pressed { pressedKeys.insert(code) } else { pressedKeys.remove(code) }
+        handler(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
+    }
+
+    private func releaseShortcutIsActive(_ event: NSEvent) -> Bool {
+        event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains([.control, .option])
+    }
+
+    private func capturePointer() {
+        guard !pointerCaptured, window?.isKeyWindow == true else { return }
+        pointerCaptured = true
+        window?.makeFirstResponder(self)
+        NSCursor.hide()
+        CGAssociateMouseAndMouseCursorPosition(boolean_t(0))
+    }
+
+    private func releaseInputCapture() {
+        if let guestInputHandler {
+            for code in pressedKeys.sorted() {
+                guestInputHandler(VMGuestAgentInputBatch.key(code: code, pressed: false).events)
+            }
+            for code in pressedButtons.sorted() {
+                guestInputHandler(VMGuestAgentInputBatch.key(code: code, pressed: false).events)
+            }
+        }
+        pressedKeys.removeAll()
+        pressedButtons.removeAll()
+        guard pointerCaptured else { return }
+        pointerCaptured = false
+        CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+        NSCursor.unhide()
     }
 
     override func layout() {
@@ -201,7 +323,24 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        windowObservers.forEach(NotificationCenter.default.removeObserver)
+        windowObservers.removeAll()
         window?.acceptsMouseMovedEvents = true
+        guard let window else {
+            releaseInputCapture()
+            return
+        }
+        let center = NotificationCenter.default
+        windowObservers.append(center.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in self?.releaseInputCapture() })
+        windowObservers.append(center.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in self?.releaseInputCapture() })
     }
 
     override func updateTrackingAreas() {
