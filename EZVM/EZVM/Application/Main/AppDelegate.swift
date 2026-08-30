@@ -307,11 +307,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if launch.showsWindow {
             let window = NSWindow(contentViewController: controller)
             window.setContentSize(NSSize(width: 1280, height: 720))
-            window.center()
+            if let primaryScreen = NSScreen.screens.first(where: { $0.frame.contains(NSPoint.zero) }) {
+                let visible = primaryScreen.visibleFrame
+                window.setFrameOrigin(NSPoint(
+                    x: visible.midX - window.frame.width / 2,
+                    y: visible.midY - window.frame.height / 2
+                ))
+            } else {
+                window.center()
+            }
             window.title = "EZVM VirGL Integration Test"
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             headlessWindow = window
+            // Loading the controller can enqueue its initial focus request
+            // before the view is attached to this window. Retry after the
+            // window is key so VZVirtualMachineView can route HID events.
+            DispatchQueue.main.async {
+                controller.focusVirtualMachineDisplay()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                guard window.isKeyWindow else { return }
+                controller.focusVirtualMachineDisplay()
+            }
         }
         writeHeadlessState(launch, phase: "preparing", message: nil)
         _ = controller.view
