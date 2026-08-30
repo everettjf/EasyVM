@@ -376,7 +376,7 @@ enum VMGraphicsBackendFactory {
                     return try VMCustomVirGLGraphicsBackend(devices: devices)
                 } catch {
                     EZVMLog.error(
-                        "Custom VirGL initialization failed; using Apple Virtio: \(error.localizedDescription)"
+                        "Custom VirGL initialization failed; using Apple Virtio: \(String(reflecting: error))"
                     )
                     return VMAppleGraphicsBackend()
                 }

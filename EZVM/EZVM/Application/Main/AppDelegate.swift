@@ -316,7 +316,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 window.center()
             }
-            window.title = "EZVM VirGL Integration Test"
+            window.title = launch.machineURL.deletingPathExtension().lastPathComponent
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             headlessWindow = window

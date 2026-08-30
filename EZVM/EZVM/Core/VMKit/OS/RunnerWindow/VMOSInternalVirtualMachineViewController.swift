@@ -349,10 +349,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             }
             return
         }
-        // Headless CLI processes must not initialize UI-only services or make
-        // an interactive Keychain query. Blocking here would prevent the
-        // runtime-state timer from ever publishing the already-running VM.
-        if HeadlessLaunchConfiguration.current == nil {
+        // A truly headless CLI process must not initialize UI-only services or
+        // make an interactive Keychain query. A launch that explicitly shows
+        // a VM window is interactive, though, and needs the guest agent for
+        // keyboard and pointer delivery with Custom VirGL.
+        if HeadlessLaunchConfiguration.current?.showsWindow != false {
             startScreenshotTimer()
             updateBalloonMemoryState()
             startGuestAgent(model: model)
