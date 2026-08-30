@@ -13,6 +13,11 @@ enum VirtioGPU {
         static let maxRequestBytes = 16 * 1024 * 1024
         static let maxSubmitBytes = 8 * 1024 * 1024
         static let maxDimension: UInt32 = 8_192
+        static let maxResourceDepth: UInt32 = 2_048
+        static let maxArraySize: UInt32 = 2_048
+        static let maxMipLevel: UInt32 = 15
+        static let maxSampleCount: UInt32 = 16
+        static let maxResourceTexels: UInt64 = 256 * 1024 * 1024
         static let maxResources = 4_096
         static let maxResourcePixelBytes = 256 * 1024 * 1024
         static let maxTotalPixelBytes = 512 * 1024 * 1024
@@ -80,6 +85,23 @@ enum VirtioGPU {
         let bytes = pixels * 4
         guard bytes <= UInt64(Limits.maxResourcePixelBytes), bytes <= UInt64(Int.max) else { return nil }
         return Int(bytes)
+    }
+
+    static func valid3DResourceDimensions(
+        width: UInt32,
+        height: UInt32,
+        depth: UInt32,
+        arraySize: UInt32,
+        lastLevel: UInt32,
+        sampleCount: UInt32
+    ) -> Bool {
+        guard width > 0, height > 0, depth > 0, arraySize > 0,
+              width <= Limits.maxDimension, height <= Limits.maxDimension,
+              depth <= Limits.maxResourceDepth, arraySize <= Limits.maxArraySize,
+              lastLevel <= Limits.maxMipLevel,
+              sampleCount <= Limits.maxSampleCount else { return false }
+        let texels = UInt64(width) * UInt64(height) * UInt64(depth) * UInt64(arraySize)
+        return texels <= Limits.maxResourceTexels
     }
 
     static func rectIsContained(

@@ -405,10 +405,16 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let resourceID = request.littleEndianUInt32(at: 24)
         let width = request.littleEndianUInt32(at: 40)
         let height = request.littleEndianUInt32(at: 44)
+        let depth = request.littleEndianUInt32(at: 48)
+        let arraySize = request.littleEndianUInt32(at: 52)
+        let lastLevel = request.littleEndianUInt32(at: 56)
+        let sampleCount = request.littleEndianUInt32(at: 60)
         guard resourceID != 0, resources[resourceID] == nil,
               resources.count < VirtioGPU.Limits.maxResources,
-              let byteCount = VirtioGPU.pixelByteCount(width: width, height: height),
-              totalPixelBytes <= VirtioGPU.Limits.maxTotalPixelBytes - byteCount else {
+              VirtioGPU.valid3DResourceDimensions(
+                width: width, height: height, depth: depth, arraySize: arraySize,
+                lastLevel: lastLevel, sampleCount: sampleCount
+              ) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let arguments = VirGLRenderer.ResourceArguments(
@@ -418,10 +424,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             bind: request.littleEndianUInt32(at: 36),
             width: width,
             height: height,
-            depth: request.littleEndianUInt32(at: 48),
-            arraySize: request.littleEndianUInt32(at: 52),
-            lastLevel: request.littleEndianUInt32(at: 56),
-            sampleCount: request.littleEndianUInt32(at: 60),
+            depth: depth,
+            arraySize: arraySize,
+            lastLevel: lastLevel,
+            sampleCount: sampleCount,
             flags: request.littleEndianUInt32(at: 64)
         )
         guard renderer.createResource(arguments) else {
@@ -430,10 +436,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         resources[resourceID] = Resource(
             id: resourceID, format: arguments.format,
             width: Int(width), height: Int(height),
-            isRendererResource: true,
-            pixels: Data(count: byteCount)
+            isRendererResource: true
         )
-        totalPixelBytes += byteCount
         print("[stage3] created 3D resource \(resourceID): \(width)x\(height)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -643,6 +647,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 return VirtioGPU.responseHeader(.errorUnspecified, request: header)
             }
         }
+        guard ensurePixelStorage(for: &resource) else {
+            return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
+        }
         copyBackingToPixels(&resource)
         resources[resource.id] = resource
         guard let image = makeImage(resource, preservesAlpha: true) else {
@@ -723,6 +730,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             }
         }
 
+        guard ensurePixelStorage(for: &resource) else {
+            return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
+        }
         copyBackingToPixels(&resource)
         resources[resourceID] = resource
         return VirtioGPU.responseHeader(.okNoData, request: header)
@@ -757,6 +767,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.okNoData, request: header)
         }
         if resource.isRendererResource, let backing = resource.virglBacking {
+            guard ensurePixelStorage(for: &resource) else {
+                return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
+            }
             let box = vzvg_box(
                 x: 0, y: 0, z: 0,
                 w: UInt32(resource.width), h: UInt32(resource.height), d: 1
@@ -788,6 +801,16 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 destinationOffset += copyCount
             }
         }
+    }
+
+    private func ensurePixelStorage(for resource: inout Resource) -> Bool {
+        if !resource.pixels.isEmpty { return true }
+        guard let byteCount = VirtioGPU.pixelByteCount(
+            width: UInt32(resource.width), height: UInt32(resource.height)
+        ), totalPixelBytes <= VirtioGPU.Limits.maxTotalPixelBytes - byteCount else { return false }
+        resource.pixels = Data(count: byteCount)
+        totalPixelBytes += byteCount
+        return true
     }
 
     private func publish(_ resource: Resource) {

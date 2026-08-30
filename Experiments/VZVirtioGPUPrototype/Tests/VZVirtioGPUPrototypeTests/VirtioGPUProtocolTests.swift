@@ -168,3 +168,19 @@ import Testing
     #expect(update.hotY == 9)
     #expect(VirtioGPU.CursorUpdate(Data(request.dropLast())) == nil)
 }
+
+@Test func threeDimensionalResourceLimitsRejectPathologicalAllocations() {
+    #expect(VirtioGPU.valid3DResourceDimensions(
+        width: 1280, height: 720, depth: 1, arraySize: 1, lastLevel: 0, sampleCount: 0
+    ))
+    #expect(!VirtioGPU.valid3DResourceDimensions(
+        width: UInt32.max, height: UInt32.max, depth: UInt32.max,
+        arraySize: UInt32.max, lastLevel: UInt32.max, sampleCount: UInt32.max
+    ))
+    #expect(!VirtioGPU.valid3DResourceDimensions(
+        width: 8192, height: 8192, depth: 8, arraySize: 1, lastLevel: 0, sampleCount: 0
+    ))
+    #expect(!VirtioGPU.valid3DResourceDimensions(
+        width: 64, height: 64, depth: 1, arraySize: 1, lastLevel: 16, sampleCount: 0
+    ))
+}
