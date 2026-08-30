@@ -41,7 +41,13 @@ class VMOSRunnerForLinux : VMOSRunner {
         }
         
         // graphicsDevices
-        virtualMachineConfiguration.graphicsDevices = model.config.graphicsDevices.map({$0.createConfiguration()})
+        let graphicsBackend = VMGraphicsBackendFactory.make()
+        if case let .failure(error) = graphicsBackend.applyGraphics(
+            from: model.config.graphicsDevices,
+            to: virtualMachineConfiguration
+        ) {
+            return .failure(error)
+        }
         
         // storageDevices
         virtualMachineConfiguration.storageDevices = []

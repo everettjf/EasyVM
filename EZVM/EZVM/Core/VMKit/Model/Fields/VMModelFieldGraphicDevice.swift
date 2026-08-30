@@ -55,4 +55,56 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
     }
 }
 
+protocol VMGraphicsBackend {
+    var kind: VMGraphicsBackendKind { get }
+    func applyGraphics(
+        from devices: [VMModelFieldGraphicDevice],
+        to configuration: VZVirtualMachineConfiguration
+    ) -> VMOSResultVoid
+}
+
+struct VMAppleGraphicsBackend: VMGraphicsBackend {
+    let kind = VMGraphicsBackendKind.appleVirtio
+
+    func applyGraphics(
+        from devices: [VMModelFieldGraphicDevice],
+        to configuration: VZVirtualMachineConfiguration
+    ) -> VMOSResultVoid {
+        configuration.graphicsDevices = devices.map { $0.createConfiguration() }
+        return .success
+    }
+}
+
+enum VMGraphicsBackendFactory {
+    // This flips to true only when the production Custom Virtio GPU runtime,
+    // presenter, and lifecycle implementation are linked into the app target.
+    static let customBackendImplemented = false
+
+    static func selection(forLinux: Bool = true) -> VMGraphicsBackendSelection {
+        VMGraphicsBackendSelection.resolve(
+            isLinux: forLinux,
+            hostSupportsCustomVirtio: VirtualizationCapability.customVirtio.isAvailable,
+            experimentalEnabled: UserDefaults.standard.bool(
+                forKey: EZVMExperimentalFeatures.customVirGLGraphicsKey
+            ),
+            customBackendImplemented: customBackendImplemented
+        )
+    }
+
+    static func make(forLinux: Bool = true) -> any VMGraphicsBackend {
+        let selection = selection(forLinux: forLinux)
+        if let fallbackReason = selection.fallbackReason {
+            EZVMLog.info("Graphics backend fallback: \(fallbackReason)")
+        }
+        // The exhaustive switch intentionally makes adding the production
+        // backend a compiler-visible integration point.
+        switch selection.active {
+        case .appleVirtio:
+            return VMAppleGraphicsBackend()
+        case .customVirGL:
+            preconditionFailure("Custom VirGL was selected without a linked backend")
+        }
+    }
+}
+
 #endif

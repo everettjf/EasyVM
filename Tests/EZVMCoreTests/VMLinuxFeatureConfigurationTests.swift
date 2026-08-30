@@ -4,6 +4,39 @@ import XCTest
 @testable import EZVMCore
 
 final class VMLinuxFeatureConfigurationTests: XCTestCase {
+    func testCustomVirGLSelectionDefaultsToAppleBackend() {
+        let selection = VMGraphicsBackendSelection.resolve(
+            isLinux: true,
+            hostSupportsCustomVirtio: true,
+            experimentalEnabled: false,
+            customBackendImplemented: true
+        )
+        XCTAssertEqual(selection.active, .appleVirtio)
+        XCTAssertNil(selection.fallbackReason)
+    }
+
+    func testCustomVirGLSelectionFallsBackUntilRuntimeIsLinked() {
+        let selection = VMGraphicsBackendSelection.resolve(
+            isLinux: true,
+            hostSupportsCustomVirtio: true,
+            experimentalEnabled: true,
+            customBackendImplemented: false
+        )
+        XCTAssertEqual(selection.requested, .customVirGL)
+        XCTAssertEqual(selection.active, .appleVirtio)
+        XCTAssertNotNil(selection.fallbackReason)
+    }
+
+    func testCustomVirGLSelectionActivatesOnlyWhenAllGatesPass() {
+        let selection = VMGraphicsBackendSelection.resolve(
+            isLinux: true,
+            hostSupportsCustomVirtio: true,
+            experimentalEnabled: true,
+            customBackendImplemented: true
+        )
+        XCTAssertEqual(selection.active, .customVirGL)
+        XCTAssertNil(selection.fallbackReason)
+    }
     func testRecommendedFeaturesRoundTripAndCreateVirtioDevices() throws {
         let encoded = try JSONEncoder().encode(VMLinuxFeatureConfiguration.recommended)
         let decoded = try JSONDecoder().decode(VMLinuxFeatureConfiguration.self, from: encoded)

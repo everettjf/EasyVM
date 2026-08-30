@@ -147,6 +147,48 @@ enum EZVMExperimentalFeatures {
     static let guestProvisioningKey = "experimental.guestProvisioning"
     static let diskImageKitSnapshotsKey = "experimental.diskImageKitSnapshots"
     static let efiSecureBootKey = "experimental.efiSecureBoot"
+    static let customVirGLGraphicsKey = "experimental.customVirGLGraphics"
+}
+
+enum VMGraphicsBackendKind: String, Codable, Equatable {
+    case appleVirtio
+    case customVirGL
+}
+
+struct VMGraphicsBackendSelection: Equatable {
+    let requested: VMGraphicsBackendKind
+    let active: VMGraphicsBackendKind
+    let fallbackReason: String?
+
+    static func resolve(
+        isLinux: Bool,
+        hostSupportsCustomVirtio: Bool,
+        experimentalEnabled: Bool,
+        customBackendImplemented: Bool
+    ) -> VMGraphicsBackendSelection {
+        guard isLinux, experimentalEnabled else {
+            return VMGraphicsBackendSelection(
+                requested: .appleVirtio, active: .appleVirtio, fallbackReason: nil
+            )
+        }
+        guard hostSupportsCustomVirtio else {
+            return VMGraphicsBackendSelection(
+                requested: .customVirGL,
+                active: .appleVirtio,
+                fallbackReason: "The Custom VirGL backend requires macOS 27 or later."
+            )
+        }
+        guard customBackendImplemented else {
+            return VMGraphicsBackendSelection(
+                requested: .customVirGL,
+                active: .appleVirtio,
+                fallbackReason: "The Custom VirGL backend is enabled but has not been linked into this build."
+            )
+        }
+        return VMGraphicsBackendSelection(
+            requested: .customVirGL, active: .customVirGL, fallbackReason: nil
+        )
+    }
 }
 
 struct VMLinuxFeatureConfiguration: Codable, Equatable {

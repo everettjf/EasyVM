@@ -99,6 +99,7 @@ private struct VirtualizationFeaturesSettingsView: View {
     @AppStorage(EZVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioning = false
     @AppStorage(EZVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
     @AppStorage(EZVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
+    @AppStorage(EZVMExperimentalFeatures.customVirGLGraphicsKey) private var customVirGLGraphics = false
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedThumbnailStyle = VMGeneratedThumbnailStyle.arcade.rawValue
 
@@ -120,10 +121,15 @@ private struct VirtualizationFeaturesSettingsView: View {
                 featureToggle("macOS guest provisioning", isOn: $guestProvisioning, capability: .guestProvisioning)
                 featureToggle("DiskImageKit snapshots", isOn: $diskImageKitSnapshots, capability: .diskImageKitSnapshots)
                 featureToggle("EFI Secure Boot", isOn: $efiSecureBoot, capability: .efiSecureBoot)
+                featureToggle(
+                    "Custom VirGL graphics backend",
+                    isOn: $customVirGLGraphics,
+                    capability: .customVirtio
+                )
             } header: {
                 Text("Experimental macOS 27 features")
             } footer: {
-                Text("These features use beta system APIs. Keep backups of important virtual machines.")
+                Text("The VirGL switch currently enables backend selection and safe fallback only; the existing Apple display backend remains active until the runtime module is linked. These features use beta system APIs.")
             }
 
             Section {
