@@ -36,17 +36,20 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         public var height: UInt32
         public var rendererLibraryURL: URL
         public var zeroCopyPresentationEnabled: Bool
+        public var experimentalStaticInputEnabled: Bool
 
         public init(
             width: UInt32,
             height: UInt32,
             rendererLibraryURL: URL,
-            zeroCopyPresentationEnabled: Bool = true
+            zeroCopyPresentationEnabled: Bool = true,
+            experimentalStaticInputEnabled: Bool = false
         ) {
             self.width = width
             self.height = height
             self.rendererLibraryURL = rendererLibraryURL
             self.zeroCopyPresentationEnabled = zeroCopyPresentationEnabled
+            self.experimentalStaticInputEnabled = experimentalStaticInputEnabled
         }
     }
 
@@ -65,6 +68,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
     private let stateLock = NSLock()
     private var renderer: VirGLRenderer?
     private var gpuDevice: VirtioGPUDevice?
+    private var inputProbeDevice: VirtioInputProbeDevice?
 
     public init(
         configuration: Configuration,
@@ -84,6 +88,9 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
                 onCursor: onCursor,
                 onFrame: onFallbackFrame
             )
+            if configuration.experimentalStaticInputEnabled {
+                inputProbeDevice = VirtioInputProbeDevice()
+            }
         } catch {
             throw RuntimeError.renderer(String(describing: error))
         }
@@ -96,6 +103,24 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         defer { stateLock.unlock() }
         guard let gpuDevice else { throw RuntimeError.stopped }
         return gpuDevice.makeConfiguration()
+    }
+
+    public func makeDeviceConfigurations() throws -> [VZCustomVirtioDeviceConfiguration] {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard let gpuDevice else { throw RuntimeError.stopped }
+        var configurations = [gpuDevice.makeConfiguration()]
+        if let inputProbeDevice {
+            configurations.append(inputProbeDevice.makeConfiguration())
+        }
+        return configurations
+    }
+
+    public func sendLinuxKey(code: UInt16, pressed: Bool) {
+        stateLock.lock()
+        let inputProbeDevice = self.inputProbeDevice
+        stateLock.unlock()
+        inputProbeDevice?.sendKey(code: code, pressed: pressed)
     }
 
     public func present(
@@ -122,6 +147,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
     public func shutdown() {
         stateLock.lock()
         gpuDevice = nil
+        inputProbeDevice = nil
         renderer = nil
         stateLock.unlock()
     }

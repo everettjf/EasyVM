@@ -11,10 +11,9 @@ new graphics architecture:
    Metal backend, including real Hyprland and Xwayland 3D command streams?
 
 All three gates passed on macOS 27 beta with Xcode 27 beta. The stage 3 path
-implements capsets, contexts, 2D/3D resources, backing memory, transfers,
-submits, and basic fences. Cursor handling and production lifecycle integration
-remain incomplete, but the normal display path no longer performs a CPU
-readback.
+implements capsets, contexts, bounded 2D/3D resources, backing memory,
+transfers, submits, asynchronous fences, and cursor updates. The normal display
+path no longer performs a CPU readback.
 
 Stage 4's zero-copy gate also passed: the prototype calls
 `virgl_renderer_borrow_texture_for_scanout` and obtains live GL texture IDs for
@@ -23,6 +22,33 @@ an `EGLImage`, blits it directly into a `CAMetalDrawable`, and presents the
 drawable without copying pixels through Swift `Data` or `CGImage`. All
 VirGL/ANGLE calls run on one dedicated OS thread so the EGL context retains
 stable thread affinity under sustained Hyprland and Xwayland load.
+
+Stage 6 handles Custom Virtio pause, resume, reset, and stop explicitly. Reset
+and stop release fences, contexts, resources, mappings, cursors, and pending
+presentation work. EZVM intentionally disables Virtualization machine-state
+save/restore for Custom VirGL: restoring guest RAM cannot reconstruct the
+renderer command-stream state safely. File-level stopped-VM snapshots remain
+independent of this restriction.
+
+Stage 7 bounds presentation dispatch to one in-flight frame and one latest
+pending frame. A stalled main actor therefore drops stale frames instead of
+building an unbounded queue. Runtime counters report submitted, delivered, and
+coalesced frames.
+
+## Input API finding
+
+`VirtioInputProbeDevice` is a default-off diagnostic enabled in EZVM with
+`EZVM_EXPERIMENTAL_STATIC_VIRTIO_INPUT=1`. It proves a limitation in the macOS
+27 beta public API: `VZCustomVirtioDevice` exposes whole device-configuration
+updates but no callback for guest configuration writes. Linux `virtio_input`
+writes `select` and `subsel` before each capability read, so a conforming input
+device must answer dynamically.
+
+The static probe is created successfully by Virtualization, but the stock
+Omarchy Linux driver does not reach `DRIVER_OK` and does not provide event
+buffers. It must not be enabled as a production input backend. Product input
+therefore needs either an Apple-supported injection API, a guest-agent/uinput
+channel, or a future Custom Virtio configuration-write API.
 
 ## Safety
 

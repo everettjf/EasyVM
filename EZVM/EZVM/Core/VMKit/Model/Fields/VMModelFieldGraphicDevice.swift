@@ -64,6 +64,7 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
 protocol VMGraphicsBackend {
     var kind: VMGraphicsBackendKind { get }
     var displayView: NSView { get }
+    var supportsMachineSaveRestore: Bool { get }
     func applyGraphics(
         from devices: [VMModelFieldGraphicDevice],
         to configuration: VZVirtualMachineConfiguration
@@ -74,6 +75,7 @@ protocol VMGraphicsBackend {
 
 final class VMAppleGraphicsBackend: VMGraphicsBackend {
     let kind = VMGraphicsBackendKind.appleVirtio
+    let supportsMachineSaveRestore = true
     let virtualMachineView: VZVirtualMachineView
     var displayView: NSView { virtualMachineView }
 
@@ -129,6 +131,24 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36 {
+            runtime?.sendLinuxKey(code: 28, pressed: true)
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    override func keyUp(with event: NSEvent) {
+        if event.keyCode == 36 {
+            runtime?.sendLinuxKey(code: 28, pressed: false)
+        } else {
+            super.keyUp(with: event)
+        }
+    }
 
     override func layout() {
         super.layout()
@@ -195,6 +215,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 @available(macOS 27.0, *)
 final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     let kind = VMGraphicsBackendKind.customVirGL
+    // Restoring guest RAM alone cannot reconstruct VirGL contexts, resources,
+    // fences, or renderer command-stream state. Keep VZ machine-state saving
+    // disabled until the complete GPU state has a versioned representation.
+    let supportsMachineSaveRestore = false
     let displayView: NSView
     private let virglView: VMVirGLDisplayView
     private var runtime: EZVMVirGLRuntime?
@@ -213,7 +237,10 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             configuration: .init(
                 width: UInt32(max(1, device.width)),
                 height: UInt32(max(1, device.height)),
-                rendererLibraryURL: dependencies.virglRendererURL
+                rendererLibraryURL: dependencies.virglRendererURL,
+                experimentalStaticInputEnabled: ProcessInfo.processInfo.environment[
+                    "EZVM_EXPERIMENTAL_STATIC_VIRTIO_INPUT"
+                ] == "1"
             ),
             onScanout: { [weak view] resourceID in
                 view?.present(resourceID: resourceID)
@@ -233,7 +260,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         guard let runtime else { return .failure("The VirGL runtime stopped before VM configuration.") }
         do {
             configuration.graphicsDevices = []
-            configuration.customVirtioDevices.append(try runtime.makeDeviceConfiguration())
+            configuration.customVirtioDevices.append(contentsOf: try runtime.makeDeviceConfigurations())
             return .success
         } catch {
             return .failure("Could not configure the Custom VirGL GPU: \(error.localizedDescription)")

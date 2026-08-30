@@ -229,7 +229,15 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 }
             }
         } else {
-            if #available(macOS 14.0, *), FileManager.default.fileExists(atPath: model.savedMachineStateURL.path(percentEncoded: false)) {
+            if graphicsBackend?.supportsMachineSaveRestore == false,
+               FileManager.default.fileExists(atPath: model.savedMachineStateURL.path(percentEncoded: false)) {
+                // A state produced by another graphics backend cannot restore
+                // into Custom VirGL safely. Cold boot and remove it so later
+                // launches don't repeatedly attempt an incompatible restore.
+                try? FileManager.default.removeItem(at: model.savedMachineStateURL)
+                VMSavedStateStore.discardPending(stateURL: model.savedMachineStateURL)
+                EZVMLog.info("Discarded saved state because Custom VirGL does not support machine-state restore.")
+            } else if #available(macOS 14.0, *), FileManager.default.fileExists(atPath: model.savedMachineStateURL.path(percentEncoded: false)) {
                 restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath, model: model)
                 return
             }
@@ -572,6 +580,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func saveAndStopMachine() {
+        guard graphicsBackend?.supportsMachineSaveRestore != false else {
+            // Retain the controller until the guest acknowledges shutdown and
+            // the VM delegate releases the Custom Virtio renderer.
+            shutdownRetainer = self
+            requestStopMachine()
+            return
+        }
         guard #available(macOS 14.0, *), let rootPath else {
             requestStopMachine()
             return
@@ -677,6 +692,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private func fail(_ message: String) {
         stopGuestAgent()
         releaseVirtualMachineAfterStop()
+        shutdownRetainer = nil
         runtimeState?.update(.failed(message))
         releaseRunLease()
         if let rootPath, let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
@@ -903,6 +919,7 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     
     public func guestDidStop(_ virtualMachine: VZVirtualMachine) {
         releaseVirtualMachineAfterStop()
+        shutdownRetainer = nil
         runtimeState?.update(.stopped)
         releaseRunLease()
     }

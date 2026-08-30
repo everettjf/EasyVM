@@ -143,6 +143,22 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         print("[stage1] queues: control=\(device.queue(at: 0) != nil), cursor=\(device.queue(at: 1) != nil)")
     }
 
+    func customVirtioDeviceWillStop(_ device: VZCustomVirtioDevice) {
+        releaseDeviceState(reason: "stop")
+    }
+
+    func customVirtioDeviceWillPause(_ device: VZCustomVirtioDevice) {
+        // Presentation callbacks are host UI work and must not outlive the
+        // point at which Virtualization has paused the device. Renderer and
+        // guest resource state remain intact for resume.
+        frameScheduler.cancel()
+        print("[stage6] custom Virtio GPU paused")
+    }
+
+    func customVirtioDeviceWillResume(_ device: VZCustomVirtioDevice) {
+        print("[stage6] custom Virtio GPU resumed")
+    }
+
     func customVirtioDevice(
         _ device: VZCustomVirtioDevice,
         didReceiveNotificationFor queue: VZVirtioQueue
@@ -156,6 +172,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     func customVirtioDeviceWillReset(_ device: VZCustomVirtioDevice) {
+        releaseDeviceState(reason: "reset")
+    }
+
+    private func releaseDeviceState(reason: String) {
         frameScheduler.cancel()
         renderer.cancelFences()
         for contextID in contexts { renderer.destroyContext(id: contextID) }
@@ -171,6 +191,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         cursorResourceID = nil
         borrowedScanoutResources.removeAll()
         publishCursor(image: nil, hotX: 0, hotY: 0)
+        print("[stage6] released custom Virtio GPU state for \(reason)")
     }
 
     private func process(
