@@ -7,6 +7,7 @@ enum VirtioGPU {
     static let queueCount: UInt16 = 2
 
     static let eventDisplay: UInt32 = 1 << 0
+    static let flagFence: UInt32 = 1 << 0
 
     enum Limits {
         static let maxRequestBytes = 16 * 1024 * 1024

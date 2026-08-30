@@ -4,6 +4,13 @@ import Foundation
 import Metal
 
 final class VirGLRenderer {
+    typealias FenceCompletion = @Sendable (Bool) -> Void
+
+    private struct PendingFence {
+        let deadline: UInt64
+        let completion: FenceCompletion
+    }
+
     struct ScanoutTexture: Equatable {
         let id: UInt32
         let format: UInt32
@@ -46,6 +53,8 @@ final class VirGLRenderer {
     let libraryURL: URL
     let virglCapset: Capset
     private let executor: RendererExecutor
+    private var nextHostFenceID: UInt32 = 1
+    private var pendingFences: [UInt32: PendingFence] = [:]
 
     init(libraryURL: URL) throws {
         self.libraryURL = libraryURL
@@ -76,6 +85,9 @@ final class VirGLRenderer {
             throw RendererError.initialize("VirGL capset 1 is unavailable")
         }
         virglCapset = Capset(id: 1, maxVersion: version, maxSize: size)
+        executor.configurePolling { [weak self] in
+            self?.pollFences()
+        }
         print(
             "[stage3] virglrenderer initialized: capset=1, "
                 + "maxVersion=\(version), maxSize=\(size)"
@@ -83,6 +95,7 @@ final class VirGLRenderer {
     }
 
     deinit {
+        cancelFences()
         executor.sync { vzvg_renderer_cleanup() }
         executor.stop()
     }
@@ -176,19 +189,31 @@ final class VirGLRenderer {
         }
     }
 
-    func waitForFence(_ fenceID: UInt32, contextID: UInt32) -> Bool {
-        serialized {
-            guard vzvg_renderer_create_fence(fenceID, contextID) == 0 else { return false }
-            let deadline = DispatchTime.now().uptimeNanoseconds + 2_000_000_000
-            while DispatchTime.now().uptimeNanoseconds < deadline {
-                vzvg_renderer_poll()
-                var completed: UInt32 = 0
-                while vzvg_renderer_pop_completed_fence(&completed) != 0 {
-                    if completed == fenceID { return true }
-                }
-                usleep(100)
+    func enqueueFence(contextID: UInt32, completion: @escaping FenceCompletion) {
+        executor.async { [weak self] in
+            guard let self else {
+                completion(false)
+                return
             }
-            return false
+            guard let hostFenceID = allocateHostFenceID(),
+                  vzvg_renderer_create_fence(hostFenceID, contextID) == 0 else {
+                completion(false)
+                return
+            }
+            pendingFences[hostFenceID] = PendingFence(
+                deadline: DispatchTime.now().uptimeNanoseconds + 2_000_000_000,
+                completion: completion
+            )
+            executor.setPollingEnabled(true)
+        }
+    }
+
+    func cancelFences() {
+        executor.sync {
+            let completions = self.pendingFences.values.map(\.completion)
+            self.pendingFences.removeAll()
+            self.executor.setPollingEnabled(false)
+            completions.forEach { $0(false) }
         }
     }
 
@@ -216,6 +241,41 @@ final class VirGLRenderer {
 
     private func serialized<T>(_ operation: @escaping () -> T) -> T {
         executor.sync(operation)
+    }
+
+    private func allocateHostFenceID() -> UInt32? {
+        for _ in 0..<UInt64(UInt32.max) {
+            let candidate = nextHostFenceID
+            nextHostFenceID = nextHostFenceID == UInt32.max ? 1 : nextHostFenceID + 1
+            if pendingFences[candidate] == nil { return candidate }
+        }
+        return nil
+    }
+
+    private func pollFences() {
+        guard !pendingFences.isEmpty else {
+            executor.setPollingEnabled(false)
+            return
+        }
+        vzvg_renderer_poll()
+        var completions: [(FenceCompletion, Bool)] = []
+        var completedID: UInt32 = 0
+        while vzvg_renderer_pop_completed_fence(&completedID) != 0 {
+            if let fence = pendingFences.removeValue(forKey: completedID) {
+                completions.append((fence.completion, true))
+            }
+        }
+        let now = DispatchTime.now().uptimeNanoseconds
+        let expired = pendingFences.compactMap { id, fence in
+            fence.deadline <= now ? id : nil
+        }
+        for id in expired {
+            if let fence = pendingFences.removeValue(forKey: id) {
+                completions.append((fence.completion, false))
+            }
+        }
+        if pendingFences.isEmpty { executor.setPollingEnabled(false) }
+        completions.forEach { completion, succeeded in completion(succeeded) }
     }
 
     private static var lastError: String {

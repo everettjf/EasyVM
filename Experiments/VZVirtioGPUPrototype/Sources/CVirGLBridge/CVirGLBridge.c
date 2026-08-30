@@ -532,7 +532,10 @@ int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_cou
     return result;
 }
 int vzvg_renderer_create_fence(uint32_t fence_id, uint32_t context_id) {
-    if (context_id != 0 && make_guest_context_current(context_id) != 0) return -1;
+    int current_result = context_id == 0
+        ? make_root_context_current()
+        : make_guest_context_current(context_id);
+    if (current_result != 0) return -1;
     int result = create_fence((int)fence_id, context_id);
     release_current_context();
     return result;

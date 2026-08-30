@@ -27,6 +27,35 @@ import Testing
     #expect(second == nested)
 }
 
+@Test func rendererExecutorPollsWithoutBlockingQueuedWork() {
+    let executor = RendererExecutor()
+    defer { executor.stop() }
+    let lock = NSLock()
+    let polled = DispatchSemaphore(value: 0)
+    let jobRan = DispatchSemaphore(value: 0)
+    var pollCount = 0
+
+    executor.configurePolling {
+        lock.lock()
+        pollCount += 1
+        let finished = pollCount >= 3
+        lock.unlock()
+        if finished {
+            executor.setPollingEnabled(false)
+            polled.signal()
+        }
+    }
+    executor.setPollingEnabled(true)
+    executor.async { jobRan.signal() }
+
+    #expect(jobRan.wait(timeout: .now() + 1) == .success)
+    #expect(polled.wait(timeout: .now() + 1) == .success)
+    lock.lock()
+    let finalPollCount = pollCount
+    lock.unlock()
+    #expect(finalPollCount >= 3)
+}
+
 @Test func displayInfoHasStandardWireLayout() throws {
     var request = Data()
     request.appendLittleEndian(VirtioGPU.Command.getDisplayInfo.rawValue)

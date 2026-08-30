@@ -6,10 +6,18 @@ import ImageIO
 import Virtualization
 
 @available(macOS 27.0, *)
-final class VirtioGPUDevice: NSObject,
+final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     VZCustomVirtioDeviceConfigurationDelegate,
     VZCustomVirtioDeviceDelegate
 {
+    private final class QueueElementLease: @unchecked Sendable {
+        let element: VZVirtioQueueElement
+
+        init(_ element: VZVirtioQueueElement) {
+            self.element = element
+        }
+    }
+
     struct BackingEntry {
         let mapping: VZGuestMemoryMapping
         let length: Int
@@ -120,14 +128,15 @@ final class VirtioGPUDevice: NSObject,
         didReceiveNotificationFor queue: VZVirtioQueue
     ) {
         while let element = queue.nextElement() {
-            autoreleasepool {
+            let returnSynchronously = autoreleasepool {
                 process(element: element, queueIndex: queue.queueIndex, device: device)
-                element.returnToQueue()
             }
+            if returnSynchronously { element.returnToQueue() }
         }
     }
 
     func customVirtioDeviceWillReset(_ device: VZCustomVirtioDevice) {
+        renderer.cancelFences()
         for resource in resources.values where resource.isRendererResource {
             if resource.virglBacking != nil { renderer.detach(resourceID: resource.id) }
             renderer.unrefResource(resource.id)
@@ -142,7 +151,7 @@ final class VirtioGPUDevice: NSObject,
         element: VZVirtioQueueElement,
         queueIndex: UInt16,
         device: VZCustomVirtioDevice
-    ) {
+    ) -> Bool {
         var request = Data()
         for buffer in element.readBuffers() {
             guard buffer.count <= VirtioGPU.Limits.maxRequestBytes - request.count else {
@@ -150,24 +159,24 @@ final class VirtioGPUDevice: NSObject,
                     write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
                 }
                 print("[gpu] rejected oversized request on queue \(queueIndex)")
-                return
+                return true
             }
             request.append(buffer)
         }
         guard let header = VirtioGPU.Header(request) else {
             print("[gpu] short request on queue \(queueIndex): \(request.count) bytes")
-            return
+            return true
         }
 
         guard let command = VirtioGPU.Command(rawValue: header.type) else {
             print(String(format: "[gpu] unsupported command 0x%04x", header.type))
             write(VirtioGPU.responseHeader(.errorUnspecified, request: header), to: element)
-            return
+            return true
         }
         guard VirtioGPU.command(command, isValidOn: queueIndex) else {
             print("[gpu] command \(command) arrived on invalid queue \(queueIndex)")
             write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
-            return
+            return true
         }
 
         let response: Data
@@ -259,7 +268,24 @@ final class VirtioGPUDevice: NSObject,
         case .updateCursor, .moveCursor:
             response = VirtioGPU.responseHeader(.okNoData, request: header)
         }
-        write(response, to: element)
+        guard header.flags & VirtioGPU.flagFence != 0 else {
+            write(response, to: element)
+            return true
+        }
+        let completionQueue = deviceQueue
+        let elementLease = QueueElementLease(element)
+        renderer.enqueueFence(contextID: header.contextID) { [weak self] succeeded in
+            completionQueue.async {
+                if let self {
+                    let finalResponse = succeeded
+                        ? response
+                        : VirtioGPU.responseHeader(.errorUnspecified, request: header)
+                    self.write(finalResponse, to: elementLease.element)
+                }
+                elementLease.element.returnToQueue()
+            }
+        }
+        return false
     }
 
     private func getCapsetInfo(_ request: Data, header: VirtioGPU.Header) -> Data {
@@ -467,10 +493,6 @@ final class VirtioGPUDevice: NSObject,
         }
         let commands = Data(request[32..<(32 + byteCount)])
         guard renderer.submit(contextID: header.contextID, commands: commands) else {
-            return VirtioGPU.responseHeader(.errorUnspecified, request: header)
-        }
-        if header.flags & 1 != 0,
-           !renderer.waitForFence(UInt32(truncatingIfNeeded: header.fenceID), contextID: header.contextID) {
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         submittedCommandCount += 1

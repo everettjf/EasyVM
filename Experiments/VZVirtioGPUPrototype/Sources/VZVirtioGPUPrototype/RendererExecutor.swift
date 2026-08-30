@@ -9,6 +9,8 @@ final class RendererExecutor: @unchecked Sendable {
     private let ready = DispatchSemaphore(value: 0)
     private var jobs: [() -> Void] = []
     private var stopping = false
+    private var pollOperation: (() -> Void)?
+    private var pollingEnabled = false
     private var thread: Thread!
 
     init() {
@@ -34,6 +36,30 @@ final class RendererExecutor: @unchecked Sendable {
         return result.value!
     }
 
+    func async(_ operation: @escaping () -> Void) {
+        condition.lock()
+        guard !stopping else {
+            condition.unlock()
+            return
+        }
+        jobs.append(operation)
+        condition.signal()
+        condition.unlock()
+    }
+
+    func configurePolling(_ operation: @escaping () -> Void) {
+        condition.lock()
+        pollOperation = operation
+        condition.unlock()
+    }
+
+    func setPollingEnabled(_ enabled: Bool) {
+        condition.lock()
+        pollingEnabled = enabled
+        condition.signal()
+        condition.unlock()
+    }
+
     func stop() {
         condition.lock()
         stopping = true
@@ -45,14 +71,22 @@ final class RendererExecutor: @unchecked Sendable {
         ready.signal()
         while true {
             condition.lock()
-            while jobs.isEmpty && !stopping { condition.wait() }
+            while jobs.isEmpty && !stopping {
+                if pollingEnabled {
+                    _ = condition.wait(until: Date(timeIntervalSinceNow: 0.001))
+                    break
+                }
+                condition.wait()
+            }
             if stopping && jobs.isEmpty {
                 condition.unlock()
                 return
             }
-            let job = jobs.removeFirst()
+            let job = jobs.isEmpty ? nil : jobs.removeFirst()
+            let poll = pollingEnabled ? pollOperation : nil
             condition.unlock()
-            job()
+            job?()
+            poll?()
         }
     }
 }
