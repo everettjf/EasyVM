@@ -11,6 +11,42 @@ import Virtualization
 
 
 #if arch(arm64)
+struct VMPreinstalledImageResourceRecommendation: Equatable {
+    static let gibibyte: UInt64 = 1024 * 1024 * 1024
+
+    let cpuCount: Int
+    let memorySize: UInt64
+
+    static func recommended(
+        hostCPUCount: Int = ProcessInfo.processInfo.processorCount,
+        hostMemorySize: UInt64 = ProcessInfo.processInfo.physicalMemory,
+        minimumCPUCount: Int = VZVirtualMachineConfiguration.minimumAllowedCPUCount,
+        maximumCPUCount: Int = VZVirtualMachineConfiguration.maximumAllowedCPUCount,
+        minimumMemorySize: UInt64 = VZVirtualMachineConfiguration.minimumAllowedMemorySize,
+        maximumMemorySize: UInt64 = VZVirtualMachineConfiguration.maximumAllowedMemorySize
+    ) -> Self {
+        // Six vCPUs are ample for an interactive Linux desktop while leaving
+        // enough scheduling capacity for macOS on smaller Apple silicon Macs.
+        let availableCPUCount = max(hostCPUCount - 2, minimumCPUCount)
+        let cpuCount = min(max(availableCPUCount, minimumCPUCount), min(6, maximumCPUCount))
+
+        // Omarchy's full desktop is memory-sensitive. Prefer 8 GiB, but scale
+        // down on common 8/16 GiB Macs so the host is not pushed into swap.
+        let preferredMemorySize: UInt64
+        switch hostMemorySize {
+        case ..<(16 * gibibyte):
+            preferredMemorySize = 4 * gibibyte
+        case ..<(24 * gibibyte):
+            preferredMemorySize = 6 * gibibyte
+        default:
+            preferredMemorySize = 8 * gibibyte
+        }
+        let memorySize = min(max(preferredMemorySize, minimumMemorySize), maximumMemorySize)
+
+        return Self(cpuCount: cpuCount, memorySize: memorySize)
+    }
+}
+
 struct VMReleaseSmokeTestConfiguration: Equatable {
     let vmRootPath: URL
     let resultPath: URL

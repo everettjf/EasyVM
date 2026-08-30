@@ -183,12 +183,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let defaults = VMConfigModel.createWithDefaultValues(osType: .linux)
+        let resources = VMPreinstalledImageResourceRecommendation.recommended()
         let config = VMConfigModel(
             type: .linux,
             name: install.name ?? manifest.virtualMachine.name,
             remark: manifest.virtualMachine.remark ?? "Preinstalled \(manifest.product.name) \(manifest.product.version)",
-            cpu: defaults.cpu,
-            memory: defaults.memory,
+            cpu: VMModelFieldCPU(count: resources.cpuCount),
+            memory: VMModelFieldMemory(size: resources.memorySize),
             graphicsDevices: defaults.graphicsDevices,
             storageDevices: [VMModelFieldStorageDevice(
                 type: .Block,
