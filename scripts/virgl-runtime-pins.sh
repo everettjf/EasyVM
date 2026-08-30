@@ -15,6 +15,33 @@ readonly EZVM_ANGLE_BUILD_RECIPE_COMMIT=b010ac372569747a4b265e75eaa72868c6849f62
 readonly EZVM_EPOXY_BUILD_RECIPE_COMMIT=eeb72845c15eeb9a57635fc54467234b2e38f51a
 readonly EZVM_EPOXY_UPSTREAM_COMMIT=1b6d7db184bb1a0d9af0e200e06a0331028eaaae
 
+# Immutable source inputs. GitHub and GitLab commit archives are used instead
+# of mutable tag or branch archives. These hashes were verified independently
+# from the bottle payloads before enabling the production backend.
+readonly EZVM_VIRGL_UPSTREAM_COMMIT=960bd6674a25a438da2aac8a0af8c6d6e2b3a77e
+readonly EZVM_VIRGL_SOURCE_ARCHIVE=virglrenderer-$EZVM_VIRGL_UPSTREAM_COMMIT.tar.gz
+readonly EZVM_VIRGL_SOURCE_URL=https://gitlab.freedesktop.org/virgl/virglrenderer/-/archive/$EZVM_VIRGL_UPSTREAM_COMMIT/$EZVM_VIRGL_SOURCE_ARCHIVE
+readonly EZVM_VIRGL_SOURCE_SHA256=b7b9aaa05b10765c244790b2f2580e34e7cee383b4419ce5dd0c111d59e464a3
+
+readonly EZVM_ANGLE_UPSTREAM_COMMIT=2d91f554ab55bd1bef6998ab4094f60ae3e7feb5
+readonly EZVM_ANGLE_SOURCE_ARCHIVE=angle-$EZVM_ANGLE_UPSTREAM_COMMIT.tar.gz
+readonly EZVM_ANGLE_SOURCE_URL=https://github.com/google/angle/archive/$EZVM_ANGLE_UPSTREAM_COMMIT.tar.gz
+readonly EZVM_ANGLE_SOURCE_SHA256=c24c4e7bc464a63069b67a9f663717b6e0f4a5ff4b6404215a7dc98ea83c6ba7
+
+readonly EZVM_EPOXY_SOURCE_ARCHIVE=libepoxy-$EZVM_EPOXY_UPSTREAM_COMMIT.tar.gz
+readonly EZVM_EPOXY_SOURCE_URL=https://github.com/anholt/libepoxy/archive/$EZVM_EPOXY_UPSTREAM_COMMIT.tar.gz
+readonly EZVM_EPOXY_SOURCE_SHA256=15f769a8f24c361c8de28d72625daf07d0107b683fa0a5118d0aa8b0c5fc9eab
+
+readonly EZVM_VIRGL_RECIPE_ARCHIVE=homebrew-virglrenderer-$EZVM_VIRGL_BUILD_RECIPE_COMMIT.tar.gz
+readonly EZVM_VIRGL_RECIPE_URL=https://github.com/startergo/homebrew-virglrenderer/archive/$EZVM_VIRGL_BUILD_RECIPE_COMMIT.tar.gz
+readonly EZVM_VIRGL_RECIPE_SHA256=afb58a118a11cabf381b1e53e155b0bb07d995ffb3cbfeb09decfb723cd41e1a
+readonly EZVM_ANGLE_RECIPE_ARCHIVE=homebrew-angle-$EZVM_ANGLE_BUILD_RECIPE_COMMIT.tar.gz
+readonly EZVM_ANGLE_RECIPE_URL=https://github.com/startergo/homebrew-angle/archive/$EZVM_ANGLE_BUILD_RECIPE_COMMIT.tar.gz
+readonly EZVM_ANGLE_RECIPE_SHA256=076df85af0f3bcd5d1232be7285bdb0bc305f28df155bc5ac6d19e83e27e3195
+readonly EZVM_EPOXY_RECIPE_ARCHIVE=homebrew-libepoxy-$EZVM_EPOXY_BUILD_RECIPE_COMMIT.tar.gz
+readonly EZVM_EPOXY_RECIPE_URL=https://github.com/startergo/homebrew-libepoxy/archive/$EZVM_EPOXY_BUILD_RECIPE_COMMIT.tar.gz
+readonly EZVM_EPOXY_RECIPE_SHA256=2385e015283816237615c3933b58c174ca8fd55be351a56799cdfeb656b6f789
+
 readonly EZVM_VIRGL_VERSION=1.0.33
 readonly EZVM_VIRGL_ARCHIVE=virglrenderer-1.0.33.arm64_sequoia.bottle.tar.gz
 readonly EZVM_VIRGL_URL=https://github.com/startergo/homebrew-virglrenderer/releases/download/v1.0.33/virglrenderer-1.0.33.arm64_sequoia.bottle.tar.gz
