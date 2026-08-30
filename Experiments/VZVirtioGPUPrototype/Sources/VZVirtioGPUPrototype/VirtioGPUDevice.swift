@@ -74,6 +74,16 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var cursorMoveCount = 0
     private var borrowedScanoutResources: Set<UInt32> = []
     private var savedEvidenceFrame = false
+    private lazy var frameScheduler = LatestFrameScheduler<UInt32> { [weak self] resourceID, completed in
+        guard let self else {
+            completed()
+            return
+        }
+        Task { @MainActor [onZeroCopyFrame] in
+            onZeroCopyFrame(resourceID)
+            self.deviceQueue.async { completed() }
+        }
+    }
 
     init(
         width: UInt32,
@@ -146,6 +156,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     func customVirtioDeviceWillReset(_ device: VZCustomVirtioDevice) {
+        frameScheduler.cancel()
         renderer.cancelFences()
         for contextID in contexts { renderer.destroyContext(id: contextID) }
         for resource in resources.values where resource.isRendererResource {
@@ -763,7 +774,15 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             )
         }
         if zeroCopyPresentationEnabled {
-            Task { @MainActor [onZeroCopyFrame] in onZeroCopyFrame(resourceID) }
+            frameScheduler.submit(resourceID)
+            let submitted = frameScheduler.submittedCount
+            if submitted == 1 || submitted.isMultiple(of: 600) {
+                print(
+                    "[stage7] presentation frames: submitted=\(submitted), "
+                        + "delivered=\(frameScheduler.deliveredCount), "
+                        + "coalesced=\(frameScheduler.coalescedCount)"
+                )
+            }
             return VirtioGPU.responseHeader(.okNoData, request: header)
         }
         if resource.isRendererResource, let backing = resource.virglBacking {

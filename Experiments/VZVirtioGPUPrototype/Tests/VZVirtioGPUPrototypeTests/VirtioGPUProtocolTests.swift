@@ -184,3 +184,47 @@ import Testing
         width: 64, height: 64, depth: 1, arraySize: 1, lastLevel: 16, sampleCount: 0
     ))
 }
+
+@Test func latestFrameSchedulerBoundsWorkAndKeepsNewestFrame() {
+    var delivered: [Int] = []
+    var completions: [() -> Void] = []
+    let scheduler = LatestFrameScheduler<Int> { frame, completed in
+        delivered.append(frame)
+        completions.append(completed)
+    }
+
+    scheduler.submit(1)
+    scheduler.submit(2)
+    scheduler.submit(3)
+
+    #expect(delivered == [1])
+    #expect(scheduler.submittedCount == 3)
+    #expect(scheduler.deliveredCount == 1)
+    #expect(scheduler.coalescedCount == 1)
+
+    completions.removeFirst()()
+    #expect(delivered == [1, 3])
+    #expect(scheduler.deliveredCount == 2)
+
+    completions.removeFirst()()
+    scheduler.submit(4)
+    #expect(delivered == [1, 3, 4])
+}
+
+@Test func cancellingLatestFrameSchedulerInvalidatesStaleCompletion() {
+    var delivered: [Int] = []
+    var completions: [() -> Void] = []
+    let scheduler = LatestFrameScheduler<Int> { frame, completed in
+        delivered.append(frame)
+        completions.append(completed)
+    }
+
+    scheduler.submit(1)
+    scheduler.submit(2)
+    scheduler.cancel()
+    completions.removeFirst()()
+    #expect(delivered == [1])
+
+    scheduler.submit(3)
+    #expect(delivered == [1, 3])
+}
