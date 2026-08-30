@@ -68,13 +68,13 @@ if [[ ! -d $angle/.git ]]; then
   git -C "$angle" remote add origin https://chromium.googlesource.com/angle/angle
 fi
 git -C "$angle" fetch --depth=1 origin "$EZVM_ANGLE_UPSTREAM_COMMIT"
-git -C "$angle" checkout --detach FETCH_HEAD
+# A previous successful build leaves the pinned macOS patch applied in this
+# reusable checkout. A plain checkout of the same commit preserves those
+# tracked modifications, so the next build tries to reverse/repair a working
+# tree that gclient may also have refreshed. Force the pinned source tree back
+# to its authoritative commit before dependency synchronization instead.
+git -C "$angle" checkout --force --detach FETCH_HEAD
 [[ $(git -C "$angle" rev-parse HEAD) == "$EZVM_ANGLE_UPSTREAM_COMMIT" ]] || fail "ANGLE checkout drifted"
-if git -C "$angle" apply --reverse --check "$angle_patch"; then
-  git -C "$angle" apply --reverse "$angle_patch"
-elif ! git -C "$angle" apply --check "$angle_patch"; then
-  fail "ANGLE checkout contains changes other than the known macOS patch"
-fi
 
 depot_path="$depot_tools:/usr/bin:/bin:/usr/sbin:/sbin"
 if [[ ! -f $angle/.gclient ]]; then
