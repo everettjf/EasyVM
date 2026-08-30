@@ -51,6 +51,8 @@ final class VirtioGPUDevice: NSObject,
 
     private(set) var device: VZCustomVirtioDevice?
     private var resources: [UInt32: Resource] = [:]
+    private var totalPixelBytes = 0
+    private var contexts: Set<UInt32> = []
     private var scanoutResourceID: UInt32?
     private var publishedFrameCount = 0
     private var submittedCommandCount = 0
@@ -131,6 +133,8 @@ final class VirtioGPUDevice: NSObject,
             renderer.unrefResource(resource.id)
         }
         resources.removeAll()
+        totalPixelBytes = 0
+        contexts.removeAll()
         scanoutResourceID = nil
     }
 
@@ -139,7 +143,17 @@ final class VirtioGPUDevice: NSObject,
         queueIndex: UInt16,
         device: VZCustomVirtioDevice
     ) {
-        let request = element.readBuffers().reduce(into: Data()) { $0.append($1) }
+        var request = Data()
+        for buffer in element.readBuffers() {
+            guard buffer.count <= VirtioGPU.Limits.maxRequestBytes - request.count else {
+                if let header = VirtioGPU.Header(request) {
+                    write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
+                }
+                print("[gpu] rejected oversized request on queue \(queueIndex)")
+                return
+            }
+            request.append(buffer)
+        }
         guard let header = VirtioGPU.Header(request) else {
             print("[gpu] short request on queue \(queueIndex): \(request.count) bytes")
             return
@@ -148,6 +162,11 @@ final class VirtioGPUDevice: NSObject,
         guard let command = VirtioGPU.Command(rawValue: header.type) else {
             print(String(format: "[gpu] unsupported command 0x%04x", header.type))
             write(VirtioGPU.responseHeader(.errorUnspecified, request: header), to: element)
+            return
+        }
+        guard VirtioGPU.command(command, isValidOn: queueIndex) else {
+            print("[gpu] command \(command) arrived on invalid queue \(queueIndex)")
+            write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
             return
         }
 
@@ -168,10 +187,16 @@ final class VirtioGPUDevice: NSObject,
 
         case .resourceUnref:
             let resourceID = request.littleEndianUInt32(at: 24)
-            if resources[resourceID]?.isRendererResource == true {
+            guard request.count >= 32, let resource = resources[resourceID] else {
+                response = VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
+                break
+            }
+            if resource.isRendererResource {
+                if resource.virglBacking != nil { renderer.detach(resourceID: resourceID) }
                 renderer.unrefResource(resourceID)
             }
             resources.removeValue(forKey: resourceID)
+            totalPixelBytes -= resource.pixels.count
             if scanoutResourceID == resourceID { scanoutResourceID = nil }
             response = VirtioGPU.responseHeader(.okNoData, request: header)
 
@@ -206,6 +231,10 @@ final class VirtioGPUDevice: NSObject,
             response = createContext(request, header: header)
 
         case .contextDestroy:
+            guard request.count >= 24, header.contextID != 0, contexts.remove(header.contextID) != nil else {
+                response = VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+                break
+            }
             renderer.destroyContext(id: header.contextID)
             response = VirtioGPU.responseHeader(.okNoData, request: header)
 
@@ -276,14 +305,16 @@ final class VirtioGPUDevice: NSObject,
         }
         let resourceID = request.littleEndianUInt32(at: 24)
         let format = request.littleEndianUInt32(at: 28)
-        let width = Int(request.littleEndianUInt32(at: 32))
-        let height = Int(request.littleEndianUInt32(at: 36))
-        guard resourceID != 0, width > 0, height > 0,
-              width <= 8192, height <= 8192,
-              width.multipliedReportingOverflow(by: height).overflow == false else {
+        let wireWidth = request.littleEndianUInt32(at: 32)
+        let wireHeight = request.littleEndianUInt32(at: 36)
+        guard resourceID != 0, resources[resourceID] == nil,
+              resources.count < VirtioGPU.Limits.maxResources,
+              let byteCount = VirtioGPU.pixelByteCount(width: wireWidth, height: wireHeight),
+              totalPixelBytes <= VirtioGPU.Limits.maxTotalPixelBytes - byteCount else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
-        let byteCount = width * height * 4
+        let width = Int(wireWidth)
+        let height = Int(wireHeight)
         var resource = Resource(
             id: resourceID,
             format: format,
@@ -300,6 +331,7 @@ final class VirtioGPUDevice: NSObject,
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
         resources[resourceID] = resource
+        totalPixelBytes += byteCount
         print("[stage2] create 2D resource \(resourceID): \(width)x\(height), format=\(format)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -311,7 +343,10 @@ final class VirtioGPUDevice: NSObject,
         let resourceID = request.littleEndianUInt32(at: 24)
         let width = request.littleEndianUInt32(at: 40)
         let height = request.littleEndianUInt32(at: 44)
-        guard resourceID != 0, width > 0, height > 0, width <= 8192, height <= 8192 else {
+        guard resourceID != 0, resources[resourceID] == nil,
+              resources.count < VirtioGPU.Limits.maxResources,
+              let byteCount = VirtioGPU.pixelByteCount(width: width, height: height),
+              totalPixelBytes <= VirtioGPU.Limits.maxTotalPixelBytes - byteCount else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let arguments = VirGLRenderer.ResourceArguments(
@@ -330,14 +365,13 @@ final class VirtioGPUDevice: NSObject,
         guard renderer.createResource(arguments) else {
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
-        let pixelCount = Int(width).multipliedReportingOverflow(by: Int(height))
-        let byteCount = pixelCount.overflow ? 0 : pixelCount.partialValue * 4
         resources[resourceID] = Resource(
             id: resourceID, format: arguments.format,
             width: Int(width), height: Int(height),
             isRendererResource: true,
-            pixels: byteCount > 0 ? Data(count: byteCount) : Data()
+            pixels: Data(count: byteCount)
         )
+        totalPixelBytes += byteCount
         print("[stage3] created 3D resource \(resourceID): \(width)x\(height)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -352,23 +386,28 @@ final class VirtioGPUDevice: NSObject,
         }
         let resourceID = request.littleEndianUInt32(at: 24)
         let entryCount = Int(request.littleEndianUInt32(at: 28))
-        guard var resource = resources[resourceID],
-              entryCount >= 0, entryCount <= 16_384,
-              request.count >= 32 + entryCount * 16 else {
+        guard var resource = resources[resourceID] else {
             return VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
+        }
+        guard resource.virglBacking == nil,
+              entryCount > 0, entryCount <= VirtioGPU.Limits.maxBackingEntries,
+              request.count >= 32 + entryCount * 16 else {
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
 
         var entries: [BackingEntry] = []
         entries.reserveCapacity(entryCount)
+        var totalBackingBytes = 0
         for index in 0..<entryCount {
             let offset = 32 + index * 16
             let address = request.littleEndianUInt64(at: offset)
             let length = Int(request.littleEndianUInt32(at: offset + 8))
-            guard length > 0,
+            guard length > 0, length <= VirtioGPU.Limits.maxBackingBytes - totalBackingBytes,
                   let mapping = device.guestMemoryMapping(atPhysicalAddress: address, length: length) else {
                 return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
             }
             entries.append(BackingEntry(mapping: mapping, length: length))
+            totalBackingBytes += length
         }
         resource.backing = entries
         let virglBacking = VirGLBacking(entries: entries)
@@ -382,7 +421,7 @@ final class VirtioGPUDevice: NSObject,
     }
 
     private func createContext(_ request: Data, header: VirtioGPU.Header) -> Data {
-        guard request.count >= 96, header.contextID != 0 else {
+        guard request.count >= 96, header.contextID != 0, !contexts.contains(header.contextID) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let nameLength = min(Int(request.littleEndianUInt32(at: 24)), 64)
@@ -391,6 +430,7 @@ final class VirtioGPUDevice: NSObject,
         guard renderer.createContext(id: header.contextID, name: name) else {
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
+        contexts.insert(header.contextID)
         print("[stage3] created VirGL context \(header.contextID): \(name)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -400,7 +440,7 @@ final class VirtioGPUDevice: NSObject,
         header: VirtioGPU.Header,
         attach: Bool
     ) -> Data {
-        guard request.count >= 32 else {
+        guard request.count >= 32, contexts.contains(header.contextID) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let resourceID = request.littleEndianUInt32(at: 24)
@@ -420,7 +460,9 @@ final class VirtioGPUDevice: NSObject,
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let byteCount = Int(request.littleEndianUInt32(at: 24))
-        guard byteCount > 0, byteCount.isMultiple(of: 4), request.count >= 32 + byteCount else {
+        guard contexts.contains(header.contextID),
+              byteCount > 0, byteCount <= VirtioGPU.Limits.maxSubmitBytes,
+              byteCount.isMultiple(of: 4), request.count >= 32 + byteCount else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let commands = Data(request[32..<(32 + byteCount)])
@@ -491,6 +533,14 @@ final class VirtioGPUDevice: NSObject,
         guard resources[resourceID] != nil else {
             return VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
         }
+        guard let resource = resources[resourceID],
+              VirtioGPU.rectIsContained(
+                VirtioGPU.Rect(request, at: 24),
+                resourceWidth: resource.width,
+                resourceHeight: resource.height
+              ) else {
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+        }
         scanoutResourceID = resourceID
         print("[stage2] scanout 0 now uses resource \(resourceID)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
@@ -507,6 +557,11 @@ final class VirtioGPUDevice: NSObject,
 
         if resource.isRendererResource, let backing = resource.virglBacking {
             let rect = VirtioGPU.Rect(request, at: 24)
+            guard VirtioGPU.rectIsContained(
+                rect, resourceWidth: resource.width, resourceHeight: resource.height
+            ) else {
+                return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+            }
             let box = vzvg_box(x: rect.x, y: rect.y, z: 0, w: rect.width, h: rect.height, d: 1)
             guard renderer.transfer(
                 resourceID: resourceID, contextID: 0, level: 0,
@@ -530,6 +585,13 @@ final class VirtioGPUDevice: NSObject,
         let resourceID = request.littleEndianUInt32(at: 40)
         guard scanoutResourceID == resourceID, var resource = resources[resourceID] else {
             return VirtioGPU.responseHeader(.okNoData, request: header)
+        }
+        guard VirtioGPU.rectIsContained(
+            VirtioGPU.Rect(request, at: 24),
+            resourceWidth: resource.width,
+            resourceHeight: resource.height
+        ) else {
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         if !borrowedScanoutResources.contains(resourceID),
            let texture = renderer.borrowScanoutTexture(resourceID: resourceID) {

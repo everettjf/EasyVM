@@ -8,6 +8,22 @@ enum VirtioGPU {
 
     static let eventDisplay: UInt32 = 1 << 0
 
+    enum Limits {
+        static let maxRequestBytes = 16 * 1024 * 1024
+        static let maxSubmitBytes = 8 * 1024 * 1024
+        static let maxDimension: UInt32 = 8_192
+        static let maxResources = 4_096
+        static let maxResourcePixelBytes = 256 * 1024 * 1024
+        static let maxTotalPixelBytes = 512 * 1024 * 1024
+        static let maxBackingEntries = 4_096
+        static let maxBackingBytes = 1024 * 1024 * 1024
+    }
+
+    enum Queue: UInt16 {
+        case control = 0
+        case cursor = 1
+    }
+
     enum Command: UInt32 {
         case getDisplayInfo = 0x0100
         case resourceCreate2D = 0x0101
@@ -45,6 +61,37 @@ enum VirtioGPU {
         case errorInvalidParameter = 0x1205
     }
 
+    static func command(_ command: Command, isValidOn queueIndex: UInt16) -> Bool {
+        switch Queue(rawValue: queueIndex) {
+        case .control:
+            return command != .updateCursor && command != .moveCursor
+        case .cursor:
+            return command == .updateCursor || command == .moveCursor
+        case nil:
+            return false
+        }
+    }
+
+    static func pixelByteCount(width: UInt32, height: UInt32) -> Int? {
+        guard width > 0, height > 0,
+              width <= Limits.maxDimension, height <= Limits.maxDimension else { return nil }
+        let pixels = UInt64(width) * UInt64(height)
+        let bytes = pixels * 4
+        guard bytes <= UInt64(Limits.maxResourcePixelBytes), bytes <= UInt64(Int.max) else { return nil }
+        return Int(bytes)
+    }
+
+    static func rectIsContained(
+        _ rect: Rect,
+        resourceWidth: Int,
+        resourceHeight: Int
+    ) -> Bool {
+        guard rect.width > 0, rect.height > 0, resourceWidth > 0, resourceHeight > 0 else { return false }
+        let right = UInt64(rect.x) + UInt64(rect.width)
+        let bottom = UInt64(rect.y) + UInt64(rect.height)
+        return right <= UInt64(resourceWidth) && bottom <= UInt64(resourceHeight)
+    }
+
     struct Header {
         let type: UInt32
         let flags: UInt32
@@ -68,11 +115,20 @@ enum VirtioGPU {
         let width: UInt32
         let height: UInt32
 
+        init(x: UInt32, y: UInt32, width: UInt32, height: UInt32) {
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+        }
+
         init(_ data: Data, at offset: Int) {
-            x = data.littleEndianUInt32(at: offset)
-            y = data.littleEndianUInt32(at: offset + 4)
-            width = data.littleEndianUInt32(at: offset + 8)
-            height = data.littleEndianUInt32(at: offset + 12)
+            self.init(
+                x: data.littleEndianUInt32(at: offset),
+                y: data.littleEndianUInt32(at: offset + 4),
+                width: data.littleEndianUInt32(at: offset + 8),
+                height: data.littleEndianUInt32(at: offset + 12)
+            )
         }
     }
 

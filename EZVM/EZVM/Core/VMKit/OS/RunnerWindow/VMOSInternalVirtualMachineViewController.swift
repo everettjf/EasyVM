@@ -139,6 +139,15 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             displayView.topAnchor.constraint(equalTo: view.topAnchor),
             displayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+        DispatchQueue.main.async { [weak self] in
+            self?.focusVirtualMachineDisplay()
+        }
+    }
+
+    func focusVirtualMachineDisplay() {
+        guard let displayView = graphicsBackend?.displayView else { return }
+        let focused = view.window?.makeFirstResponder(displayView) ?? false
+        EZVMLog.info("VM display first responder accepted=\(focused)")
     }
 
     private func installVirtualMachine(configuration: VZVirtualMachineConfiguration) {

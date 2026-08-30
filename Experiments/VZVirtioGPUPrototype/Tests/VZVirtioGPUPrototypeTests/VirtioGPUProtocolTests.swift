@@ -83,3 +83,35 @@ import Testing
     #expect(VirtioGPU.Command.submit3D.rawValue == 0x0207)
     #expect(VirtioGPU.Response.okCapset.rawValue == 0x1103)
 }
+
+@Test func controlAndCursorCommandsAreConfinedToTheirVirtqueues() {
+    #expect(VirtioGPU.command(.getDisplayInfo, isValidOn: 0))
+    #expect(VirtioGPU.command(.submit3D, isValidOn: 0))
+    #expect(!VirtioGPU.command(.updateCursor, isValidOn: 0))
+    #expect(!VirtioGPU.command(.getDisplayInfo, isValidOn: 1))
+    #expect(VirtioGPU.command(.updateCursor, isValidOn: 1))
+    #expect(VirtioGPU.command(.moveCursor, isValidOn: 1))
+    #expect(!VirtioGPU.command(.moveCursor, isValidOn: 2))
+}
+
+@Test func pixelAllocationUsesCheckedProductionLimits() {
+    #expect(VirtioGPU.pixelByteCount(width: 1, height: 1) == 4)
+    #expect(VirtioGPU.pixelByteCount(width: 8_192, height: 8_192) == 256 * 1024 * 1024)
+    #expect(VirtioGPU.pixelByteCount(width: 0, height: 1) == nil)
+    #expect(VirtioGPU.pixelByteCount(width: 8_193, height: 1) == nil)
+    #expect(VirtioGPU.pixelByteCount(width: UInt32.max, height: UInt32.max) == nil)
+}
+
+@Test func resourceRectValidationCannotOverflowOrEscapeTheResource() {
+    let full = VirtioGPU.Rect(x: 0, y: 0, width: 1280, height: 720)
+    let edge = VirtioGPU.Rect(x: 1279, y: 719, width: 1, height: 1)
+    let outside = VirtioGPU.Rect(x: 1279, y: 719, width: 2, height: 1)
+    let overflowing = VirtioGPU.Rect(x: UInt32.max, y: 0, width: 2, height: 1)
+    let empty = VirtioGPU.Rect(x: 0, y: 0, width: 0, height: 1)
+
+    #expect(VirtioGPU.rectIsContained(full, resourceWidth: 1280, resourceHeight: 720))
+    #expect(VirtioGPU.rectIsContained(edge, resourceWidth: 1280, resourceHeight: 720))
+    #expect(!VirtioGPU.rectIsContained(outside, resourceWidth: 1280, resourceHeight: 720))
+    #expect(!VirtioGPU.rectIsContained(overflowing, resourceWidth: 1280, resourceHeight: 720))
+    #expect(!VirtioGPU.rectIsContained(empty, resourceWidth: 1280, resourceHeight: 720))
+}
