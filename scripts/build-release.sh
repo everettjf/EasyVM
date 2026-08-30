@@ -46,6 +46,15 @@ xcodebuild \
   build
 
 app_path="$derived_data/Build/Products/Release/EZVM.app"
+(cd "$project_root" && "$project_root/scripts/build-virgl-runtime.sh")
+virgl_runtime_source="${EZVM_VIRGL_RUNTIME_SOURCE:-$project_root/.build/virgl-runtime}"
+virgl_runtime_destination="$app_path/Contents/Frameworks/VirGLRuntime"
+mkdir -p "$virgl_runtime_destination"
+ditto "$virgl_runtime_source" "$virgl_runtime_destination"
+"$project_root/scripts/verify-virgl-runtime.sh" "$virgl_runtime_destination"
+mkdir -p "$app_path/Contents/Resources/ThirdPartyLicenses"
+ditto "$project_root/THIRD_PARTY_NOTICES.md" "$app_path/Contents/Resources/THIRD_PARTY_NOTICES.md"
+ditto "$project_root/ThirdPartyLicenses" "$app_path/Contents/Resources/ThirdPartyLicenses"
 (cd "$project_root" && swift build -c release --product ezvm --disable-sandbox)
 cli_bin_dir="$(cd "$project_root" && swift build -c release --disable-sandbox --show-bin-path)"
 cli_path="$cli_bin_dir/ezvm"
@@ -64,6 +73,16 @@ else
   signing_options+=(--timestamp)
 fi
 
+virgl_signing_options=(--force --options runtime --sign "$signing_identity")
+if [[ "$signing_identity" == "-" ]]; then
+  virgl_signing_options+=(--timestamp=none)
+else
+  virgl_signing_options+=(--timestamp)
+fi
+for library in "$virgl_runtime_destination"/*.dylib; do
+  codesign "${virgl_signing_options[@]}" "$library"
+done
+"$project_root/scripts/verify-virgl-runtime.sh" "$virgl_runtime_destination"
 codesign "${signing_options[@]}" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 codesign --display --entitlements :- "$app_path"
@@ -71,6 +90,7 @@ codesign --display --entitlements :- "$app_path"
 # Fail before archiving if a restricted or accidental entitlement enters the
 # production target. Runtime launch and Gatekeeper checks run after notarization.
 "$project_root/scripts/verify-production-entitlements.sh" "$app_path"
+"$project_root/scripts/verify-virgl-runtime.sh" "$app_path"
 
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$output_dir/$archive_name"
 

@@ -152,7 +152,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // A headless runtime has no window hierarchy. Binding its machine to an
         // unattached VZVirtualMachineView makes automatic display negotiation
         // stall VM startup on recent macOS releases.
-        if HeadlessLaunchConfiguration.current == nil {
+        if HeadlessLaunchConfiguration.current?.showsWindow != false {
             graphicsBackend?.bind(virtualMachine: virtualMachine)
         }
     }

@@ -102,7 +102,7 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
 }
 
 @available(macOS 27.0, *)
-final class VMVirGLDisplayView: NSView {
+final class VMVirGLDisplayView: VZVirtualMachineView {
     private let metalLayer = CAMetalLayer()
     weak var runtime: EZVMVirGLRuntime?
     private var presentedFrames: UInt64 = 0
@@ -115,6 +115,7 @@ final class VMVirGLDisplayView: NSView {
         metalLayer.framebufferOnly = false
         metalLayer.backgroundColor = NSColor.black.cgColor
         layer = metalLayer
+        automaticallyReconfiguresDisplay = false
     }
 
     required init?(coder: NSCoder) { nil }
@@ -195,9 +196,12 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         }
     }
 
-    func bind(virtualMachine: VZVirtualMachine?) {}
+    func bind(virtualMachine: VZVirtualMachine?) {
+        virglView.virtualMachine = virtualMachine
+    }
 
     func shutdown() {
+        virglView.virtualMachine = nil
         virglView.runtime = nil
         runtime?.shutdown()
         runtime = nil

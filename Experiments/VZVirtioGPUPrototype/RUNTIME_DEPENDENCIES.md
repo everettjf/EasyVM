@@ -15,10 +15,22 @@ The runtime ABI currently requires exactly these arm64 files:
 | `libEGL.dylib` | ANGLE | BSD-3-Clause | EGL with the Metal backend |
 | `libGLESv2.dylib` | ANGLE | BSD-3-Clause | OpenGL ES implementation over Metal |
 
-Production builds must pin upstream commits in the future build script, copy
-the complete upstream license texts into the app's acknowledgements, rewrite
-install names to `@rpath`/`@loader_path`, sign every dylib with the app signing
-identity, and verify the final app with `codesign --verify --deep --strict`.
+Production packaging is implemented by `scripts/build-virgl-runtime.sh` and
+`scripts/verify-virgl-runtime.sh`. Exact archive hashes and build-recipe
+commits live in `scripts/virgl-runtime-pins.sh`. The runtime builder
+downloads only the three pinned archives, extracts exactly the four declared
+Mach-O members, rewrites their install identities, rejects non-arm64 or
+externally linked artifacts, and publishes the result atomically. The release
+builder embeds and signs every dylib before signing the outer app.
+
+The pinned bottles are a reproducible bootstrap supply chain, not permission
+to redistribute without attribution. A release must also ship the license
+texts and notices for virglrenderer, libepoxy, and ANGLE. Replacing the bottles
+with EZVM-built binaries from recorded upstream source commits is required
+before a public release because the pinned virglrenderer and ANGLE bottle
+recipes did not preserve their downloaded upstream revisions. The verifier and
+app packaging contract are deliberately independent of how those four inputs
+were produced.
 
 For local development only, set `EZVM_VIRGL_RUNTIME_DIRECTORY` to a directory
 containing all four files. There is deliberately no production fallback to a

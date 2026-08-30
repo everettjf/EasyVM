@@ -20,6 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var headlessController: VMOSInternalVirtualMachineViewController?
     private var headlessState: VMRuntimeState?
     private var headlessTimer: Timer?
+    private var headlessWindow: NSWindow?
     private var terminationSources: [DispatchSourceSignal] = []
     private var headlessStopRequested = false
     private var imageInstallStagingURL: URL?
@@ -290,8 +291,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startHeadless(_ launch: HeadlessLaunchConfiguration) {
-        NSApp.setActivationPolicy(.prohibited)
-        for window in NSApp.windows { window.orderOut(nil) }
+        if launch.showsWindow {
+            NSApp.setActivationPolicy(.regular)
+        } else {
+            NSApp.setActivationPolicy(.prohibited)
+            for window in NSApp.windows { window.orderOut(nil) }
+        }
         let state = VMRuntimeState()
         let controller = VMOSInternalVirtualMachineViewController()
         controller.rootPath = launch.machineURL
@@ -299,6 +304,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         state.controller = controller
         headlessState = state
         headlessController = controller
+        if launch.showsWindow {
+            let window = NSWindow(contentViewController: controller)
+            window.setContentSize(NSSize(width: 1280, height: 720))
+            window.center()
+            window.title = "EZVM VirGL Integration Test"
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            headlessWindow = window
+        }
         writeHeadlessState(launch, phase: "preparing", message: nil)
         _ = controller.view
         headlessTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
@@ -451,6 +465,7 @@ struct HeadlessLaunchConfiguration {
     let machineURL: URL
     let stateURL: URL
     let launchToken: String
+    let showsWindow: Bool
 
     static var current: HeadlessLaunchConfiguration? {
         let arguments = ProcessInfo.processInfo.arguments
@@ -461,7 +476,8 @@ struct HeadlessLaunchConfiguration {
         return HeadlessLaunchConfiguration(
             machineURL: URL(fileURLWithPath: arguments[marker + 1]).standardizedFileURL,
             stateURL: URL(fileURLWithPath: arguments[stateMarker + 1]).standardizedFileURL,
-            launchToken: arguments[tokenMarker + 1]
+            launchToken: arguments[tokenMarker + 1],
+            showsWindow: arguments.contains("--ezvm-show-window")
         )
     }
 }
