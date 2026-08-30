@@ -35,6 +35,20 @@ fi
 
 mkdir -p "$derived_data"
 
+if [[ -n "${EZVM_VIRGL_RUNTIME_SOURCE:-}" ]]; then
+  virgl_runtime_source="$EZVM_VIRGL_RUNTIME_SOURCE"
+  case "$virgl_runtime_source" in
+    /*) ;;
+    *) echo "EZVM_VIRGL_RUNTIME_SOURCE must be an absolute path" >&2; exit 67 ;;
+  esac
+  [[ -d "$virgl_runtime_source" && ! -L "$virgl_runtime_source" ]] || {
+    echo "invalid source-qualified VirGL runtime: $virgl_runtime_source" >&2
+    exit 67
+  }
+else
+  virgl_runtime_source="$project_root/.build/virgl-runtime-source"
+fi
+
 xcodebuild \
   -project "$project_root/EZVM/EZVM.xcodeproj" \
   -scheme EZVM \
@@ -46,8 +60,10 @@ xcodebuild \
   build
 
 app_path="$derived_data/Build/Products/Release/EZVM.app"
-(cd "$project_root" && "$project_root/scripts/build-virgl-runtime.sh")
-virgl_runtime_source="${EZVM_VIRGL_RUNTIME_SOURCE:-$project_root/.build/virgl-runtime}"
+if [[ -z "${EZVM_VIRGL_RUNTIME_SOURCE:-}" ]]; then
+  (cd "$project_root" && \
+    "$project_root/scripts/build-virgl-runtime-from-source.sh" "$virgl_runtime_source")
+fi
 virgl_runtime_destination="$app_path/Contents/Frameworks/VirGLRuntime"
 mkdir -p "$virgl_runtime_destination"
 ditto "$virgl_runtime_source" "$virgl_runtime_destination"
