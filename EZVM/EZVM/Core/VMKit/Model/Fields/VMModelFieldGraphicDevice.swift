@@ -220,6 +220,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     override func rightMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
     override func otherMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
     override func mouseDown(with event: NSEvent) {
+        restoreKeyboardFocus()
         guard pointerCaptured else {
             capturePointer()
             return
@@ -231,6 +232,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         sendButton(code: 272, pressed: false)
     }
     override func rightMouseDown(with event: NSEvent) {
+        restoreKeyboardFocus()
         guard pointerCaptured else {
             capturePointer()
             return
@@ -239,6 +241,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
     override func rightMouseUp(with event: NSEvent) { sendButton(code: 273, pressed: false) }
     override func otherMouseDown(with event: NSEvent) {
+        restoreKeyboardFocus()
         guard pointerCaptured else {
             capturePointer()
             return
@@ -290,10 +293,15 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains([.control, .option])
     }
 
+    private func restoreKeyboardFocus() {
+        guard window?.isKeyWindow == true else { return }
+        window?.makeFirstResponder(self)
+    }
+
     private func capturePointer() {
         guard !pointerCaptured, window?.isKeyWindow == true else { return }
         pointerCaptured = true
-        window?.makeFirstResponder(self)
+        restoreKeyboardFocus()
         NSCursor.hide()
         CGAssociateMouseAndMouseCursorPosition(boolean_t(0))
     }
