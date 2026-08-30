@@ -12,7 +12,10 @@ import Virtualization
 class VMOSRunnerForLinux : VMOSRunner {
     
     
-    func createConfiguration(model: VMModel) -> VMOSResult<VZVirtualMachineConfiguration, String> {
+    func createConfiguration(
+        model: VMModel,
+        graphicsBackend: (any VMGraphicsBackend)? = nil
+    ) -> VMOSResult<VZVirtualMachineConfiguration, String> {
         
         let virtualMachineConfiguration = VZVirtualMachineConfiguration()
 
@@ -41,7 +44,7 @@ class VMOSRunnerForLinux : VMOSRunner {
         }
         
         // graphicsDevices
-        let graphicsBackend = VMGraphicsBackendFactory.make()
+        let graphicsBackend = graphicsBackend ?? VMAppleGraphicsBackend()
         if case let .failure(error) = graphicsBackend.applyGraphics(
             from: model.config.graphicsDevices,
             to: virtualMachineConfiguration

@@ -13,7 +13,10 @@ import Virtualization
 class VMOSRunnerForMacOS : VMOSRunner {
     
     
-    func createConfiguration(model: VMModel) -> VMOSResult<VZVirtualMachineConfiguration, String> {
+    func createConfiguration(
+        model: VMModel,
+        graphicsBackend: (any VMGraphicsBackend)? = nil
+    ) -> VMOSResult<VZVirtualMachineConfiguration, String> {
         
         let virtualMachineConfiguration = VZVirtualMachineConfiguration()
 

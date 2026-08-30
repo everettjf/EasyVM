@@ -6,6 +6,7 @@ let package = Package(
     name: "VZVirtioGPUPrototype",
     platforms: [.macOS("27.0")],
     products: [
+        .library(name: "EZVMVirGLRuntime", targets: ["EZVMVirGLRuntime"]),
         .executable(name: "vz-virtio-gpu-prototype", targets: ["VZVirtioGPUPrototype"]),
     ],
     targets: [
@@ -13,13 +14,19 @@ let package = Package(
             name: "CVirGLBridge",
             linkerSettings: [.linkedLibrary("dl")]
         ),
+        .target(
+            name: "EZVMVirGLRuntime",
+            dependencies: ["CVirGLBridge"],
+            path: "Sources/VZVirtioGPUPrototype"
+        ),
         .executableTarget(
             name: "VZVirtioGPUPrototype",
-            dependencies: ["CVirGLBridge"]
+            dependencies: ["EZVMVirGLRuntime"],
+            path: "Sources/VZVirtioGPUPrototypeRunner"
         ),
         .testTarget(
             name: "VZVirtioGPUPrototypeTests",
-            dependencies: ["VZVirtioGPUPrototype"]
+            dependencies: ["EZVMVirGLRuntime"]
         ),
     ],
     swiftLanguageModes: [.v5]

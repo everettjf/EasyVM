@@ -5,8 +5,14 @@
 //  Created by everettjf on 2022/8/24.
 //
 
+import AppKit
 import Foundation
+import Metal
+import QuartzCore
 import Virtualization
+#if arch(arm64)
+import EZVMVirGLRuntime
+#endif
 
 #if arch(arm64)
 struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible {
@@ -57,14 +63,26 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
 
 protocol VMGraphicsBackend {
     var kind: VMGraphicsBackendKind { get }
+    var displayView: NSView { get }
     func applyGraphics(
         from devices: [VMModelFieldGraphicDevice],
         to configuration: VZVirtualMachineConfiguration
     ) -> VMOSResultVoid
+    func bind(virtualMachine: VZVirtualMachine?)
+    func shutdown()
 }
 
-struct VMAppleGraphicsBackend: VMGraphicsBackend {
+final class VMAppleGraphicsBackend: VMGraphicsBackend {
     let kind = VMGraphicsBackendKind.appleVirtio
+    let virtualMachineView: VZVirtualMachineView
+    var displayView: NSView { virtualMachineView }
+
+    init() {
+        virtualMachineView = VZVirtualMachineView()
+        if #available(macOS 14.0, *) {
+            virtualMachineView.automaticallyReconfiguresDisplay = true
+        }
+    }
 
     func applyGraphics(
         from devices: [VMModelFieldGraphicDevice],
@@ -73,12 +91,123 @@ struct VMAppleGraphicsBackend: VMGraphicsBackend {
         configuration.graphicsDevices = devices.map { $0.createConfiguration() }
         return .success
     }
+
+    func bind(virtualMachine: VZVirtualMachine?) {
+        virtualMachineView.virtualMachine = virtualMachine
+    }
+
+    func shutdown() {
+        virtualMachineView.virtualMachine = nil
+    }
+}
+
+@available(macOS 27.0, *)
+final class VMVirGLDisplayView: NSView {
+    private let metalLayer = CAMetalLayer()
+    weak var runtime: EZVMVirGLRuntime?
+    private var presentedFrames: UInt64 = 0
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        metalLayer.device = MTLCreateSystemDefaultDevice()
+        metalLayer.pixelFormat = .bgra8Unorm
+        metalLayer.framebufferOnly = false
+        metalLayer.backgroundColor = NSColor.black.cgColor
+        layer = metalLayer
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        updateDrawableGeometry()
+    }
+
+    func present(resourceID: UInt32) {
+        updateDrawableGeometry()
+        guard let runtime, let drawable = metalLayer.nextDrawable() else { return }
+        do {
+            guard try runtime.present(resourceID: resourceID, into: drawable.texture) else {
+                EZVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
+                return
+            }
+            drawable.present()
+            presentedFrames &+= 1
+            if presentedFrames == 1 || presentedFrames.isMultiple(of: 600) {
+                EZVMLog.info("VirGL zero-copy frames presented: \(presentedFrames)")
+            }
+        } catch {
+            EZVMLog.error("VirGL presenter stopped: \(error.localizedDescription)")
+        }
+    }
+
+    private func updateDrawableGeometry() {
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        metalLayer.frame = bounds
+        metalLayer.contentsScale = scale
+        metalLayer.drawableSize = CGSize(
+            width: max(1, bounds.width * scale),
+            height: max(1, bounds.height * scale)
+        )
+    }
+}
+
+@available(macOS 27.0, *)
+final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
+    let kind = VMGraphicsBackendKind.customVirGL
+    let displayView: NSView
+    private let virglView: VMVirGLDisplayView
+    private var runtime: EZVMVirGLRuntime?
+
+    init(devices: [VMModelFieldGraphicDevice]) throws {
+        let device = devices.first ?? .default(osType: .linux)
+        let dependencies = VirGLRuntimeDependencies.resolve()
+        try dependencies.validate()
+        let view = VMVirGLDisplayView(frame: .zero)
+        virglView = view
+        displayView = view
+        let runtime = try EZVMVirGLRuntime(
+            configuration: .init(
+                width: UInt32(max(1, device.width)),
+                height: UInt32(max(1, device.height)),
+                rendererLibraryURL: dependencies.virglRendererURL
+            ),
+            onScanout: { [weak view] resourceID in
+                view?.present(resourceID: resourceID)
+            }
+        )
+        self.runtime = runtime
+        view.runtime = runtime
+    }
+
+    func applyGraphics(
+        from devices: [VMModelFieldGraphicDevice],
+        to configuration: VZVirtualMachineConfiguration
+    ) -> VMOSResultVoid {
+        guard let runtime else { return .failure("The VirGL runtime stopped before VM configuration.") }
+        do {
+            configuration.graphicsDevices = []
+            configuration.customVirtioDevices.append(try runtime.makeDeviceConfiguration())
+            return .success
+        } catch {
+            return .failure("Could not configure the Custom VirGL GPU: \(error.localizedDescription)")
+        }
+    }
+
+    func bind(virtualMachine: VZVirtualMachine?) {}
+
+    func shutdown() {
+        virglView.runtime = nil
+        runtime?.shutdown()
+        runtime = nil
+    }
 }
 
 enum VMGraphicsBackendFactory {
     // This flips to true only when the production Custom Virtio GPU runtime,
     // presenter, and lifecycle implementation are linked into the app target.
-    static let customBackendImplemented = false
+    static let customBackendImplemented = true
 
     static func selection(forLinux: Bool = true) -> VMGraphicsBackendSelection {
         VMGraphicsBackendSelection.resolve(
@@ -91,7 +220,10 @@ enum VMGraphicsBackendFactory {
         )
     }
 
-    static func make(forLinux: Bool = true) -> any VMGraphicsBackend {
+    static func make(
+        forLinux: Bool = true,
+        devices: [VMModelFieldGraphicDevice]
+    ) -> any VMGraphicsBackend {
         let selection = selection(forLinux: forLinux)
         if let fallbackReason = selection.fallbackReason {
             EZVMLog.info("Graphics backend fallback: \(fallbackReason)")
@@ -102,7 +234,17 @@ enum VMGraphicsBackendFactory {
         case .appleVirtio:
             return VMAppleGraphicsBackend()
         case .customVirGL:
-            preconditionFailure("Custom VirGL was selected without a linked backend")
+            if #available(macOS 27.0, *) {
+                do {
+                    return try VMCustomVirGLGraphicsBackend(devices: devices)
+                } catch {
+                    EZVMLog.error(
+                        "Custom VirGL initialization failed; using Apple Virtio: \(error.localizedDescription)"
+                    )
+                    return VMAppleGraphicsBackend()
+                }
+            }
+            return VMAppleGraphicsBackend()
         }
     }
 }

@@ -20,7 +20,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     weak var runtimeState: VMRuntimeState?
     
     // internal
-    private var virtualMachineView: VZVirtualMachineView!
+    private var graphicsBackend: (any VMGraphicsBackend)?
     private var virtualMachine: VZVirtualMachine!
     private var virtualMachineConfiguration: VZVirtualMachineConfiguration?
     private var configuredMemorySize: UInt64 = 0
@@ -49,20 +49,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         super.viewDidLoad()
         // Do view setup here.
         
-        virtualMachineView = VZVirtualMachineView()
-        virtualMachineView.translatesAutoresizingMaskIntoConstraints = false
-        if #available(macOS 14.0, *) {
-            virtualMachineView.automaticallyReconfiguresDisplay = true
-        }
-        view.addSubview(virtualMachineView)
-        
-        NSLayoutConstraint.activate([
-            virtualMachineView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            virtualMachineView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            virtualMachineView.topAnchor.constraint(equalTo: view.topAnchor),
-            virtualMachineView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-
         DispatchQueue.main.async {
             self.startMachine()
         }
@@ -116,8 +102,17 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         
         let runner = VMOSRunnerFactory.getRunner(model.config.type)
+        let graphicsBackend = VMGraphicsBackendFactory.make(
+            forLinux: model.config.type == .linux,
+            devices: model.config.graphicsDevices
+        )
+        self.graphicsBackend = graphicsBackend
+        installDisplayView(graphicsBackend.displayView)
         
-        let virtualMachineConfigurationResult = runner.createConfiguration(model: model)
+        let virtualMachineConfigurationResult = runner.createConfiguration(
+            model: model,
+            graphicsBackend: graphicsBackend
+        )
         if case let .failure(error) = virtualMachineConfigurationResult {
             fail("Could not create the virtual machine configuration: \(error)")
             return
@@ -134,9 +129,21 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         startConfiguredMachine(rootPath: rootPath, model: model)
     }
 
+    private func installDisplayView(_ displayView: NSView) {
+        view.subviews.forEach { $0.removeFromSuperview() }
+        displayView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(displayView)
+        NSLayoutConstraint.activate([
+            displayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            displayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            displayView.topAnchor.constraint(equalTo: view.topAnchor),
+            displayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+    }
+
     private func installVirtualMachine(configuration: VZVirtualMachineConfiguration) {
         virtualMachine?.delegate = nil
-        virtualMachineView?.virtualMachine = nil
+        graphicsBackend?.bind(virtualMachine: nil)
         virtualMachine = VZVirtualMachine(configuration: configuration)
         // This controller owns the complete runtime lifecycle. Routing delegate
         // callbacks elsewhere would clear the registry without transitioning
@@ -146,7 +153,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // unattached VZVirtualMachineView makes automatic display negotiation
         // stall VM startup on recent macOS releases.
         if HeadlessLaunchConfiguration.current == nil {
-            virtualMachineView.virtualMachine = virtualMachine
+            graphicsBackend?.bind(virtualMachine: virtualMachine)
         }
     }
 
@@ -177,7 +184,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             let backup = try VMEFIVariableStoreRecovery.replaceRejectedStore(at: model.efiVariableStoreURL)
             EZVMLog.info("Rejected EFI variable store was replaced; backup: \(backup?.path ?? "none")")
             let runner = VMOSRunnerFactory.getRunner(model.config.type)
-            guard case let .success(configuration) = runner.createConfiguration(model: model) else {
+            guard case let .success(configuration) = runner.createConfiguration(
+                model: model,
+                graphicsBackend: graphicsBackend
+            ) else {
                 fail("Could not rebuild the virtual machine after repairing its EFI variable store.")
                 return true
             }
@@ -635,7 +645,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         stopGuestAgent()
         screenshotTimer?.invalidate()
         screenshotTimer = nil
-        virtualMachineView?.virtualMachine = nil
+        graphicsBackend?.bind(virtualMachine: nil)
+        graphicsBackend?.shutdown()
+        graphicsBackend = nil
         virtualMachine?.delegate = nil
         virtualMachine = nil
     }
@@ -655,6 +667,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func fail(_ message: String) {
         stopGuestAgent()
+        releaseVirtualMachineAfterStop()
         runtimeState?.update(.failed(message))
         releaseRunLease()
         if let rootPath, let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
@@ -786,7 +799,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         guard UserDefaults.standard.bool(forKey: VMThumbnailPreferences.screenCaptureEnabledKey) else { return }
         guard synchronously || !screenshotCaptureInProgress else { return }
         guard allowReplacement || !hasMeaningfulThumbnail() else { return }
-        guard let rootPath, let view = virtualMachineView, let window = view.window else { return }
+        guard let rootPath, let view = graphicsBackend?.displayView, let window = view.window else { return }
         let viewRect = view.convert(view.bounds, to: nil)
         guard viewRect.width > 1, viewRect.height > 1 else { return }
 
@@ -880,7 +893,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     
     public func guestDidStop(_ virtualMachine: VZVirtualMachine) {
-        stopGuestAgent()
+        releaseVirtualMachineAfterStop()
         runtimeState?.update(.stopped)
         releaseRunLease()
     }

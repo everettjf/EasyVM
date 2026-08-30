@@ -10,8 +10,10 @@ import Virtualization
 
 #if arch(arm64)
 protocol VMOSRunner {
-    
-    func createConfiguration(model: VMModel) -> VMOSResult<VZVirtualMachineConfiguration, String>
+    func createConfiguration(
+        model: VMModel,
+        graphicsBackend: (any VMGraphicsBackend)?
+    ) -> VMOSResult<VZVirtualMachineConfiguration, String>
 }
 
 

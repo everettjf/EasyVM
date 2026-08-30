@@ -1,6 +1,17 @@
 import Foundation
 import Testing
-@testable import VZVirtioGPUPrototype
+@testable import EZVMVirGLRuntime
+
+@Test func runtimeDependencyResolverUsesExplicitDevelopmentOverride() {
+    let dependencies = VirGLRuntimeDependencies.resolve(
+        environment: [VirGLRuntimeDependencies.environmentOverrideKey: "/tmp/ezvm-virgl-test"]
+    )
+    #expect(dependencies.directoryURL.path == "/tmp/ezvm-virgl-test")
+    #expect(dependencies.virglRendererURL.lastPathComponent == "libvirglrenderer.1.dylib")
+    #expect(dependencies.epoxyURL.lastPathComponent == "libepoxy.0.dylib")
+    #expect(dependencies.eglURL.lastPathComponent == "libEGL.dylib")
+    #expect(dependencies.glesURL.lastPathComponent == "libGLESv2.dylib")
+}
 
 @Test func rendererExecutorKeepsWorkOnOneThreadAndSupportsReentrancy() {
     let executor = RendererExecutor()

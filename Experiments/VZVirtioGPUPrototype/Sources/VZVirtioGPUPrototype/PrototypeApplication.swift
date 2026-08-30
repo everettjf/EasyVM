@@ -202,16 +202,18 @@ struct Arguments {
     }
 }
 
-if #available(macOS 27.0, *) {
-    MainActor.assumeIsolated {
-        let application = NSApplication.shared
-        let delegate = PrototypeApp()
-        application.delegate = delegate
-        application.setActivationPolicy(.regular)
-        application.activate(ignoringOtherApps: true)
-        application.run()
+public func runVZVirtioGPUPrototype() {
+    if #available(macOS 27.0, *) {
+        MainActor.assumeIsolated {
+            let application = NSApplication.shared
+            let delegate = PrototypeApp()
+            application.delegate = delegate
+            application.setActivationPolicy(.regular)
+            application.activate(ignoringOtherApps: true)
+            application.run()
+        }
+    } else {
+        fputs("This experiment requires macOS 27 or later.\n", stderr)
+        exit(1)
     }
-} else {
-    fputs("This experiment requires macOS 27 or later.\n", stderr)
-    exit(1)
 }

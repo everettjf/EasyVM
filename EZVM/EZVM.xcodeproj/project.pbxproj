@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E7A100012A00000000000001 /* EZVMVirGLRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = E7A100032A00000000000001 /* EZVMVirGLRuntime */; };
 		D1196EA128E5E2A300CCC04D /* VMConfigurationViewStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA028E5E2A300CCC04D /* VMConfigurationViewStateObject.swift */; };
 		D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA228E5E2BE00CCC04D /* VMConfigurationCPUView.swift */; };
 		D1196EA528E5E2D600CCC04D /* VMConfigurationMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA428E5E2D600CCC04D /* VMConfigurationMemoryView.swift */; };
@@ -256,6 +257,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A100012A00000000000001 /* EZVMVirGLRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -629,6 +631,9 @@
 			dependencies = (
 			);
 			name = EZVM;
+			packageProductDependencies = (
+				E7A100032A00000000000001 /* EZVMVirGLRuntime */,
+			);
 			productName = EZVM;
 			productReference = F2C5DC9E2866F7C800B2F41F /* EZVM.app */;
 			productType = "com.apple.product-type.application";
@@ -658,6 +663,9 @@
 			);
 			mainGroup = F2C5DC952866F7C800B2F41F;
 			productRefGroup = F2C5DC9F2866F7C800B2F41F /* Products */;
+			packageReferences = (
+				E7A100022A00000000000001 /* XCLocalSwiftPackageReference "../Experiments/VZVirtioGPUPrototype" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -666,6 +674,21 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		E7A100022A00000000000001 /* XCLocalSwiftPackageReference "../Experiments/VZVirtioGPUPrototype" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Experiments/VZVirtioGPUPrototype;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E7A100032A00000000000001 /* EZVMVirGLRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E7A100022A00000000000001 /* XCLocalSwiftPackageReference "../Experiments/VZVirtioGPUPrototype" */;
+			productName = EZVMVirGLRuntime;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXResourcesBuildPhase section */
 		D1CCB21C290DB92D00B1F563 /* Resources */ = {
@@ -964,7 +987,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1018,7 +1041,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
