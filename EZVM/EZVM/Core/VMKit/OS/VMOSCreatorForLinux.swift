@@ -206,7 +206,9 @@ final class VMOSCreatorForLinux: VMOSCreator {
 
         let spiceAgentPort = VZVirtioConsolePortConfiguration()
         spiceAgentPort.name = VZSpiceAgentPortAttachment.spiceAgentPortName
-        spiceAgentPort.attachment = VZSpiceAgentPortAttachment()
+        let attachment = VZSpiceAgentPortAttachment()
+        attachment.sharesClipboard = true
+        spiceAgentPort.attachment = attachment
         consoleDevice.ports[0] = spiceAgentPort
 
         return consoleDevice

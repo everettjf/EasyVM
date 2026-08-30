@@ -77,7 +77,7 @@ evidence that a restricted entitlement is distributable.
 | Virtio socket device | Stable | Linux configurations expose it for the authenticated EZVM guest agent. | Keep protocol compatibility covered by Swift/Go vectors. |
 | Serial port terminal | Planned | Framework support exists; EZVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
-| Host/guest clipboard | Partial | Spice attachment exists; success depends on a guest agent. | Detect `spice-vdagent`, expose status, and test both directions. |
+| Host/guest clipboard | In progress | EZVM explicitly enables the SPICE clipboard channel; the Omarchy image restores `spice-vdagent` and its desktop-session integration. | Verify bidirectional Unicode and large-text copy in a built image. |
 | Physical USB passthrough | Restricted | Not included in EZVM 1.0.0. | Requires macOS 27 Accessory Access and an approved entitlement. |
 | USB hot-plug management | Restricted | Not present after USB passthrough removal. | Revisit only with the same approved distribution path. |
 | Custom Virtio devices | Planned | No production device implementation or no-op setting is exposed. | Require a concrete guest-driver use case before building one. |
