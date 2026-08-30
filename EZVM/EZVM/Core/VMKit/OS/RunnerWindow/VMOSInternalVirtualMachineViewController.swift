@@ -37,6 +37,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var releaseSmokeUploadURL: URL?
     private var releaseSmokeDownloadURL: URL?
     private var releaseSmokeGuestPath: String?
+    private var releaseSmokeInputVerificationStarted = false
+    private var releaseSmokeInputVerified = false
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
     
@@ -339,7 +341,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         runtimeState?.update(.running)
         markMachineRunning()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
-            if smokeTest.requireGuestAgent || smokeTest.requireKVM {
+            if smokeTest.requireGuestAgent || smokeTest.requireGuestInput || smokeTest.requireKVM {
                 startGuestAgent(model: model, releaseSmoke: smokeTest)
                 startReleaseGuestAgentSmokeTest(smokeTest)
             } else {
@@ -374,6 +376,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         releaseSmokeGuestPath = "/tmp/ezvm-agent-integration-\(token)"
         releaseSmokeDeadline = Date().addingTimeInterval(75)
         releaseSmokeStage = 0
+        releaseSmokeInputVerificationStarted = false
+        releaseSmokeInputVerified = false
         releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             self?.advanceReleaseGuestAgentSmokeTest(configuration)
         }
@@ -402,6 +406,27 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             guard case .ready(let status) = runtimeState.guestAgentState else { return }
             guard status.supportsFileTransfer else {
                 failReleaseSmokeTest("Guest Agent does not advertise file-transfer-v1", configuration)
+                return
+            }
+            if configuration.requireGuestInput, !status.supportsGuestInput {
+                failReleaseSmokeTest("Guest Agent does not advertise input-uinput-v1", configuration)
+                return
+            }
+            if configuration.requireGuestInput, !releaseSmokeInputVerified {
+                guard !releaseSmokeInputVerificationStarted else { return }
+                releaseSmokeInputVerificationStarted = true
+                Task { [weak self] in
+                    guard let self, let guestAgentClient = self.guestAgentClient else { return }
+                    do {
+                        try await guestAgentClient.verifyInputInjection()
+                        self.releaseSmokeInputVerified = true
+                    } catch {
+                        self.failReleaseSmokeTest(
+                            "Guest Agent could not inject a no-op uinput event: \(error.localizedDescription)",
+                            configuration
+                        )
+                    }
+                }
                 return
             }
             if configuration.requireKVM {
@@ -476,6 +501,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         releaseSmokeUploadURL = nil
         releaseSmokeDownloadURL = nil
         releaseSmokePayload = nil
+        releaseSmokeInputVerificationStarted = false
+        releaseSmokeInputVerified = false
     }
 
     private func finishReleaseSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {

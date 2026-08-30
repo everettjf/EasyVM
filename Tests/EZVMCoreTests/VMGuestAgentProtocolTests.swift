@@ -59,7 +59,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let payload = try JSONEncoder().encode(VMGuestAgentStatus(
             agentVersion: "1.0", operatingSystem: "Alpine Linux", kernelVersion: "6.12",
             hostName: "ezvm", addresses: ["192.168.64.2"], bootID: "boot-a", uptimeSeconds: 12,
-            capabilities: ["file-transfer-v1", "ssh-addresses-v1"]
+            capabilities: ["file-transfer-v1", "ssh-addresses-v1", "input-uinput-v1"]
         ))
         let envelope = try sender.makeEnvelope(sessionID: sessionID, sequence: 1, requestID: "request-1", operation: .status, payload: payload)
         try receiver.verifyEnvelope(envelope, sessionID: sessionID)
@@ -96,7 +96,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let status = VMGuestAgentStatus(
             agentVersion: "1.2.3", operatingSystem: "Ubuntu 26.04", kernelVersion: "7.0",
             hostName: "builder", addresses: ["10.0.2.15", "fd00::15"], bootID: "abc", uptimeSeconds: 99,
-            capabilities: ["file-transfer-v1", "ssh-addresses-v1"]
+            capabilities: ["file-transfer-v1", "ssh-addresses-v1", "input-uinput-v1"]
         )
         XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentStatus.self, from: JSONEncoder().encode(status)), status)
         XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [
@@ -110,8 +110,10 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertNil(legacy.capabilities)
         XCTAssertFalse(legacy.supportsSSH)
         XCTAssertFalse(legacy.supportsFileTransfer)
+        XCTAssertFalse(legacy.supportsGuestInput)
         XCTAssertTrue(status.supportsSSH)
         XCTAssertTrue(status.supportsFileTransfer)
+        XCTAssertTrue(status.supportsGuestInput)
     }
 
     func testFrameBufferHandlesPartialAndCoalescedReads() throws {

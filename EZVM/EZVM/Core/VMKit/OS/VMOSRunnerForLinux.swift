@@ -35,12 +35,16 @@ class VMOSRunnerForLinux : VMOSRunner {
         virtualMachineConfiguration.memorySize = model.config.memory.size
         
         // bootLoader
-        let bootLoaderResult = createBootLoader(model: model)
-        switch bootLoaderResult {
-        case .failure(let error):
-            return .failure(error)
-        case .success(let bootLoader):
-            virtualMachineConfiguration.bootLoader = bootLoader
+        if let directBoot = createDiagnosticDirectBootLoader() {
+            virtualMachineConfiguration.bootLoader = directBoot
+        } else {
+            let bootLoaderResult = createBootLoader(model: model)
+            switch bootLoaderResult {
+            case .failure(let error):
+                return .failure(error)
+            case .success(let bootLoader):
+                virtualMachineConfiguration.bootLoader = bootLoader
+            }
         }
         
         // graphicsDevices
@@ -104,6 +108,25 @@ class VMOSRunnerForLinux : VMOSRunner {
         
         return .success(virtualMachineConfiguration)
         
+    }
+
+    /// A deliberately explicit local-test escape hatch for validating kernels,
+    /// initramfs changes, and guest drivers in the complete EZVM runtime. It is
+    /// ignored by normal GUI launches and never changes a machine's config.
+    private func createDiagnosticDirectBootLoader() -> VZLinuxBootLoader? {
+        let process = ProcessInfo.processInfo
+        guard process.arguments.contains("--ezvm-headless") || VMReleaseSmokeTest.configuration() != nil,
+              let kernelPath = process.environment["EZVM_EXPERIMENTAL_LINUX_KERNEL"],
+              let commandLine = process.environment["EZVM_EXPERIMENTAL_LINUX_COMMAND_LINE"],
+              !kernelPath.isEmpty, !commandLine.isEmpty else { return nil }
+
+        let bootLoader = VZLinuxBootLoader(kernelURL: URL(fileURLWithPath: kernelPath))
+        if let initrdPath = process.environment["EZVM_EXPERIMENTAL_LINUX_INITRD"],
+           !initrdPath.isEmpty {
+            bootLoader.initialRamdiskURL = URL(fileURLWithPath: initrdPath)
+        }
+        bootLoader.commandLine = commandLine
+        return bootLoader
     }
     
     

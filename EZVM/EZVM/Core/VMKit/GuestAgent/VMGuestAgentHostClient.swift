@@ -31,7 +31,7 @@ private enum VMGuestAgentClientError: LocalizedError {
 @MainActor
 final class VMGuestAgentHostClient {
     private struct PendingRequest {
-        let continuation: CheckedContinuation<VMGuestAgentTransferResult, Error>
+        let continuation: CheckedContinuation<Data, Error>
         let timeout: Task<Void, Never>
     }
 
@@ -104,6 +104,28 @@ final class VMGuestAgentHostClient {
             )
         } catch {
             disconnected("Could not send guest input: \(error.localizedDescription)")
+        }
+    }
+
+    func verifyInputInjection() async throws {
+        guard capabilities.contains("input-uinput-v1") else {
+            throw NSError(
+                domain: "EZVMGuestInput", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Guest Agent does not advertise input-uinput-v1."]
+            )
+        }
+        // A zero-distance relative event is intentionally invisible to the
+        // desktop while still proving that the Agent can write a complete
+        // event batch to the real /dev/uinput device.
+        let result: VMGuestAgentInputResult = try await request(.input, payload: VMGuestAgentInputBatch(events: [
+            VMGuestAgentInputEvent(type: 2, code: 0, value: 0),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ]))
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMGuestInput", code: 2,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
         }
     }
 
@@ -259,12 +281,7 @@ final class VMGuestAgentHostClient {
         }
         guard let pending = pendingRequests.removeValue(forKey: envelope.requestID) else { return }
         pending.timeout.cancel()
-        do {
-            let result = try JSONDecoder().decode(VMGuestAgentTransferResult.self, from: envelope.payload)
-            pending.continuation.resume(returning: result)
-        } catch {
-            pending.continuation.resume(throwing: error)
-        }
+        pending.continuation.resume(returning: envelope.payload)
     }
 
     private func heartbeatTick(now: Date = Date()) {
@@ -310,11 +327,13 @@ final class VMGuestAgentHostClient {
         DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: task)
     }
 
-    private func request<T: Encodable>(_ operation: VMGuestAgentOperation, payload value: T) async throws -> VMGuestAgentTransferResult {
+    private func request<T: Encodable, Response: Decodable>(
+        _ operation: VMGuestAgentOperation, payload value: T
+    ) async throws -> Response {
         guard let sessionID else { throw VMGuestAgentClientError.disconnected }
         let payload = try JSONEncoder().encode(value)
         let requestID = UUID().uuidString
-        return try await withCheckedThrowingContinuation { continuation in
+        let responseData: Data = try await withCheckedThrowingContinuation { continuation in
             let timeout = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled else { return }
@@ -329,6 +348,7 @@ final class VMGuestAgentHostClient {
                 continuation.resume(throwing: error)
             }
         }
+        return try JSONDecoder().decode(Response.self, from: responseData)
     }
 
     private func expireRequest(_ requestID: String) {
@@ -369,7 +389,7 @@ final class VMGuestAgentHostClient {
                 try VMGuestAgentLocalFile.metadata(at: localURL)
             }.value
             try Task.checkCancellation()
-            var result = try await request(.uploadStart, payload: VMGuestAgentUploadStart(
+            var result: VMGuestAgentTransferResult = try await request(.uploadStart, payload: VMGuestAgentUploadStart(
                 transferID: transferID, destinationPath: destinationPath, totalBytes: metadata.size,
                 sha256: metadata.sha256, overwrite: overwrite
             ))
@@ -411,7 +431,7 @@ final class VMGuestAgentHostClient {
         var transaction: VMGuestAgentDownloadTransaction?
         do {
             try VMGuestAgentTransferValidator.validate(path: sourcePath)
-            var result = try await request(.downloadInfo, payload: VMGuestAgentDownloadInfoRequest(
+            var result: VMGuestAgentTransferResult = try await request(.downloadInfo, payload: VMGuestAgentDownloadInfoRequest(
                 transferID: transferID, sourcePath: sourcePath
             ))
             try requireSuccess(result)

@@ -21,6 +21,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertEqual(configuration.resultPath.path, "/tmp/result.txt")
         XCTAssertEqual(configuration.processIDPath?.path, "/tmp/pid.txt")
         XCTAssertFalse(configuration.requireGuestAgent)
+        XCTAssertFalse(configuration.requireGuestInput)
         XCTAssertFalse(configuration.requireKVM)
         XCTAssertNil(configuration.guestAgentEnrollmentURL)
     }
@@ -30,10 +31,12 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.vmPathEnvironmentKey: "/tmp/smoke.ezvm",
             VMReleaseSmokeTest.resultPathEnvironmentKey: "/tmp/result.txt",
             VMReleaseSmokeTest.requireGuestAgentEnvironmentKey: "1",
+            VMReleaseSmokeTest.requireGuestInputEnvironmentKey: "1",
             VMReleaseSmokeTest.requireKVMEnvironmentKey: "1",
             VMReleaseSmokeTest.guestAgentEnrollmentEnvironmentKey: "/tmp/agent.json",
         ]))
         XCTAssertTrue(configuration.requireGuestAgent)
+        XCTAssertTrue(configuration.requireGuestInput)
         XCTAssertTrue(configuration.requireKVM)
         XCTAssertEqual(configuration.guestAgentEnrollmentURL?.path, "/tmp/agent.json")
     }

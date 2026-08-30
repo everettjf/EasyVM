@@ -70,6 +70,20 @@ rootfs and direct-boots its bundled kernel and initramfs with
 ./run-with-try-omarchy-rootfs.sh
 ```
 
+For local integration diagnostics, the full EZVM app can direct-boot a Linux
+kernel and optional initramfs without changing the VM bundle configuration.
+This path is accepted only by a `--ezvm-headless` launch or an explicitly
+configured release-smoke launch, and requires all of these environment values:
+
+- `EZVM_EXPERIMENTAL_LINUX_KERNEL`
+- `EZVM_EXPERIMENTAL_LINUX_INITRD` (optional)
+- `EZVM_EXPERIMENTAL_LINUX_COMMAND_LINE`
+
+Setting `EZVM_RELEASE_REQUIRE_GUEST_INPUT=1` on a Guest Agent smoke launch adds
+two gates before the existing byte-exact upload/download test: the authenticated
+Agent must advertise `input-uinput-v1`, and it must successfully write a
+complete no-op event batch to the guest's real `/dev/uinput` device.
+
 The executable is ad-hoc signed with the virtualization entitlement after it
 is built. Its terminal output contains explicit `[stage1]`, `[stage2]`, and
 `[stage3]`, and `[stage4]` markers. A successful first gate includes `DRIVER_OK` and

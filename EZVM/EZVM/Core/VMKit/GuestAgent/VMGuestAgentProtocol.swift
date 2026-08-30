@@ -55,6 +55,11 @@ struct VMGuestAgentInputBatch: Codable, Equatable {
     }
 }
 
+struct VMGuestAgentInputResult: Codable, Equatable {
+    let success: Bool
+    let message: String
+}
+
 enum VMGuestAgentKeyboard {
     private static let macToLinux: [UInt16: UInt16] = [
         0: 30, 1: 31, 2: 32, 3: 33, 4: 35, 5: 34, 6: 44, 7: 45,
@@ -233,6 +238,7 @@ struct VMGuestAgentStatus: Codable, Equatable {
 
     var supportsSSH: Bool { capabilities?.contains("ssh-addresses-v1") == true }
     var supportsFileTransfer: Bool { capabilities?.contains("file-transfer-v1") == true }
+    var supportsGuestInput: Bool { capabilities?.contains("input-uinput-v1") == true }
     var supportsKVMDiagnostics: Bool { capabilities?.contains("kvm-diagnostics-v1") == true }
 }
 
