@@ -70,6 +70,7 @@ protocol VMGraphicsBackend {
         to configuration: VZVirtualMachineConfiguration
     ) -> VMOSResultVoid
     func bind(virtualMachine: VZVirtualMachine?)
+    func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?)
     func shutdown()
 }
 
@@ -98,6 +99,8 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
         virtualMachineView.virtualMachine = virtualMachine
     }
 
+    func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {}
+
     func shutdown() {
         virtualMachineView.virtualMachine = nil
     }
@@ -108,6 +111,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private let metalLayer = CAMetalLayer()
     private let cursorLayer = CALayer()
     weak var runtime: EZVMVirGLRuntime?
+    var guestInputHandler: (([VMGuestAgentInputEvent]) -> Void)?
     private var presentedFrames: UInt64 = 0
     private var cursorPosition = CGPoint.zero
     private var cursorHotspot = CGPoint.zero
@@ -135,7 +139,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     override var acceptsFirstResponder: Bool { true }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 36 {
+        if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
+           let guestInputHandler {
+            guestInputHandler(VMGuestAgentInputBatch.key(code: code, pressed: true).events)
+        } else if event.keyCode == 36 {
             runtime?.sendLinuxKey(code: 28, pressed: true)
         } else {
             super.keyDown(with: event)
@@ -143,17 +150,69 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override func keyUp(with event: NSEvent) {
-        if event.keyCode == 36 {
+        if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
+           let guestInputHandler {
+            guestInputHandler(VMGuestAgentInputBatch.key(code: code, pressed: false).events)
+        } else if event.keyCode == 36 {
             runtime?.sendLinuxKey(code: 28, pressed: false)
         } else {
             super.keyUp(with: event)
         }
     }
 
+    override func mouseMoved(with event: NSEvent) { sendRelativeMotion(event) }
+    override func mouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
+    override func rightMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
+    override func otherMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
+    override func mouseDown(with event: NSEvent) { sendButton(code: 272, pressed: true) }
+    override func mouseUp(with event: NSEvent) { sendButton(code: 272, pressed: false) }
+    override func rightMouseDown(with event: NSEvent) { sendButton(code: 273, pressed: true) }
+    override func rightMouseUp(with event: NSEvent) { sendButton(code: 273, pressed: false) }
+
+    override func scrollWheel(with event: NSEvent) {
+        let value = Int32(max(-32767, min(32767, Int(event.scrollingDeltaY.rounded()))))
+        guard value != 0 else { return }
+        guestInputHandler?([
+            VMGuestAgentInputEvent(type: 2, code: 8, value: value),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ])
+    }
+
+    private func sendRelativeMotion(_ event: NSEvent) {
+        let x = Int32(max(-32767, min(32767, Int(event.deltaX.rounded()))))
+        let y = Int32(max(-32767, min(32767, Int(event.deltaY.rounded()))))
+        guard x != 0 || y != 0 else { return }
+        var events: [VMGuestAgentInputEvent] = []
+        if x != 0 { events.append(.init(type: 2, code: 0, value: x)) }
+        if y != 0 { events.append(.init(type: 2, code: 1, value: y)) }
+        events.append(.init(type: 0, code: 0, value: 0))
+        guestInputHandler?(events)
+    }
+
+    private func sendButton(code: UInt16, pressed: Bool) {
+        guestInputHandler?(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
+    }
+
     override func layout() {
         super.layout()
         updateDrawableGeometry()
         updateCursorGeometry()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.acceptsMouseMovedEvents = true
+    }
+
+    override func updateTrackingAreas() {
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
+        super.updateTrackingAreas()
     }
 
     func updateCursor(_ update: EZVMVirGLRuntime.CursorUpdate) {
@@ -271,8 +330,13 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         virglView.virtualMachine = virtualMachine
     }
 
+    func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
+        virglView.guestInputHandler = handler
+    }
+
     func shutdown() {
         virglView.virtualMachine = nil
+        virglView.guestInputHandler = nil
         virglView.runtime = nil
         runtime?.shutdown()
         runtime = nil

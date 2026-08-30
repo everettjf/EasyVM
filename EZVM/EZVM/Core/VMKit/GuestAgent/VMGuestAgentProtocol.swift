@@ -34,6 +34,46 @@ enum VMGuestAgentOperation: String, Codable, CaseIterable {
     case transferCancel
     case downloadInfo
     case downloadChunk
+    case input
+}
+
+struct VMGuestAgentInputEvent: Codable, Equatable {
+    let type: UInt16
+    let code: UInt16
+    let value: Int32
+}
+
+struct VMGuestAgentInputBatch: Codable, Equatable {
+    static let maximumEventCount = 64
+    let events: [VMGuestAgentInputEvent]
+
+    static func key(code: UInt16, pressed: Bool) -> Self {
+        VMGuestAgentInputBatch(events: [
+            VMGuestAgentInputEvent(type: 1, code: code, value: pressed ? 1 : 0),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ])
+    }
+}
+
+enum VMGuestAgentKeyboard {
+    private static let macToLinux: [UInt16: UInt16] = [
+        0: 30, 1: 31, 2: 32, 3: 33, 4: 35, 5: 34, 6: 44, 7: 45,
+        8: 46, 9: 47, 11: 48, 12: 16, 13: 17, 14: 18, 15: 19,
+        16: 21, 17: 20, 18: 2, 19: 3, 20: 4, 21: 5, 22: 7, 23: 6,
+        24: 13, 25: 10, 26: 8, 27: 12, 28: 9, 29: 11, 30: 27,
+        31: 24, 32: 22, 33: 26, 34: 23, 35: 25, 36: 28, 37: 38,
+        38: 36, 39: 40, 40: 37, 41: 39, 42: 43, 43: 51, 44: 53,
+        45: 49, 46: 50, 47: 52, 48: 15, 49: 57, 50: 41, 51: 14,
+        53: 1, 55: 125, 56: 42, 57: 58, 58: 56, 59: 29,
+        60: 54, 61: 100, 62: 97, 122: 59, 120: 60, 99: 61,
+        118: 62, 96: 63, 97: 64, 98: 65, 100: 66, 101: 67,
+        109: 68, 103: 87, 111: 88, 123: 105, 124: 106, 125: 108,
+        126: 103,
+    ]
+
+    static func linuxKeyCode(forMacVirtualKey keyCode: UInt16) -> UInt16? {
+        macToLinux[keyCode]
+    }
 }
 
 struct VMGuestAgentUploadStart: Codable, Equatable {

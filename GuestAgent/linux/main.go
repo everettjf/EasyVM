@@ -116,6 +116,12 @@ func loadEnrollment(path string) (enrollment, error) {
 }
 
 func serve(stream io.ReadWriter, config enrollment) error {
+	input := newGuestInput()
+	defer input.Close()
+	return serveWithInput(stream, config, input)
+}
+
+func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) error {
 	transfers := newTransferSession()
 	defer transfers.close()
 	guestNonceBytes := make([]byte, 32)
@@ -154,7 +160,7 @@ func serve(stream io.ReadWriter, config enrollment) error {
 		receivedSequence = request.Sequence
 		switch request.Operation {
 		case "heartbeat", "status":
-			payload, err := json.Marshal(currentStatus())
+			payload, err := json.Marshal(currentStatus(input.Available()))
 			if err != nil {
 				return err
 			}
@@ -172,6 +178,17 @@ func serve(stream io.ReadWriter, config enrollment) error {
 			go power(request.Operation)
 		case "uploadStart", "uploadChunk", "uploadCommit", "transferCancel", "downloadInfo", "downloadChunk":
 			result := transfers.handle(request.Operation, request.Payload)
+			payload, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			sentSequence++
+			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
+			if err := writeFrame(stream, response); err != nil {
+				return err
+			}
+		case "input":
+			result := handleInput(input, request.Payload)
 			payload, err := json.Marshal(result)
 			if err != nil {
 				return err
@@ -258,7 +275,7 @@ func readFrame(reader io.Reader, value any) error {
 	return json.Unmarshal(payload, value)
 }
 
-func currentStatus() status {
+func currentStatus(inputAvailable bool) status {
 	hostName, _ := os.Hostname()
 	addresses := []string{}
 	interfaces, _ := net.Interfaces()
@@ -274,7 +291,11 @@ func currentStatus() status {
 	}
 	sort.Strings(addresses)
 	kvmAvailable, kvmVersion, kvmError := kvmStatus()
-	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1"}, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	capabilities := []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1"}
+	if inputAvailable {
+		capabilities = append(capabilities, "input-uinput-v1")
+	}
+	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func kvmStatus() (bool, int, string) {

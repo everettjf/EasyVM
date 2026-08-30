@@ -46,6 +46,7 @@ final class VMGuestAgentHostClient {
     private var sendSequence: UInt64 = 0
     private var sessionID: String?
     private var liveness = VMGuestAgentLiveness()
+    private var capabilities: Set<String> = []
     private var pendingRequests: [String: PendingRequest] = [:]
     private var transferTask: Task<Void, Never>?
     private let ioQueue = DispatchQueue(label: "com.everettjf.ezvm.guest-agent.read", qos: .utility)
@@ -72,6 +73,7 @@ final class VMGuestAgentHostClient {
         connection = nil
         sessionID = nil
         liveness.reset()
+        capabilities.removeAll()
         transferTask?.cancel()
         transferTask = nil
         failPendingRequests(CancellationError())
@@ -83,6 +85,25 @@ final class VMGuestAgentHostClient {
             try sendEnvelope(operation: operation, requestID: UUID().uuidString, payload: Data(), sessionID: sessionID)
         } catch {
             disconnected("Could not send \(operation.rawValue): \(error.localizedDescription)")
+        }
+    }
+
+    func sendInputKey(code: UInt16, pressed: Bool) {
+        sendInputEvents(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
+    }
+
+    func sendInputEvents(_ events: [VMGuestAgentInputEvent]) {
+        guard !events.isEmpty, events.count <= VMGuestAgentInputBatch.maximumEventCount,
+              events.last == VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+              capabilities.contains("input-uinput-v1"), let sessionID else { return }
+        do {
+            let payload = try JSONEncoder().encode(VMGuestAgentInputBatch(events: events))
+            try sendEnvelope(
+                operation: .input, requestID: UUID().uuidString,
+                payload: payload, sessionID: sessionID
+            )
+        } catch {
+            disconnected("Could not send guest input: \(error.localizedDescription)")
         }
     }
 
@@ -229,6 +250,7 @@ final class VMGuestAgentHostClient {
         if envelope.operation == .heartbeat || envelope.operation == .status {
             do {
                 let status = try JSONDecoder().decode(VMGuestAgentStatus.self, from: envelope.payload)
+                capabilities = Set(status.capabilities ?? [])
                 runtimeState?.updateGuestAgent(.ready(status))
             } catch {
                 disconnected("The guest agent returned invalid status: \(error.localizedDescription)")
@@ -260,6 +282,7 @@ final class VMGuestAgentHostClient {
         heartbeatTimer = nil
         sessionID = nil
         liveness.reset()
+        capabilities.removeAll()
         transferTask?.cancel()
         transferTask = nil
         failPendingRequests(VMGuestAgentClientError.disconnected)

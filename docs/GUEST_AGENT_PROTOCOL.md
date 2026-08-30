@@ -35,9 +35,15 @@ Protocol v1 operations are:
 - `uploadStart`, `uploadChunk`, `uploadCommit`: bounded, checksum-verified host-to-guest transfer
 - `downloadInfo`, `downloadChunk`: bounded, checksum-verified guest-to-host transfer
 - `transferCancel`: explicit cleanup of either transfer direction
+- `input`: bounded Linux `input_event` batches for the Custom VirGL display
 
 Status responses advertise additive capabilities. `file-transfer-v1` enables the
-transfer UI and `ssh-addresses-v1` enables validated `ssh://` links. A host that
+transfer UI and `ssh-addresses-v1` enables validated `ssh://` links.
+`input-uinput-v1` is advertised only when the agent successfully creates its
+root-owned `/dev/uinput` device; EZVM then forwards keyboard, relative pointer,
+button, and wheel events from the Custom VirGL display. The Apple graphics
+backend continues to use Virtualization.framework's native USB input path.
+A host that
 connects to an older v1 agent receives no capability list and keeps these newer
 actions hidden, while heartbeat and power operations continue to work.
 
@@ -51,6 +57,13 @@ corruption does not replace an existing destination.
 Host-to-guest mutations must originate from a visible user action. Future
 versions must negotiate a new version instead of silently changing v1 fields or
 authentication rules.
+
+Input payloads contain at most 64 events and must end in `EV_SYN/SYN_REPORT`.
+The agent accepts only bounded `EV_KEY` and `EV_REL` values used by its declared
+keyboard and relative-pointer device; arbitrary uinput event types are rejected.
+Events are accepted only inside the mutually authenticated, replay-protected
+session. If `/dev/uinput` is unavailable, the capability is omitted and host
+input messages are not sent.
 
 ## Install in a Linux guest
 

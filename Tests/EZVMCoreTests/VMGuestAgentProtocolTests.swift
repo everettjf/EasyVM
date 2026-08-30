@@ -8,6 +8,23 @@ final class VMGuestAgentProtocolTests: XCTestCase {
     private let guestNonce = Data(repeating: 0x11, count: 32).base64EncodedString()
     private let hostNonce = Data(repeating: 0x22, count: 32).base64EncodedString()
 
+    func testInputBatchProducesLinuxKeyAndSynchronizationEvents() throws {
+        let down = VMGuestAgentInputBatch.key(code: 28, pressed: true)
+        XCTAssertEqual(down.events, [
+            VMGuestAgentInputEvent(type: 1, code: 28, value: 1),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ])
+        let decoded = try JSONDecoder().decode(
+            VMGuestAgentInputBatch.self,
+            from: JSONEncoder().encode(down)
+        )
+        XCTAssertEqual(decoded, down)
+        XCTAssertEqual(VMGuestAgentInputBatch.maximumEventCount, 64)
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 36), 28)
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 0), 30)
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: UInt16.max), nil)
+    }
+
     func testMutualAuthenticationRoundTrip() throws {
         let guest = try VMGuestAgentAuthenticator(tokenData: token, machineID: machineID)
         let host = try VMGuestAgentAuthenticator(tokenData: token, machineID: machineID)
@@ -85,7 +102,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [
             .heartbeat, .status, .shutdown, .restart,
             .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,
-            .downloadInfo, .downloadChunk,
+            .downloadInfo, .downloadChunk, .input,
         ])
 
         let legacyJSON = Data(#"{"agentVersion":"1.0","operatingSystem":"Linux","kernelVersion":"6","hostName":"legacy","addresses":[],"bootID":"old","uptimeSeconds":1}"#.utf8)

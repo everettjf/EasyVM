@@ -107,6 +107,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             devices: model.config.graphicsDevices
         )
         self.graphicsBackend = graphicsBackend
+        graphicsBackend.setGuestInputHandler { [weak self] events in
+            self?.guestAgentClient?.sendInputEvents(events)
+        }
         installDisplayView(graphicsBackend.displayView)
         
         let virtualMachineConfigurationResult = runner.createConfiguration(

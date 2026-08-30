@@ -75,7 +75,8 @@ func TestServePerformsAuthenticatedHandshakeAndReturnsStatus(t *testing.T) {
 	config := enrollment{SchemaVersion: 1, MachineID: "integration-machine", Token: token, Port: guestAgentPort}
 	host, guest := net.Pipe()
 	done := make(chan error, 1)
-	go func() { done <- serve(guest, config) }()
+	input := &recordingInput{available: true}
+	go func() { done <- serveWithInput(guest, config, input) }()
 	defer host.Close()
 
 	var greeting hello
@@ -119,11 +120,44 @@ func TestServePerformsAuthenticatedHandshakeAndReturnsStatus(t *testing.T) {
 	if value.AgentVersion == "" || value.OperatingSystem == "" || value.KernelVersion == "" {
 		t.Fatalf("incomplete status: %#v", value)
 	}
+	if !contains(value.Capabilities, "input-uinput-v1") {
+		t.Fatalf("available input capability was not advertised: %#v", value.Capabilities)
+	}
+
+	inputRequest := makeEnvelope(token, sessionID, 2, "integration-input", "input", inputPayload(t,
+		inputEvent{Type: 1, Code: 28, Value: 1}, inputEvent{Type: 0},
+	))
+	if err := writeFrame(host, inputRequest); err != nil {
+		t.Fatal(err)
+	}
+	var inputEnvelope envelope
+	if err := readFrame(host, &inputEnvelope); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyEnvelope(token, sessionID, inputEnvelope, statusEnvelope.Sequence); err != nil {
+		t.Fatal(err)
+	}
+	var inputResponse inputResult
+	if err := json.Unmarshal(inputEnvelope.Payload, &inputResponse); err != nil {
+		t.Fatal(err)
+	}
+	if !inputResponse.Success || len(input.events) != 2 {
+		t.Fatalf("authenticated input was not delivered: response=%#v events=%#v", inputResponse, input.events)
+	}
 
 	host.Close()
 	if err := <-done; err == nil {
 		t.Fatal("serve should exit when its host connection closes")
 	}
+}
+
+func contains(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func TestEnrollmentValidationRequiresExactProtocolValues(t *testing.T) {
