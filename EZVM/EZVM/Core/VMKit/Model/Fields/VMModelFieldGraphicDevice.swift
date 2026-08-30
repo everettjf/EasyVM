@@ -70,6 +70,7 @@ protocol VMGraphicsBackend {
         to configuration: VZVirtualMachineConfiguration
     ) -> VMOSResultVoid
     func bind(virtualMachine: VZVirtualMachine?)
+    func refreshDisplayConfiguration()
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?)
     func shutdown()
 }
@@ -97,6 +98,12 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
 
     func bind(virtualMachine: VZVirtualMachine?) {
         virtualMachineView.virtualMachine = virtualMachine
+    }
+
+    func refreshDisplayConfiguration() {
+        guard #available(macOS 14.0, *) else { return }
+        virtualMachineView.automaticallyReconfiguresDisplay = false
+        virtualMachineView.automaticallyReconfiguresDisplay = true
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {}
@@ -475,6 +482,17 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
 
     func bind(virtualMachine: VZVirtualMachine?) {
         virglView.virtualMachine = virtualMachine
+    }
+
+    func refreshDisplayConfiguration() {
+        let scale = virglView.window?.backingScaleFactor
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 1
+        let size = virglView.bounds.size
+        runtime?.requestDisplaySize(
+            width: UInt32(max(640, min(8192, (size.width * scale).rounded()))),
+            height: UInt32(max(480, min(8192, (size.height * scale).rounded())))
+        )
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {

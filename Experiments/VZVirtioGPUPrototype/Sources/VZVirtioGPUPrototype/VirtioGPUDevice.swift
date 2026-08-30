@@ -49,8 +49,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         var pixels = Data()
     }
 
-    let width: UInt32
-    let height: UInt32
+    private var width: UInt32
+    private var height: UInt32
     let renderer: VirGLRenderer
     let onFrame: @MainActor (CGImage) -> Void
     let onZeroCopyFrame: @MainActor (UInt32) -> Void
@@ -72,6 +72,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var submittedCommandCount = 0
     private var cursorUpdateCount = 0
     private var cursorMoveCount = 0
+    private var displayEventGeneration = 0
     private var borrowedScanoutResources: Set<UInt32> = []
     private var savedEvidenceFrame = false
     private lazy var frameScheduler = LatestFrameScheduler<UInt32> { [weak self] resourceID, completed in
@@ -114,19 +115,65 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
         // struct virtio_gpu_config: events_read, events_clear, num_scanouts,
         // num_capsets. Stage 3 exposes the VirGL capset.
-        var configData = Data()
-        configData.appendLittleEndian(UInt32(0))
-        configData.appendLittleEndian(UInt32(0))
-        configData.appendLittleEndian(UInt32(1))
-        configData.appendLittleEndian(UInt32(1))
         configuration.deviceSpecificConfiguration = VZVirtioDeviceSpecificConfiguration(
-            configurationData: configData
+            configurationData: deviceConfigurationData(displayEvent: false)
         )
         configuration.provider = VZCustomVirtioDeviceDelegateProvider(
             deviceQueue: deviceQueue,
             delegate: self
         )
         return configuration
+    }
+
+    func requestDisplaySize(width: UInt32, height: UInt32) {
+        let requestedWidth = max(640, min(8192, width))
+        let requestedHeight = max(480, min(8192, height))
+        deviceQueue.async { [weak self] in
+            guard let self,
+                  self.width != requestedWidth || self.height != requestedHeight else { return }
+            self.width = requestedWidth
+            self.height = requestedHeight
+            self.displayEventGeneration &+= 1
+            let generation = self.displayEventGeneration
+            print("[gpu] publishing display configuration \(requestedWidth)x\(requestedHeight)")
+            guard let device = self.device else { return }
+            let changed = VZVirtioDeviceSpecificConfiguration(
+                configurationData: self.deviceConfigurationData(displayEvent: true)
+            )
+            device.update(changed) { [weak self, weak device] error in
+                guard let self, let device else { return }
+                if let error {
+                    print("[gpu] could not publish display configuration change: \(error.localizedDescription)")
+                    return
+                }
+                // Leave the event asserted long enough for the guest's config
+                // interrupt handler to issue GET_DISPLAY_INFO. A newer resize
+                // supersedes this clear operation.
+                self.deviceQueue.asyncAfter(deadline: .now() + 0.25) { [weak self, weak device] in
+                    guard let self, let device,
+                          self.displayEventGeneration == generation else { return }
+                    let cleared = VZVirtioDeviceSpecificConfiguration(
+                        configurationData: self.deviceConfigurationData(displayEvent: false)
+                    )
+                    device.update(cleared) { error in
+                        if let error {
+                            print("[gpu] could not clear display configuration event: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func deviceConfigurationData(displayEvent: Bool) -> Data {
+        // struct virtio_gpu_config: events_read, events_clear, num_scanouts,
+        // num_capsets. VIRTIO_GPU_EVENT_DISPLAY is bit 0.
+        var data = Data()
+        data.appendLittleEndian(UInt32(displayEvent ? 1 : 0))
+        data.appendLittleEndian(UInt32(0))
+        data.appendLittleEndian(UInt32(1))
+        data.appendLittleEndian(UInt32(1))
+        return data
     }
 
     func customVirtioConfiguration(

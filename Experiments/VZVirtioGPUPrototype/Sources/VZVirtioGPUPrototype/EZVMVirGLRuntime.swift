@@ -123,6 +123,13 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         inputProbeDevice?.sendKey(code: code, pressed: pressed)
     }
 
+    public func requestDisplaySize(width: UInt32, height: UInt32) {
+        stateLock.lock()
+        let gpuDevice = self.gpuDevice
+        stateLock.unlock()
+        gpuDevice?.requestDisplaySize(width: width, height: height)
+    }
+
     public func present(
         resourceID: UInt32,
         into texture: any MTLTexture

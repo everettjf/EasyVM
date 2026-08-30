@@ -188,6 +188,17 @@ struct VMWindowCloseObserver: NSViewRepresentable {
             return false
         }
 
+        func window(
+            _ window: NSWindow,
+            willUseFullScreenPresentationOptions proposedOptions: NSApplication.PresentationOptions
+        ) -> NSApplication.PresentationOptions {
+            let options = previousDelegate?.window?(
+                window,
+                willUseFullScreenPresentationOptions: proposedOptions
+            ) ?? proposedOptions
+            return options.union(.autoHideToolbar)
+        }
+
         override func responds(to aSelector: Selector!) -> Bool {
             super.responds(to: aSelector) || (previousDelegate?.responds(to: aSelector) ?? false)
         }
