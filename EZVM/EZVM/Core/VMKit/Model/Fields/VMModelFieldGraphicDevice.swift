@@ -104,10 +104,16 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
 @available(macOS 27.0, *)
 final class VMVirGLDisplayView: VZVirtualMachineView {
     private let metalLayer = CAMetalLayer()
+    private let cursorLayer = CALayer()
     weak var runtime: EZVMVirGLRuntime?
     private var presentedFrames: UInt64 = 0
+    private var cursorPosition = CGPoint.zero
+    private var cursorHotspot = CGPoint.zero
+    private var cursorImageSize = CGSize.zero
+    private let guestSize: CGSize
 
-    override init(frame frameRect: NSRect) {
+    init(frame frameRect: NSRect, guestSize: CGSize) {
+        self.guestSize = guestSize
         super.init(frame: frameRect)
         wantsLayer = true
         metalLayer.device = MTLCreateSystemDefaultDevice()
@@ -115,6 +121,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         metalLayer.framebufferOnly = false
         metalLayer.backgroundColor = NSColor.black.cgColor
         layer = metalLayer
+        cursorLayer.anchorPoint = .zero
+        cursorLayer.contentsGravity = .resize
+        cursorLayer.isHidden = true
+        metalLayer.addSublayer(cursorLayer)
         automaticallyReconfiguresDisplay = false
     }
 
@@ -123,6 +133,23 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     override func layout() {
         super.layout()
         updateDrawableGeometry()
+        updateCursorGeometry()
+    }
+
+    func updateCursor(_ update: EZVMVirGLRuntime.CursorUpdate) {
+        cursorPosition = CGPoint(x: Int(update.x), y: Int(update.y))
+        if update.replacesImage {
+            cursorHotspot = CGPoint(x: Int(update.hotX), y: Int(update.hotY))
+            if let image = update.image {
+                cursorLayer.contents = image
+                cursorImageSize = CGSize(width: image.width, height: image.height)
+            } else {
+                cursorLayer.contents = nil
+                cursorImageSize = .zero
+            }
+        }
+        cursorLayer.isHidden = !update.isVisible
+        updateCursorGeometry()
     }
 
     func present(resourceID: UInt32) {
@@ -152,6 +179,17 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             height: max(1, bounds.height * scale)
         )
     }
+
+    private func updateCursorGeometry() {
+        guard guestSize.width > 0, guestSize.height > 0 else { return }
+        let scaleX = bounds.width / guestSize.width
+        let scaleY = bounds.height / guestSize.height
+        let width = cursorImageSize.width * scaleX
+        let height = cursorImageSize.height * scaleY
+        let x = (cursorPosition.x - cursorHotspot.x) * scaleX
+        let top = (cursorPosition.y - cursorHotspot.y) * scaleY
+        cursorLayer.frame = CGRect(x: x, y: bounds.height - top - height, width: width, height: height)
+    }
 }
 
 @available(macOS 27.0, *)
@@ -165,7 +203,10 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         let device = devices.first ?? .default(osType: .linux)
         let dependencies = VirGLRuntimeDependencies.resolve()
         try dependencies.validate()
-        let view = VMVirGLDisplayView(frame: .zero)
+        let view = VMVirGLDisplayView(
+            frame: .zero,
+            guestSize: CGSize(width: max(1, device.width), height: max(1, device.height))
+        )
         virglView = view
         displayView = view
         let runtime = try EZVMVirGLRuntime(
@@ -176,6 +217,9 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             ),
             onScanout: { [weak view] resourceID in
                 view?.present(resourceID: resourceID)
+            },
+            onCursor: { [weak view] update in
+                view?.updateCursor(update)
             }
         )
         self.runtime = runtime

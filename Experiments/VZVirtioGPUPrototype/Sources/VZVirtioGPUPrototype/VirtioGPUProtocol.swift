@@ -133,6 +133,40 @@ enum VirtioGPU {
         }
     }
 
+    struct CursorPosition: Equatable {
+        let scanoutID: UInt32
+        let x: UInt32
+        let y: UInt32
+
+        init(scanoutID: UInt32, x: UInt32, y: UInt32) {
+            self.scanoutID = scanoutID
+            self.x = x
+            self.y = y
+        }
+
+        init?(_ data: Data) {
+            guard data.count >= 40 else { return nil }
+            scanoutID = data.littleEndianUInt32(at: 24)
+            x = data.littleEndianUInt32(at: 28)
+            y = data.littleEndianUInt32(at: 32)
+        }
+    }
+
+    struct CursorUpdate: Equatable {
+        let position: CursorPosition
+        let resourceID: UInt32
+        let hotX: UInt32
+        let hotY: UInt32
+
+        init?(_ data: Data) {
+            guard let position = CursorPosition(data), data.count >= 56 else { return nil }
+            self.position = position
+            resourceID = data.littleEndianUInt32(at: 40)
+            hotX = data.littleEndianUInt32(at: 44)
+            hotY = data.littleEndianUInt32(at: 48)
+        }
+    }
+
     static func responseHeader(_ response: Response, request: Header) -> Data {
         var data = Data()
         data.appendLittleEndian(response.rawValue)

@@ -144,3 +144,27 @@ import Testing
     #expect(!VirtioGPU.rectIsContained(overflowing, resourceWidth: 1280, resourceHeight: 720))
     #expect(!VirtioGPU.rectIsContained(empty, resourceWidth: 1280, resourceHeight: 720))
 }
+
+@Test func cursorCommandsDecodeTheVirtioGPUWireLayout() throws {
+    var request = Data()
+    request.appendLittleEndian(VirtioGPU.Command.updateCursor.rawValue)
+    request.appendLittleEndian(UInt32(0))
+    request.appendLittleEndian(UInt64(0))
+    request.appendLittleEndian(UInt32(0))
+    request.appendLittleEndian(UInt32(0))
+    request.appendLittleEndian(UInt32(0)) // scanout
+    request.appendLittleEndian(UInt32(321))
+    request.appendLittleEndian(UInt32(123))
+    request.appendLittleEndian(UInt32(0)) // position padding
+    request.appendLittleEndian(UInt32(42))
+    request.appendLittleEndian(UInt32(7))
+    request.appendLittleEndian(UInt32(9))
+    request.appendLittleEndian(UInt32(0)) // cursor padding
+
+    let update = try #require(VirtioGPU.CursorUpdate(request))
+    #expect(update.position == .init(scanoutID: 0, x: 321, y: 123))
+    #expect(update.resourceID == 42)
+    #expect(update.hotX == 7)
+    #expect(update.hotY == 9)
+    #expect(VirtioGPU.CursorUpdate(Data(request.dropLast())) == nil)
+}

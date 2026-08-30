@@ -54,6 +54,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     let renderer: VirGLRenderer
     let onFrame: @MainActor (CGImage) -> Void
     let onZeroCopyFrame: @MainActor (UInt32) -> Void
+    let onCursor: @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void
     let zeroCopyPresentationEnabled: Bool
     let deviceQueue = DispatchQueue(label: "com.everettjf.ezvm.prototype.virtio-gpu")
 
@@ -61,9 +62,16 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var resources: [UInt32: Resource] = [:]
     private var totalPixelBytes = 0
     private var contexts: Set<UInt32> = []
+    private var contextResources: [UInt32: Set<UInt32>] = [:]
     private var scanoutResourceID: UInt32?
+    private var cursorResourceID: UInt32?
+    private var cursorPosition = VirtioGPU.CursorPosition(
+        scanoutID: 0, x: 0, y: 0
+    )
     private var publishedFrameCount = 0
     private var submittedCommandCount = 0
+    private var cursorUpdateCount = 0
+    private var cursorMoveCount = 0
     private var borrowedScanoutResources: Set<UInt32> = []
     private var savedEvidenceFrame = false
 
@@ -73,6 +81,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         renderer: VirGLRenderer,
         zeroCopyPresentationEnabled: Bool = true,
         onZeroCopyFrame: @escaping @MainActor (UInt32) -> Void,
+        onCursor: @escaping @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void = { _ in },
         onFrame: @escaping @MainActor (CGImage) -> Void
     ) {
         self.width = width
@@ -80,6 +89,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         self.renderer = renderer
         self.zeroCopyPresentationEnabled = zeroCopyPresentationEnabled
         self.onZeroCopyFrame = onZeroCopyFrame
+        self.onCursor = onCursor
         self.onFrame = onFrame
     }
 
@@ -137,6 +147,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
     func customVirtioDeviceWillReset(_ device: VZCustomVirtioDevice) {
         renderer.cancelFences()
+        for contextID in contexts { renderer.destroyContext(id: contextID) }
         for resource in resources.values where resource.isRendererResource {
             if resource.virglBacking != nil { renderer.detach(resourceID: resource.id) }
             renderer.unrefResource(resource.id)
@@ -144,7 +155,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         resources.removeAll()
         totalPixelBytes = 0
         contexts.removeAll()
+        contextResources.removeAll()
         scanoutResourceID = nil
+        cursorResourceID = nil
+        borrowedScanoutResources.removeAll()
+        publishCursor(image: nil, hotX: 0, hotY: 0)
     }
 
     private func process(
@@ -195,10 +210,18 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             response = create2D(request, header: header)
 
         case .resourceUnref:
+            guard request.count >= 32 else {
+                response = VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+                break
+            }
             let resourceID = request.littleEndianUInt32(at: 24)
-            guard request.count >= 32, let resource = resources[resourceID] else {
+            guard let resource = resources[resourceID] else {
                 response = VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
                 break
+            }
+            for contextID in contexts where contextResources[contextID]?.contains(resourceID) == true {
+                renderer.detach(contextID: contextID, resourceID: resourceID)
+                contextResources[contextID]?.remove(resourceID)
             }
             if resource.isRendererResource {
                 if resource.virglBacking != nil { renderer.detach(resourceID: resourceID) }
@@ -207,6 +230,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             resources.removeValue(forKey: resourceID)
             totalPixelBytes -= resource.pixels.count
             if scanoutResourceID == resourceID { scanoutResourceID = nil }
+            borrowedScanoutResources.remove(resourceID)
+            if cursorResourceID == resourceID {
+                cursorResourceID = nil
+                publishCursor(image: nil, hotX: 0, hotY: 0)
+            }
             response = VirtioGPU.responseHeader(.okNoData, request: header)
 
         case .resourceAttachBacking:
@@ -222,6 +250,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             resource.backing.removeAll()
             resource.virglBacking = nil
             resources[resourceID] = resource
+            if cursorResourceID == resourceID {
+                cursorResourceID = nil
+                publishCursor(image: nil, hotX: 0, hotY: 0)
+            }
             response = VirtioGPU.responseHeader(.okNoData, request: header)
 
         case .setScanout:
@@ -245,6 +277,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 break
             }
             renderer.destroyContext(id: header.contextID)
+            contextResources.removeValue(forKey: header.contextID)
             response = VirtioGPU.responseHeader(.okNoData, request: header)
 
         case .contextAttachResource:
@@ -265,8 +298,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         case .transferFromHost3D:
             response = transfer3D(request, header: header, toHost: false)
 
-        case .updateCursor, .moveCursor:
-            response = VirtioGPU.responseHeader(.okNoData, request: header)
+        case .updateCursor:
+            response = updateCursor(request, header: header)
+
+        case .moveCursor:
+            response = moveCursor(request, header: header)
         }
         guard header.flags & VirtioGPU.flagFence != 0 else {
             write(response, to: element)
@@ -457,6 +493,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         contexts.insert(header.contextID)
+        contextResources[header.contextID] = []
         print("[stage3] created VirGL context \(header.contextID): \(name)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -474,8 +511,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
         }
         if attach {
-            renderer.attach(contextID: header.contextID, resourceID: resourceID)
+            if contextResources[header.contextID]?.insert(resourceID).inserted == true {
+                renderer.attach(contextID: header.contextID, resourceID: resourceID)
+            }
         } else {
+            guard contextResources[header.contextID]?.remove(resourceID) != nil else {
+                return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+            }
             renderer.detach(contextID: header.contextID, resourceID: resourceID)
         }
         return VirtioGPU.responseHeader(.okNoData, request: header)
@@ -566,6 +608,92 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         scanoutResourceID = resourceID
         print("[stage2] scanout 0 now uses resource \(resourceID)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
+    }
+
+    private func updateCursor(_ request: Data, header: VirtioGPU.Header) -> Data {
+        guard let update = VirtioGPU.CursorUpdate(request) else {
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+        }
+        guard update.position.scanoutID == 0 else {
+            return VirtioGPU.responseHeader(.errorInvalidScanoutID, request: header)
+        }
+        cursorPosition = update.position
+        guard update.resourceID != 0 else {
+            cursorResourceID = nil
+            publishCursor(image: nil, hotX: update.hotX, hotY: update.hotY)
+            return VirtioGPU.responseHeader(.okNoData, request: header)
+        }
+        guard var resource = resources[update.resourceID], !resource.backing.isEmpty else {
+            return VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
+        }
+        guard update.hotX < UInt32(resource.width), update.hotY < UInt32(resource.height) else {
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+        }
+        if resource.isRendererResource, let backing = resource.virglBacking {
+            let box = vzvg_box(
+                x: 0, y: 0, z: 0,
+                w: UInt32(resource.width), h: UInt32(resource.height), d: 1
+            )
+            guard renderer.transfer(
+                resourceID: resource.id, contextID: 0, level: 0,
+                stride: UInt32(resource.width * 4), layerStride: 0,
+                box: box, offset: 0, backing: backing.iovecs,
+                count: backing.entries.count, toHost: false
+            ) else {
+                return VirtioGPU.responseHeader(.errorUnspecified, request: header)
+            }
+        }
+        copyBackingToPixels(&resource)
+        resources[resource.id] = resource
+        guard let image = makeImage(resource, preservesAlpha: true) else {
+            return VirtioGPU.responseHeader(.errorUnspecified, request: header)
+        }
+        cursorResourceID = resource.id
+        cursorUpdateCount += 1
+        if cursorUpdateCount <= 5 || cursorUpdateCount.isMultiple(of: 500) {
+            print(
+                "[stage5] cursor update \(cursorUpdateCount): resource=\(resource.id), "
+                    + "\(resource.width)x\(resource.height), position="
+                    + "\(update.position.x),\(update.position.y), hotspot=\(update.hotX),\(update.hotY)"
+            )
+        }
+        publishCursor(image: image, hotX: update.hotX, hotY: update.hotY)
+        return VirtioGPU.responseHeader(.okNoData, request: header)
+    }
+
+    private func moveCursor(_ request: Data, header: VirtioGPU.Header) -> Data {
+        guard request.count >= 56, let position = VirtioGPU.CursorPosition(request) else {
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+        }
+        guard position.scanoutID == 0 else {
+            return VirtioGPU.responseHeader(.errorInvalidScanoutID, request: header)
+        }
+        cursorPosition = position
+        let isVisible = cursorResourceID != nil
+        cursorMoveCount += 1
+        if cursorMoveCount <= 5 || cursorMoveCount.isMultiple(of: 1_000) {
+            print(
+                "[stage5] cursor move \(cursorMoveCount): "
+                    + "position=\(position.x),\(position.y), visible=\(isVisible)"
+            )
+        }
+        Task { @MainActor [onCursor] in
+            onCursor(.init(
+                image: nil, x: position.x, y: position.y, hotX: 0, hotY: 0,
+                replacesImage: false, isVisible: isVisible
+            ))
+        }
+        return VirtioGPU.responseHeader(.okNoData, request: header)
+    }
+
+    private func publishCursor(image: CGImage?, hotX: UInt32, hotY: UInt32) {
+        let position = cursorPosition
+        Task { @MainActor [onCursor] in
+            onCursor(.init(
+                image: image, x: position.x, y: position.y, hotX: hotX, hotY: hotY,
+                replacesImage: true, isVisible: image != nil
+            ))
+        }
     }
 
     private func transferToHost(_ request: Data, header: VirtioGPU.Header) -> Data {
@@ -675,21 +803,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                     + "sampledNonzeroBytes=\(sampledNonzeroBytes)"
             )
         }
-        guard let provider = CGDataProvider(data: resource.pixels as CFData),
-              let image = CGImage(
-                width: resource.width,
-                height: resource.height,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
-                bytesPerRow: resource.width * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipFirst.rawValue)
-                    .union(.byteOrder32Little),
-                provider: provider,
-                decode: nil,
-                shouldInterpolate: false,
-                intent: .defaultIntent
-              ) else { return }
+        guard let image = makeImage(resource) else { return }
         if !savedEvidenceFrame, sampledNonzeroBytes > 0 {
             let evidenceURL = URL(fileURLWithPath: "/tmp/ezvm-vz-gpu-scanout.png")
             if let destination = CGImageDestinationCreateWithURL(
@@ -708,6 +822,27 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         Task { @MainActor in
             onFrame(image)
         }
+    }
+
+    private func makeImage(_ resource: Resource, preservesAlpha: Bool = false) -> CGImage? {
+        guard let provider = CGDataProvider(data: resource.pixels as CFData) else { return nil }
+        // Virtio cursor resources are B8G8R8A8 with straight alpha. Combined
+        // with byteOrder32Little, alphaFirst describes that in-memory layout.
+        let alphaInfo: CGImageAlphaInfo = preservesAlpha ? .first : .noneSkipFirst
+        return CGImage(
+                width: resource.width,
+                height: resource.height,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: resource.width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: alphaInfo.rawValue)
+                    .union(.byteOrder32Little),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              )
     }
 
     private func write(_ response: Data, to element: VZVirtioQueueElement) {

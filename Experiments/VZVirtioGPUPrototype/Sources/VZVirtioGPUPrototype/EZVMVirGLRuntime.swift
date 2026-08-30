@@ -8,6 +8,29 @@ import Metal
 /// client of this API.
 @available(macOS 27.0, *)
 public final class EZVMVirGLRuntime: @unchecked Sendable {
+    public struct CursorUpdate: @unchecked Sendable {
+        public let image: CGImage?
+        public let x: UInt32
+        public let y: UInt32
+        public let hotX: UInt32
+        public let hotY: UInt32
+        public let replacesImage: Bool
+        public let isVisible: Bool
+
+        init(
+            image: CGImage?, x: UInt32, y: UInt32, hotX: UInt32, hotY: UInt32,
+            replacesImage: Bool, isVisible: Bool
+        ) {
+            self.image = image
+            self.x = x
+            self.y = y
+            self.hotX = hotX
+            self.hotY = hotY
+            self.replacesImage = replacesImage
+            self.isVisible = isVisible
+        }
+    }
+
     public struct Configuration: Sendable, Equatable {
         public var width: UInt32
         public var height: UInt32
@@ -46,6 +69,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
     public init(
         configuration: Configuration,
         onScanout: @escaping @MainActor @Sendable (UInt32) -> Void,
+        onCursor: @escaping @MainActor @Sendable (CursorUpdate) -> Void = { _ in },
         onFallbackFrame: @escaping @MainActor @Sendable (CGImage) -> Void = { _ in }
     ) throws {
         do {
@@ -57,6 +81,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
                 renderer: renderer,
                 zeroCopyPresentationEnabled: configuration.zeroCopyPresentationEnabled,
                 onZeroCopyFrame: onScanout,
+                onCursor: onCursor,
                 onFrame: onFallbackFrame
             )
         } catch {
