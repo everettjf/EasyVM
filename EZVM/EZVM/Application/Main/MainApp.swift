@@ -82,13 +82,15 @@ private struct ControlCenterCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
-        CommandGroup(before: .windowList) {
-            Button("Show Control Center") {
-                openWindow(id: "control-center")
-            }
-            .keyboardShortcut("0", modifiers: .command)
+        if HeadlessLaunchConfiguration.current == nil {
+            CommandGroup(before: .windowList) {
+                Button("Show Control Center") {
+                    openWindow(id: "control-center")
+                }
+                .keyboardShortcut("0", modifiers: .command)
 
-            Divider()
+                Divider()
+            }
         }
     }
 }

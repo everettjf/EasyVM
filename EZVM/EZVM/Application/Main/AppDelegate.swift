@@ -291,11 +291,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startHeadless(_ launch: HeadlessLaunchConfiguration) {
+        // SwiftUI creates the Control Center scene before the app delegate is
+        // told to enter headless mode. Its content is intentionally EmptyView
+        // in this process, so leaving that scene visible produces a second,
+        // blank "Control Center" window beside a windowed VM launch.
+        for window in NSApp.windows { window.orderOut(nil) }
         if launch.showsWindow {
             NSApp.setActivationPolicy(.regular)
         } else {
             NSApp.setActivationPolicy(.prohibited)
-            for window in NSApp.windows { window.orderOut(nil) }
         }
         let state = VMRuntimeState()
         let controller = VMOSInternalVirtualMachineViewController()
