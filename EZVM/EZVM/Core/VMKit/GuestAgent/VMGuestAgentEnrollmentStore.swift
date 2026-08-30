@@ -29,6 +29,8 @@ struct VMGuestAgentEnrollment: Codable, Equatable {
 
 enum VMGuestAgentEnrollmentStore {
     private static let service = "com.everettjf.ezvm.guest-agent"
+    static let sharedDirectoryTag = "ezvm-agent"
+    static let sharedConfigurationFileName = "config.json"
 
     static func machineID(machineIdentifierData: Data) -> String {
         SHA256.hash(data: machineIdentifierData).map { String(format: "%02x", $0) }.joined()
@@ -101,6 +103,47 @@ enum VMGuestAgentEnrollmentStore {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(enrollment)
+    }
+
+    static func prepareSharedConfiguration(
+        machineIdentifierData: Data,
+        directoryURL: URL
+    ) -> VMOSResult<URL, String> {
+        switch loadOrCreate(machineIdentifierData: machineIdentifierData) {
+        case .failure(let error):
+            return .failure(error)
+        case .success(let enrollment):
+            return writeSharedConfiguration(enrollment, directoryURL: directoryURL)
+        }
+    }
+
+    static func writeSharedConfiguration(
+        _ enrollment: VMGuestAgentEnrollment,
+        directoryURL: URL
+    ) -> VMOSResult<URL, String> {
+        do {
+            try FileManager.default.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: directoryURL.path(percentEncoded: false)
+            )
+            let configurationURL = directoryURL.appending(
+                path: sharedConfigurationFileName,
+                directoryHint: .notDirectory
+            )
+            try installationConfiguration(enrollment).write(to: configurationURL, options: .atomic)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: configurationURL.path(percentEncoded: false)
+            )
+            return .success(configurationURL)
+        } catch {
+            return .failure("Could not prepare guest-agent enrollment share: \(error.localizedDescription)")
+        }
     }
 
     static func decodeInstallationConfiguration(_ data: Data, machineIdentifierData: Data) throws -> VMGuestAgentEnrollment {

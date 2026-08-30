@@ -89,6 +89,35 @@ class VMOSRunnerForLinux : VMOSRunner {
         // directorySharingDevices
         virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
 
+        if (model.config.linuxFeatures ?? .legacy).virtioSocketEnabled {
+            guard !model.config.directorySharingDevices.contains(where: {
+                $0.tag == VMGuestAgentEnrollmentStore.sharedDirectoryTag
+            }) else {
+                return .failure("The directory-sharing tag '\(VMGuestAgentEnrollmentStore.sharedDirectoryTag)' is reserved for the EZVM guest agent.")
+            }
+            guard let identifier = try? Data(contentsOf: model.machineIdentifierURL) else {
+                return .failure("Could not read the machine identifier for guest-agent enrollment.")
+            }
+            switch VMGuestAgentEnrollmentStore.prepareSharedConfiguration(
+                machineIdentifierData: identifier,
+                directoryURL: model.guestAgentEnrollmentDirectoryURL
+            ) {
+            case .failure(let error):
+                return .failure(error)
+            case .success:
+                let directory = VZSharedDirectory(
+                    url: model.guestAgentEnrollmentDirectoryURL,
+                    readOnly: true
+                )
+                let share = VZSingleDirectoryShare(directory: directory)
+                let device = VZVirtioFileSystemDeviceConfiguration(
+                    tag: VMGuestAgentEnrollmentStore.sharedDirectoryTag
+                )
+                device.share = share
+                virtualMachineConfiguration.directorySharingDevices.append(device)
+            }
+        }
+
         let features = model.config.linuxFeatures ?? .legacy
         switch features.applyDevices(
             to: virtualMachineConfiguration,

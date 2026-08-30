@@ -154,6 +154,10 @@ struct VMModel: Identifiable {
         rootPath.appending(path: "MachineState.vzvmsave")
     }
 
+    var guestAgentEnrollmentDirectoryURL: URL {
+        rootPath.appending(path: ".EZVMAgent", directoryHint: .isDirectory)
+    }
+
     var stateURL: URL {
         Self.getStateURL(rootPath: rootPath)
     }
