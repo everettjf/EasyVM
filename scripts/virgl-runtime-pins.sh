@@ -41,6 +41,7 @@ readonly EZVM_ANGLE_RECIPE_SHA256=076df85af0f3bcd5d1232be7285bdb0bc305f28df155bc
 readonly EZVM_EPOXY_RECIPE_ARCHIVE=homebrew-libepoxy-$EZVM_EPOXY_BUILD_RECIPE_COMMIT.tar.gz
 readonly EZVM_EPOXY_RECIPE_URL=https://github.com/startergo/homebrew-libepoxy/archive/$EZVM_EPOXY_BUILD_RECIPE_COMMIT.tar.gz
 readonly EZVM_EPOXY_RECIPE_SHA256=2385e015283816237615c3933b58c174ca8fd55be351a56799cdfeb656b6f789
+readonly EZVM_DEPOT_TOOLS_COMMIT=f70835271105ca56d2cd5382a0118152bc2bdeea
 
 readonly EZVM_VIRGL_VERSION=1.0.33
 readonly EZVM_VIRGL_ARCHIVE=virglrenderer-1.0.33.arm64_sequoia.bottle.tar.gz
