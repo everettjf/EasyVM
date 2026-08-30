@@ -37,6 +37,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var releaseSmokeUploadURL: URL?
     private var releaseSmokeDownloadURL: URL?
     private var releaseSmokeGuestPath: String?
+    private var displayRefreshObservers: [NSObjectProtocol] = []
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
     
@@ -65,6 +66,55 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
         DispatchQueue.main.async {
             self.startMachine()
+        }
+    }
+
+    public override func viewDidAppear() {
+        super.viewDidAppear()
+        installDisplayRefreshObserversIfNeeded()
+    }
+
+    public override func viewWillDisappear() {
+        super.viewWillDisappear()
+        removeDisplayRefreshObservers()
+    }
+
+    deinit {
+        removeDisplayRefreshObservers()
+    }
+
+    private func installDisplayRefreshObserversIfNeeded() {
+        guard displayRefreshObservers.isEmpty, let window = view.window else { return }
+        let names = [
+            NSWindow.didEnterFullScreenNotification,
+            NSWindow.didExitFullScreenNotification,
+            NSWindow.didEndLiveResizeNotification,
+        ]
+        for name in names {
+            displayRefreshObservers.append(NotificationCenter.default.addObserver(
+                forName: name,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                self?.refreshAutomaticDisplayConfiguration()
+            })
+        }
+    }
+
+    private func removeDisplayRefreshObservers() {
+        displayRefreshObservers.forEach(NotificationCenter.default.removeObserver)
+        displayRefreshObservers.removeAll()
+    }
+
+    private func refreshAutomaticDisplayConfiguration() {
+        guard #available(macOS 14.0, *) else { return }
+        // Full-screen notifications arrive after the transition, but defer one
+        // run-loop turn so Auto Layout has committed the final content size.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.view.layoutSubtreeIfNeeded()
+            self.virtualMachineView.automaticallyReconfiguresDisplay = false
+            self.virtualMachineView.automaticallyReconfiguresDisplay = true
         }
     }
     

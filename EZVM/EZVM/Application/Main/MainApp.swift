@@ -43,6 +43,7 @@ struct MainApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             ControlCenterCommands()
         }
@@ -57,6 +58,7 @@ struct MainApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             ControlCenterCommands()
         }
