@@ -167,6 +167,13 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         releaseInputCapture()
     }
 
+    func stopPresentation() {
+        displayRefreshTimer?.invalidate()
+        displayRefreshTimer = nil
+        latestScanout = nil
+        releaseInputCapture()
+    }
+
     override var acceptsFirstResponder: Bool { true }
 
     override func keyDown(with event: NSEvent) {
@@ -617,6 +624,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     func shutdown() {
+        virglView.stopPresentation()
         virglView.virtualMachine = nil
         virglView.guestInputHandler = nil
         virglView.runtime = nil
