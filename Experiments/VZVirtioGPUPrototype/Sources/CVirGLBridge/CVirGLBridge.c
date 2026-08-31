@@ -178,6 +178,7 @@ typedef void (*gl_framebuffer_texture_fn)(unsigned int, unsigned int, unsigned i
 typedef void (*gl_blit_framebuffer_fn)(int, int, int, int, int, int, int, int, unsigned int, unsigned int);
 typedef void (*gl_image_target_fn)(unsigned int, void *);
 typedef void (*gl_flush_fn)(void);
+typedef void (*gl_finish_fn)(void);
 
 static void *egl_library;
 static EGLDisplay egl_display;
@@ -210,6 +211,7 @@ static gl_framebuffer_texture_fn gl_framebuffer_texture_2d;
 static gl_blit_framebuffer_fn gl_blit_framebuffer;
 static gl_image_target_fn gl_image_target_texture_2d;
 static gl_flush_fn gl_flush;
+static gl_finish_fn gl_finish;
 
 #define FENCE_RING_SIZE 1024
 static uint32_t completed_fences[FENCE_RING_SIZE];
@@ -307,6 +309,7 @@ static int initialize_angle(const char *virgl_path) {
     LOAD_GLES(gl_blit_framebuffer, "glBlitFramebuffer");
     LOAD_GLES(gl_image_target_texture_2d, "glEGLImageTargetTexture2DOES");
     LOAD_GLES(gl_flush, "glFlush");
+    LOAD_GLES(gl_finish, "glFinish");
 #undef LOAD_GLES
 
     const EGLAttrib display_attributes[] = {
@@ -532,7 +535,7 @@ int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_cou
     // producer context's pending work before switching contexts so the root
     // blit observes updates immediately instead of waiting for unrelated guest
     // activity (for example a later pointer-damage command) to flush them.
-    if (result == 0) gl_flush();
+    if (result == 0) gl_finish();
     release_current_context();
     return result;
 }
@@ -614,7 +617,11 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
         0, 0, (int)destination_width, (int)destination_height,
         GL_COLOR_BUFFER_BIT, GL_NEAREST
     );
-    gl_flush();
+    // This is a correctness probe for ANGLE's cross-context Metal texture
+    // visibility. Ensure both the guest producer and the root-context blit are
+    // complete before AppKit presents the CAMetalDrawable. Once validated this
+    // blocking synchronization can be replaced with shared GPU fences.
+    gl_finish();
 
     gl_bind_framebuffer(GL_READ_FRAMEBUFFER, 0);
     gl_bind_framebuffer(GL_DRAW_FRAMEBUFFER, 0);
