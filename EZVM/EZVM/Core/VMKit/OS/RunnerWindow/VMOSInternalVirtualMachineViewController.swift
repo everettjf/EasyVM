@@ -96,12 +96,15 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func refreshAutomaticDisplayConfiguration() {
-        // Full-screen notifications arrive after the transition, but defer one
-        // run-loop turn so Auto Layout has committed the final content size.
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.view.layoutSubtreeIfNeeded()
-            self.graphicsBackend?.refreshDisplayConfiguration()
+        // Window geometry and the Linux display stack settle independently.
+        // Refresh immediately, then repeat after short delays so startup and
+        // full-screen transitions cannot leave the guest on the fallback mode.
+        for delay in [0.0, 0.35, 1.25] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.view.window != nil else { return }
+                self.view.layoutSubtreeIfNeeded()
+                self.graphicsBackend?.refreshDisplayConfiguration()
+            }
         }
     }
     
@@ -394,6 +397,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private func didStart(rootPath: URL, model: VMModel) {
         runtimeState?.update(.running)
         markMachineRunning()
+        // Custom VirGL starts with the persisted fallback mode (normally
+        // 1280x720). Negotiate once the VM and window are both live so Linux
+        // sees the actual drawable size without requiring a manual resize or
+        // a full-screen round trip first.
+        refreshAutomaticDisplayConfiguration()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
             if smokeTest.requireGuestAgent || smokeTest.requireGuestInput || smokeTest.requireKVM {
                 startGuestAgent(model: model, releaseSmoke: smokeTest)
