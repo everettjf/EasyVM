@@ -174,6 +174,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         releaseInputCapture()
     }
 
+    func invalidateScanout() {
+        latestScanout = nil
+    }
+
     override var acceptsFirstResponder: Bool { true }
 
     override func keyDown(with event: NSEvent) {
@@ -579,6 +583,9 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             onScanout: { [weak view] resourceID, width, height in
                 view?.present(resourceID: resourceID, width: width, height: height)
             },
+            onScanoutInvalidated: { [weak view] in
+                view?.invalidateScanout()
+            },
             onCursor: { [weak view] update in
                 view?.updateCursor(update)
             }
@@ -606,17 +613,13 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     func refreshDisplayConfiguration() {
-        let scale = virglView.window?.backingScaleFactor
-            ?? NSScreen.main?.backingScaleFactor
-            ?? 1
         let size = virglView.bounds.size
-        let width = UInt32(max(640, min(8192, (size.width * scale).rounded())))
-        let height = UInt32(max(480, min(8192, (size.height * scale).rounded())))
+        let target = VMDisplayGeometry.guestResolution(for: size)
         EZVMLog.info(
-            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) scale=\(scale) requested=\(width)x\(height)",
+            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) requested=\(target.width)x\(target.height)",
             logger: EZVMLog.graphics
         )
-        runtime?.requestDisplaySize(width: width, height: height)
+        runtime?.requestDisplaySize(width: target.width, height: target.height)
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {

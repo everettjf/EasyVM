@@ -3,6 +3,25 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
+    func testGuestResolutionUsesLogicalWindowSizeInsteadOfRetinaPixels() {
+        let normal = VMDisplayGeometry.guestResolution(for: CGSize(width: 991.6, height: 707.8))
+        XCTAssertEqual(normal.width, 992)
+        XCTAssertEqual(normal.height, 708)
+
+        let fullscreen = VMDisplayGeometry.guestResolution(for: CGSize(width: 1920, height: 1080))
+        XCTAssertEqual(fullscreen.width, 1920)
+        XCTAssertEqual(fullscreen.height, 1080)
+    }
+
+    func testGuestResolutionClampsAndStabilizesDimensions() {
+        let tiny = VMDisplayGeometry.guestResolution(for: CGSize(width: 200, height: 100))
+        XCTAssertEqual(tiny.width, 640)
+        XCTAssertEqual(tiny.height, 480)
+        let huge = VMDisplayGeometry.guestResolution(for: CGSize(width: 20_000, height: 20_001))
+        XCTAssertEqual(huge.width, 8192)
+        XCTAssertEqual(huge.height, 8192)
+    }
+
     func testVirGLPresentationPreservesGuestAspectRatio() {
         let fitted = VMDisplayGeometry.aspectFit(
             content: CGSize(width: 1920, height: 1080),
@@ -15,10 +34,10 @@ final class VMGuestAgentProtocolTests: XCTestCase {
 
     func testPreciseScrollingAccumulatesFractionalTrackpadDeltas() {
         var accumulator = VMScrollWheelAccumulator()
-        XCTAssertEqual(accumulator.consume(delta: 3.5, hasPreciseDeltas: true), 0)
-        XCTAssertEqual(accumulator.consume(delta: 3.5, hasPreciseDeltas: true), 0)
-        XCTAssertEqual(accumulator.consume(delta: 3.5, hasPreciseDeltas: true), 1)
-        XCTAssertEqual(accumulator.consume(delta: -20.5, hasPreciseDeltas: true), -2)
+        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 1)
+        XCTAssertEqual(accumulator.consume(delta: -6.75, hasPreciseDeltas: true), -2)
         XCTAssertEqual(accumulator.consume(delta: 2, hasPreciseDeltas: false), 2)
     }
 

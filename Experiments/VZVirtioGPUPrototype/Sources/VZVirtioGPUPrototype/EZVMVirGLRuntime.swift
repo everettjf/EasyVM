@@ -73,6 +73,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
     public init(
         configuration: Configuration,
         onScanout: @escaping @MainActor @Sendable (UInt32, Int, Int) -> Void,
+        onScanoutInvalidated: @escaping @MainActor @Sendable () -> Void = {},
         onCursor: @escaping @MainActor @Sendable (CursorUpdate) -> Void = { _ in },
         onFallbackFrame: @escaping @MainActor @Sendable (CGImage) -> Void = { _ in }
     ) throws {
@@ -87,6 +88,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
                 onZeroCopyFrame: { frame in
                     onScanout(frame.resourceID, frame.width, frame.height)
                 },
+                onScanoutInvalidated: onScanoutInvalidated,
                 onCursor: onCursor,
                 onFrame: onFallbackFrame
             )
@@ -178,7 +180,13 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         stateLock.lock()
         gpuDevice = nil
         inputProbeDevice = nil
-        renderer = nil
+        let renderer = self.renderer
+        self.renderer = nil
         stateLock.unlock()
+        // virglrenderer is process-global. VZVirtualMachine may retain its
+        // custom-device delegate past the VM stop callback, so ARC alone is not
+        // a deterministic cleanup boundary. Tear the singleton down explicitly
+        // before another VM in this app process attempts initialization.
+        renderer?.shutdown()
     }
 }

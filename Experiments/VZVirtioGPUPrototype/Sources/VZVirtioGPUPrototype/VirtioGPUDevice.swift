@@ -61,6 +61,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     let onZeroCopyFrame: @MainActor (ScanoutFrame) -> Void
+    let onScanoutInvalidated: @MainActor () -> Void
     let onCursor: @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void
     let zeroCopyPresentationEnabled: Bool
     let deviceQueue = DispatchQueue(label: "com.everettjf.ezvm.prototype.virtio-gpu")
@@ -100,6 +101,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         renderer: VirGLRenderer,
         zeroCopyPresentationEnabled: Bool = true,
         onZeroCopyFrame: @escaping @MainActor (ScanoutFrame) -> Void,
+        onScanoutInvalidated: @escaping @MainActor () -> Void = {},
         onCursor: @escaping @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void = { _ in },
         onFrame: @escaping @MainActor (CGImage) -> Void
     ) {
@@ -108,6 +110,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         self.renderer = renderer
         self.zeroCopyPresentationEnabled = zeroCopyPresentationEnabled
         self.onZeroCopyFrame = onZeroCopyFrame
+        self.onScanoutInvalidated = onScanoutInvalidated
         self.onCursor = onCursor
         self.onFrame = onFrame
     }
@@ -235,6 +238,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
     private func releaseDeviceState(reason: String) {
         frameScheduler.cancel()
+        Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated() }
         renderer.cancelFences()
         for contextID in contexts { renderer.destroyContext(id: contextID) }
         for resource in resources.values where resource.isRendererResource {

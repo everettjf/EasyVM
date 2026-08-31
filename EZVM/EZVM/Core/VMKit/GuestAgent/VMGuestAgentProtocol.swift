@@ -4,6 +4,16 @@ import Darwin
 import Foundation
 
 enum VMDisplayGeometry {
+    static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
+        func dimension(_ value: CGFloat, minimum: Int) -> UInt32 {
+            let bounded = max(CGFloat(minimum), min(8192, value.rounded()))
+            // Stable even dimensions avoid a new DRM mode for one-point layout
+            // jitter while remaining valid for common compositor buffers.
+            return UInt32(Int(bounded) & ~1)
+        }
+        return (dimension(size.width, minimum: 640), dimension(size.height, minimum: 480))
+    }
+
     static func aspectFit(content: CGSize, in bounds: CGRect) -> CGRect {
         guard content.width > 0, content.height > 0,
               bounds.width > 0, bounds.height > 0 else { return bounds }
@@ -20,6 +30,7 @@ enum VMDisplayGeometry {
 
 struct VMScrollWheelAccumulator {
     private var preciseRemainder: CGFloat = 0
+    private static let precisePointsPerDetent: CGFloat = 3
 
     mutating func consume(delta: CGFloat, hasPreciseDeltas: Bool) -> Int32 {
         guard delta.isFinite else { return 0 }
@@ -31,8 +42,8 @@ struct VMScrollWheelAccumulator {
         // REL_WHEEL expects integral detents. Preserve sub-detent motion across
         // events so a slow two-finger gesture is not rounded away completely.
         preciseRemainder += delta
-        let detents = Int(preciseRemainder / 10)
-        preciseRemainder -= CGFloat(detents * 10)
+        let detents = Int(preciseRemainder / Self.precisePointsPerDetent)
+        preciseRemainder -= CGFloat(detents) * Self.precisePointsPerDetent
         return Int32(max(-32767, min(32767, detents)))
     }
 }

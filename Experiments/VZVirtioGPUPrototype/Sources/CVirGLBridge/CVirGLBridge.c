@@ -93,7 +93,7 @@ typedef int (*context_create_fn)(uint32_t, uint32_t, const char *);
 typedef void (*context_destroy_fn)(uint32_t);
 typedef void (*context_resource_fn)(int, int);
 typedef int (*submit_fn)(void *, int, int);
-typedef int (*create_fence_fn)(int, uint32_t);
+typedef int (*create_context_fence_fn)(uint32_t, uint32_t, uint32_t, uint64_t);
 typedef int (*transfer_fn)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
                            struct virgl_box *, uint64_t, struct iovec *, int);
 typedef int (*borrow_texture_fn)(int, struct virgl_renderer_resource_info_ext *);
@@ -113,7 +113,7 @@ static context_destroy_fn context_destroy;
 static context_resource_fn context_attach_resource;
 static context_resource_fn context_detach_resource;
 static submit_fn submit_cmd;
-static create_fence_fn create_fence;
+static create_context_fence_fn create_context_fence;
 static transfer_fn transfer_write;
 static transfer_fn transfer_read;
 static borrow_texture_fn borrow_texture_for_scanout;
@@ -183,6 +183,7 @@ typedef void (*gl_framebuffer_texture_fn)(unsigned int, unsigned int, unsigned i
 typedef void (*gl_blit_framebuffer_fn)(int, int, int, int, int, int, int, int, unsigned int, unsigned int);
 typedef void (*gl_image_target_fn)(unsigned int, void *);
 typedef void (*gl_flush_fn)(void);
+typedef void (*gl_finish_fn)(void);
 
 static void *egl_library;
 static EGLDisplay egl_display;
@@ -219,6 +220,7 @@ static gl_framebuffer_texture_fn gl_framebuffer_texture_2d;
 static gl_blit_framebuffer_fn gl_blit_framebuffer;
 static gl_image_target_fn gl_image_target_texture_2d;
 static gl_flush_fn gl_flush;
+static gl_finish_fn gl_finish;
 
 #define FENCE_RING_SIZE 1024
 static uint32_t completed_fences[FENCE_RING_SIZE];
@@ -229,8 +231,7 @@ static void set_error(const char *message) {
     snprintf(last_error, sizeof(last_error), "%s", message ? message : "unknown error");
 }
 
-static void write_fence_callback(void *cookie, uint32_t fence_id) {
-    (void)cookie;
+static void record_completed_fence(uint32_t fence_id) {
     uint32_t next = (fence_write_index + 1) % FENCE_RING_SIZE;
     if (next == fence_read_index) {
         set_error("completed fence ring overflow");
@@ -238,6 +239,28 @@ static void write_fence_callback(void *cookie, uint32_t fence_id) {
     }
     completed_fences[fence_write_index] = fence_id;
     fence_write_index = next;
+}
+
+static void write_fence_callback(void *cookie, uint32_t fence_id) {
+    (void)cookie;
+    record_completed_fence(fence_id);
+}
+
+static void write_context_fence_callback(void *cookie,
+                                         uint32_t context_id,
+                                         uint32_t ring_index,
+                                         uint64_t fence_id) {
+    (void)cookie;
+    (void)context_id;
+    (void)ring_index;
+    // EZVM allocates host fence IDs in the non-zero uint32_t range before
+    // passing them to virgl_renderer_context_create_fence. Completion
+    // reports that same ID through the version-4 callback.
+    if (fence_id == 0 || fence_id > UINT32_MAX) {
+        set_error("invalid completed context fence id");
+        return;
+    }
+    record_completed_fence((uint32_t)fence_id);
 }
 
 static int load_symbol(void **destination, const char *name) {
@@ -319,6 +342,7 @@ static int initialize_angle(const char *virgl_path) {
     LOAD_GLES(gl_blit_framebuffer, "glBlitFramebuffer");
     LOAD_GLES(gl_image_target_texture_2d, "glEGLImageTargetTexture2DOES");
     LOAD_GLES(gl_flush, "glFlush");
+    LOAD_GLES(gl_finish, "glFinish");
 #undef LOAD_GLES
 
     const EGLAttrib display_attributes[] = {
@@ -427,7 +451,7 @@ int vzvg_renderer_load(const char *dylib_path) {
     LOAD(context_attach_resource, "virgl_renderer_ctx_attach_resource");
     LOAD(context_detach_resource, "virgl_renderer_ctx_detach_resource");
     LOAD(submit_cmd, "virgl_renderer_submit_cmd");
-    LOAD(create_fence, "virgl_renderer_create_fence");
+    LOAD(create_context_fence, "virgl_renderer_context_create_fence");
     LOAD(transfer_write, "virgl_renderer_transfer_write_iov");
     LOAD(transfer_read, "virgl_renderer_transfer_read_iov");
     LOAD(borrow_texture_for_scanout, "virgl_renderer_borrow_texture_for_scanout");
@@ -443,6 +467,7 @@ int vzvg_renderer_initialize(void) {
     memset(&renderer_callbacks, 0, sizeof(renderer_callbacks));
     renderer_callbacks.version = VIRGL_RENDERER_CALLBACKS_VERSION;
     renderer_callbacks.write_fence = write_fence_callback;
+    renderer_callbacks.write_context_fence = write_context_fence_callback;
     renderer_callbacks.create_gl_context = create_gl_context_callback;
     renderer_callbacks.destroy_gl_context = destroy_gl_context_callback;
     renderer_callbacks.make_current = make_current_callback;
@@ -567,11 +592,26 @@ int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_cou
     return result;
 }
 int vzvg_renderer_create_fence(uint32_t fence_id, uint32_t context_id) {
+    // The legacy API always creates a ctx0 fence; use the v3 per-context API
+    // for guest 3D contexts so the sync object is created and retired in the
+    // same ANGLE command stream. The v4 callback reports its UInt64 cookie.
     int current_result = context_id == 0
         ? make_root_context_current()
         : make_guest_context_current(context_id);
     if (current_result != 0) return -1;
-    int result = create_fence((int)fence_id, context_id);
+    int result;
+    if (context_id == 0) {
+        // The external ANGLE/Metal winsys does not reliably retire
+        // virglrenderer's legacy ctx0 GLsync. ctx0 commands are synchronous
+        // resource/control operations, not the hot rendering submission path:
+        // finish their root-context work explicitly, then complete the host
+        // fence locally. Guest 3D contexts remain fully asynchronous below.
+        gl_finish();
+        record_completed_fence(fence_id);
+        result = 0;
+    } else {
+        result = create_context_fence(context_id, 0, 0, fence_id);
+    }
     release_current_context();
     return result;
 }

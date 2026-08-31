@@ -41,6 +41,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var releaseSmokeInputVerified = false
     private var shutdownFallbackGeneration = 0
     private var displayRefreshObservers: [NSObjectProtocol] = []
+    private var pendingDisplayRefresh: DispatchWorkItem?
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
     
@@ -88,11 +89,29 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 self?.refreshAutomaticDisplayConfiguration()
             })
         }
+        displayRefreshObservers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            self?.scheduleDisplayRefreshAfterResize()
+        })
     }
 
     private func removeDisplayRefreshObservers() {
         displayRefreshObservers.forEach(NotificationCenter.default.removeObserver)
         displayRefreshObservers.removeAll()
+        pendingDisplayRefresh?.cancel()
+        pendingDisplayRefresh = nil
+    }
+
+    private func scheduleDisplayRefreshAfterResize() {
+        pendingDisplayRefresh?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.refreshAutomaticDisplayConfiguration()
+        }
+        pendingDisplayRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: work)
     }
 
     private func refreshAutomaticDisplayConfiguration() {
@@ -766,10 +785,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         screenshotTimer?.invalidate()
         screenshotTimer = nil
         graphicsBackend?.bind(virtualMachine: nil)
+        virtualMachine?.delegate = nil
+        // VZVirtualMachine retains its custom Virtio device delegate. Release
+        // it before shutting down VirGL so the old VirtioGPUDevice cannot keep
+        // the process-global virglrenderer instance alive across an in-app VM
+        // restart (the next virgl_renderer_init would otherwise return EINVAL).
+        virtualMachine = nil
         graphicsBackend?.shutdown()
         graphicsBackend = nil
-        virtualMachine?.delegate = nil
-        virtualMachine = nil
     }
 
     private func scheduleShutdownFallback() {

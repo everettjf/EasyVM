@@ -2,11 +2,13 @@ import CVirGLBridge
 import Darwin
 import Foundation
 import Metal
+import OSLog
 
 final class VirGLRenderer {
     typealias FenceCompletion = @Sendable (Bool) -> Void
 
     private struct PendingFence {
+        let contextID: UInt32
         let deadline: UInt64
         let completion: FenceCompletion
     }
@@ -53,8 +55,11 @@ final class VirGLRenderer {
     let libraryURL: URL
     let virglCapset: Capset
     private let executor: RendererExecutor
+    private let shutdownLock = NSLock()
+    private var didShutdown = false
     private var nextHostFenceID: UInt32 = 1
     private var pendingFences: [UInt32: PendingFence] = [:]
+    private let logger = Logger(subsystem: "com.everettjf.EZVM", category: "virgl-fence")
 
     init(libraryURL: URL) throws {
         self.libraryURL = libraryURL
@@ -94,9 +99,23 @@ final class VirGLRenderer {
         )
     }
 
-    deinit {
+    deinit { shutdown() }
+
+    func shutdown() {
+        shutdownLock.lock()
+        guard !didShutdown else {
+            shutdownLock.unlock()
+            return
+        }
+        didShutdown = true
+        shutdownLock.unlock()
         cancelFences()
-        executor.sync { vzvg_renderer_cleanup() }
+        // virglrenderer + the external ANGLE winsys are process-global. The
+        // pinned stack does not support cleanup followed by initialization in
+        // the same process (the second vrend_renderer_init returns EINVAL).
+        // Device teardown has already destroyed every guest context/resource;
+        // keep the empty global renderer initialized for the next VM window.
+        // The OS reclaims the ANGLE display when EZVM exits.
         executor.stop()
     }
 
@@ -195,12 +214,21 @@ final class VirGLRenderer {
                 completion(false)
                 return
             }
-            guard let hostFenceID = allocateHostFenceID(),
-                  vzvg_renderer_create_fence(hostFenceID, contextID) == 0 else {
+            guard let hostFenceID = allocateHostFenceID() else {
+                logger.error("could not allocate a host fence ID")
+                completion(false)
+                return
+            }
+            let createResult = vzvg_renderer_create_fence(hostFenceID, contextID)
+            guard createResult == 0 else {
+                logger.error(
+                    "fence create failed: host=\(hostFenceID, privacy: .public) context=\(contextID, privacy: .public) result=\(createResult, privacy: .public) renderer=\(Self.lastError, privacy: .public)"
+                )
                 completion(false)
                 return
             }
             pendingFences[hostFenceID] = PendingFence(
+                contextID: contextID,
                 deadline: DispatchTime.now().uptimeNanoseconds + 2_000_000_000,
                 completion: completion
             )
@@ -275,7 +303,12 @@ final class VirGLRenderer {
         var completedID: UInt32 = 0
         while vzvg_renderer_pop_completed_fence(&completedID) != 0 {
             if let fence = pendingFences.removeValue(forKey: completedID) {
+                logger.debug(
+                    "fence completed: host=\(completedID, privacy: .public) context=\(fence.contextID, privacy: .public)"
+                )
                 completions.append((fence.completion, true))
+            } else {
+                logger.error("unknown fence completion: host=\(completedID, privacy: .public)")
             }
         }
         let now = DispatchTime.now().uptimeNanoseconds
@@ -284,6 +317,9 @@ final class VirGLRenderer {
         }
         for id in expired {
             if let fence = pendingFences.removeValue(forKey: id) {
+                logger.error(
+                    "fence timed out: host=\(id, privacy: .public) context=\(fence.contextID, privacy: .public)"
+                )
                 completions.append((fence.completion, false))
             }
         }
