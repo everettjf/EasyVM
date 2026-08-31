@@ -115,6 +115,7 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
 
 @available(macOS 27.0, *)
 final class VMVirGLDisplayView: VZVirtualMachineView {
+    private let backgroundLayer = CALayer()
     private let metalLayer = CAMetalLayer()
     private let cursorLayer = CALayer()
     weak var runtime: EZVMVirGLRuntime?
@@ -134,17 +135,20 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var pressedButtons = Set<UInt16>()
     private var pointerCaptured = false
     private var windowObservers: [NSObjectProtocol] = []
-    private let guestSize: CGSize
+    private var guestSize: CGSize
+    private var scrollWheelAccumulator = VMScrollWheelAccumulator()
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
         self.guestSize = guestSize
         super.init(frame: frameRect)
         wantsLayer = true
+        backgroundLayer.backgroundColor = NSColor.black.cgColor
+        layer = backgroundLayer
         metalLayer.device = MTLCreateSystemDefaultDevice()
         metalLayer.pixelFormat = .bgra8Unorm
         metalLayer.framebufferOnly = false
         metalLayer.backgroundColor = NSColor.black.cgColor
-        layer = metalLayer
+        backgroundLayer.addSublayer(metalLayer)
         cursorLayer.anchorPoint = .zero
         cursorLayer.contentsGravity = .resize
         cursorLayer.isHidden = true
@@ -218,7 +222,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard pointerCaptured,
+        guard (pointerCaptured || window?.firstResponder === self),
               !releaseShortcutIsActive(event),
               let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
               let guestInputHandler else {
@@ -269,7 +273,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     override func scrollWheel(with event: NSEvent) {
         guard pointerCaptured else { return }
-        let value = Int32(max(-32767, min(32767, Int(event.scrollingDeltaY.rounded()))))
+        let value = scrollWheelAccumulator.consume(
+            delta: event.scrollingDeltaY,
+            hasPreciseDeltas: event.hasPreciseScrollingDeltas
+        )
         guard value != 0 else { return }
         guestInputHandler?([
             VMGuestAgentInputEvent(type: 2, code: 8, value: value),
@@ -392,9 +399,12 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         updateCursorGeometry()
     }
 
-    func present(resourceID: UInt32) {
+    func present(resourceID: UInt32, width: Int, height: Int) {
         requestedFramesInWindow &+= 1
         let startedAt = CACurrentMediaTime()
+        if width > 0, height > 0 {
+            guestSize = CGSize(width: width, height: height)
+        }
         updateDrawableGeometry()
         guard let runtime else {
             failuresInWindow &+= 1
@@ -464,23 +474,25 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     private func updateDrawableGeometry() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
-        metalLayer.frame = bounds
+        let presentationFrame = VMDisplayGeometry.aspectFit(content: guestSize, in: bounds)
+        metalLayer.frame = presentationFrame
         metalLayer.contentsScale = scale
         metalLayer.drawableSize = CGSize(
-            width: max(1, bounds.width * scale),
-            height: max(1, bounds.height * scale)
+            width: max(1, presentationFrame.width * scale),
+            height: max(1, presentationFrame.height * scale)
         )
     }
 
     private func updateCursorGeometry() {
         guard guestSize.width > 0, guestSize.height > 0 else { return }
-        let scaleX = bounds.width / guestSize.width
-        let scaleY = bounds.height / guestSize.height
+        let presentationSize = metalLayer.bounds.size
+        let scaleX = presentationSize.width / guestSize.width
+        let scaleY = presentationSize.height / guestSize.height
         let width = cursorImageSize.width * scaleX
         let height = cursorImageSize.height * scaleY
         let x = (cursorPosition.x - cursorHotspot.x) * scaleX
         let top = (cursorPosition.y - cursorHotspot.y) * scaleY
-        cursorLayer.frame = CGRect(x: x, y: bounds.height - top - height, width: width, height: height)
+        cursorLayer.frame = CGRect(x: x, y: presentationSize.height - top - height, width: width, height: height)
     }
 }
 
@@ -514,8 +526,8 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
                     "EZVM_EXPERIMENTAL_STATIC_VIRTIO_INPUT"
                 ] == "1"
             ),
-            onScanout: { [weak view] resourceID in
-                view?.present(resourceID: resourceID)
+            onScanout: { [weak view] resourceID, width, height in
+                view?.present(resourceID: resourceID, width: width, height: height)
             },
             onCursor: { [weak view] update in
                 view?.updateCursor(update)

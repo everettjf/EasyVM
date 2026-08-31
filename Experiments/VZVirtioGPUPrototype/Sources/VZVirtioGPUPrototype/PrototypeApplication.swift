@@ -95,8 +95,8 @@ final class PrototypeApp: NSObject, NSApplicationDelegate, VZVirtualMachineDeleg
             width: arguments.width,
             height: arguments.height,
             renderer: renderer,
-            onZeroCopyFrame: { [weak self] resourceID in
-                self?.presentZeroCopy(resourceID: resourceID)
+            onZeroCopyFrame: { [weak self] frame in
+                self?.presentZeroCopy(resourceID: frame.resourceID)
             }
         ) {
             [weak self] frame in

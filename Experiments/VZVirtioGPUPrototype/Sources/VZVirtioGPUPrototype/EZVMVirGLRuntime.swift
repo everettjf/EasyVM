@@ -72,7 +72,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
 
     public init(
         configuration: Configuration,
-        onScanout: @escaping @MainActor @Sendable (UInt32) -> Void,
+        onScanout: @escaping @MainActor @Sendable (UInt32, Int, Int) -> Void,
         onCursor: @escaping @MainActor @Sendable (CursorUpdate) -> Void = { _ in },
         onFallbackFrame: @escaping @MainActor @Sendable (CGImage) -> Void = { _ in }
     ) throws {
@@ -84,7 +84,9 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
                 height: configuration.height,
                 renderer: renderer,
                 zeroCopyPresentationEnabled: configuration.zeroCopyPresentationEnabled,
-                onZeroCopyFrame: onScanout,
+                onZeroCopyFrame: { frame in
+                    onScanout(frame.resourceID, frame.width, frame.height)
+                },
                 onCursor: onCursor,
                 onFrame: onFallbackFrame
             )

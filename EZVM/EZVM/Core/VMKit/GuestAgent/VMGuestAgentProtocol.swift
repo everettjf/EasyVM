@@ -3,6 +3,40 @@ import CryptoKit
 import Darwin
 import Foundation
 
+enum VMDisplayGeometry {
+    static func aspectFit(content: CGSize, in bounds: CGRect) -> CGRect {
+        guard content.width > 0, content.height > 0,
+              bounds.width > 0, bounds.height > 0 else { return bounds }
+        let scale = min(bounds.width / content.width, bounds.height / content.height)
+        let size = CGSize(width: content.width * scale, height: content.height * scale)
+        return CGRect(
+            x: bounds.midX - size.width / 2,
+            y: bounds.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+}
+
+struct VMScrollWheelAccumulator {
+    private var preciseRemainder: CGFloat = 0
+
+    mutating func consume(delta: CGFloat, hasPreciseDeltas: Bool) -> Int32 {
+        guard delta.isFinite else { return 0 }
+        if !hasPreciseDeltas {
+            return Int32(max(-32767, min(32767, Int(delta.rounded()))))
+        }
+
+        // AppKit reports trackpad scrolling in fractional pixels while Linux
+        // REL_WHEEL expects integral detents. Preserve sub-detent motion across
+        // events so a slow two-finger gesture is not rounded away completely.
+        preciseRemainder += delta
+        let detents = Int(preciseRemainder / 10)
+        preciseRemainder -= CGFloat(detents * 10)
+        return Int32(max(-32767, min(32767, detents)))
+    }
+}
+
 enum VMGuestAgentProtocol {
     static let version = 1
     static let port: UInt32 = 10240

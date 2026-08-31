@@ -54,7 +54,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var height: UInt32
     let renderer: VirGLRenderer
     let onFrame: @MainActor (CGImage) -> Void
-    let onZeroCopyFrame: @MainActor (UInt32) -> Void
+    struct ScanoutFrame: Sendable {
+        let resourceID: UInt32
+        let width: Int
+        let height: Int
+    }
+
+    let onZeroCopyFrame: @MainActor (ScanoutFrame) -> Void
     let onCursor: @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void
     let zeroCopyPresentationEnabled: Bool
     let deviceQueue = DispatchQueue(label: "com.everettjf.ezvm.prototype.virtio-gpu")
@@ -77,13 +83,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var displayInfoRequestCount: UInt64 = 0
     private var borrowedScanoutResources: Set<UInt32> = []
     private var savedEvidenceFrame = false
-    private lazy var frameScheduler = LatestFrameScheduler<UInt32> { [weak self] resourceID, completed in
+    private lazy var frameScheduler = LatestFrameScheduler<ScanoutFrame> { [weak self] frame, completed in
         guard let self else {
             completed()
             return
         }
         Task { @MainActor [onZeroCopyFrame] in
-            onZeroCopyFrame(resourceID)
+            onZeroCopyFrame(frame)
             self.deviceQueue.async { completed() }
         }
     }
@@ -93,7 +99,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         height: UInt32,
         renderer: VirGLRenderer,
         zeroCopyPresentationEnabled: Bool = true,
-        onZeroCopyFrame: @escaping @MainActor (UInt32) -> Void,
+        onZeroCopyFrame: @escaping @MainActor (ScanoutFrame) -> Void,
         onCursor: @escaping @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void = { _ in },
         onFrame: @escaping @MainActor (CGImage) -> Void
     ) {
@@ -854,7 +860,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             )
         }
         if zeroCopyPresentationEnabled {
-            frameScheduler.submit(resourceID)
+            frameScheduler.submit(ScanoutFrame(
+                resourceID: resourceID,
+                width: resource.width,
+                height: resource.height
+            ))
             let submitted = frameScheduler.submittedCount
             if submitted == 1 || submitted.isMultiple(of: 600) {
                 log(

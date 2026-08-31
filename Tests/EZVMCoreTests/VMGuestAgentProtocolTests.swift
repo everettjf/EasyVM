@@ -3,6 +3,25 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
+    func testVirGLPresentationPreservesGuestAspectRatio() {
+        let fitted = VMDisplayGeometry.aspectFit(
+            content: CGSize(width: 1920, height: 1080),
+            in: CGRect(x: 0, y: 0, width: 1800, height: 1300)
+        )
+        XCTAssertEqual(fitted.width, 1800, accuracy: 0.001)
+        XCTAssertEqual(fitted.height, 1012.5, accuracy: 0.001)
+        XCTAssertEqual(fitted.minY, 143.75, accuracy: 0.001)
+    }
+
+    func testPreciseScrollingAccumulatesFractionalTrackpadDeltas() {
+        var accumulator = VMScrollWheelAccumulator()
+        XCTAssertEqual(accumulator.consume(delta: 3.5, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 3.5, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 3.5, hasPreciseDeltas: true), 1)
+        XCTAssertEqual(accumulator.consume(delta: -20.5, hasPreciseDeltas: true), -2)
+        XCTAssertEqual(accumulator.consume(delta: 2, hasPreciseDeltas: false), 2)
+    }
+
     private let token = Data(repeating: 0x5a, count: 32)
     private let machineID = "machine-a"
     private let guestNonce = Data(repeating: 0x11, count: 32).base64EncodedString()
