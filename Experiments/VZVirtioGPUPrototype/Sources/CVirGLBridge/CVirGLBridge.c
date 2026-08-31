@@ -129,6 +129,7 @@ typedef int EGLBoolean;
 typedef int EGLint;
 typedef intptr_t EGLAttrib;
 typedef void *EGLImage;
+typedef void *EGLSync;
 
 #define EGL_NONE 0x3038
 #define EGL_DEFAULT_DISPLAY ((void *)0)
@@ -152,6 +153,7 @@ typedef void *EGLImage;
 #define EGL_PLATFORM_ANGLE_TYPE_ANGLE 0x3203
 #define EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE 0x3489
 #define EGL_METAL_TEXTURE_ANGLE 0x34A7
+#define EGL_SYNC_FENCE 0x30F9
 
 #define GL_TEXTURE_2D 0x0DE1
 #define GL_READ_FRAMEBUFFER 0x8CA8
@@ -172,13 +174,15 @@ typedef EGLBoolean (*egl_make_current_fn)(EGLDisplay, EGLSurface, EGLSurface, EG
 typedef EGLint (*egl_get_error_fn)(void);
 typedef EGLImage (*egl_create_image_fn)(EGLDisplay, EGLContext, EGLint, void *, const EGLAttrib *);
 typedef EGLBoolean (*egl_destroy_image_fn)(EGLDisplay, EGLImage);
+typedef EGLSync (*egl_create_sync_fn)(EGLDisplay, EGLint, const EGLAttrib *);
+typedef EGLBoolean (*egl_destroy_sync_fn)(EGLDisplay, EGLSync);
+typedef EGLBoolean (*egl_wait_sync_fn)(EGLDisplay, EGLSync, EGLint);
 typedef void (*gl_uint_fn)(int, unsigned int *);
 typedef void (*gl_bind_fn)(unsigned int, unsigned int);
 typedef void (*gl_framebuffer_texture_fn)(unsigned int, unsigned int, unsigned int, unsigned int, int);
 typedef void (*gl_blit_framebuffer_fn)(int, int, int, int, int, int, int, int, unsigned int, unsigned int);
 typedef void (*gl_image_target_fn)(unsigned int, void *);
 typedef void (*gl_flush_fn)(void);
-typedef void (*gl_finish_fn)(void);
 
 static void *egl_library;
 static EGLDisplay egl_display;
@@ -188,6 +192,7 @@ static EGLContext egl_root_context;
 static EGLContext last_created_context;
 #define MAX_TRACKED_CONTEXTS 65536
 static EGLContext guest_contexts[MAX_TRACKED_CONTEXTS];
+static EGLSync guest_context_syncs[MAX_TRACKED_CONTEXTS];
 static egl_get_platform_display_fn egl_get_platform_display;
 static egl_initialize_fn egl_initialize;
 static egl_bind_api_fn egl_bind_api;
@@ -200,6 +205,9 @@ static egl_make_current_fn egl_make_current;
 static egl_get_error_fn egl_get_error;
 static egl_create_image_fn egl_create_image;
 static egl_destroy_image_fn egl_destroy_image;
+static egl_create_sync_fn egl_create_sync;
+static egl_destroy_sync_fn egl_destroy_sync;
+static egl_wait_sync_fn egl_wait_sync;
 static void *gles_library;
 static gl_uint_fn gl_gen_textures;
 static gl_uint_fn gl_delete_textures;
@@ -211,7 +219,6 @@ static gl_framebuffer_texture_fn gl_framebuffer_texture_2d;
 static gl_blit_framebuffer_fn gl_blit_framebuffer;
 static gl_image_target_fn gl_image_target_texture_2d;
 static gl_flush_fn gl_flush;
-static gl_finish_fn gl_finish;
 
 #define FENCE_RING_SIZE 1024
 static uint32_t completed_fences[FENCE_RING_SIZE];
@@ -288,6 +295,9 @@ static int initialize_angle(const char *virgl_path) {
     LOAD_EGL(egl_get_error, "eglGetError");
     LOAD_EGL(egl_create_image, "eglCreateImage");
     LOAD_EGL(egl_destroy_image, "eglDestroyImage");
+    LOAD_EGL(egl_create_sync, "eglCreateSync");
+    LOAD_EGL(egl_destroy_sync, "eglDestroySync");
+    LOAD_EGL(egl_wait_sync, "eglWaitSync");
 #undef LOAD_EGL
 
     char gles_path[PATH_MAX];
@@ -309,7 +319,6 @@ static int initialize_angle(const char *virgl_path) {
     LOAD_GLES(gl_blit_framebuffer, "glBlitFramebuffer");
     LOAD_GLES(gl_image_target_texture_2d, "glEGLImageTargetTexture2DOES");
     LOAD_GLES(gl_flush, "glFlush");
-    LOAD_GLES(gl_finish, "glFinish");
 #undef LOAD_GLES
 
     const EGLAttrib display_attributes[] = {
@@ -518,6 +527,10 @@ int vzvg_renderer_context_create(uint32_t context_id, uint32_t name_length, cons
 }
 void vzvg_renderer_context_destroy(uint32_t context_id) {
     if (make_guest_context_current(context_id) != 0) return;
+    if (context_id < MAX_TRACKED_CONTEXTS && guest_context_syncs[context_id]) {
+        egl_destroy_sync(egl_display, guest_context_syncs[context_id]);
+        guest_context_syncs[context_id] = NULL;
+    }
     context_destroy(context_id);
     if (context_id < MAX_TRACKED_CONTEXTS) guest_contexts[context_id] = EGL_NO_CONTEXT;
     release_current_context();
@@ -535,7 +548,21 @@ int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_cou
     // producer context's pending work before switching contexts so the root
     // blit observes updates immediately instead of waiting for unrelated guest
     // activity (for example a later pointer-damage command) to flush them.
-    if (result == 0) gl_finish();
+    if (result == 0) {
+        gl_flush();
+        if (context_id < MAX_TRACKED_CONTEXTS) {
+            EGLSync sync = egl_create_sync(egl_display, EGL_SYNC_FENCE, NULL);
+            if (sync) {
+                if (guest_context_syncs[context_id]) {
+                    // A newer fence in the same GL command stream subsumes the
+                    // earlier one, so it is safe to keep only the latest fence.
+                    egl_destroy_sync(egl_display, guest_context_syncs[context_id]);
+                }
+                guest_context_syncs[context_id] = sync;
+                gl_flush();
+            }
+        }
+    }
     release_current_context();
     return result;
 }
@@ -579,6 +606,17 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     if (!metal_texture || destination_width == 0 || destination_height == 0
         || make_root_context_current() != 0) return -1;
 
+    // Guest rendering happens in shared ANGLE contexts. Queue GPU-side waits
+    // before sampling their textures so presentation sees the latest commands
+    // without blocking AppKit with glFinish().
+    for (uint32_t context_id = 0; context_id < MAX_TRACKED_CONTEXTS; context_id++) {
+        EGLSync sync = guest_context_syncs[context_id];
+        if (!sync) continue;
+        egl_wait_sync(egl_display, sync, 0);
+        egl_destroy_sync(egl_display, sync);
+        guest_context_syncs[context_id] = NULL;
+    }
+
     struct virgl_renderer_resource_info_ext source = {0};
     source.version = 0;
     if (borrow_texture_for_scanout((int)resource_id, &source) != 0) {
@@ -617,11 +655,7 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
         0, 0, (int)destination_width, (int)destination_height,
         GL_COLOR_BUFFER_BIT, GL_NEAREST
     );
-    // This is a correctness probe for ANGLE's cross-context Metal texture
-    // visibility. Ensure both the guest producer and the root-context blit are
-    // complete before AppKit presents the CAMetalDrawable. Once validated this
-    // blocking synchronization can be replaced with shared GPU fences.
-    gl_finish();
+    gl_flush();
 
     gl_bind_framebuffer(GL_READ_FRAMEBUFFER, 0);
     gl_bind_framebuffer(GL_DRAW_FRAMEBUFFER, 0);
