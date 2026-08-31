@@ -138,7 +138,8 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, width: Int, height: Int)?
-    private var inputPresentationGeneration: UInt64 = 0
+    private var inputPresentationTimer: Timer?
+    private var inputPresentationDeadline: CFTimeInterval = 0
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
         self.guestSize = guestSize
@@ -161,6 +162,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     required init?(coder: NSCoder) { nil }
 
     deinit {
+        inputPresentationTimer?.invalidate()
         windowObservers.forEach(NotificationCenter.default.removeObserver)
         releaseInputCapture()
     }
@@ -314,23 +316,32 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     private func refreshPresentationAfterInput() {
-        inputPresentationGeneration &+= 1
-        let generation = inputPresentationGeneration
         // Some zero-copy Wayland updates modify the current scanout texture
         // before the guest emits another RESOURCE_FLUSH. Re-present briefly
         // after input so text does not remain invisible until pointer damage
-        // wakes the compositor. Delayed work is coalesced to the latest event.
-        for delay in [0.016, 0.05] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self, self.inputPresentationGeneration == generation,
-                      let scanout = self.latestScanout else { return }
-                self.presentFrame(
-                    resourceID: scanout.resourceID,
-                    width: scanout.width,
-                    height: scanout.height
-                )
+        // wakes the compositor. Keep a short 60 Hz burst because the guest GPU
+        // work may complete well after the key event itself.
+        inputPresentationDeadline = CACurrentMediaTime() + 0.75
+        guard inputPresentationTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
             }
+            guard CACurrentMediaTime() < self.inputPresentationDeadline else {
+                timer.invalidate()
+                self.inputPresentationTimer = nil
+                return
+            }
+            guard let scanout = self.latestScanout else { return }
+            self.presentFrame(
+                resourceID: scanout.resourceID,
+                width: scanout.width,
+                height: scanout.height
+            )
         }
+        inputPresentationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private func releaseShortcutIsActive(_ event: NSEvent) -> Bool {
