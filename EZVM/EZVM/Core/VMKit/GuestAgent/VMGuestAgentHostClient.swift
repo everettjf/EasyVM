@@ -259,10 +259,16 @@ final class VMGuestAgentHostClient {
         sendSequence = 0
         liveness.markResponse()
         heartbeatTimer?.invalidate()
-        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.heartbeatTick() }
         }
-        heartbeatTimer?.tolerance = 2
+        timer.tolerance = 2
+        // Menus, window drags, full-screen transitions, and pointer capture can
+        // move AppKit out of the default run-loop mode for long enough to trip
+        // the 30-second liveness deadline. Keep the control channel alive in
+        // common modes just like the VM screenshot timer.
+        RunLoop.main.add(timer, forMode: .common)
+        heartbeatTimer = timer
         send(.status)
     }
 
