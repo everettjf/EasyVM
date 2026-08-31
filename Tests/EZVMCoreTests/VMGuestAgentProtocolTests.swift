@@ -7,8 +7,8 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let normal = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 991.6, height: 707.8)
         )
-        XCTAssertEqual(normal.width, 1280)
-        XCTAssertEqual(normal.height, 914)
+        XCTAssertEqual(normal.width, 1920)
+        XCTAssertEqual(normal.height, 1370)
 
         let fullscreen = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 1920, height: 1080)
@@ -19,8 +19,8 @@ final class VMGuestAgentProtocolTests: XCTestCase {
 
     func testGuestResolutionClampsAndStabilizesDimensions() {
         let tiny = VMDisplayGeometry.guestResolution(for: CGSize(width: 200, height: 100))
-        XCTAssertEqual(tiny.width, 1440)
-        XCTAssertEqual(tiny.height, 720)
+        XCTAssertEqual(tiny.width, 2160)
+        XCTAssertEqual(tiny.height, 1080)
         let huge = VMDisplayGeometry.guestResolution(for: CGSize(width: 20_000, height: 20_001))
         XCTAssertEqual(huge.width, 8192)
         XCTAssertEqual(huge.height, 8192)

@@ -97,6 +97,7 @@ typedef int (*create_context_fence_fn)(uint32_t, uint32_t, uint32_t, uint64_t);
 typedef int (*transfer_fn)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
                            struct virgl_box *, uint64_t, struct iovec *, int);
 typedef int (*borrow_texture_fn)(int, struct virgl_renderer_resource_info_ext *);
+typedef void (*force_context_zero_fn)(void);
 
 static void *library;
 static renderer_init_fn renderer_init;
@@ -117,6 +118,7 @@ static create_context_fence_fn create_context_fence;
 static transfer_fn transfer_write;
 static transfer_fn transfer_read;
 static borrow_texture_fn borrow_texture_for_scanout;
+static force_context_zero_fn force_context_zero;
 static char last_error[512];
 static int renderer_cookie;
 static struct virgl_renderer_callbacks renderer_callbacks;
@@ -161,6 +163,8 @@ typedef void *EGLSync;
 #define GL_COLOR_ATTACHMENT0 0x8CE0
 #define GL_COLOR_BUFFER_BIT 0x00004000
 #define GL_NEAREST 0x2600
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+#define GL_NO_ERROR 0
 
 typedef EGLDisplay (*egl_get_platform_display_fn)(EGLint, void *, const EGLAttrib *);
 typedef EGLBoolean (*egl_initialize_fn)(EGLDisplay, EGLint *, EGLint *);
@@ -184,15 +188,15 @@ typedef void (*gl_blit_framebuffer_fn)(int, int, int, int, int, int, int, int, u
 typedef void (*gl_image_target_fn)(unsigned int, void *);
 typedef void (*gl_flush_fn)(void);
 typedef void (*gl_finish_fn)(void);
+typedef unsigned int (*gl_get_error_fn)(void);
+typedef unsigned int (*gl_check_framebuffer_status_fn)(unsigned int);
 
 static void *egl_library;
 static EGLDisplay egl_display;
 static EGLConfig egl_config;
 static EGLSurface egl_surface;
 static EGLContext egl_root_context;
-static EGLContext last_created_context;
 #define MAX_TRACKED_CONTEXTS 65536
-static EGLContext guest_contexts[MAX_TRACKED_CONTEXTS];
 static EGLSync guest_context_syncs[MAX_TRACKED_CONTEXTS];
 static egl_get_platform_display_fn egl_get_platform_display;
 static egl_initialize_fn egl_initialize;
@@ -221,6 +225,8 @@ static gl_blit_framebuffer_fn gl_blit_framebuffer;
 static gl_image_target_fn gl_image_target_texture_2d;
 static gl_flush_fn gl_flush;
 static gl_finish_fn gl_finish;
+static gl_get_error_fn gl_get_error;
+static gl_check_framebuffer_status_fn gl_check_framebuffer_status;
 
 #define FENCE_RING_SIZE 1024
 static uint32_t completed_fences[FENCE_RING_SIZE];
@@ -343,6 +349,8 @@ static int initialize_angle(const char *virgl_path) {
     LOAD_GLES(gl_image_target_texture_2d, "glEGLImageTargetTexture2DOES");
     LOAD_GLES(gl_flush, "glFlush");
     LOAD_GLES(gl_finish, "glFinish");
+    LOAD_GLES(gl_get_error, "glGetError");
+    LOAD_GLES(gl_check_framebuffer_status, "glCheckFramebufferStatus");
 #undef LOAD_GLES
 
     const EGLAttrib display_attributes[] = {
@@ -393,15 +401,16 @@ static virgl_renderer_gl_context create_gl_context_callback(
         EGL_NONE
     };
     EGLContext context = egl_create_context(egl_display, egl_config, shared, attributes);
-    last_created_context = context;
     if (context == EGL_NO_CONTEXT) {
         snprintf(last_error, sizeof(last_error), "ANGLE eglCreateContext failed: 0x%x", egl_get_error());
         fprintf(stderr, "[stage3] %s\n", last_error);
     } else if (egl_root_context == EGL_NO_CONTEXT) {
         egl_root_context = context;
     }
-    fprintf(stderr, "[stage3] create GLES context requested=%d.%d shared=%d result=%p\n",
-            param->major_ver, param->minor_ver, param->shared, context);
+    fprintf(stderr,
+            "[stage3] create GLES context requested=%d.%d requestedShared=%d actualShared=%d result=%p\n",
+            param->major_ver, param->minor_ver, param->shared,
+            shared != EGL_NO_CONTEXT, context);
     return context;
 }
 
@@ -455,6 +464,7 @@ int vzvg_renderer_load(const char *dylib_path) {
     LOAD(transfer_write, "virgl_renderer_transfer_write_iov");
     LOAD(transfer_read, "virgl_renderer_transfer_read_iov");
     LOAD(borrow_texture_for_scanout, "virgl_renderer_borrow_texture_for_scanout");
+    LOAD(force_context_zero, "virgl_renderer_force_ctx_0");
 #undef LOAD
     return 0;
 }
@@ -479,10 +489,6 @@ int vzvg_renderer_initialize(void) {
     int result = renderer_init(&renderer_cookie, flags, &renderer_callbacks);
     if (result != 0) {
         snprintf(last_error, sizeof(last_error), "virgl_renderer_init returned %d", result);
-    } else {
-        // EGL contexts are thread-affine while current. Initialization occurs
-        // on the main thread, but virtio queue work runs on the device queue.
-        egl_make_current(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     }
     return result;
 }
@@ -494,43 +500,17 @@ void vzvg_renderer_get_cap_set(uint32_t set, uint32_t *max_version, uint32_t *ma
     get_cap_set(set, max_version, max_size);
 }
 void vzvg_renderer_fill_caps(uint32_t set, uint32_t version, void *caps) {
-    if (egl_root_context != EGL_NO_CONTEXT) {
-        egl_make_current(egl_display, egl_surface, egl_surface, egl_root_context);
-    }
+    force_context_zero();
     fill_caps(set, version, caps);
-    if (egl_display != EGL_NO_DISPLAY) {
-        egl_make_current(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    }
-}
-
-static void release_current_context(void) {
-    if (egl_display != EGL_NO_DISPLAY) {
-        egl_make_current(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    }
-}
-
-static int make_root_context_current(void) {
-    if (egl_root_context == EGL_NO_CONTEXT) return -1;
-    return egl_make_current(egl_display, egl_surface, egl_surface, egl_root_context) ? 0 : -1;
-}
-
-static int make_guest_context_current(uint32_t context_id) {
-    if (context_id >= MAX_TRACKED_CONTEXTS || guest_contexts[context_id] == EGL_NO_CONTEXT) return -1;
-    return egl_make_current(
-        egl_display, egl_surface, egl_surface, guest_contexts[context_id]
-    ) ? 0 : -1;
 }
 
 int vzvg_renderer_resource_create(const struct vzvg_resource_create_args *args) {
-    if (make_root_context_current() != 0) return -1;
-    int result = resource_create((struct virgl_renderer_resource_create_args *)args, NULL, 0);
-    release_current_context();
-    return result;
+    force_context_zero();
+    return resource_create((struct virgl_renderer_resource_create_args *)args, NULL, 0);
 }
 void vzvg_renderer_resource_unref(uint32_t resource_id) {
-    if (make_root_context_current() != 0) return;
+    force_context_zero();
     resource_unref(resource_id);
-    release_current_context();
 }
 int vzvg_renderer_resource_attach_iov(uint32_t resource_id, struct iovec *iov, int iov_count) {
     return resource_attach_iov((int)resource_id, iov, iov_count);
@@ -542,23 +522,14 @@ void vzvg_renderer_resource_detach_iov(uint32_t resource_id) {
 }
 
 int vzvg_renderer_context_create(uint32_t context_id, uint32_t name_length, const char *name) {
-    last_created_context = EGL_NO_CONTEXT;
-    int result = context_create(context_id, name_length, name);
-    if (result == 0 && context_id < MAX_TRACKED_CONTEXTS) {
-        guest_contexts[context_id] = last_created_context;
-    }
-    release_current_context();
-    return result;
+    return context_create(context_id, name_length, name);
 }
 void vzvg_renderer_context_destroy(uint32_t context_id) {
-    if (make_guest_context_current(context_id) != 0) return;
     if (context_id < MAX_TRACKED_CONTEXTS && guest_context_syncs[context_id]) {
         egl_destroy_sync(egl_display, guest_context_syncs[context_id]);
         guest_context_syncs[context_id] = NULL;
     }
     context_destroy(context_id);
-    if (context_id < MAX_TRACKED_CONTEXTS) guest_contexts[context_id] = EGL_NO_CONTEXT;
-    release_current_context();
 }
 void vzvg_renderer_context_attach_resource(uint32_t context_id, uint32_t resource_id) {
     context_attach_resource((int)context_id, (int)resource_id);
@@ -567,7 +538,6 @@ void vzvg_renderer_context_detach_resource(uint32_t context_id, uint32_t resourc
     context_detach_resource((int)context_id, (int)resource_id);
 }
 int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_count) {
-    if (make_guest_context_current(context_id) != 0) return -1;
     int result = submit_cmd(commands, (int)context_id, (int)dword_count);
     // Scanout presentation happens from the shared root GL context. Submit the
     // producer context's pending work before switching contexts so the root
@@ -588,17 +558,12 @@ int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_cou
             }
         }
     }
-    release_current_context();
     return result;
 }
 int vzvg_renderer_create_fence(uint32_t fence_id, uint32_t context_id) {
     // The legacy API always creates a ctx0 fence; use the v3 per-context API
     // for guest 3D contexts so the sync object is created and retired in the
     // same ANGLE command stream. The v4 callback reports its UInt64 cookie.
-    int current_result = context_id == 0
-        ? make_root_context_current()
-        : make_guest_context_current(context_id);
-    if (current_result != 0) return -1;
     int result;
     if (context_id == 0) {
         // The external ANGLE/Metal winsys does not reliably retire
@@ -606,13 +571,13 @@ int vzvg_renderer_create_fence(uint32_t fence_id, uint32_t context_id) {
         // resource/control operations, not the hot rendering submission path:
         // finish their root-context work explicitly, then complete the host
         // fence locally. Guest 3D contexts remain fully asynchronous below.
+        force_context_zero();
         gl_finish();
         record_completed_fence(fence_id);
         result = 0;
     } else {
         result = create_context_fence(context_id, 0, 0, fence_id);
     }
-    release_current_context();
     return result;
 }
 int vzvg_renderer_pop_completed_fence(uint32_t *fence_id) {
@@ -624,7 +589,11 @@ int vzvg_renderer_pop_completed_fence(uint32_t *fence_id) {
 
 int vzvg_renderer_borrow_scanout_texture(uint32_t resource_id,
                                          struct vzvg_scanout_texture_info *info) {
-    if (!info || make_root_context_current() != 0) return -1;
+    if (!info) return -1;
+    // Keep virglrenderer's internal current-context bookkeeping aligned with
+    // the EGL root context. QEMU does the same before publishing a scanout;
+    // omitting it works only until a guest 3D context becomes current.
+    force_context_zero();
     struct virgl_renderer_resource_info_ext native_info = {0};
     native_info.version = 0;
     int result = borrow_texture_for_scanout((int)resource_id, &native_info);
@@ -635,7 +604,6 @@ int vzvg_renderer_borrow_scanout_texture(uint32_t resource_id,
         info->height = native_info.base.height;
         info->stride = native_info.base.stride;
     }
-    release_current_context();
     return result;
 }
 
@@ -643,16 +611,24 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
                                   void *metal_texture,
                                   uint32_t destination_width,
                                   uint32_t destination_height) {
-    if (!metal_texture || destination_width == 0 || destination_height == 0
-        || make_root_context_current() != 0) return -1;
+    if (!metal_texture || destination_width == 0 || destination_height == 0) return -1;
 
-    // Guest rendering happens in shared ANGLE contexts. Queue GPU-side waits
-    // before sampling their textures so presentation sees the latest commands
-    // without blocking AppKit with glFinish().
+    // Switch through virglrenderer so its context bookkeeping and ANGLE's
+    // actual current context remain identical, then enqueue GPU-side waits for
+    // producer contexts. A CPU-side EGL_FOREVER wait can stall presentation
+    // indefinitely when CAMetalLayer replaces its drawable during a resize.
+    force_context_zero();
     for (uint32_t context_id = 0; context_id < MAX_TRACKED_CONTEXTS; context_id++) {
         EGLSync sync = guest_context_syncs[context_id];
         if (!sync) continue;
-        egl_wait_sync(egl_display, sync, 0);
+        if (!egl_wait_sync(egl_display, sync, 0)) {
+            snprintf(last_error, sizeof(last_error),
+                     "guest render fence wait failed: egl=0x%x context=%u",
+                     egl_get_error(), context_id);
+            egl_destroy_sync(egl_display, sync);
+            guest_context_syncs[context_id] = NULL;
+            return -1;
+        }
         egl_destroy_sync(egl_display, sync);
         guest_context_syncs[context_id] = NULL;
     }
@@ -660,7 +636,6 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     struct virgl_renderer_resource_info_ext source = {0};
     source.version = 0;
     if (borrow_texture_for_scanout((int)resource_id, &source) != 0) {
-        release_current_context();
         return -1;
     }
 
@@ -669,7 +644,6 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     );
     if (!image) {
         snprintf(last_error, sizeof(last_error), "eglCreateImage(Metal texture) failed: 0x%x", egl_get_error());
-        release_current_context();
         return -1;
     }
 
@@ -686,46 +660,69 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     gl_framebuffer_texture_2d(
         GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, source.base.tex_id, 0
     );
+    unsigned int read_status = gl_check_framebuffer_status(GL_READ_FRAMEBUFFER);
+    if (read_status != GL_FRAMEBUFFER_COMPLETE) {
+        snprintf(last_error, sizeof(last_error),
+                 "source framebuffer incomplete: 0x%x resource=%u texture=%u format=%u size=%ux%u",
+                 read_status, resource_id, source.base.tex_id, source.base.virgl_format,
+                 source.base.width, source.base.height);
+        goto cleanup;
+    }
     gl_bind_framebuffer(GL_DRAW_FRAMEBUFFER, draw_framebuffer);
     gl_framebuffer_texture_2d(
         GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, destination_texture, 0
     );
+    unsigned int draw_status = gl_check_framebuffer_status(GL_DRAW_FRAMEBUFFER);
+    if (draw_status != GL_FRAMEBUFFER_COMPLETE) {
+        snprintf(last_error, sizeof(last_error),
+                 "destination framebuffer incomplete: 0x%x size=%ux%u",
+                 draw_status, destination_width, destination_height);
+        goto cleanup;
+    }
+    while (gl_get_error() != GL_NO_ERROR) {}
     gl_blit_framebuffer(
         0, 0, (int)source.base.width, (int)source.base.height,
         0, 0, (int)destination_width, (int)destination_height,
         GL_COLOR_BUFFER_BIT, GL_NEAREST
     );
+    unsigned int blit_error = gl_get_error();
+    if (blit_error != GL_NO_ERROR) {
+        snprintf(last_error, sizeof(last_error),
+                 "scanout blit failed: 0x%x resource=%u format=%u source=%ux%u destination=%ux%u",
+                 blit_error, resource_id, source.base.virgl_format,
+                 source.base.width, source.base.height, destination_width, destination_height);
+        goto cleanup;
+    }
     gl_flush();
 
+    int result = 0;
+    goto finish;
+
+cleanup:
+    result = -1;
+finish:
     gl_bind_framebuffer(GL_READ_FRAMEBUFFER, 0);
     gl_bind_framebuffer(GL_DRAW_FRAMEBUFFER, 0);
     gl_delete_framebuffers(1, &read_framebuffer);
     gl_delete_framebuffers(1, &draw_framebuffer);
     gl_delete_textures(1, &destination_texture);
     egl_destroy_image(egl_display, image);
-    release_current_context();
-    return 0;
+    return result;
 }
 
 int vzvg_renderer_transfer_write(uint32_t resource_id, uint32_t context_id,
                                  uint32_t level, uint32_t stride, uint32_t layer_stride,
                                  const struct vzvg_box *box, uint64_t offset,
                                  struct iovec *iov, int iov_count) {
-    if ((context_id == 0 ? make_root_context_current() : make_guest_context_current(context_id)) != 0) return -1;
-    int result = transfer_write(resource_id, context_id, level, stride, layer_stride,
-                                (struct virgl_box *)box, offset, iov, iov_count);
-    release_current_context();
-    return result;
+    return transfer_write(resource_id, context_id, level, stride, layer_stride,
+                          (struct virgl_box *)box, offset, iov, iov_count);
 }
 int vzvg_renderer_transfer_read(uint32_t resource_id, uint32_t context_id,
                                 uint32_t level, uint32_t stride, uint32_t layer_stride,
                                 const struct vzvg_box *box, uint64_t offset,
                                 struct iovec *iov, int iov_count) {
-    if ((context_id == 0 ? make_root_context_current() : make_guest_context_current(context_id)) != 0) return -1;
-    int result = transfer_read(resource_id, context_id, level, stride, layer_stride,
-                               (struct virgl_box *)box, offset, iov, iov_count);
-    release_current_context();
-    return result;
+    return transfer_read(resource_id, context_id, level, stride, layer_stride,
+                         (struct virgl_box *)box, offset, iov, iov_count);
 }
 
 const char *vzvg_renderer_last_error(void) { return last_error; }

@@ -276,7 +276,13 @@ final class VirGLRenderer {
     ) {
         executor.async {
             let pointer = Unmanaged.passUnretained(texture as AnyObject).toOpaque()
-            completion(vzvg_renderer_present_scanout(resourceID, pointer, width, height) == 0)
+            let result = vzvg_renderer_present_scanout(resourceID, pointer, width, height)
+            if result != 0 {
+                self.logger.error(
+                    "scanout presentation failed: resource=\(resourceID, privacy: .public) source=\(width, privacy: .public)x\(height, privacy: .public) renderer=\(Self.lastError, privacy: .public)"
+                )
+            }
+            completion(result == 0)
         }
     }
 

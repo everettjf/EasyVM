@@ -72,6 +72,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var contexts: Set<UInt32> = []
     private var contextResources: [UInt32: Set<UInt32>] = [:]
     private var scanoutResourceID: UInt32?
+    private var lastPublishedScanoutResourceID: UInt32?
+    private var lastLoggedScanoutSize: (width: Int, height: Int)?
     private var cursorResourceID: UInt32?
     private var cursorPosition = VirtioGPU.CursorPosition(
         scanoutID: 0, x: 0, y: 0
@@ -250,6 +252,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         contexts.removeAll()
         contextResources.removeAll()
         scanoutResourceID = nil
+        lastPublishedScanoutResourceID = nil
+        lastLoggedScanoutSize = nil
         cursorResourceID = nil
         borrowedScanoutResources.removeAll()
         publishCursor(image: nil, hotX: 0, hotY: 0)
@@ -314,8 +318,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 response = VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
                 break
             }
-            for contextID in contexts where contextResources[contextID]?.contains(resourceID) == true {
-                renderer.detach(contextID: contextID, resourceID: resourceID)
+            // RESOURCE_UNREF owns the renderer-side teardown.  Do not synthesize
+            // CTX_DETACH_RESOURCE commands here: the guest orders those itself,
+            // and eagerly detaching from every context can invalidate a resource
+            // while a compositor command stream still references it.
+            for contextID in contexts {
                 contextResources[contextID]?.remove(resourceID)
             }
             if resource.isRendererResource {
@@ -324,7 +331,20 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             }
             resources.removeValue(forKey: resourceID)
             totalPixelBytes -= resource.pixels.count
-            if scanoutResourceID == resourceID { scanoutResourceID = nil }
+            let wasActiveScanout = scanoutResourceID == resourceID
+            let wasPublishedScanout = lastPublishedScanoutResourceID == resourceID
+            if wasActiveScanout { scanoutResourceID = nil }
+            if borrowedScanoutResources.contains(resourceID) {
+                frameScheduler.cancel()
+                if wasPublishedScanout {
+                    lastPublishedScanoutResourceID = nil
+                    Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated() }
+                }
+                log(
+                    "scanout resource=\(resourceID) was released "
+                        + "active=\(wasActiveScanout) published=\(wasPublishedScanout)"
+                )
+            }
             borrowedScanoutResources.remove(resourceID)
             if cursorResourceID == resourceID {
                 cursorResourceID = nil
@@ -697,6 +717,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         if resourceID == 0 {
             scanoutResourceID = nil
+            lastPublishedScanoutResourceID = nil
+            frameScheduler.cancel()
+            Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated() }
+            log("guest disabled scanout 0")
             return VirtioGPU.responseHeader(.okNoData, request: header)
         }
         guard resources[resourceID] != nil else {
@@ -711,7 +735,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         scanoutResourceID = resourceID
-        print("[stage2] scanout 0 now uses resource \(resourceID)")
+        let size = (width: resource.width, height: resource.height)
+        if lastLoggedScanoutSize?.width != size.width || lastLoggedScanoutSize?.height != size.height {
+            lastLoggedScanoutSize = size
+            log("guest scanout 0 size=\(resource.width)x\(resource.height) resource=\(resourceID)")
+        }
+        if lastPublishedScanoutResourceID != resourceID {
+            log("scanout 0 now uses resource \(resourceID)")
+        }
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
 
@@ -864,6 +895,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             )
         }
         if zeroCopyPresentationEnabled {
+            lastPublishedScanoutResourceID = resourceID
             frameScheduler.submit(ScanoutFrame(
                 resourceID: resourceID,
                 width: resource.width,

@@ -53,7 +53,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         }
     }
 
-    public enum RuntimeError: Error, CustomStringConvertible {
+    public enum RuntimeError: Error, CustomStringConvertible, LocalizedError {
         case renderer(String)
         case stopped
 
@@ -63,6 +63,8 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
             case .stopped: "The VirGL runtime has already stopped."
             }
         }
+
+        public var errorDescription: String? { description }
     }
 
     private let stateLock = NSLock()

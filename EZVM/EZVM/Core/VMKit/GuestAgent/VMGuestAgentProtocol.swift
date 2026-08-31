@@ -9,11 +9,10 @@ enum VMDisplayGeometry {
               size.width > 0, size.height > 0 else { return (1280, 720) }
 
         // A one-guest-pixel-per-macOS-point mode makes desktop login surfaces
-        // comically large in ordinary Retina windows (a 992-point window asks
-        // Linux for only 992 pixels). Keep at least a 720p rendering canvas,
-        // preserving the window aspect ratio, and let Metal downsample it.
-        // Full-screen windows already exceed this floor and remain 1:1.
-        let scale = max(1, 1280 / size.width, 720 / size.height)
+        // comically large in ordinary Retina windows. Keep at least a 1080p
+        // rendering canvas, preserving the window aspect ratio, and let Metal
+        // downsample it without stretching.
+        let scale = max(1, 1920 / size.width, 1080 / size.height)
         let scaled = CGSize(width: size.width * scale, height: size.height * scale)
 
         func dimension(_ value: CGFloat) -> UInt32 {

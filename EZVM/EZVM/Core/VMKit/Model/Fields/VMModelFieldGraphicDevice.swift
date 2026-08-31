@@ -253,7 +253,6 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     private func sendKeyEquivalent(_ event: NSEvent) -> Bool {
         guard window?.isKeyWindow == true,
-              (pointerCaptured || window?.firstResponder === self),
               !releaseShortcutIsActive(event),
               !isHostFullScreenShortcut(event),
               let events = VMGuestAgentKeyboard.chordEvents(
@@ -656,18 +655,25 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
 
     init(devices: [VMModelFieldGraphicDevice]) throws {
         let device = devices.first ?? .default(osType: .linux)
+        let initialResolution = VMDisplayGeometry.guestResolution(for: CGSize(
+            width: max(1, device.width),
+            height: max(1, device.height)
+        ))
         let dependencies = VirGLRuntimeDependencies.resolve()
         try dependencies.validate()
         let view = VMVirGLDisplayView(
             frame: .zero,
-            guestSize: CGSize(width: max(1, device.width), height: max(1, device.height))
+            guestSize: CGSize(
+                width: Int(initialResolution.width),
+                height: Int(initialResolution.height)
+            )
         )
         virglView = view
         displayView = view
         let runtime = try EZVMVirGLRuntime(
             configuration: .init(
-                width: UInt32(max(1, device.width)),
-                height: UInt32(max(1, device.height)),
+                width: initialResolution.width,
+                height: initialResolution.height,
                 rendererLibraryURL: dependencies.virglRendererURL,
                 experimentalStaticInputEnabled: ProcessInfo.processInfo.environment[
                     "EZVM_EXPERIMENTAL_STATIC_VIRTIO_INPUT"
@@ -707,12 +713,14 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
 
     func refreshDisplayConfiguration() {
         let size = virglView.bounds.size
-        let target = VMDisplayGeometry.guestResolution(for: size)
         EZVMLog.info(
-            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) requested=\(target.width)x\(target.height)",
+            "VirGL display scaling: logical=\(Int(size.width))x\(Int(size.height))",
             logger: EZVMLog.graphics
         )
-        runtime?.requestDisplaySize(width: target.width, height: target.height)
+        // Runtime DRM modesets currently invalidate live Hyprland VirGL
+        // resources. Keep a high-resolution guest canvas stable and adapt the
+        // CAMetalLayer instead; this is immediate, aspect-correct, and safe for
+        // window zoom and full-screen transitions.
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
