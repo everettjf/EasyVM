@@ -120,6 +120,13 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     weak var runtime: EZVMVirGLRuntime?
     var guestInputHandler: (([VMGuestAgentInputEvent]) -> Void)?
     private var presentedFrames: UInt64 = 0
+    private var performanceWindowStartedAt = CACurrentMediaTime()
+    private var requestedFramesInWindow: UInt64 = 0
+    private var presentedFramesInWindow: UInt64 = 0
+    private var drawableMissesInWindow: UInt64 = 0
+    private var failuresInWindow: UInt64 = 0
+    private var totalPresentationTimeInWindow: TimeInterval = 0
+    private var maximumPresentationTimeInWindow: TimeInterval = 0
     private var cursorPosition = CGPoint.zero
     private var cursorHotspot = CGPoint.zero
     private var cursorImageSize = CGSize.zero
@@ -386,21 +393,73 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func present(resourceID: UInt32) {
+        requestedFramesInWindow &+= 1
+        let startedAt = CACurrentMediaTime()
         updateDrawableGeometry()
-        guard let runtime, let drawable = metalLayer.nextDrawable() else { return }
+        guard let runtime else {
+            failuresInWindow &+= 1
+            recordPerformanceIfNeeded()
+            return
+        }
+        guard let drawable = metalLayer.nextDrawable() else {
+            drawableMissesInWindow &+= 1
+            recordPerformanceIfNeeded()
+            return
+        }
         do {
             guard try runtime.present(resourceID: resourceID, into: drawable.texture) else {
+                failuresInWindow &+= 1
                 EZVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
+                recordPerformanceIfNeeded()
                 return
             }
             drawable.present()
+            let duration = CACurrentMediaTime() - startedAt
+            totalPresentationTimeInWindow += duration
+            maximumPresentationTimeInWindow = max(maximumPresentationTimeInWindow, duration)
             presentedFrames &+= 1
+            presentedFramesInWindow &+= 1
             if presentedFrames == 1 || presentedFrames.isMultiple(of: 600) {
-                EZVMLog.info("VirGL zero-copy frames presented: \(presentedFrames)")
+                EZVMLog.info("VirGL zero-copy frames presented: \(presentedFrames)", logger: EZVMLog.graphics)
             }
         } catch {
+            failuresInWindow &+= 1
             EZVMLog.error("VirGL presenter stopped: \(error.localizedDescription)")
         }
+        recordPerformanceIfNeeded()
+    }
+
+    private func recordPerformanceIfNeeded() {
+        let now = CACurrentMediaTime()
+        let elapsed = now - performanceWindowStartedAt
+        guard elapsed >= 5 else { return }
+        let fps = Double(presentedFramesInWindow) / elapsed
+        let averageMilliseconds = presentedFramesInWindow == 0
+            ? 0
+            : totalPresentationTimeInWindow * 1_000 / Double(presentedFramesInWindow)
+        let drawable = metalLayer.drawableSize
+        EZVMLog.info(
+            String(
+                format: "VirGL performance: fps=%.1f requested=%llu presented=%llu drawableMisses=%llu failures=%llu avgPresentMs=%.2f maxPresentMs=%.2f drawable=%.0fx%.0f",
+                fps,
+                requestedFramesInWindow,
+                presentedFramesInWindow,
+                drawableMissesInWindow,
+                failuresInWindow,
+                averageMilliseconds,
+                maximumPresentationTimeInWindow * 1_000,
+                drawable.width,
+                drawable.height
+            ),
+            logger: EZVMLog.graphics
+        )
+        performanceWindowStartedAt = now
+        requestedFramesInWindow = 0
+        presentedFramesInWindow = 0
+        drawableMissesInWindow = 0
+        failuresInWindow = 0
+        totalPresentationTimeInWindow = 0
+        maximumPresentationTimeInWindow = 0
     }
 
     private func updateDrawableGeometry() {
@@ -489,10 +548,13 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             ?? NSScreen.main?.backingScaleFactor
             ?? 1
         let size = virglView.bounds.size
-        runtime?.requestDisplaySize(
-            width: UInt32(max(640, min(8192, (size.width * scale).rounded()))),
-            height: UInt32(max(480, min(8192, (size.height * scale).rounded())))
+        let width = UInt32(max(640, min(8192, (size.width * scale).rounded())))
+        let height = UInt32(max(480, min(8192, (size.height * scale).rounded())))
+        EZVMLog.info(
+            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) scale=\(scale) requested=\(width)x\(height)",
+            logger: EZVMLog.graphics
         )
+        runtime?.requestDisplaySize(width: width, height: height)
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {

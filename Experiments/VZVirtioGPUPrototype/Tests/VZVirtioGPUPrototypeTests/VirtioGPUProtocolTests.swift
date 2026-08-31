@@ -75,6 +75,25 @@ import Testing
     #expect(response.littleEndianUInt32(at: 40) == 1)
 }
 
+@Test func displayConfigurationUsesStandardEventLayoutAndClampsDimensions() {
+    let quiet = VirtioGPU.deviceConfigurationData(displayEvent: false)
+    let changed = VirtioGPU.deviceConfigurationData(displayEvent: true)
+
+    #expect(quiet.count == 16)
+    #expect(quiet.littleEndianUInt32(at: 0) == 0)
+    #expect(changed.littleEndianUInt32(at: 0) == VirtioGPU.eventDisplay)
+    #expect(changed.littleEndianUInt32(at: 4) == 0)
+    #expect(changed.littleEndianUInt32(at: 8) == 1)
+    #expect(changed.littleEndianUInt32(at: 12) == 1)
+
+    let minimum = VirtioGPU.clampedDisplaySize(width: 1, height: 1)
+    #expect(minimum.width == 640)
+    #expect(minimum.height == 480)
+    let maximum = VirtioGPU.clampedDisplaySize(width: UInt32.max, height: UInt32.max)
+    #expect(maximum.width == VirtioGPU.Limits.maxDimension)
+    #expect(maximum.height == VirtioGPU.Limits.maxDimension)
+}
+
 @Test func responseHeaderPreservesFenceAndContext() throws {
     var request = Data()
     request.appendLittleEndian(VirtioGPU.Command.submit3D.rawValue)

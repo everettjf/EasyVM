@@ -25,6 +25,24 @@ enum VirtioGPU {
         static let maxBackingBytes = 1024 * 1024 * 1024
     }
 
+    static func clampedDisplaySize(width: UInt32, height: UInt32) -> (width: UInt32, height: UInt32) {
+        (
+            max(640, min(Limits.maxDimension, width)),
+            max(480, min(Limits.maxDimension, height))
+        )
+    }
+
+    static func deviceConfigurationData(displayEvent: Bool) -> Data {
+        // struct virtio_gpu_config: events_read, events_clear, num_scanouts,
+        // num_capsets. VIRTIO_GPU_EVENT_DISPLAY is bit 0.
+        var data = Data()
+        data.appendLittleEndian(displayEvent ? eventDisplay : 0)
+        data.appendLittleEndian(UInt32(0))
+        data.appendLittleEndian(UInt32(1))
+        data.appendLittleEndian(UInt32(1))
+        return data
+    }
+
     enum Queue: UInt16 {
         case control = 0
         case cursor = 1

@@ -3,6 +3,7 @@ import CVirGLBridge
 import Darwin
 import Foundation
 import ImageIO
+import OSLog
 import Virtualization
 
 @available(macOS 27.0, *)
@@ -73,6 +74,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var cursorUpdateCount = 0
     private var cursorMoveCount = 0
     private var displayEventGeneration = 0
+    private var displayInfoRequestCount: UInt64 = 0
     private var borrowedScanoutResources: Set<UInt32> = []
     private var savedEvidenceFrame = false
     private lazy var frameScheduler = LatestFrameScheduler<UInt32> { [weak self] resourceID, completed in
@@ -116,7 +118,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         // struct virtio_gpu_config: events_read, events_clear, num_scanouts,
         // num_capsets. Stage 3 exposes the VirGL capset.
         configuration.deviceSpecificConfiguration = VZVirtioDeviceSpecificConfiguration(
-            configurationData: deviceConfigurationData(displayEvent: false)
+            configurationData: VirtioGPU.deviceConfigurationData(displayEvent: false)
         )
         configuration.provider = VZCustomVirtioDeviceDelegateProvider(
             deviceQueue: deviceQueue,
@@ -126,8 +128,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     func requestDisplaySize(width: UInt32, height: UInt32) {
-        let requestedWidth = max(640, min(8192, width))
-        let requestedHeight = max(480, min(8192, height))
+        let requested = VirtioGPU.clampedDisplaySize(width: width, height: height)
+        let requestedWidth = requested.width
+        let requestedHeight = requested.height
         deviceQueue.async { [weak self] in
             guard let self,
                   self.width != requestedWidth || self.height != requestedHeight else { return }
@@ -135,17 +138,18 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             self.height = requestedHeight
             self.displayEventGeneration &+= 1
             let generation = self.displayEventGeneration
-            print("[gpu] publishing display configuration \(requestedWidth)x\(requestedHeight)")
+            self.log("publishing display configuration generation=\(generation) size=\(requestedWidth)x\(requestedHeight)")
             guard let device = self.device else { return }
             let changed = VZVirtioDeviceSpecificConfiguration(
-                configurationData: self.deviceConfigurationData(displayEvent: true)
+                configurationData: VirtioGPU.deviceConfigurationData(displayEvent: true)
             )
             device.update(changed) { [weak self, weak device] error in
                 guard let self, let device else { return }
                 if let error {
-                    print("[gpu] could not publish display configuration change: \(error.localizedDescription)")
+                    self.log("display configuration generation=\(generation) failed: \(error.localizedDescription)", error: true)
                     return
                 }
+                self.log("display configuration generation=\(generation) interrupt delivered")
                 // Leave the event asserted long enough for the guest's config
                 // interrupt handler to issue GET_DISPLAY_INFO. A newer resize
                 // supersedes this clear operation.
@@ -153,11 +157,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                     guard let self, let device,
                           self.displayEventGeneration == generation else { return }
                     let cleared = VZVirtioDeviceSpecificConfiguration(
-                        configurationData: self.deviceConfigurationData(displayEvent: false)
+                        configurationData: VirtioGPU.deviceConfigurationData(displayEvent: false)
                     )
                     device.update(cleared) { error in
                         if let error {
-                            print("[gpu] could not clear display configuration event: \(error.localizedDescription)")
+                            self.log("display configuration generation=\(generation) clear failed: \(error.localizedDescription)", error: true)
+                        } else {
+                            self.log("display configuration generation=\(generation) event cleared")
                         }
                     }
                 }
@@ -165,15 +171,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
     }
 
-    private func deviceConfigurationData(displayEvent: Bool) -> Data {
-        // struct virtio_gpu_config: events_read, events_clear, num_scanouts,
-        // num_capsets. VIRTIO_GPU_EVENT_DISPLAY is bit 0.
-        var data = Data()
-        data.appendLittleEndian(UInt32(displayEvent ? 1 : 0))
-        data.appendLittleEndian(UInt32(0))
-        data.appendLittleEndian(UInt32(1))
-        data.appendLittleEndian(UInt32(1))
-        return data
+    private let logger = Logger(subsystem: "com.everettjf.EZVM", category: "virtio-gpu")
+
+    private func log(_ message: String, error: Bool = false) {
+        if error {
+            logger.error("\(message, privacy: .public)")
+        } else {
+            logger.info("\(message, privacy: .public)")
+        }
     }
 
     func customVirtioConfiguration(
@@ -276,7 +281,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let response: Data
         switch command {
         case .getDisplayInfo:
-            print("[stage1] received VIRTIO_GPU_CMD_GET_DISPLAY_INFO")
+            displayInfoRequestCount &+= 1
+            log("guest GET_DISPLAY_INFO request=\(displayInfoRequestCount) generation=\(displayEventGeneration) size=\(width)x\(height)")
             response = VirtioGPU.displayInfoResponse(request: header, width: width, height: height)
 
         case .getCapsetInfo:
@@ -851,9 +857,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             frameScheduler.submit(resourceID)
             let submitted = frameScheduler.submittedCount
             if submitted == 1 || submitted.isMultiple(of: 600) {
-                print(
-                    "[stage7] presentation frames: submitted=\(submitted), "
-                        + "delivered=\(frameScheduler.deliveredCount), "
+                log(
+                    "presentation scheduler submitted=\(submitted) "
+                        + "delivered=\(frameScheduler.deliveredCount) "
                         + "coalesced=\(frameScheduler.coalescedCount)"
                 )
             }

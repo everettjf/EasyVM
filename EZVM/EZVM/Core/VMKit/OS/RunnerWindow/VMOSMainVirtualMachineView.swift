@@ -93,7 +93,7 @@ struct VMOSMainVirtualMachineView: View {
                 .accessibilityHint("Choose a folder to share with this virtual machine")
 
                 if let backend = runtimeState.graphicsBackendKind {
-                    Menu("Graphics", systemImage: backend == .customVirGL ? "bolt.display" : "display") {
+                    Menu("Graphics", systemImage: "display") {
                         Text(backend == .customVirGL ? "Custom VirGL active" : "Apple Virtio active")
                         if let detail = runtimeState.graphicsBackendDetail {
                             Divider()

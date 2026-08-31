@@ -16,6 +16,7 @@ enum EZVMLog {
     static let storage = Logger(subsystem: "com.everettjf.EZVM", category: "storage")
     static let download = Logger(subsystem: "com.everettjf.EZVM", category: "download")
     static let network = Logger(subsystem: "com.everettjf.EZVM", category: "network")
+    static let graphics = Logger(subsystem: "com.everettjf.EZVM", category: "graphics")
 
     static func info(_ message: String, logger: Logger = lifecycle) {
         logger.info("\(message, privacy: .public)")
