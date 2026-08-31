@@ -1,6 +1,5 @@
 import CryptoKit
 import Foundation
-import Security
 
 struct VMGuestAgentEnrollment: Codable, Equatable {
     static let currentSchemaVersion = 1
@@ -28,7 +27,6 @@ struct VMGuestAgentEnrollment: Codable, Equatable {
 }
 
 enum VMGuestAgentEnrollmentStore {
-    private static let service = "com.everettjf.ezvm.guest-agent"
     static let sharedDirectoryTag = "ezvm-agent"
     static let sharedConfigurationFileName = "config.json"
 
@@ -61,41 +59,54 @@ enum VMGuestAgentEnrollmentStore {
         do {
             try enrollment.validate()
             let data = try JSONEncoder().encode(enrollment)
-            let query = baseQuery(machineID: enrollment.machineID)
-            let update = SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary)
-            if update == errSecSuccess { return .success }
-            guard update == errSecItemNotFound else { return .failure(message(for: update)) }
-            var addition = query
-            addition[kSecValueData as String] = data
-            addition[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            let status = SecItemAdd(addition as CFDictionary, nil)
-            return status == errSecSuccess ? .success : .failure(message(for: status))
+            let directory = enrollmentDirectoryURL()
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: directory.path(percentEncoded: false)
+            )
+            let destination = enrollmentURL(machineID: enrollment.machineID)
+            try data.write(to: destination, options: [.atomic])
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: destination.path(percentEncoded: false)
+            )
+            return .success
         } catch {
             return .failure("Could not save guest-agent enrollment: \(error.localizedDescription)")
         }
     }
 
     static func load(machineID: String) -> VMOSResult<VMGuestAgentEnrollment?, String> {
-        var query = baseQuery(machineID: machineID)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var value: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &value)
-        if status == errSecItemNotFound { return .success(nil) }
-        guard status == errSecSuccess, let data = value as? Data else { return .failure(message(for: status)) }
         do {
+            let url = enrollmentURL(machineID: machineID)
+            guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
+                return .success(nil)
+            }
+            let data = try Data(contentsOf: url, options: [.mappedIfSafe])
             let enrollment = try JSONDecoder().decode(VMGuestAgentEnrollment.self, from: data)
             try enrollment.validate()
             guard enrollment.machineID == machineID else { throw VMGuestAgentAuthenticationError.invalidMachine }
             return .success(enrollment)
         } catch {
-            return .failure("The guest-agent enrollment in Keychain is invalid: \(error.localizedDescription)")
+            return .failure("The guest-agent enrollment file is invalid: \(error.localizedDescription)")
         }
     }
 
     static func delete(machineIdentifierData: Data) -> VMOSResultVoid {
-        let status = SecItemDelete(baseQuery(machineID: machineID(machineIdentifierData: machineIdentifierData)) as CFDictionary)
-        return status == errSecSuccess || status == errSecItemNotFound ? .success : .failure(message(for: status))
+        let url = enrollmentURL(machineID: machineID(machineIdentifierData: machineIdentifierData))
+        do {
+            if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+                try FileManager.default.removeItem(at: url)
+            }
+            return .success
+        } catch {
+            return .failure("Could not delete guest-agent enrollment: \(error.localizedDescription)")
+        }
     }
 
     static func installationConfiguration(_ enrollment: VMGuestAgentEnrollment) throws -> Data {
@@ -155,16 +166,12 @@ enum VMGuestAgentEnrollmentStore {
         return enrollment
     }
 
-    private static func baseQuery(machineID: String) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: machineID,
-        ]
+    private static func enrollmentDirectoryURL() -> URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "EZVM/GuestAgentEnrollments", directoryHint: .isDirectory)
     }
 
-    private static func message(for status: OSStatus) -> String {
-        let detail = SecCopyErrorMessageString(status, nil) as String? ?? "OSStatus \(status)"
-        return "Could not access the guest-agent token in Keychain: \(detail)"
+    private static func enrollmentURL(machineID: String) -> URL {
+        enrollmentDirectoryURL().appending(path: "\(machineID).json", directoryHint: .notDirectory)
     }
 }
