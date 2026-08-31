@@ -544,15 +544,9 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private var runtime: EZVMVirGLRuntime?
     private var requestedResolution: (width: UInt32, height: UInt32)?
     private var pendingDisplayRequest: DispatchWorkItem?
-    // Hyprland currently rebuilds and races two VirGL triple-buffer sets when
-    // a custom virtio-gpu changes its advertised mode at runtime. Keep the
-    // release path on a stable guest canvas until that guest KMS transition is
-    // reliable; Metal still adapts it immediately and aspect-correctly to
-    // ordinary windows and full screen. Developers can opt in for continued
-    // modeset validation without destabilizing users.
     private let dynamicDisplayEnabled = ProcessInfo.processInfo.environment[
-        "EZVM_EXPERIMENTAL_DYNAMIC_VIRGL_DISPLAY"
-    ] == "1"
+        "EZVM_DISABLE_DYNAMIC_VIRGL_DISPLAY"
+    ] != "1"
 
     init(devices: [VMModelFieldGraphicDevice]) throws {
         let device = devices.first ?? .default(osType: .linux)
@@ -631,9 +625,13 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         let request = DispatchWorkItem { [weak self] in
             guard let self else { return }
             let size = self.virglView.bounds.size
-            let resolution = VMDisplayGeometry.guestResolution(for: size)
+            let candidate = VMDisplayGeometry.guestResolution(for: size)
+            let resolution = VMDisplayGeometry.stabilizedResolution(
+                candidate: candidate,
+                current: self.requestedResolution ?? candidate
+            )
             EZVMLog.info(
-                "VirGL stable display request: logical=\(Int(size.width))x\(Int(size.height)) guest=\(resolution.width)x\(resolution.height)",
+                "VirGL stable display request: logical=\(Int(size.width))x\(Int(size.height)) candidate=\(candidate.width)x\(candidate.height) guest=\(resolution.width)x\(resolution.height)",
                 logger: EZVMLog.graphics
             )
             guard self.requestedResolution?.width != resolution.width

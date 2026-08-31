@@ -4,6 +4,21 @@ import Darwin
 import Foundation
 
 enum VMDisplayGeometry {
+    static func stabilizedResolution(
+        candidate: (width: UInt32, height: UInt32),
+        current: (width: UInt32, height: UInt32),
+        tolerance: Double = 0.05
+    ) -> (width: UInt32, height: UInt32) {
+        guard current.width > 0, current.height > 0 else { return candidate }
+        let widthDelta = abs(Double(candidate.width) - Double(current.width)) / Double(current.width)
+        let heightDelta = abs(Double(candidate.height) - Double(current.height)) / Double(current.height)
+        // macOS window chrome and the full-screen safe area can change the
+        // sampled aspect ratio by a few percent. Treat those as presentation
+        // changes, not new DRM modes, so Hyprland does not tear down and race
+        // two VirGL triple-buffer sets during the transition.
+        return widthDelta <= tolerance && heightDelta <= tolerance ? current : candidate
+    }
+
     static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
         guard size.width.isFinite, size.height.isFinite,
               size.width > 0, size.height > 0 else { return (1280, 720) }

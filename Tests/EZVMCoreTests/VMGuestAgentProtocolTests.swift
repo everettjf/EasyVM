@@ -3,6 +3,25 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
+    func testDisplayResolutionHysteresisIgnoresWindowChromeJitter() {
+        let current = (width: UInt32(1920), height: UInt32(1080))
+        let chromeCandidate = (width: UInt32(1968), height: UInt32(1080))
+        let stable = VMDisplayGeometry.stabilizedResolution(
+            candidate: chromeCandidate,
+            current: current
+        )
+        XCTAssertEqual(stable.width, 1920)
+        XCTAssertEqual(stable.height, 1080)
+
+        let portraitCandidate = (width: UInt32(1280), height: UInt32(1600))
+        let changed = VMDisplayGeometry.stabilizedResolution(
+            candidate: portraitCandidate,
+            current: current
+        )
+        XCTAssertEqual(changed.width, 1280)
+        XCTAssertEqual(changed.height, 1600)
+    }
+
     func testGuestResolutionUsesLogicalWindowSizeWhileMetalRetainsRetinaPixels() {
         let normal = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 991.6, height: 707.8)
