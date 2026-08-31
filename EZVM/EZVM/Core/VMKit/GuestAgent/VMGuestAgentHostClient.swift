@@ -49,6 +49,8 @@ final class VMGuestAgentHostClient {
     private var liveness = VMGuestAgentLiveness()
     private var capabilities: Set<String> = []
     private var pendingRequests: [String: PendingRequest] = [:]
+    private var pendingInputBatches: [[VMGuestAgentInputEvent]] = []
+    private var inputTask: Task<Void, Never>?
     private var transferTask: Task<Void, Never>?
     private let ioQueue = DispatchQueue(label: "com.everettjf.ezvm.guest-agent.read", qos: .utility)
 
@@ -78,6 +80,9 @@ final class VMGuestAgentHostClient {
         capabilities.removeAll()
         transferTask?.cancel()
         transferTask = nil
+        inputTask?.cancel()
+        inputTask = nil
+        pendingInputBatches.removeAll()
         failPendingRequests(CancellationError())
     }
 
@@ -97,15 +102,45 @@ final class VMGuestAgentHostClient {
     func sendInputEvents(_ events: [VMGuestAgentInputEvent]) {
         guard !events.isEmpty, events.count <= VMGuestAgentInputBatch.maximumEventCount,
               events.last == VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
-              capabilities.contains("input-uinput-v1"), let sessionID else { return }
-        do {
-            let payload = try JSONEncoder().encode(VMGuestAgentInputBatch(events: events))
-            try sendEnvelope(
-                operation: .input, requestID: UUID().uuidString,
-                payload: payload, sessionID: sessionID
-            )
-        } catch {
-            disconnected("Could not send guest input: \(error.localizedDescription)")
+              capabilities.contains("input-uinput-v1"), sessionID != nil else { return }
+        pendingInputBatches.append(events)
+        guard inputTask == nil else { return }
+        inputTask = Task { [weak self] in
+            await self?.drainInputQueue()
+        }
+    }
+
+    private func drainInputQueue() async {
+        defer { inputTask = nil }
+        while !Task.isCancelled, !pendingInputBatches.isEmpty {
+            // Coalesce bursts into one authenticated request. This keeps key
+            // down/up pairs ordered, reduces tiny AF_VSOCK writes, and—unlike
+            // the former fire-and-forget path—waits for /dev/uinput to confirm
+            // that the complete batch was accepted before advancing.
+            await Task.yield()
+            var events: [VMGuestAgentInputEvent] = []
+            while let next = pendingInputBatches.first,
+                  events.count + next.count <= VMGuestAgentInputBatch.maximumEventCount {
+                events.append(contentsOf: next)
+                pendingInputBatches.removeFirst()
+            }
+            do {
+                let result: VMGuestAgentInputResult = try await request(
+                    .input, payload: VMGuestAgentInputBatch(events: events)
+                )
+                guard result.success else {
+                    throw NSError(
+                        domain: "EZVMGuestInput", code: 3,
+                        userInfo: [NSLocalizedDescriptionKey: result.message]
+                    )
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                pendingInputBatches.removeAll()
+                disconnected("Could not inject guest input: \(error.localizedDescription)")
+                return
+            }
         }
     }
 
@@ -332,6 +367,9 @@ final class VMGuestAgentHostClient {
         capabilities.removeAll()
         transferTask?.cancel()
         transferTask = nil
+        inputTask?.cancel()
+        inputTask = nil
+        pendingInputBatches.removeAll()
         failPendingRequests(VMGuestAgentClientError.disconnected)
         if transferWasActive {
             runtimeState?.updateGuestAgentTransfer(.failed("The guest agent disconnected during transfer."))
