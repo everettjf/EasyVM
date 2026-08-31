@@ -64,6 +64,10 @@ int vzvg_renderer_borrow_scanout_texture(uint32_t resource_id,
                                          struct vzvg_scanout_texture_info *info);
 int vzvg_renderer_present_scanout(uint32_t resource_id,
                                   void *metal_texture,
+                                  uint32_t source_x,
+                                  uint32_t source_y,
+                                  uint32_t source_width,
+                                  uint32_t source_height,
                                   uint32_t destination_width,
                                   uint32_t destination_height);
 

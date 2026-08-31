@@ -258,25 +258,37 @@ final class VirGLRenderer {
     func present(
         resourceID: UInt32,
         into texture: any MTLTexture,
+        sourceX: UInt32,
+        sourceY: UInt32,
+        sourceWidth: UInt32,
+        sourceHeight: UInt32,
         width: UInt32,
         height: UInt32
     ) -> Bool {
         let pointer = Unmanaged.passUnretained(texture as AnyObject).toOpaque()
         return serialized {
-            vzvg_renderer_present_scanout(resourceID, pointer, width, height) == 0
+            vzvg_renderer_present_scanout(
+                resourceID, pointer, sourceX, sourceY, sourceWidth, sourceHeight, width, height
+            ) == 0
         }
     }
 
     func presentAsync(
         resourceID: UInt32,
         into texture: any MTLTexture,
+        sourceX: UInt32,
+        sourceY: UInt32,
+        sourceWidth: UInt32,
+        sourceHeight: UInt32,
         width: UInt32,
         height: UInt32,
         completion: @escaping (Bool) -> Void
     ) {
         executor.async {
             let pointer = Unmanaged.passUnretained(texture as AnyObject).toOpaque()
-            let result = vzvg_renderer_present_scanout(resourceID, pointer, width, height)
+            let result = vzvg_renderer_present_scanout(
+                resourceID, pointer, sourceX, sourceY, sourceWidth, sourceHeight, width, height
+            )
             if result != 0 {
                 self.logger.error(
                     "scanout presentation failed: resource=\(resourceID, privacy: .public) source=\(width, privacy: .public)x\(height, privacy: .public) renderer=\(Self.lastError, privacy: .public)"

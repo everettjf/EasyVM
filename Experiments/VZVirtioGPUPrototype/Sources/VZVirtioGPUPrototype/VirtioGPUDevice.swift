@@ -56,6 +56,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     let onFrame: @MainActor (CGImage) -> Void
     struct ScanoutFrame: Sendable {
         let resourceID: UInt32
+        let x: Int
+        let y: Int
         let width: Int
         let height: Int
     }
@@ -72,6 +74,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var contexts: Set<UInt32> = []
     private var contextResources: [UInt32: Set<UInt32>] = [:]
     private var scanoutResourceID: UInt32?
+    private var scanoutRect: VirtioGPU.Rect?
     private var lastPublishedScanoutResourceID: UInt32?
     private var lastLoggedScanoutSize: (width: Int, height: Int)?
     private var cursorResourceID: UInt32?
@@ -333,7 +336,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             totalPixelBytes -= resource.pixels.count
             let wasActiveScanout = scanoutResourceID == resourceID
             let wasPublishedScanout = lastPublishedScanoutResourceID == resourceID
-            if wasActiveScanout { scanoutResourceID = nil }
+            if wasActiveScanout {
+                scanoutResourceID = nil
+                scanoutRect = nil
+            }
             if borrowedScanoutResources.contains(resourceID) {
                 frameScheduler.cancel()
                 if wasPublishedScanout {
@@ -717,6 +723,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         if resourceID == 0 {
             scanoutResourceID = nil
+            scanoutRect = nil
             lastPublishedScanoutResourceID = nil
             frameScheduler.cancel()
             Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated() }
@@ -726,19 +733,24 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         guard resources[resourceID] != nil else {
             return VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
         }
+        let rect = VirtioGPU.Rect(request, at: 24)
         guard let resource = resources[resourceID],
               VirtioGPU.rectIsContained(
-                VirtioGPU.Rect(request, at: 24),
+                rect,
                 resourceWidth: resource.width,
                 resourceHeight: resource.height
               ) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         scanoutResourceID = resourceID
-        let size = (width: resource.width, height: resource.height)
+        scanoutRect = rect
+        let size = (width: Int(rect.width), height: Int(rect.height))
         if lastLoggedScanoutSize?.width != size.width || lastLoggedScanoutSize?.height != size.height {
             lastLoggedScanoutSize = size
-            log("guest scanout 0 size=\(resource.width)x\(resource.height) resource=\(resourceID)")
+            log(
+                "guest scanout 0 rect=\(rect.x),\(rect.y) \(rect.width)x\(rect.height) "
+                    + "resource=\(resourceID) texture=\(resource.width)x\(resource.height)"
+            )
         }
         if lastPublishedScanoutResourceID != resourceID {
             log("scanout 0 now uses resource \(resourceID)")
@@ -875,7 +887,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let resourceID = request.littleEndianUInt32(at: 40)
-        guard scanoutResourceID == resourceID, var resource = resources[resourceID] else {
+        guard scanoutResourceID == resourceID, let scanoutRect,
+              var resource = resources[resourceID] else {
             return VirtioGPU.responseHeader(.okNoData, request: header)
         }
         guard VirtioGPU.rectIsContained(
@@ -898,8 +911,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             lastPublishedScanoutResourceID = resourceID
             frameScheduler.submit(ScanoutFrame(
                 resourceID: resourceID,
-                width: resource.width,
-                height: resource.height
+                x: Int(scanoutRect.x), y: Int(scanoutRect.y),
+                width: Int(scanoutRect.width), height: Int(scanoutRect.height)
             ))
             let submitted = frameScheduler.submittedCount
             if submitted == 1 || submitted.isMultiple(of: 600) {

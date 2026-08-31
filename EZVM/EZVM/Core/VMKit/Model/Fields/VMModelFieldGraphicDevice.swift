@@ -141,10 +141,13 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var keyEquivalentMonitor: Any?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
-    private var latestScanout: (resourceID: UInt32, width: Int, height: Int)?
+    private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
     private var displayRefreshTimer: Timer?
     private var presentationInFlight = false
-    private var absolutePointerEnabled = false
+    // Input is provided by Virtualization.framework's native USB keyboard and
+    // screen-coordinate pointing devices. It must work before a userspace
+    // guest agent starts (notably in firmware and at the display manager).
+    private var absolutePointerEnabled = true
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
         self.guestSize = guestSize
@@ -161,6 +164,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         cursorLayer.contentsGravity = .resize
         cursorLayer.isHidden = true
         metalLayer.addSublayer(cursorLayer)
+        // Forward Command/Super and the other system-key chords to Linux just
+        // like a normal VZVirtualMachineView. The host full-screen command is
+        // still handled by the window controller before it reaches the view.
+        capturesSystemKeys = true
         automaticallyReconfiguresDisplay = false
     }
 
@@ -193,80 +200,22 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             releaseInputCapture()
             return
         }
-        if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
-           let guestInputHandler {
-            sendKey(code: code, pressed: true, using: guestInputHandler)
-        } else if event.keyCode == 36 {
-            runtime?.sendLinuxKey(code: 28, pressed: true)
-        } else {
-            super.keyDown(with: event)
-        }
+        super.keyDown(with: event)
     }
 
     override func keyUp(with event: NSEvent) {
-        if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
-           let guestInputHandler {
-            sendKey(code: code, pressed: false, using: guestInputHandler)
-        } else if event.keyCode == 36 {
-            runtime?.sendLinuxKey(code: 28, pressed: false)
-        } else {
-            super.keyUp(with: event)
-        }
+        super.keyUp(with: event)
     }
 
     override func flagsChanged(with event: NSEvent) {
-        if pointerCaptured, releaseShortcutIsActive(event) {
-            releaseInputCapture()
-            return
-        }
-        guard let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
-              let flagIsSet = VMGuestAgentKeyboard.modifierPressed(
-                forMacVirtualKey: event.keyCode,
-                flags: event.modifierFlags
-              ),
-              let guestInputHandler else {
-            super.flagsChanged(with: event)
-            return
-        }
-        // AppKit reports one combined flag for the left and right variant.
-        // Track each physical key so releasing left Shift while right Shift is
-        // still held cannot turn left Shift back on in the guest.
-        let pressed: Bool
-        if event.keyCode == 57 { // Caps Lock is a host-side toggle, not a held flag.
-            sendKey(code: code, pressed: true, using: guestInputHandler)
-            sendKey(code: code, pressed: false, using: guestInputHandler)
-            return
-        } else if !flagIsSet {
-            pressed = false
-        } else {
-            pressed = !pressedKeys.contains(code)
-        }
-        sendKey(code: code, pressed: pressed, using: guestInputHandler)
+        super.flagsChanged(with: event)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard sendKeyEquivalent(event) else {
-            return super.performKeyEquivalent(with: event)
-        }
-        return true
-    }
-
-    private func sendKeyEquivalent(_ event: NSEvent) -> Bool {
-        guard window?.isKeyWindow == true,
-              !releaseShortcutIsActive(event),
-              !isHostFullScreenShortcut(event),
-              let events = VMGuestAgentKeyboard.chordEvents(
-                forMacVirtualKey: event.keyCode,
-                modifierFlags: event.modifierFlags,
-                alreadyPressed: pressedKeys
-              ),
-              let guestInputHandler else { return false }
-        guestInputHandler(events)
-        EZVMLog.info(
-            "Forwarded host key equivalent keyCode=\(event.keyCode) modifiers=\(event.modifierFlags.rawValue) reports=\(events.count)",
-            logger: EZVMLog.input
-        )
-        return true
+        if isHostFullScreenShortcut(event) { return false }
+        // VZVirtualMachineView owns Mac-keyboard to USB-keyboard translation,
+        // including Command -> Linux Super. This path is available at login.
+        return super.performKeyEquivalent(with: event)
     }
 
     private func isHostFullScreenShortcut(_ event: NSEvent) -> Bool {
@@ -274,83 +223,34 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         return event.keyCode == 3 && flags.contains([.command, .control])
     }
 
-    override func mouseMoved(with event: NSEvent) { sendPointerMotion(event) }
-    override func mouseDragged(with event: NSEvent) { sendPointerMotion(event) }
-    override func rightMouseDragged(with event: NSEvent) { sendPointerMotion(event) }
-    override func otherMouseDragged(with event: NSEvent) { sendPointerMotion(event) }
+    override func mouseMoved(with event: NSEvent) { super.mouseMoved(with: event) }
+    override func mouseDragged(with event: NSEvent) { super.mouseDragged(with: event) }
+    override func rightMouseDragged(with event: NSEvent) { super.rightMouseDragged(with: event) }
+    override func otherMouseDragged(with event: NSEvent) { super.otherMouseDragged(with: event) }
     override func mouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
-        if absolutePointerEnabled {
-            sendAbsolutePosition(event)
-            sendButton(code: 272, pressed: true)
-            return
-        }
-        guard pointerCaptured else {
-            capturePointer()
-            return
-        }
-        sendButton(code: 272, pressed: true)
+        super.mouseDown(with: event)
     }
     override func mouseUp(with event: NSEvent) {
-        if absolutePointerEnabled {
-            sendAbsolutePosition(event)
-            sendButton(code: 272, pressed: false)
-            return
-        }
-        guard pointerCaptured else { return }
-        sendButton(code: 272, pressed: false)
+        super.mouseUp(with: event)
     }
     override func rightMouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
-        if absolutePointerEnabled {
-            sendAbsolutePosition(event)
-            sendButton(code: 273, pressed: true)
-            return
-        }
-        guard pointerCaptured else {
-            capturePointer()
-            return
-        }
-        sendButton(code: 273, pressed: true)
+        super.rightMouseDown(with: event)
     }
     override func rightMouseUp(with event: NSEvent) {
-        if absolutePointerEnabled { sendAbsolutePosition(event) }
-        sendButton(code: 273, pressed: false)
+        super.rightMouseUp(with: event)
     }
     override func otherMouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
-        if absolutePointerEnabled {
-            sendAbsolutePosition(event)
-            sendButton(code: 274, pressed: true)
-            return
-        }
-        guard pointerCaptured else {
-            capturePointer()
-            return
-        }
-        sendButton(code: 274, pressed: true)
+        super.otherMouseDown(with: event)
     }
     override func otherMouseUp(with event: NSEvent) {
-        if absolutePointerEnabled {
-            sendAbsolutePosition(event)
-            sendButton(code: 274, pressed: false)
-            return
-        }
-        guard pointerCaptured else { return }
-        sendButton(code: 274, pressed: false)
+        super.otherMouseUp(with: event)
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard absolutePointerEnabled || pointerCaptured else { return }
-        let value = scrollWheelAccumulator.consume(
-            delta: event.scrollingDeltaY,
-            hasPreciseDeltas: event.hasPreciseScrollingDeltas
-        )
-        guard value != 0 else { return }
-        guestInputHandler?([
-            VMGuestAgentInputEvent(type: 2, code: 8, value: value),
-            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
-        ])
+        super.scrollWheel(with: event)
     }
 
     private func sendRelativeMotion(_ event: NSEvent) {
@@ -363,14 +263,6 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         if y != 0 { events.append(.init(type: 2, code: 1, value: y)) }
         events.append(.init(type: 0, code: 0, value: 0))
         guestInputHandler?(events)
-    }
-
-    private func sendPointerMotion(_ event: NSEvent) {
-        if absolutePointerEnabled {
-            sendAbsolutePosition(event)
-        } else {
-            sendRelativeMotion(event)
-        }
     }
 
     private func sendAbsolutePosition(_ event: NSEvent) {
@@ -421,6 +313,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             guard let scanout = self.latestScanout else { return }
             self.presentFrame(
                 resourceID: scanout.resourceID,
+                x: scanout.x, y: scanout.y,
                 width: scanout.width,
                 height: scanout.height
             )
@@ -473,14 +366,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if let keyEquivalentMonitor { NSEvent.removeMonitor(keyEquivalentMonitor) }
-        keyEquivalentMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command) else {
-                return event
-            }
-            let handled = self?.sendKeyEquivalent(event) == true
-            guard handled else { return event }
-            return nil
-        }
+        keyEquivalentMonitor = nil
         windowObservers.forEach(NotificationCenter.default.removeObserver)
         windowObservers.removeAll()
         window?.acceptsMouseMovedEvents = true
@@ -528,13 +414,13 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         updateCursorGeometry()
     }
 
-    func present(resourceID: UInt32, width: Int, height: Int) {
-        latestScanout = (resourceID, width, height)
+    func present(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
+        latestScanout = (resourceID, x, y, width, height)
         ensureDisplayRefreshTimer()
-        presentFrame(resourceID: resourceID, width: width, height: height)
+        presentFrame(resourceID: resourceID, x: x, y: y, width: width, height: height)
     }
 
-    private func presentFrame(resourceID: UInt32, width: Int, height: Int) {
+    private func presentFrame(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
         requestedFramesInWindow &+= 1
         if width > 0, height > 0 {
             guestSize = CGSize(width: width, height: height)
@@ -562,7 +448,11 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         }
         presentationInFlight = true
         let startedAt = CACurrentMediaTime()
-        runtime.presentAsync(resourceID: resourceID, into: drawable.texture) { [weak self] succeeded in
+        runtime.presentAsync(
+            resourceID: resourceID,
+            sourceX: x, sourceY: y, sourceWidth: width, sourceHeight: height,
+            into: drawable.texture
+        ) { [weak self] succeeded in
             if succeeded { drawable.present() }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
@@ -652,6 +542,17 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     let displayView: NSView
     private let virglView: VMVirGLDisplayView
     private var runtime: EZVMVirGLRuntime?
+    private var requestedResolution: (width: UInt32, height: UInt32)?
+    private var pendingDisplayRequest: DispatchWorkItem?
+    // Hyprland currently rebuilds and races two VirGL triple-buffer sets when
+    // a custom virtio-gpu changes its advertised mode at runtime. Keep the
+    // release path on a stable guest canvas until that guest KMS transition is
+    // reliable; Metal still adapts it immediately and aspect-correctly to
+    // ordinary windows and full screen. Developers can opt in for continued
+    // modeset validation without destabilizing users.
+    private let dynamicDisplayEnabled = ProcessInfo.processInfo.environment[
+        "EZVM_EXPERIMENTAL_DYNAMIC_VIRGL_DISPLAY"
+    ] == "1"
 
     init(devices: [VMModelFieldGraphicDevice]) throws {
         let device = devices.first ?? .default(osType: .linux)
@@ -679,8 +580,8 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
                     "EZVM_EXPERIMENTAL_STATIC_VIRTIO_INPUT"
                 ] == "1"
             ),
-            onScanout: { [weak view] resourceID, width, height in
-                view?.present(resourceID: resourceID, width: width, height: height)
+            onScanout: { [weak view] resourceID, x, y, width, height in
+                view?.present(resourceID: resourceID, x: x, y: y, width: width, height: height)
             },
             onScanoutInvalidated: { [weak view] in
                 view?.invalidateScanout()
@@ -690,6 +591,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             }
         )
         self.runtime = runtime
+        requestedResolution = initialResolution
         view.runtime = runtime
     }
 
@@ -712,15 +614,35 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     func refreshDisplayConfiguration() {
-        let size = virglView.bounds.size
-        EZVMLog.info(
-            "VirGL display scaling: logical=\(Int(size.width))x\(Int(size.height))",
-            logger: EZVMLog.graphics
-        )
-        // Runtime DRM modesets currently invalidate live Hyprland VirGL
-        // resources. Keep a high-resolution guest canvas stable and adapt the
-        // CAMetalLayer instead; this is immediate, aspect-correct, and safe for
-        // window zoom and full-screen transitions.
+        guard dynamicDisplayEnabled else {
+            let size = virglView.bounds.size
+            EZVMLog.info(
+                "VirGL stable-canvas scaling: logical=\(Int(size.width))x\(Int(size.height))",
+                logger: EZVMLog.graphics
+            )
+            return
+        }
+        // A macOS full-screen transition exposes several short-lived content
+        // sizes (including the toolbar-safe-area width). Sending each one to
+        // DRM makes Hyprland destroy and recreate its triple buffers multiple
+        // times in under a second. Coalesce the whole transition and sample
+        // the view again only after its final geometry has settled.
+        pendingDisplayRequest?.cancel()
+        let request = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let size = self.virglView.bounds.size
+            let resolution = VMDisplayGeometry.guestResolution(for: size)
+            EZVMLog.info(
+                "VirGL stable display request: logical=\(Int(size.width))x\(Int(size.height)) guest=\(resolution.width)x\(resolution.height)",
+                logger: EZVMLog.graphics
+            )
+            guard self.requestedResolution?.width != resolution.width
+                    || self.requestedResolution?.height != resolution.height else { return }
+            self.requestedResolution = resolution
+            self.runtime?.requestDisplaySize(width: resolution.width, height: resolution.height)
+        }
+        pendingDisplayRequest = request
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: request)
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
@@ -732,6 +654,8 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     func shutdown() {
+        pendingDisplayRequest?.cancel()
+        pendingDisplayRequest = nil
         virglView.stopPresentation()
         virglView.virtualMachine = nil
         virglView.guestInputHandler = nil

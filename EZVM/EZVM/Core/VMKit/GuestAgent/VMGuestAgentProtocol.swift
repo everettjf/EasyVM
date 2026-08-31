@@ -16,10 +16,12 @@ enum VMDisplayGeometry {
         let scaled = CGSize(width: size.width * scale, height: size.height * scale)
 
         func dimension(_ value: CGFloat) -> UInt32 {
-            let bounded = max(2, min(8192, value.rounded()))
-            // Stable even dimensions avoid a new DRM mode for one-point layout
-            // jitter while remaining valid for common compositor buffers.
-            return UInt32(Int(bounded) & ~1)
+            let bounded = max(8, min(8192, value.rounded()))
+            // VirGL scanout allocations are rounded to an eight-pixel
+            // boundary. Advertising a merely-even mode such as 1974 while
+            // Linux creates a 1968-wide buffer makes KMS oscillate between the
+            // advertised mode and the real scanout during full-screen changes.
+            return UInt32(Int(bounded) & ~7)
         }
         return (
             dimension(scaled.width),

@@ -74,7 +74,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
 
     public init(
         configuration: Configuration,
-        onScanout: @escaping @MainActor @Sendable (UInt32, Int, Int) -> Void,
+        onScanout: @escaping @MainActor @Sendable (UInt32, Int, Int, Int, Int) -> Void,
         onScanoutInvalidated: @escaping @MainActor @Sendable () -> Void = {},
         onCursor: @escaping @MainActor @Sendable (CursorUpdate) -> Void = { _ in },
         onFallbackFrame: @escaping @MainActor @Sendable (CGImage) -> Void = { _ in }
@@ -88,7 +88,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
                 renderer: renderer,
                 zeroCopyPresentationEnabled: configuration.zeroCopyPresentationEnabled,
                 onZeroCopyFrame: { frame in
-                    onScanout(frame.resourceID, frame.width, frame.height)
+                    onScanout(frame.resourceID, frame.x, frame.y, frame.width, frame.height)
                 },
                 onScanoutInvalidated: onScanoutInvalidated,
                 onCursor: onCursor,
@@ -138,6 +138,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
 
     public func present(
         resourceID: UInt32,
+        sourceX: Int, sourceY: Int, sourceWidth: Int, sourceHeight: Int,
         into texture: any MTLTexture
     ) throws -> Bool {
         stateLock.lock()
@@ -149,6 +150,8 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         return renderer.present(
             resourceID: resourceID,
             into: texture,
+            sourceX: UInt32(sourceX), sourceY: UInt32(sourceY),
+            sourceWidth: UInt32(sourceWidth), sourceHeight: UInt32(sourceHeight),
             width: UInt32(texture.width),
             height: UInt32(texture.height)
         )
@@ -156,6 +159,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
 
     public func presentAsync(
         resourceID: UInt32,
+        sourceX: Int, sourceY: Int, sourceWidth: Int, sourceHeight: Int,
         into texture: any MTLTexture,
         completion: @escaping (Bool) -> Void
     ) {
@@ -169,6 +173,8 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         renderer.presentAsync(
             resourceID: resourceID,
             into: texture,
+            sourceX: UInt32(sourceX), sourceY: UInt32(sourceY),
+            sourceWidth: UInt32(sourceWidth), sourceHeight: UInt32(sourceHeight),
             width: UInt32(texture.width),
             height: UInt32(texture.height),
             completion: completion

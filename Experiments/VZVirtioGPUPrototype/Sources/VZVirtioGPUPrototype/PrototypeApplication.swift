@@ -96,7 +96,7 @@ final class PrototypeApp: NSObject, NSApplicationDelegate, VZVirtualMachineDeleg
             height: arguments.height,
             renderer: renderer,
             onZeroCopyFrame: { [weak self] frame in
-                self?.presentZeroCopy(resourceID: frame.resourceID)
+                self?.presentZeroCopy(frame)
             }
         ) {
             [weak self] frame in
@@ -122,7 +122,7 @@ final class PrototypeApp: NSObject, NSApplicationDelegate, VZVirtualMachineDeleg
         }
     }
 
-    private func presentZeroCopy(resourceID: UInt32) {
+    private func presentZeroCopy(_ frame: VirtioGPUDevice.ScanoutFrame) {
         guard let renderer, let metalLayer,
               let device = metalLayer.device else { return }
         _ = device
@@ -138,12 +138,14 @@ final class PrototypeApp: NSObject, NSApplicationDelegate, VZVirtualMachineDeleg
         let width = UInt32(drawable.texture.width)
         let height = UInt32(drawable.texture.height)
         guard renderer.present(
-            resourceID: resourceID,
+            resourceID: frame.resourceID,
             into: drawable.texture,
+            sourceX: UInt32(frame.x), sourceY: UInt32(frame.y),
+            sourceWidth: UInt32(frame.width), sourceHeight: UInt32(frame.height),
             width: width,
             height: height
         ) else {
-            fputs("[stage4] zero-copy present failed for resource \(resourceID)\n", stderr)
+            fputs("[stage4] zero-copy present failed for resource \(frame.resourceID)\n", stderr)
             return
         }
         drawable.present()

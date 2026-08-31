@@ -609,9 +609,14 @@ int vzvg_renderer_borrow_scanout_texture(uint32_t resource_id,
 
 int vzvg_renderer_present_scanout(uint32_t resource_id,
                                   void *metal_texture,
+                                  uint32_t source_x,
+                                  uint32_t source_y,
+                                  uint32_t source_width,
+                                  uint32_t source_height,
                                   uint32_t destination_width,
                                   uint32_t destination_height) {
-    if (!metal_texture || destination_width == 0 || destination_height == 0) return -1;
+    if (!metal_texture || source_width == 0 || source_height == 0 ||
+        destination_width == 0 || destination_height == 0) return -1;
 
     // Switch through virglrenderer so its context bookkeeping and ANGLE's
     // actual current context remain identical, then enqueue GPU-side waits for
@@ -636,6 +641,15 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     struct virgl_renderer_resource_info_ext source = {0};
     source.version = 0;
     if (borrow_texture_for_scanout((int)resource_id, &source) != 0) {
+        return -1;
+    }
+    if (source_x > source.base.width || source_y > source.base.height ||
+        source_width > source.base.width - source_x ||
+        source_height > source.base.height - source_y) {
+        snprintf(last_error, sizeof(last_error),
+                 "scanout rectangle out of bounds: resource=%u rect=%u,%u %ux%u texture=%ux%u",
+                 resource_id, source_x, source_y, source_width, source_height,
+                 source.base.width, source.base.height);
         return -1;
     }
 
@@ -681,7 +695,8 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     }
     while (gl_get_error() != GL_NO_ERROR) {}
     gl_blit_framebuffer(
-        0, 0, (int)source.base.width, (int)source.base.height,
+        (int)source_x, (int)source_y,
+        (int)(source_x + source_width), (int)(source_y + source_height),
         0, 0, (int)destination_width, (int)destination_height,
         GL_COLOR_BUFFER_BIT, GL_NEAREST
     );

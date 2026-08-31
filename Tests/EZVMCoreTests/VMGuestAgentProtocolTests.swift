@@ -8,7 +8,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
             for: CGSize(width: 991.6, height: 707.8)
         )
         XCTAssertEqual(normal.width, 1920)
-        XCTAssertEqual(normal.height, 1370)
+        XCTAssertEqual(normal.height, 1368)
 
         let fullscreen = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 1920, height: 1080)
