@@ -39,6 +39,7 @@ final class VMGuestAgentHostClient {
     private let enrollment: VMGuestAgentEnrollment
     private weak var runtimeState: VMRuntimeState?
     private var connection: VZVirtioSocketConnection?
+    private var connectionGeneration: UInt64 = 0
     private var retryTask: DispatchWorkItem?
     private var heartbeatTimer: Timer?
     private var stopped = false
@@ -65,11 +66,12 @@ final class VMGuestAgentHostClient {
 
     func stop() {
         stopped = true
+        connectionGeneration &+= 1
         retryTask?.cancel()
         retryTask = nil
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
-        connection?.close()
+        closeConnection()
         connection = nil
         sessionID = nil
         liveness.reset()
@@ -155,32 +157,43 @@ final class VMGuestAgentHostClient {
 
     private func connect() {
         guard !stopped else { return }
+        connectionGeneration &+= 1
+        let generation = connectionGeneration
         device.connect(toPort: VMGuestAgentProtocol.port) { [weak self] result in
             Task { @MainActor in
-                guard let self, !self.stopped else { return }
+                guard let self, !self.stopped,
+                      self.connectionGeneration == generation else { return }
                 switch result {
-                case .success(let connection): self.begin(connection)
+                case .success(let connection): self.begin(connection, generation: generation)
                 case .failure(let error): self.scheduleRetry(error.localizedDescription)
                 }
             }
         }
     }
 
-    private func begin(_ connection: VZVirtioSocketConnection) {
+    private func begin(_ connection: VZVirtioSocketConnection, generation: UInt64) {
         let descriptor = connection.fileDescriptor
         self.connection = connection
         runtimeState?.updateGuestAgent(.authenticating)
         let enrollment = enrollment
-        ioQueue.async { [weak self] in self?.readLoop(descriptor: descriptor, enrollment: enrollment) }
+        ioQueue.async { [weak self] in
+            self?.readLoop(descriptor: descriptor, enrollment: enrollment, generation: generation)
+        }
     }
 
-    private nonisolated func readLoop(descriptor: Int32, enrollment: VMGuestAgentEnrollment) {
+    private nonisolated func readLoop(
+        descriptor: Int32,
+        enrollment: VMGuestAgentEnrollment,
+        generation: UInt64
+    ) {
         var buffer = VMGuestAgentFrameBuffer()
         var authenticator: VMGuestAgentAuthenticator
         do {
             authenticator = try VMGuestAgentAuthenticator(tokenData: enrollment.token, machineID: enrollment.machineID)
         } catch {
-            Task { @MainActor [weak self] in self?.disconnected(error.localizedDescription) }
+            Task { @MainActor [weak self] in
+                self?.disconnected(error.localizedDescription, generation: generation)
+            }
             return
         }
         var activeSessionID: String?
@@ -205,16 +218,22 @@ final class VMGuestAgentHostClient {
                         let established = try authenticator.sessionID(guestNonce: hello.guestNonce, hostNonce: hostNonce)
                         try writeAll(descriptor: descriptor, data: VMGuestAgentFrameCodec.encode(welcome))
                         activeSessionID = established
-                        Task { @MainActor [weak self] in self?.authenticated(sessionID: established) }
+                        Task { @MainActor [weak self] in
+                            self?.authenticated(sessionID: established, generation: generation)
+                        }
                     } else if let activeSessionID {
                         let envelope = try VMGuestAgentFrameCodec.decode(VMGuestAgentEnvelope.self, from: frame)
                         try authenticator.verifyEnvelope(envelope, sessionID: activeSessionID)
-                        Task { @MainActor [weak self] in self?.received(envelope) }
+                        Task { @MainActor [weak self] in
+                            self?.received(envelope, generation: generation)
+                        }
                     }
                 }
             }
         } catch {
-            Task { @MainActor [weak self] in self?.disconnected(error.localizedDescription) }
+            Task { @MainActor [weak self] in
+                self?.disconnected(error.localizedDescription, generation: generation)
+            }
         }
     }
 
@@ -253,8 +272,8 @@ final class VMGuestAgentHostClient {
         try write(VMGuestAgentFrameCodec.encode(envelope))
     }
 
-    private func authenticated(sessionID: String) {
-        guard !stopped else { return }
+    private func authenticated(sessionID: String, generation: UInt64) {
+        guard !stopped, connectionGeneration == generation else { return }
         self.sessionID = sessionID
         sendSequence = 0
         liveness.markResponse()
@@ -272,8 +291,8 @@ final class VMGuestAgentHostClient {
         send(.status)
     }
 
-    private func received(_ envelope: VMGuestAgentEnvelope) {
-        guard !stopped else { return }
+    private func received(_ envelope: VMGuestAgentEnvelope, generation: UInt64) {
+        guard !stopped, connectionGeneration == generation else { return }
         liveness.markResponse()
         if envelope.operation == .heartbeat || envelope.operation == .status {
             do {
@@ -299,6 +318,11 @@ final class VMGuestAgentHostClient {
     }
 
     private func disconnected(_ reason: String) {
+        disconnected(reason, generation: connectionGeneration)
+    }
+
+    private func disconnected(_ reason: String, generation: UInt64) {
+        guard connectionGeneration == generation else { return }
         guard !stopped else { return }
         let transferWasActive = transferTask != nil || !pendingRequests.isEmpty
         heartbeatTimer?.invalidate()
@@ -312,10 +336,19 @@ final class VMGuestAgentHostClient {
         if transferWasActive {
             runtimeState?.updateGuestAgentTransfer(.failed("The guest agent disconnected during transfer."))
         }
-        connection?.close()
+        closeConnection()
         connection = nil
         runtimeState?.updateGuestAgent(.disconnected(reason))
         scheduleRetry(reason)
+    }
+
+    private func closeConnection() {
+        guard let connection else { return }
+        // Closing a descriptor from another thread does not reliably wake a
+        // blocking read on Darwin. Shutdown first so the old reader exits and
+        // cannot linger into the next connection generation.
+        _ = Darwin.shutdown(connection.fileDescriptor, SHUT_RDWR)
+        connection.close()
     }
 
     private func scheduleRetry(_ reason: String) {
