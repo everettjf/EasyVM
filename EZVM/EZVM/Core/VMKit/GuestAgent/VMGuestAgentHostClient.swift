@@ -38,6 +38,7 @@ final class VMGuestAgentHostClient {
     private let device: VZVirtioSocketDevice
     private let enrollment: VMGuestAgentEnrollment
     private weak var runtimeState: VMRuntimeState?
+    private let onInputCapabilitiesChanged: (Bool) -> Void
     private var connection: VZVirtioSocketConnection?
     private var connectionGeneration: UInt64 = 0
     private var retryTask: DispatchWorkItem?
@@ -54,10 +55,16 @@ final class VMGuestAgentHostClient {
     private var transferTask: Task<Void, Never>?
     private let ioQueue = DispatchQueue(label: "com.everettjf.ezvm.guest-agent.read", qos: .utility)
 
-    init(device: VZVirtioSocketDevice, enrollment: VMGuestAgentEnrollment, runtimeState: VMRuntimeState) {
+    init(
+        device: VZVirtioSocketDevice,
+        enrollment: VMGuestAgentEnrollment,
+        runtimeState: VMRuntimeState,
+        onInputCapabilitiesChanged: @escaping (Bool) -> Void = { _ in }
+    ) {
         self.device = device
         self.enrollment = enrollment
         self.runtimeState = runtimeState
+        self.onInputCapabilitiesChanged = onInputCapabilitiesChanged
     }
 
     func start() {
@@ -78,6 +85,7 @@ final class VMGuestAgentHostClient {
         sessionID = nil
         liveness.reset()
         capabilities.removeAll()
+        onInputCapabilitiesChanged(false)
         transferTask?.cancel()
         transferTask = nil
         inputTask?.cancel()
@@ -333,6 +341,7 @@ final class VMGuestAgentHostClient {
             do {
                 let status = try JSONDecoder().decode(VMGuestAgentStatus.self, from: envelope.payload)
                 capabilities = Set(status.capabilities ?? [])
+                onInputCapabilitiesChanged(status.supportsAbsoluteGuestPointer)
                 runtimeState?.updateGuestAgent(.ready(status))
             } catch {
                 disconnected("The guest agent returned invalid status: \(error.localizedDescription)")
@@ -365,6 +374,7 @@ final class VMGuestAgentHostClient {
         sessionID = nil
         liveness.reset()
         capabilities.removeAll()
+        onInputCapabilitiesChanged(false)
         transferTask?.cancel()
         transferTask = nil
         inputTask?.cancel()

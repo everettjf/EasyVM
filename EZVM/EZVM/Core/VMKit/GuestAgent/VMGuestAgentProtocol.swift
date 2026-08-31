@@ -4,14 +4,18 @@ import Darwin
 import Foundation
 
 enum VMDisplayGeometry {
-    static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
+    static func guestResolution(for size: CGSize, backingScale: CGFloat = 1) -> (width: UInt32, height: UInt32) {
         func dimension(_ value: CGFloat, minimum: Int) -> UInt32 {
             let bounded = max(CGFloat(minimum), min(8192, value.rounded()))
             // Stable even dimensions avoid a new DRM mode for one-point layout
             // jitter while remaining valid for common compositor buffers.
             return UInt32(Int(bounded) & ~1)
         }
-        return (dimension(size.width, minimum: 640), dimension(size.height, minimum: 480))
+        let scale = max(1, backingScale)
+        return (
+            dimension(size.width * scale, minimum: 640),
+            dimension(size.height * scale, minimum: 480)
+        )
     }
 
     static func aspectFit(content: CGSize, in bounds: CGRect) -> CGRect {
@@ -25,6 +29,32 @@ enum VMDisplayGeometry {
             width: size.width,
             height: size.height
         )
+    }
+}
+
+enum VMAbsolutePointerMapper {
+    static let maximumCoordinate: Int32 = 32_767
+
+    static func coordinates(for point: CGPoint, in presentationFrame: CGRect) -> (x: Int32, y: Int32)? {
+        guard presentationFrame.width > 0, presentationFrame.height > 0,
+              point.x >= presentationFrame.minX, point.x <= presentationFrame.maxX,
+              point.y >= presentationFrame.minY, point.y <= presentationFrame.maxY else { return nil }
+        let normalizedX = (point.x - presentationFrame.minX) / presentationFrame.width
+        // AppKit view coordinates grow upward; Linux absolute pointer
+        // coordinates grow downward from the scanout's top-left corner.
+        let normalizedY = (presentationFrame.maxY - point.y) / presentationFrame.height
+        return (
+            Int32((normalizedX * CGFloat(maximumCoordinate)).rounded()),
+            Int32((normalizedY * CGFloat(maximumCoordinate)).rounded())
+        )
+    }
+
+    static func events(x: Int32, y: Int32) -> [VMGuestAgentInputEvent] {
+        [
+            VMGuestAgentInputEvent(type: 3, code: 0, value: x),
+            VMGuestAgentInputEvent(type: 3, code: 1, value: y),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ]
     }
 }
 
@@ -303,6 +333,9 @@ struct VMGuestAgentStatus: Codable, Equatable {
     var supportsSSH: Bool { capabilities?.contains("ssh-addresses-v1") == true }
     var supportsFileTransfer: Bool { capabilities?.contains("file-transfer-v1") == true }
     var supportsGuestInput: Bool { capabilities?.contains("input-uinput-v1") == true }
+    var supportsAbsoluteGuestPointer: Bool {
+        capabilities?.contains("input-uinput-absolute-v1") == true
+    }
     var supportsKVMDiagnostics: Bool { capabilities?.contains("kvm-diagnostics-v1") == true }
 }
 

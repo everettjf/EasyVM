@@ -160,7 +160,7 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 		receivedSequence = request.Sequence
 		switch request.Operation {
 		case "heartbeat", "status":
-			payload, err := json.Marshal(currentStatus(input.Available()))
+			payload, err := json.Marshal(currentStatus(input.Available(), input.AbsolutePointerAvailable()))
 			if err != nil {
 				return err
 			}
@@ -275,7 +275,7 @@ func readFrame(reader io.Reader, value any) error {
 	return json.Unmarshal(payload, value)
 }
 
-func currentStatus(inputAvailable bool) status {
+func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	hostName, _ := os.Hostname()
 	addresses := []string{}
 	interfaces, _ := net.Interfaces()
@@ -294,6 +294,9 @@ func currentStatus(inputAvailable bool) status {
 	capabilities := []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1"}
 	if inputAvailable {
 		capabilities = append(capabilities, "input-uinput-v1")
+	}
+	if absolutePointerAvailable {
+		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
 	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }

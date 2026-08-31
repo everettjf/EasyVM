@@ -72,6 +72,7 @@ protocol VMGraphicsBackend {
     func bind(virtualMachine: VZVirtualMachine?)
     func refreshDisplayConfiguration()
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?)
+    func setAbsolutePointerEnabled(_ enabled: Bool)
     func shutdown()
 }
 
@@ -108,6 +109,8 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {}
 
+    func setAbsolutePointerEnabled(_ enabled: Bool) {}
+
     func shutdown() {
         virtualMachineView.virtualMachine = nil
     }
@@ -140,6 +143,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var latestScanout: (resourceID: UInt32, width: Int, height: Int)?
     private var displayRefreshTimer: Timer?
     private var presentationInFlight = false
+    private var absolutePointerEnabled = false
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
         self.guestSize = guestSize
@@ -179,6 +183,8 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override var acceptsFirstResponder: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func keyDown(with event: NSEvent) {
         if releaseShortcutIsActive(event) {
@@ -248,12 +254,17 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         return true
     }
 
-    override func mouseMoved(with event: NSEvent) { sendRelativeMotion(event) }
-    override func mouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
-    override func rightMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
-    override func otherMouseDragged(with event: NSEvent) { sendRelativeMotion(event) }
+    override func mouseMoved(with event: NSEvent) { sendPointerMotion(event) }
+    override func mouseDragged(with event: NSEvent) { sendPointerMotion(event) }
+    override func rightMouseDragged(with event: NSEvent) { sendPointerMotion(event) }
+    override func otherMouseDragged(with event: NSEvent) { sendPointerMotion(event) }
     override func mouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
+        if absolutePointerEnabled {
+            sendAbsolutePosition(event)
+            sendButton(code: 272, pressed: true)
+            return
+        }
         guard pointerCaptured else {
             capturePointer()
             return
@@ -261,20 +272,38 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         sendButton(code: 272, pressed: true)
     }
     override func mouseUp(with event: NSEvent) {
+        if absolutePointerEnabled {
+            sendAbsolutePosition(event)
+            sendButton(code: 272, pressed: false)
+            return
+        }
         guard pointerCaptured else { return }
         sendButton(code: 272, pressed: false)
     }
     override func rightMouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
+        if absolutePointerEnabled {
+            sendAbsolutePosition(event)
+            sendButton(code: 273, pressed: true)
+            return
+        }
         guard pointerCaptured else {
             capturePointer()
             return
         }
         sendButton(code: 273, pressed: true)
     }
-    override func rightMouseUp(with event: NSEvent) { sendButton(code: 273, pressed: false) }
+    override func rightMouseUp(with event: NSEvent) {
+        if absolutePointerEnabled { sendAbsolutePosition(event) }
+        sendButton(code: 273, pressed: false)
+    }
     override func otherMouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
+        if absolutePointerEnabled {
+            sendAbsolutePosition(event)
+            sendButton(code: 274, pressed: true)
+            return
+        }
         guard pointerCaptured else {
             capturePointer()
             return
@@ -282,12 +311,17 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         sendButton(code: 274, pressed: true)
     }
     override func otherMouseUp(with event: NSEvent) {
+        if absolutePointerEnabled {
+            sendAbsolutePosition(event)
+            sendButton(code: 274, pressed: false)
+            return
+        }
         guard pointerCaptured else { return }
         sendButton(code: 274, pressed: false)
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard pointerCaptured else { return }
+        guard absolutePointerEnabled || pointerCaptured else { return }
         let value = scrollWheelAccumulator.consume(
             delta: event.scrollingDeltaY,
             hasPreciseDeltas: event.hasPreciseScrollingDeltas
@@ -309,6 +343,34 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         if y != 0 { events.append(.init(type: 2, code: 1, value: y)) }
         events.append(.init(type: 0, code: 0, value: 0))
         guestInputHandler?(events)
+    }
+
+    private func sendPointerMotion(_ event: NSEvent) {
+        if absolutePointerEnabled {
+            sendAbsolutePosition(event)
+        } else {
+            sendRelativeMotion(event)
+        }
+    }
+
+    private func sendAbsolutePosition(_ event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard let coordinates = VMAbsolutePointerMapper.coordinates(
+            for: point,
+            in: metalLayer.frame
+        ) else { return }
+        guestInputHandler?(VMAbsolutePointerMapper.events(x: coordinates.x, y: coordinates.y))
+    }
+
+    func setAbsolutePointerEnabled(_ enabled: Bool) {
+        guard absolutePointerEnabled != enabled else { return }
+        absolutePointerEnabled = enabled
+        if enabled { releaseInputCapture() }
+        // In absolute mode the native macOS cursor is already at the exact
+        // guest position. Hide the separately composited GPU cursor to avoid
+        // a delayed duplicate while preserving natural boundary crossing.
+        cursorLayer.isHidden = enabled || cursorLayer.contents == nil
+        EZVMLog.info("VirGL absolute pointer enabled=\(enabled)", logger: EZVMLog.graphics)
     }
 
     private func sendButton(code: UInt16, pressed: Bool) {
@@ -352,8 +414,9 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     private func restoreKeyboardFocus() {
-        guard window?.isKeyWindow == true else { return }
-        window?.makeFirstResponder(self)
+        guard let window else { return }
+        if !window.isKeyWindow { window.makeKey() }
+        window.makeFirstResponder(self)
     }
 
     private func capturePointer() {
@@ -432,7 +495,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
                 cursorImageSize = .zero
             }
         }
-        cursorLayer.isHidden = !update.isVisible
+        cursorLayer.isHidden = absolutePointerEnabled || !update.isVisible
         updateCursorGeometry()
     }
 
@@ -614,9 +677,12 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
 
     func refreshDisplayConfiguration() {
         let size = virglView.bounds.size
-        let target = VMDisplayGeometry.guestResolution(for: size)
+        let backingScale = virglView.window?.backingScaleFactor
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 1
+        let target = VMDisplayGeometry.guestResolution(for: size, backingScale: backingScale)
         EZVMLog.info(
-            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) requested=\(target.width)x\(target.height)",
+            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) scale=\(backingScale) requested=\(target.width)x\(target.height)",
             logger: EZVMLog.graphics
         )
         runtime?.requestDisplaySize(width: target.width, height: target.height)
@@ -624,6 +690,10 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
         virglView.guestInputHandler = handler
+    }
+
+    func setAbsolutePointerEnabled(_ enabled: Bool) {
+        virglView.setAbsolutePointerEnabled(enabled)
     }
 
     func shutdown() {

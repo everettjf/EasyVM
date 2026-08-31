@@ -16,7 +16,8 @@ func power(string)                         {}
 
 type unavailableInput struct{}
 
-func newGuestInput() guestInput                   { return unavailableInput{} }
-func (unavailableInput) Available() bool          { return false }
-func (unavailableInput) Write([]inputEvent) error { return errors.New("uinput is Linux-only") }
-func (unavailableInput) Close() error             { return nil }
+func newGuestInput() guestInput                         { return unavailableInput{} }
+func (unavailableInput) Available() bool                { return false }
+func (unavailableInput) AbsolutePointerAvailable() bool { return false }
+func (unavailableInput) Write([]inputEvent) error       { return errors.New("uinput is Linux-only") }
+func (unavailableInput) Close() error                   { return nil }

@@ -53,6 +53,7 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let processIDPath: URL?
     let requireGuestAgent: Bool
     let requireGuestInput: Bool
+    let requireAbsoluteGuestPointer: Bool
     let requireKVM: Bool
     let guestAgentEnrollmentURL: URL?
 }
@@ -63,6 +64,7 @@ enum VMReleaseSmokeTest {
     static let processIDPathEnvironmentKey = "EZVM_RELEASE_SMOKE_PID"
     static let requireGuestAgentEnvironmentKey = "EZVM_RELEASE_REQUIRE_GUEST_AGENT"
     static let requireGuestInputEnvironmentKey = "EZVM_RELEASE_REQUIRE_GUEST_INPUT"
+    static let requireAbsoluteGuestPointerEnvironmentKey = "EZVM_RELEASE_REQUIRE_ABSOLUTE_POINTER"
     static let requireKVMEnvironmentKey = "EZVM_RELEASE_REQUIRE_KVM"
     static let guestAgentEnrollmentEnvironmentKey = "EZVM_RELEASE_AGENT_ENROLLMENT_FILE"
 
@@ -79,6 +81,7 @@ enum VMReleaseSmokeTest {
             },
             requireGuestAgent: environment[requireGuestAgentEnvironmentKey] == "1",
             requireGuestInput: environment[requireGuestInputEnvironmentKey] == "1",
+            requireAbsoluteGuestPointer: environment[requireAbsoluteGuestPointerEnvironmentKey] == "1",
             requireKVM: environment[requireKVMEnvironmentKey] == "1",
             guestAgentEnrollmentURL: environment[guestAgentEnrollmentEnvironmentKey].flatMap {
                 $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL

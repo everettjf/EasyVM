@@ -43,6 +43,12 @@ transfer UI and `ssh-addresses-v1` enables validated `ssh://` links.
 root-owned `/dev/uinput` device; EZVM then forwards keyboard, relative pointer,
 button, and wheel events from the Custom VirGL display. The Apple graphics
 backend continues to use Virtualization.framework's native USB input path.
+`input-uinput-absolute-v1` is advertised only when the agent also creates a
+separate tablet-style `/dev/uinput` device. A capable host sends
+`EV_ABS/ABS_X` and `EV_ABS/ABS_Y` in the inclusive range `0...32767`, followed
+by `SYN_REPORT`, and routes pointer buttons to that tablet. This keeps the
+macOS pointer coupled to the guest and removes pointer capture; older agents
+continue to use the relative-input fallback.
 A host that
 connects to an older v1 agent receives no capability list and keeps these newer
 actions hidden, while heartbeat and power operations continue to work.
@@ -59,8 +65,9 @@ versions must negotiate a new version instead of silently changing v1 fields or
 authentication rules.
 
 Input payloads contain at most 64 events and must end in `EV_SYN/SYN_REPORT`.
-The agent accepts only bounded `EV_KEY` and `EV_REL` values used by its declared
-keyboard and relative-pointer device; arbitrary uinput event types are rejected.
+The agent accepts only bounded `EV_KEY`, `EV_REL`, and negotiated `EV_ABS`
+values used by its declared keyboard, relative-pointer, and absolute-pointer
+devices; arbitrary uinput event types are rejected.
 Events are accepted only inside the mutually authenticated, replay-protected
 session. If `/dev/uinput` is unavailable, the capability is omitted and host
 input messages are not sent.

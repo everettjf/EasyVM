@@ -3,14 +3,20 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
-    func testGuestResolutionUsesLogicalWindowSizeInsteadOfRetinaPixels() {
-        let normal = VMDisplayGeometry.guestResolution(for: CGSize(width: 991.6, height: 707.8))
-        XCTAssertEqual(normal.width, 992)
-        XCTAssertEqual(normal.height, 708)
+    func testGuestResolutionUsesBackingPixelsForRetinaSharpnessAndUsefulUIScale() {
+        let normal = VMDisplayGeometry.guestResolution(
+            for: CGSize(width: 991.6, height: 707.8),
+            backingScale: 2
+        )
+        XCTAssertEqual(normal.width, 1982)
+        XCTAssertEqual(normal.height, 1416)
 
-        let fullscreen = VMDisplayGeometry.guestResolution(for: CGSize(width: 1920, height: 1080))
-        XCTAssertEqual(fullscreen.width, 1920)
-        XCTAssertEqual(fullscreen.height, 1080)
+        let fullscreen = VMDisplayGeometry.guestResolution(
+            for: CGSize(width: 1920, height: 1080),
+            backingScale: 2
+        )
+        XCTAssertEqual(fullscreen.width, 3840)
+        XCTAssertEqual(fullscreen.height, 2160)
     }
 
     func testGuestResolutionClampsAndStabilizesDimensions() {
@@ -30,6 +36,39 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(fitted.width, 1800, accuracy: 0.001)
         XCTAssertEqual(fitted.height, 1012.5, accuracy: 0.001)
         XCTAssertEqual(fitted.minY, 143.75, accuracy: 0.001)
+    }
+
+    func testAbsolutePointerMapsPresentationCoordinatesIntoLinuxRange() {
+        let frame = CGRect(x: 100, y: 50, width: 800, height: 600)
+        let topLeft = VMAbsolutePointerMapper.coordinates(
+            for: CGPoint(x: 100, y: 650), in: frame
+        )
+        XCTAssertEqual(topLeft?.x, 0)
+        XCTAssertEqual(topLeft?.y, 0)
+
+        let center = VMAbsolutePointerMapper.coordinates(
+            for: CGPoint(x: 500, y: 350), in: frame
+        )
+        XCTAssertEqual(center?.x, 16_384)
+        XCTAssertEqual(center?.y, 16_384)
+
+        let bottomRight = VMAbsolutePointerMapper.coordinates(
+            for: CGPoint(x: 900, y: 50), in: frame
+        )
+        XCTAssertEqual(bottomRight?.x, 32_767)
+        XCTAssertEqual(bottomRight?.y, 32_767)
+        XCTAssertNil(VMAbsolutePointerMapper.coordinates(
+            for: CGPoint(x: 99, y: 350), in: frame
+        ))
+
+        XCTAssertEqual(
+            VMAbsolutePointerMapper.events(x: 12, y: 34),
+            [
+                VMGuestAgentInputEvent(type: 3, code: 0, value: 12),
+                VMGuestAgentInputEvent(type: 3, code: 1, value: 34),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+            ]
+        )
     }
 
     func testPreciseScrollingAccumulatesFractionalTrackpadDeltas() {
@@ -103,7 +142,10 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let payload = try JSONEncoder().encode(VMGuestAgentStatus(
             agentVersion: "1.0", operatingSystem: "Alpine Linux", kernelVersion: "6.12",
             hostName: "ezvm", addresses: ["192.168.64.2"], bootID: "boot-a", uptimeSeconds: 12,
-            capabilities: ["file-transfer-v1", "ssh-addresses-v1", "input-uinput-v1"]
+            capabilities: [
+                "file-transfer-v1", "ssh-addresses-v1", "input-uinput-v1",
+                "input-uinput-absolute-v1",
+            ]
         ))
         let envelope = try sender.makeEnvelope(sessionID: sessionID, sequence: 1, requestID: "request-1", operation: .status, payload: payload)
         try receiver.verifyEnvelope(envelope, sessionID: sessionID)
@@ -140,9 +182,13 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let status = VMGuestAgentStatus(
             agentVersion: "1.2.3", operatingSystem: "Ubuntu 26.04", kernelVersion: "7.0",
             hostName: "builder", addresses: ["10.0.2.15", "fd00::15"], bootID: "abc", uptimeSeconds: 99,
-            capabilities: ["file-transfer-v1", "ssh-addresses-v1", "input-uinput-v1"]
+            capabilities: [
+                "file-transfer-v1", "ssh-addresses-v1", "input-uinput-v1",
+                "input-uinput-absolute-v1",
+            ]
         )
         XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentStatus.self, from: JSONEncoder().encode(status)), status)
+        XCTAssertTrue(status.supportsAbsoluteGuestPointer)
         XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [
             .heartbeat, .status, .shutdown, .restart,
             .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,

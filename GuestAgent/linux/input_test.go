@@ -8,11 +8,13 @@ import (
 
 type recordingInput struct {
 	available bool
+	absolute  bool
 	events    []inputEvent
 	err       error
 }
 
-func (input *recordingInput) Available() bool { return input.available }
+func (input *recordingInput) Available() bool                { return input.available }
+func (input *recordingInput) AbsolutePointerAvailable() bool { return input.absolute }
 func (input *recordingInput) Write(events []inputEvent) error {
 	input.events = append(input.events, events...)
 	return input.err
@@ -38,16 +40,30 @@ func TestInputBatchValidationAndDelivery(t *testing.T) {
 	if !result.Success || len(device.events) != 3 {
 		t.Fatalf("unexpected result: %#v", result)
 	}
+	absolute := handleInput(device, inputPayload(t,
+		inputEvent{Type: 3, Code: 0, Value: 32767},
+		inputEvent{Type: 3, Code: 1, Value: 0},
+		inputEvent{Type: 0, Code: 0, Value: 0},
+	))
+	if !absolute.Success {
+		t.Fatalf("absolute input was rejected: %#v", absolute)
+	}
 
 	bad := handleInput(device, inputPayload(t, inputEvent{Type: 1, Code: 28, Value: 1}))
 	if bad.Success {
 		t.Fatal("accepted a batch without SYN_REPORT")
 	}
 	bad = handleInput(device, inputPayload(t,
-		inputEvent{Type: 3, Code: 0, Value: 1}, inputEvent{Type: 0},
+		inputEvent{Type: 4, Code: 0, Value: 1}, inputEvent{Type: 0},
 	))
 	if bad.Success {
 		t.Fatal("accepted an unsupported event type")
+	}
+	bad = handleInput(device, inputPayload(t,
+		inputEvent{Type: 3, Code: 0, Value: 32768}, inputEvent{Type: 0},
+	))
+	if bad.Success {
+		t.Fatal("accepted an out-of-range absolute coordinate")
 	}
 }
 

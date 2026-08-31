@@ -422,7 +422,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // a full-screen round trip first.
         refreshAutomaticDisplayConfiguration()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
-            if smokeTest.requireGuestAgent || smokeTest.requireGuestInput || smokeTest.requireKVM {
+            if smokeTest.requireGuestAgent || smokeTest.requireGuestInput || smokeTest.requireAbsoluteGuestPointer || smokeTest.requireKVM {
                 startGuestAgent(model: model, releaseSmoke: smokeTest)
                 startReleaseGuestAgentSmokeTest(smokeTest)
             } else {
@@ -492,6 +492,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             }
             if configuration.requireGuestInput, !status.supportsGuestInput {
                 failReleaseSmokeTest("Guest Agent does not advertise input-uinput-v1", configuration)
+                return
+            }
+            if configuration.requireAbsoluteGuestPointer, !status.supportsAbsoluteGuestPointer {
+                failReleaseSmokeTest("Guest Agent does not advertise input-uinput-absolute-v1", configuration)
                 return
             }
             if configuration.requireGuestInput, !releaseSmokeInputVerified {
@@ -906,7 +910,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             runtimeState?.updateGuestAgent(.notEnrolled)
         case .success(let enrollment?):
             guard let runtimeState else { return }
-            let client = VMGuestAgentHostClient(device: device, enrollment: enrollment, runtimeState: runtimeState)
+            let client = VMGuestAgentHostClient(
+                device: device,
+                enrollment: enrollment,
+                runtimeState: runtimeState
+            ) { [weak self] absolutePointerEnabled in
+                self?.graphicsBackend?.setAbsolutePointerEnabled(absolutePointerEnabled)
+            }
             guestAgentClient = client
             client.start()
         }

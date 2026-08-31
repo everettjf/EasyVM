@@ -75,7 +75,7 @@ func TestServePerformsAuthenticatedHandshakeAndReturnsStatus(t *testing.T) {
 	config := enrollment{SchemaVersion: 1, MachineID: "integration-machine", Token: token, Port: guestAgentPort}
 	host, guest := net.Pipe()
 	done := make(chan error, 1)
-	input := &recordingInput{available: true}
+	input := &recordingInput{available: true, absolute: true}
 	go func() { done <- serveWithInput(guest, config, input) }()
 	defer host.Close()
 
@@ -122,6 +122,9 @@ func TestServePerformsAuthenticatedHandshakeAndReturnsStatus(t *testing.T) {
 	}
 	if !contains(value.Capabilities, "input-uinput-v1") {
 		t.Fatalf("available input capability was not advertised: %#v", value.Capabilities)
+	}
+	if !contains(value.Capabilities, "input-uinput-absolute-v1") {
+		t.Fatalf("absolute input capability was not advertised: %#v", value.Capabilities)
 	}
 
 	inputRequest := makeEnvelope(token, sessionID, 2, "integration-input", "input", inputPayload(t,

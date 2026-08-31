@@ -24,6 +24,7 @@ type inputResult struct {
 
 type guestInput interface {
 	Available() bool
+	AbsolutePointerAvailable() bool
 	Write([]inputEvent) error
 	Close() error
 }
@@ -49,6 +50,10 @@ func decodeInputBatch(payload []byte) ([]inputEvent, error) {
 		case 2: // EV_REL
 			if (event.Code != 0 && event.Code != 1 && event.Code != 8) || event.Value < -32767 || event.Value > 32767 {
 				return nil, errors.New("invalid relative pointer event")
+			}
+		case 3: // EV_ABS
+			if (event.Code != 0 && event.Code != 1) || event.Value < 0 || event.Value > 32767 {
+				return nil, errors.New("invalid absolute pointer event")
 			}
 		default:
 			return nil, errors.New("unsupported input event type")
