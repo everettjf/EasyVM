@@ -183,7 +183,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         self.graphicsBackend = graphicsBackend
         runtimeState?.updateGraphicsBackend(
             kind: graphicsBackend.kind,
-            detail: graphicsCreation.detail
+            detail: graphicsCreation.detail,
+            supportsMachineSaveRestore: graphicsBackend.supportsMachineSaveRestore
         )
         graphicsBackend.setGuestInputHandler { [weak self] events in
             self?.guestAgentClient?.sendInputEvents(events)

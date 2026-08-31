@@ -42,6 +42,7 @@ final class VMRuntimeState {
     private(set) var guestAgentTransferState: VMGuestAgentTransferState = .idle
     private(set) var graphicsBackendKind: VMGraphicsBackendKind?
     private(set) var graphicsBackendDetail: String?
+    private(set) var supportsMachineSaveRestore = true
     @ObservationIgnored
     weak var controller: VMOSInternalVirtualMachineViewController?
 
@@ -53,7 +54,9 @@ final class VMRuntimeState {
     var canPause: Bool { phase == .running }
     var canResume: Bool { phase == .paused }
     var canRequestStop: Bool { phase == .running || phase == .paused }
-    var canSave: Bool { phase == .running || phase == .paused }
+    var canSave: Bool {
+        phase.canSaveMachineState(backendSupportsSaveRestore: supportsMachineSaveRestore)
+    }
     var canForceStop: Bool {
         switch phase {
         case .starting, .restoring, .running, .pausing, .paused, .saving, .stopping: true
@@ -94,9 +97,14 @@ final class VMRuntimeState {
         guestAgentTransferState = state
     }
 
-    func updateGraphicsBackend(kind: VMGraphicsBackendKind, detail: String?) {
+    func updateGraphicsBackend(
+        kind: VMGraphicsBackendKind,
+        detail: String?,
+        supportsMachineSaveRestore: Bool
+    ) {
         graphicsBackendKind = kind
         graphicsBackendDetail = detail
+        self.supportsMachineSaveRestore = supportsMachineSaveRestore
     }
 
     func pause() { controller?.pauseMachine() }

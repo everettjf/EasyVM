@@ -691,6 +691,10 @@ enum VMRuntimePhase: Equatable {
     var shouldDismissMachineWindow: Bool {
         self == .stopped
     }
+
+    func canSaveMachineState(backendSupportsSaveRestore: Bool) -> Bool {
+        backendSupportsSaveRestore && (self == .running || self == .paused)
+    }
 }
 
 enum VMDownloadValidationError: LocalizedError, Equatable {

@@ -16,4 +16,11 @@ final class VMRuntimePhaseTests: XCTestCase {
         XCTAssertFalse(VMRuntimePhase.stopping.shouldDismissMachineWindow)
         XCTAssertTrue(VMRuntimePhase.stopped.shouldDismissMachineWindow)
     }
+
+    func testMachineStateSavingRequiresBothAnActivePhaseAndBackendSupport() {
+        XCTAssertTrue(VMRuntimePhase.running.canSaveMachineState(backendSupportsSaveRestore: true))
+        XCTAssertTrue(VMRuntimePhase.paused.canSaveMachineState(backendSupportsSaveRestore: true))
+        XCTAssertFalse(VMRuntimePhase.running.canSaveMachineState(backendSupportsSaveRestore: false))
+        XCTAssertFalse(VMRuntimePhase.stopping.canSaveMachineState(backendSupportsSaveRestore: true))
+    }
 }
