@@ -174,6 +174,38 @@ final class VMGuestAgentHostClient {
         }
     }
 
+    /// Injects a harmless, visible keyboard fixture for the release smoke test.
+    /// Focuses the center-lower password field, spells `hello`, then submits it.
+    /// The intentionally wrong password produces a visible login failure without
+    /// exposing or changing any user data.
+    func injectVisibleInputFixture() async throws {
+        let keyCodes: [UInt16] = [35, 18, 38, 38, 24, 28]
+        var events: [VMGuestAgentInputEvent] = [
+            VMGuestAgentInputEvent(type: 3, code: 0, value: 16_384),
+            VMGuestAgentInputEvent(type: 3, code: 1, value: 22_500),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+            VMGuestAgentInputEvent(type: 1, code: 272, value: 1),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+            VMGuestAgentInputEvent(type: 1, code: 272, value: 0),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ]
+        for code in keyCodes {
+            events.append(VMGuestAgentInputEvent(type: 1, code: code, value: 1))
+            events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+            events.append(VMGuestAgentInputEvent(type: 1, code: code, value: 0))
+            events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        }
+        let result: VMGuestAgentInputResult = try await request(
+            .input, payload: VMGuestAgentInputBatch(events: events)
+        )
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMGuestInput", code: 4,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+    }
+
     func upload(localURL: URL, destinationPath: String, overwrite: Bool) {
         guard transferTask == nil else {
             runtimeState?.updateGuestAgentTransfer(.failed("Another file transfer is already running."))

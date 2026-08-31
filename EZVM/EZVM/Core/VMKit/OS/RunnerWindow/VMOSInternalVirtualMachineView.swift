@@ -172,6 +172,12 @@ struct VMWindowCloseObserver: NSViewRepresentable {
         func attach(to window: NSWindow?) {
             guard let window else { return }
             window.representedURL = rootPath.standardizedFileURL
+            // Let the guest canvas occupy the titlebar-safe-area in full screen.
+            // The toolbar still draws normally in windowed mode, while its
+            // auto-hidden full-screen state no longer leaves white margins.
+            window.styleMask.insert(.fullSizeContentView)
+            window.titlebarAppearsTransparent = true
+            window.backgroundColor = .black
             guard self.window !== window else { return }
             detach()
             self.window = window

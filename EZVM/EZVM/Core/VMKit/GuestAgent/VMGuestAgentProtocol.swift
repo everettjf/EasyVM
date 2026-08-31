@@ -5,15 +5,26 @@ import Foundation
 
 enum VMDisplayGeometry {
     static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
-        func dimension(_ value: CGFloat, minimum: Int) -> UInt32 {
-            let bounded = max(CGFloat(minimum), min(8192, value.rounded()))
+        guard size.width.isFinite, size.height.isFinite,
+              size.width > 0, size.height > 0 else { return (1280, 720) }
+
+        // A one-guest-pixel-per-macOS-point mode makes desktop login surfaces
+        // comically large in ordinary Retina windows (a 992-point window asks
+        // Linux for only 992 pixels). Keep at least a 720p rendering canvas,
+        // preserving the window aspect ratio, and let Metal downsample it.
+        // Full-screen windows already exceed this floor and remain 1:1.
+        let scale = max(1, 1280 / size.width, 720 / size.height)
+        let scaled = CGSize(width: size.width * scale, height: size.height * scale)
+
+        func dimension(_ value: CGFloat) -> UInt32 {
+            let bounded = max(2, min(8192, value.rounded()))
             // Stable even dimensions avoid a new DRM mode for one-point layout
             // jitter while remaining valid for common compositor buffers.
             return UInt32(Int(bounded) & ~1)
         }
         return (
-            dimension(size.width, minimum: 640),
-            dimension(size.height, minimum: 480)
+            dimension(scaled.width),
+            dimension(scaled.height)
         )
     }
 

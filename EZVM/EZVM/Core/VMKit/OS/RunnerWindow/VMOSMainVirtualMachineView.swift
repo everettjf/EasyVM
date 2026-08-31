@@ -24,11 +24,17 @@ struct VMOSMainVirtualMachineView: View {
     
     var body: some View {
         ZStack {
+            // Keep letterboxing and the area exposed while the macOS toolbar
+            // animates in or out visually continuous with the guest display.
+            Color.black.ignoresSafeArea()
+
             VMOSInternalVirtualMachineView(
                 rootPath: rootPath,
                 recoveryMode: recoveryMode,
                 runtimeState: runtimeState
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
 
             if let errorMessage = runtimeState.errorMessage {
                 VStack(spacing: 14) {

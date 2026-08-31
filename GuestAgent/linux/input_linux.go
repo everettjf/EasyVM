@@ -21,7 +21,7 @@ const (
 )
 
 type uinputDevice struct {
-	file         *os.File
+	keyboardFile *os.File
 	absoluteFile *os.File
 }
 
@@ -42,42 +42,19 @@ type uinputAbsSetup struct {
 }
 
 func newGuestInput() guestInput {
-	file, err := os.OpenFile("/dev/uinput", os.O_WRONLY|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		return &uinputDevice{}
-	}
-	device := &uinputDevice{file: file}
-	if device.ioctl(uiSetEVBit, 0) != nil || device.ioctl(uiSetEVBit, 1) != nil || device.ioctl(uiSetEVBit, 2) != nil {
-		device.Close()
-		return &uinputDevice{}
-	}
-	for _, code := range []uintptr{0, 1, 8} {
-		if device.ioctl(uiSetRelBit, code) != nil {
-			device.Close()
-			return &uinputDevice{}
-		}
-	}
-	for code := uintptr(0); code <= 767; code++ {
-		if device.ioctl(uiSetKeyBit, code) != nil {
-			device.Close()
-			return &uinputDevice{}
-		}
-	}
-	setup := uinputSetup{BusType: 0x06, Vendor: 0x1d6b, Product: 0x0104, Version: 1}
-	copy(setup.Name[:], "EZVM Guest Input")
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, file.Fd(), uiDevSetup, uintptr(unsafe.Pointer(&setup)))
-	if errno != 0 || device.ioctl(uiDevCreate, 0) != nil {
-		device.Close()
+	device := &uinputDevice{keyboardFile: createKeyboardAndRelativePointer()}
+	if device.keyboardFile == nil {
+		_ = device.Close()
 		return &uinputDevice{}
 	}
 	device.absoluteFile = createAbsolutePointer()
 	return device
 }
 
-func (device *uinputDevice) Available() bool { return device != nil && device.file != nil }
+func (device *uinputDevice) Available() bool { return device != nil && device.keyboardFile != nil }
 
 func (device *uinputDevice) AbsolutePointerAvailable() bool {
-	return device != nil && device.file != nil && device.absoluteFile != nil
+	return device != nil && device.keyboardFile != nil && device.absoluteFile != nil
 }
 
 func (device *uinputDevice) Write(events []inputEvent) error {
@@ -90,7 +67,7 @@ func (device *uinputDevice) Write(events []inputEvent) error {
 			continue
 		}
 		report := events[start : index+1]
-		file := device.file
+		file := device.keyboardFile
 		for _, item := range report {
 			if item.Type == 3 || (item.Type == 1 && item.Code >= 272 && item.Code <= 274) {
 				if device.absoluteFile == nil {
@@ -124,7 +101,7 @@ func writeInputEvents(file *os.File, events []inputEvent) error {
 }
 
 func (device *uinputDevice) Close() error {
-	if device == nil || device.file == nil {
+	if device == nil {
 		return nil
 	}
 	if device.absoluteFile != nil {
@@ -132,14 +109,13 @@ func (device *uinputDevice) Close() error {
 		_ = device.absoluteFile.Close()
 		device.absoluteFile = nil
 	}
-	_ = device.ioctl(uiDevDestroy, 0)
-	err := device.file.Close()
-	device.file = nil
-	return err
-}
-
-func (device *uinputDevice) ioctl(request, argument uintptr) error {
-	return ioctlFile(device.file, request, argument)
+	if device.keyboardFile != nil {
+		_ = ioctlFile(device.keyboardFile, uiDevDestroy, 0)
+		err := device.keyboardFile.Close()
+		device.keyboardFile = nil
+		return err
+	}
+	return nil
 }
 
 func ioctlFile(file *os.File, request, argument uintptr) error {
@@ -148,6 +124,44 @@ func ioctlFile(file *os.File, request, argument uintptr) error {
 		return errno
 	}
 	return nil
+}
+
+func createKeyboardAndRelativePointer() *os.File {
+	file, err := os.OpenFile("/dev/uinput", os.O_WRONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil
+	}
+	fail := func() *os.File {
+		_ = file.Close()
+		return nil
+	}
+	if ioctlFile(file, uiSetEVBit, 0) != nil ||
+		ioctlFile(file, uiSetEVBit, 1) != nil ||
+		ioctlFile(file, uiSetEVBit, 2) != nil {
+		return fail()
+	}
+	for _, code := range []uintptr{0, 1, 6, 8, 11, 12} {
+		if ioctlFile(file, uiSetRelBit, code) != nil {
+			return fail()
+		}
+	}
+	for code := uintptr(1); code <= 0xff; code++ {
+		if ioctlFile(file, uiSetKeyBit, code) != nil {
+			return fail()
+		}
+	}
+	for _, code := range []uintptr{272, 273, 274} {
+		if ioctlFile(file, uiSetKeyBit, code) != nil {
+			return fail()
+		}
+	}
+	setup := uinputSetup{BusType: 0x06, Vendor: 0x1d6b, Product: 0x0104, Version: 2}
+	copy(setup.Name[:], "EZVM Keyboard and Pointer")
+	if ioctlFile(file, uiDevSetup, uintptr(unsafe.Pointer(&setup))) != nil ||
+		ioctlFile(file, uiDevCreate, 0) != nil {
+		return fail()
+	}
+	return file
 }
 
 func createAbsolutePointer() *os.File {

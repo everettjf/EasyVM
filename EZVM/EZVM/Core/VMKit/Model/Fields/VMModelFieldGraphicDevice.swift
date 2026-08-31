@@ -252,7 +252,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     private func sendKeyEquivalent(_ event: NSEvent) -> Bool {
-        guard event.window === window,
+        guard window?.isKeyWindow == true,
               (pointerCaptured || window?.firstResponder === self),
               !releaseShortcutIsActive(event),
               !isHostFullScreenShortcut(event),
@@ -263,6 +263,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
               ),
               let guestInputHandler else { return false }
         guestInputHandler(events)
+        EZVMLog.info(
+            "Forwarded host key equivalent keyCode=\(event.keyCode) modifiers=\(event.modifierFlags.rawValue) reports=\(events.count)",
+            logger: EZVMLog.input
+        )
         return true
     }
 

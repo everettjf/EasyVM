@@ -39,6 +39,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var releaseSmokeGuestPath: String?
     private var releaseSmokeInputVerificationStarted = false
     private var releaseSmokeInputVerified = false
+    private var releaseSmokeVisibleInputInjected = false
+    private var releaseSmokeVisibleInputHoldUntil: Date?
     private var shutdownFallbackGeneration = 0
     private var displayRefreshObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
@@ -464,6 +466,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         releaseSmokeStage = 0
         releaseSmokeInputVerificationStarted = false
         releaseSmokeInputVerified = false
+        releaseSmokeVisibleInputInjected = false
+        releaseSmokeVisibleInputHoldUntil = nil
         releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             self?.advanceReleaseGuestAgentSmokeTest(configuration)
         }
@@ -517,6 +521,25 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         )
                     }
                 }
+                return
+            }
+            if configuration.injectVisibleGuestInput, !releaseSmokeVisibleInputInjected {
+                releaseSmokeVisibleInputInjected = true
+                releaseSmokeVisibleInputHoldUntil = Date().addingTimeInterval(60)
+                Task { [weak self] in
+                    guard let self, let guestAgentClient = self.guestAgentClient else { return }
+                    do {
+                        try await guestAgentClient.injectVisibleInputFixture()
+                    } catch {
+                        self.failReleaseSmokeTest(
+                            "Guest Agent could not inject the visible keyboard fixture: \(error.localizedDescription)",
+                            configuration
+                        )
+                    }
+                }
+                return
+            }
+            if let holdUntil = releaseSmokeVisibleInputHoldUntil, Date() < holdUntil {
                 return
             }
             if configuration.requireKVM {
@@ -593,6 +616,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         releaseSmokePayload = nil
         releaseSmokeInputVerificationStarted = false
         releaseSmokeInputVerified = false
+        releaseSmokeVisibleInputInjected = false
+        releaseSmokeVisibleInputHoldUntil = nil
     }
 
     private func finishReleaseSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
@@ -660,9 +685,22 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func requestStopMachine() {
-        guard virtualMachine?.canRequestStop == true else { return }
+        guard virtualMachine != nil else { return }
         runtimeState?.update(.stopping)
         markMachineStopping()
+        if runtimeState?.guestAgentState.isReady == true {
+            // Linux desktops do not consistently implement the platform
+            // shutdown request exposed by Virtualization.framework. Prefer
+            // the authenticated agent when available, while retaining the
+            // same bounded force-stop fallback.
+            guestAgentClient?.send(.shutdown)
+            scheduleShutdownFallback()
+            return
+        }
+        guard virtualMachine.canRequestStop else {
+            fail("The guest cannot accept a shutdown request while the Guest Agent is unavailable.")
+            return
+        }
         do {
             try virtualMachine.requestStop()
             scheduleShutdownFallback()
