@@ -68,7 +68,9 @@ struct VMOSMainVirtualMachineView: View {
                         .controlSize(.large)
                     Text(runtimeState.phase == .saving ? "Saving Virtual Machine State…" : "Stopping Virtual Machine…")
                         .font(.headline)
-                    Text("This window will close automatically when it is safe.")
+                    Text(runtimeState.phase == .saving
+                         ? "This window will close automatically when it is safe."
+                         : "If the guest does not respond, EZVM will force stop it after 20 seconds.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

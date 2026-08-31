@@ -39,6 +39,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var releaseSmokeGuestPath: String?
     private var releaseSmokeInputVerificationStarted = false
     private var releaseSmokeInputVerified = false
+    private var shutdownFallbackGeneration = 0
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
     
@@ -576,12 +577,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         markMachineStopping()
         do {
             try virtualMachine.requestStop()
+            scheduleShutdownFallback()
         } catch {
             fail("The guest did not accept the shutdown request: \(error.localizedDescription)")
         }
     }
 
     func forceStopMachine() {
+        cancelShutdownFallback()
         lifecycleGeneration += 1
         if let rootPath {
             let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
@@ -697,6 +700,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func releaseVirtualMachineAfterStop() {
+        cancelShutdownFallback()
         stopGuestAgent()
         screenshotTimer?.invalidate()
         screenshotTimer = nil
@@ -705,6 +709,23 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         graphicsBackend = nil
         virtualMachine?.delegate = nil
         virtualMachine = nil
+    }
+
+    private func scheduleShutdownFallback() {
+        shutdownFallbackGeneration += 1
+        let generation = shutdownFallbackGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
+            guard let self,
+                  self.shutdownFallbackGeneration == generation,
+                  self.runtimeState?.phase == .stopping,
+                  self.virtualMachine != nil else { return }
+            EZVMLog.error("Guest did not stop within 20 seconds; forcing the virtual machine to stop.")
+            self.forceStopMachine()
+        }
+    }
+
+    private func cancelShutdownFallback() {
+        shutdownFallbackGeneration += 1
     }
 
     func prepareForWindowClose() {
