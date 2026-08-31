@@ -528,6 +528,11 @@ void vzvg_renderer_context_detach_resource(uint32_t context_id, uint32_t resourc
 int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_count) {
     if (make_guest_context_current(context_id) != 0) return -1;
     int result = submit_cmd(commands, (int)context_id, (int)dword_count);
+    // Scanout presentation happens from the shared root GL context. Submit the
+    // producer context's pending work before switching contexts so the root
+    // blit observes updates immediately instead of waiting for unrelated guest
+    // activity (for example a later pointer-damage command) to flush them.
+    if (result == 0) gl_flush();
     release_current_context();
     return result;
 }
