@@ -48,6 +48,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     public override func loadView() {
         view = NSView()
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.black.cgColor
     }
     
     public override func viewDidLoad() {
@@ -61,6 +63,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     public override func viewDidAppear() {
         super.viewDidAppear()
+        view.window?.backgroundColor = .black
         installDisplayRefreshObserversIfNeeded()
     }
 

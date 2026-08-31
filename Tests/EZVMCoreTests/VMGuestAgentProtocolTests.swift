@@ -3,20 +3,18 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
-    func testGuestResolutionUsesBackingPixelsForRetinaSharpnessAndUsefulUIScale() {
+    func testGuestResolutionUsesLogicalWindowSizeWhileMetalRetainsRetinaPixels() {
         let normal = VMDisplayGeometry.guestResolution(
-            for: CGSize(width: 991.6, height: 707.8),
-            backingScale: 2
+            for: CGSize(width: 991.6, height: 707.8)
         )
-        XCTAssertEqual(normal.width, 1982)
-        XCTAssertEqual(normal.height, 1416)
+        XCTAssertEqual(normal.width, 992)
+        XCTAssertEqual(normal.height, 708)
 
         let fullscreen = VMDisplayGeometry.guestResolution(
-            for: CGSize(width: 1920, height: 1080),
-            backingScale: 2
+            for: CGSize(width: 1920, height: 1080)
         )
-        XCTAssertEqual(fullscreen.width, 3840)
-        XCTAssertEqual(fullscreen.height, 2160)
+        XCTAssertEqual(fullscreen.width, 1920)
+        XCTAssertEqual(fullscreen.height, 1080)
     }
 
     func testGuestResolutionClampsAndStabilizesDimensions() {
@@ -106,6 +104,42 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(VMGuestAgentKeyboard.modifierPressed(forMacVirtualKey: 56, flags: []), false)
         XCTAssertEqual(VMGuestAgentKeyboard.modifierPressed(forMacVirtualKey: 59, flags: [.control]), true)
         XCTAssertNil(VMGuestAgentKeyboard.modifierPressed(forMacVirtualKey: 0, flags: [.shift]))
+    }
+
+    func testKeyEquivalentSynthesizesCommandAsLinuxSuperAroundKey() throws {
+        XCTAssertEqual(
+            VMGuestAgentKeyboard.chordEvents(
+                forMacVirtualKey: 40,
+                modifierFlags: [.command],
+                alreadyPressed: []
+            ),
+            [
+                VMGuestAgentInputEvent(type: 1, code: 125, value: 1),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+                VMGuestAgentInputEvent(type: 1, code: 37, value: 1),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+                VMGuestAgentInputEvent(type: 1, code: 37, value: 0),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+                VMGuestAgentInputEvent(type: 1, code: 125, value: 0),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+            ]
+        )
+    }
+
+    func testKeyEquivalentDoesNotReleasePhysicallyHeldModifier() throws {
+        XCTAssertEqual(
+            VMGuestAgentKeyboard.chordEvents(
+                forMacVirtualKey: 40,
+                modifierFlags: [.command],
+                alreadyPressed: [125]
+            ),
+            [
+                VMGuestAgentInputEvent(type: 1, code: 37, value: 1),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+                VMGuestAgentInputEvent(type: 1, code: 37, value: 0),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+            ]
+        )
     }
 
     func testMutualAuthenticationRoundTrip() throws {

@@ -138,6 +138,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var pressedButtons = Set<UInt16>()
     private var pointerCaptured = false
     private var windowObservers: [NSObjectProtocol] = []
+    private var keyEquivalentMonitor: Any?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, width: Int, height: Int)?
@@ -168,6 +169,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     deinit {
         displayRefreshTimer?.invalidate()
         windowObservers.forEach(NotificationCenter.default.removeObserver)
+        if let keyEquivalentMonitor { NSEvent.removeMonitor(keyEquivalentMonitor) }
         releaseInputCapture()
     }
 
@@ -243,15 +245,30 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard (pointerCaptured || window?.firstResponder === self),
-              !releaseShortcutIsActive(event),
-              let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
-              let guestInputHandler else {
+        guard sendKeyEquivalent(event) else {
             return super.performKeyEquivalent(with: event)
         }
-        sendKey(code: code, pressed: true, using: guestInputHandler)
-        sendKey(code: code, pressed: false, using: guestInputHandler)
         return true
+    }
+
+    private func sendKeyEquivalent(_ event: NSEvent) -> Bool {
+        guard event.window === window,
+              (pointerCaptured || window?.firstResponder === self),
+              !releaseShortcutIsActive(event),
+              !isHostFullScreenShortcut(event),
+              let events = VMGuestAgentKeyboard.chordEvents(
+                forMacVirtualKey: event.keyCode,
+                modifierFlags: event.modifierFlags,
+                alreadyPressed: pressedKeys
+              ),
+              let guestInputHandler else { return false }
+        guestInputHandler(events)
+        return true
+    }
+
+    private func isHostFullScreenShortcut(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        return event.keyCode == 3 && flags.contains([.command, .control])
     }
 
     override func mouseMoved(with event: NSEvent) { sendPointerMotion(event) }
@@ -452,6 +469,15 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        if let keyEquivalentMonitor { NSEvent.removeMonitor(keyEquivalentMonitor) }
+        keyEquivalentMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command) else {
+                return event
+            }
+            let handled = self?.sendKeyEquivalent(event) == true
+            guard handled else { return event }
+            return nil
+        }
         windowObservers.forEach(NotificationCenter.default.removeObserver)
         windowObservers.removeAll()
         window?.acceptsMouseMovedEvents = true
@@ -677,12 +703,9 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
 
     func refreshDisplayConfiguration() {
         let size = virglView.bounds.size
-        let backingScale = virglView.window?.backingScaleFactor
-            ?? NSScreen.main?.backingScaleFactor
-            ?? 1
-        let target = VMDisplayGeometry.guestResolution(for: size, backingScale: backingScale)
+        let target = VMDisplayGeometry.guestResolution(for: size)
         EZVMLog.info(
-            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) scale=\(backingScale) requested=\(target.width)x\(target.height)",
+            "VirGL display refresh: logical=\(Int(size.width))x\(Int(size.height)) requested=\(target.width)x\(target.height)",
             logger: EZVMLog.graphics
         )
         runtime?.requestDisplaySize(width: target.width, height: target.height)

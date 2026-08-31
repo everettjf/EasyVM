@@ -4,17 +4,16 @@ import Darwin
 import Foundation
 
 enum VMDisplayGeometry {
-    static func guestResolution(for size: CGSize, backingScale: CGFloat = 1) -> (width: UInt32, height: UInt32) {
+    static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
         func dimension(_ value: CGFloat, minimum: Int) -> UInt32 {
             let bounded = max(CGFloat(minimum), min(8192, value.rounded()))
             // Stable even dimensions avoid a new DRM mode for one-point layout
             // jitter while remaining valid for common compositor buffers.
             return UInt32(Int(bounded) & ~1)
         }
-        let scale = max(1, backingScale)
         return (
-            dimension(size.width * scale, minimum: 640),
-            dimension(size.height * scale, minimum: 480)
+            dimension(size.width, minimum: 640),
+            dimension(size.height, minimum: 480)
         )
     }
 
@@ -137,6 +136,13 @@ struct VMGuestAgentInputResult: Codable, Equatable {
 }
 
 enum VMGuestAgentKeyboard {
+    private static let chordModifiers: [(NSEvent.ModifierFlags, UInt16)] = [
+        (.control, 29),
+        (.option, 56),
+        (.shift, 42),
+        (.command, 125),
+    ]
+
     private static let macToLinux: [UInt16: UInt16] = [
         0: 30, 1: 31, 2: 32, 3: 33, 4: 35, 5: 34, 6: 44, 7: 45,
         8: 46, 9: 47, 11: 48, 12: 16, 13: 17, 14: 18, 15: 19,
@@ -172,6 +178,33 @@ enum VMGuestAgentKeyboard {
     static func modifierPressed(forMacVirtualKey keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool? {
         guard let modifier = modifierFlags[keyCode] else { return nil }
         return flags.intersection(.deviceIndependentFlagsMask).contains(modifier)
+    }
+
+    static func chordEvents(
+        forMacVirtualKey keyCode: UInt16,
+        modifierFlags flags: NSEvent.ModifierFlags,
+        alreadyPressed: Set<UInt16>
+    ) -> [VMGuestAgentInputEvent]? {
+        guard let key = linuxKeyCode(forMacVirtualKey: keyCode) else { return nil }
+        let activeFlags = flags.intersection(.deviceIndependentFlagsMask)
+        let synthesizedModifiers = chordModifiers.compactMap { flag, code in
+            activeFlags.contains(flag) && !alreadyPressed.contains(code) ? code : nil
+        }
+
+        var events: [VMGuestAgentInputEvent] = []
+        for modifier in synthesizedModifiers {
+            events.append(VMGuestAgentInputEvent(type: 1, code: modifier, value: 1))
+            events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        }
+        events.append(VMGuestAgentInputEvent(type: 1, code: key, value: 1))
+        events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        events.append(VMGuestAgentInputEvent(type: 1, code: key, value: 0))
+        events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        for modifier in synthesizedModifiers.reversed() {
+            events.append(VMGuestAgentInputEvent(type: 1, code: modifier, value: 0))
+            events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        }
+        return events
     }
 }
 
