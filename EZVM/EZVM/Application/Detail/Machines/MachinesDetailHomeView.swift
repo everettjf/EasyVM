@@ -105,7 +105,7 @@ struct MachinesDetailHomeView: View {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
                     ForEach(vmStore.vmItems) { item in
                         MachinesDetailCardWarpView(item: item, action: MachineDetailCardAction(onPlay: {
-                            openWindow(id: "start-machine", value: item.rootPath)
+                            showMachineWindow(item.rootPath)
                         }, onEdit: {
                             editingItem = item
                         }, onSnapshots: {
@@ -114,13 +114,13 @@ struct MachinesDetailHomeView: View {
                             removeFromList(item: item)
                         }))
                         .onTapGesture(count: 2, perform: {
-                            openWindow(id: "start-machine", value: item.rootPath)
+                            showMachineWindow(item.rootPath)
                         })
                         .contextMenu {
                         let isRunning = VMRunningRegistry.shared.isRunning(rootPath: item.rootPath)
 
                         Button {
-                            openWindow(id: "start-machine", value: item.rootPath)
+                            showMachineWindow(item.rootPath)
                         } label: {
                             Image(systemName: isRunning ? "macwindow" : "play")
                             Text(isRunning ? "Open Window" : "Run")
@@ -225,6 +225,18 @@ struct MachinesDetailHomeView: View {
             }
             .padding(24)
         }
+    }
+
+    private func showMachineWindow(_ rootPath: URL) {
+        let target = rootPath.standardizedFileURL
+        if let window = NSApplication.shared.windows.first(where: {
+            $0.representedURL?.standardizedFileURL == target
+        }) {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        openWindow(id: "start-machine", value: rootPath)
     }
     
     func takeQuickSnapshot(item: HomeItemVMModel) {

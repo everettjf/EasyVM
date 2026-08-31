@@ -112,12 +112,13 @@ final class VMRuntimeState {
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {
+    let rootPath: URL
     let shouldConfirm: () -> Bool
     let shouldBlock: () -> Bool
     let onCloseAttempt: () -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(shouldConfirm: shouldConfirm, shouldBlock: shouldBlock, onCloseAttempt: onCloseAttempt)
+        Coordinator(rootPath: rootPath, shouldConfirm: shouldConfirm, shouldBlock: shouldBlock, onCloseAttempt: onCloseAttempt)
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -127,6 +128,7 @@ struct VMWindowCloseObserver: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.rootPath = rootPath
         context.coordinator.shouldConfirm = shouldConfirm
         context.coordinator.shouldBlock = shouldBlock
         context.coordinator.onCloseAttempt = onCloseAttempt
@@ -138,20 +140,24 @@ struct VMWindowCloseObserver: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, NSWindowDelegate {
+        var rootPath: URL
         var shouldConfirm: () -> Bool
         var shouldBlock: () -> Bool
         var onCloseAttempt: () -> Void
         private weak var window: NSWindow?
         private var previousDelegate: NSWindowDelegate?
 
-        init(shouldConfirm: @escaping () -> Bool, shouldBlock: @escaping () -> Bool, onCloseAttempt: @escaping () -> Void) {
+        init(rootPath: URL, shouldConfirm: @escaping () -> Bool, shouldBlock: @escaping () -> Bool, onCloseAttempt: @escaping () -> Void) {
+            self.rootPath = rootPath
             self.shouldConfirm = shouldConfirm
             self.shouldBlock = shouldBlock
             self.onCloseAttempt = onCloseAttempt
         }
 
         func attach(to window: NSWindow?) {
-            guard let window, self.window !== window else { return }
+            guard let window else { return }
+            window.representedURL = rootPath.standardizedFileURL
+            guard self.window !== window else { return }
             detach()
             self.window = window
             previousDelegate = window.delegate

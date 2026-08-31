@@ -222,7 +222,7 @@ struct VMOSMainVirtualMachineView: View {
         }
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
         .background {
-            VMWindowCloseObserver {
+            VMWindowCloseObserver(rootPath: rootPath) {
                 runtimeState.needsCloseConfirmation
             } shouldBlock: {
                 runtimeState.isCloseInProgress
