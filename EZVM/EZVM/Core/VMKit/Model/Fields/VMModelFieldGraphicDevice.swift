@@ -138,8 +138,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, width: Int, height: Int)?
-    private var inputPresentationTimer: Timer?
-    private var inputPresentationDeadline: CFTimeInterval = 0
+    private var displayRefreshTimer: Timer?
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
         self.guestSize = guestSize
@@ -162,7 +161,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     required init?(coder: NSCoder) { nil }
 
     deinit {
-        inputPresentationTimer?.invalidate()
+        displayRefreshTimer?.invalidate()
         windowObservers.forEach(NotificationCenter.default.removeObserver)
         releaseInputCapture()
     }
@@ -312,25 +311,17 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     ) {
         if pressed { pressedKeys.insert(code) } else { pressedKeys.remove(code) }
         handler(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
-        refreshPresentationAfterInput()
     }
 
-    private func refreshPresentationAfterInput() {
-        // Some zero-copy Wayland updates modify the current scanout texture
-        // before the guest emits another RESOURCE_FLUSH. Re-present briefly
-        // after input so text does not remain invisible until pointer damage
-        // wakes the compositor. Keep a short 60 Hz burst because the guest GPU
-        // work may complete well after the key event itself.
-        inputPresentationDeadline = CACurrentMediaTime() + 0.75
-        guard inputPresentationTimer == nil else { return }
+    private func ensureDisplayRefreshTimer() {
+        guard displayRefreshTimer == nil else { return }
+        // VirGL exposes a live, zero-copy scanout texture. Wayland may update
+        // that texture without issuing RESOURCE_FLUSH for every visible change,
+        // so presentation must follow the host display clock instead of relying
+        // exclusively on guest damage notifications.
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
             guard let self else {
                 timer.invalidate()
-                return
-            }
-            guard CACurrentMediaTime() < self.inputPresentationDeadline else {
-                timer.invalidate()
-                self.inputPresentationTimer = nil
                 return
             }
             guard let scanout = self.latestScanout else { return }
@@ -340,7 +331,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
                 height: scanout.height
             )
         }
-        inputPresentationTimer = timer
+        displayRefreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
     }
 
@@ -435,6 +426,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     func present(resourceID: UInt32, width: Int, height: Int) {
         latestScanout = (resourceID, width, height)
+        ensureDisplayRefreshTimer()
         presentFrame(resourceID: resourceID, width: width, height: height)
     }
 
