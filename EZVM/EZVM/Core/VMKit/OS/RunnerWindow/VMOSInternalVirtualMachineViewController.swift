@@ -105,11 +105,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         
         let runner = VMOSRunnerFactory.getRunner(model.config.type)
-        let graphicsBackend = VMGraphicsBackendFactory.make(
+        let graphicsCreation = VMGraphicsBackendFactory.make(
             forLinux: model.config.type == .linux,
             devices: model.config.graphicsDevices
         )
+        let graphicsBackend = graphicsCreation.backend
         self.graphicsBackend = graphicsBackend
+        runtimeState?.updateGraphicsBackend(
+            kind: graphicsBackend.kind,
+            detail: graphicsCreation.detail
+        )
         graphicsBackend.setGuestInputHandler { [weak self] events in
             self?.guestAgentClient?.sendInputEvents(events)
         }

@@ -92,6 +92,20 @@ struct VMOSMainVirtualMachineView: View {
                 .help("Choose a host folder to share after the next start")
                 .accessibilityHint("Choose a folder to share with this virtual machine")
 
+                if let backend = runtimeState.graphicsBackendKind {
+                    Menu("Graphics", systemImage: backend == .customVirGL ? "bolt.display" : "display") {
+                        Text(backend == .customVirGL ? "Custom VirGL active" : "Apple Virtio active")
+                        if let detail = runtimeState.graphicsBackendDetail {
+                            Divider()
+                            Text(detail)
+                        }
+                    }
+                    .help(runtimeState.graphicsBackendDetail
+                          ?? (backend == .customVirGL
+                              ? "Custom VirGL acceleration is active"
+                              : "Apple Virtio graphics is active"))
+                }
+
                 if let target = runtimeState.balloonMemoryTarget,
                    let maximum = runtimeState.balloonMemoryMaximum {
                     Menu("Memory", systemImage: "memorychip") {

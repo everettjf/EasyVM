@@ -40,6 +40,8 @@ final class VMRuntimeState {
     private(set) var balloonMemoryMaximum: UInt64?
     private(set) var guestAgentState: VMGuestAgentConnectionState = .unavailable
     private(set) var guestAgentTransferState: VMGuestAgentTransferState = .idle
+    private(set) var graphicsBackendKind: VMGraphicsBackendKind?
+    private(set) var graphicsBackendDetail: String?
     @ObservationIgnored
     weak var controller: VMOSInternalVirtualMachineViewController?
 
@@ -90,6 +92,11 @@ final class VMRuntimeState {
 
     func updateGuestAgentTransfer(_ state: VMGuestAgentTransferState) {
         guestAgentTransferState = state
+    }
+
+    func updateGraphicsBackend(kind: VMGraphicsBackendKind, detail: String?) {
+        graphicsBackendKind = kind
+        graphicsBackendDetail = detail
     }
 
     func pause() { controller?.pauseMachine() }

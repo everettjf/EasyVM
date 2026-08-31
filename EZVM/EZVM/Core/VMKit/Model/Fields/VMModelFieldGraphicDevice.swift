@@ -490,6 +490,11 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 }
 
+struct VMGraphicsBackendCreation {
+    let backend: any VMGraphicsBackend
+    let detail: String?
+}
+
 enum VMGraphicsBackendFactory {
     // This flips to true only when the production Custom Virtio GPU runtime,
     // presenter, and lifecycle implementation are linked into the app target.
@@ -507,7 +512,7 @@ enum VMGraphicsBackendFactory {
     static func make(
         forLinux: Bool = true,
         devices: [VMModelFieldGraphicDevice]
-    ) -> any VMGraphicsBackend {
+    ) -> VMGraphicsBackendCreation {
         let selection = selection(forLinux: forLinux)
         if let fallbackReason = selection.fallbackReason {
             EZVMLog.info("Graphics backend fallback: \(fallbackReason)")
@@ -516,19 +521,29 @@ enum VMGraphicsBackendFactory {
         // backend a compiler-visible integration point.
         switch selection.active {
         case .appleVirtio:
-            return VMAppleGraphicsBackend()
+            return VMGraphicsBackendCreation(
+                backend: VMAppleGraphicsBackend(), detail: selection.fallbackReason
+            )
         case .customVirGL:
             if #available(macOS 27.0, *) {
                 do {
-                    return try VMCustomVirGLGraphicsBackend(devices: devices)
+                    return VMGraphicsBackendCreation(
+                        backend: try VMCustomVirGLGraphicsBackend(devices: devices), detail: nil
+                    )
                 } catch {
+                    let detail = "Custom VirGL could not start: \(error.localizedDescription)"
                     EZVMLog.error(
                         "Custom VirGL initialization failed; using Apple Virtio: \(String(reflecting: error))"
                     )
-                    return VMAppleGraphicsBackend()
+                    return VMGraphicsBackendCreation(
+                        backend: VMAppleGraphicsBackend(), detail: detail
+                    )
                 }
             }
-            return VMAppleGraphicsBackend()
+            return VMGraphicsBackendCreation(
+                backend: VMAppleGraphicsBackend(),
+                detail: "The Custom VirGL backend requires macOS 27 or later."
+            )
         }
     }
 }
