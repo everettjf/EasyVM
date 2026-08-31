@@ -239,6 +239,19 @@ final class VirGLRenderer {
         }
     }
 
+    func presentAsync(
+        resourceID: UInt32,
+        into texture: any MTLTexture,
+        width: UInt32,
+        height: UInt32,
+        completion: @escaping (Bool) -> Void
+    ) {
+        executor.async {
+            let pointer = Unmanaged.passUnretained(texture as AnyObject).toOpaque()
+            completion(vzvg_renderer_present_scanout(resourceID, pointer, width, height) == 0)
+        }
+    }
+
     private func serialized<T>(_ operation: @escaping () -> T) -> T {
         executor.sync(operation)
     }

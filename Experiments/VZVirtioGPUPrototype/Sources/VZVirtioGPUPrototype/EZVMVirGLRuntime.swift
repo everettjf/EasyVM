@@ -150,6 +150,27 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         )
     }
 
+    public func presentAsync(
+        resourceID: UInt32,
+        into texture: any MTLTexture,
+        completion: @escaping (Bool) -> Void
+    ) {
+        stateLock.lock()
+        guard let renderer else {
+            stateLock.unlock()
+            completion(false)
+            return
+        }
+        stateLock.unlock()
+        renderer.presentAsync(
+            resourceID: resourceID,
+            into: texture,
+            width: UInt32(texture.width),
+            height: UInt32(texture.height),
+            completion: completion
+        )
+    }
+
     /// Deterministic teardown for VM stop, failed startup, and window close.
     /// Dropping the device first releases all renderer-backed guest resources;
     /// dropping the renderer then cleans ANGLE/VirGL on its dedicated thread.

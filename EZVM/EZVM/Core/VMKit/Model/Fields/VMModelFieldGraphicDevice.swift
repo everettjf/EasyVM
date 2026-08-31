@@ -139,6 +139,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, width: Int, height: Int)?
     private var displayRefreshTimer: Timer?
+    private var presentationInFlight = false
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
         self.guestSize = guestSize
@@ -432,11 +433,20 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     private func presentFrame(resourceID: UInt32, width: Int, height: Int) {
         requestedFramesInWindow &+= 1
-        let startedAt = CACurrentMediaTime()
         if width > 0, height > 0 {
             guestSize = CGSize(width: width, height: height)
         }
         updateDrawableGeometry()
+        // ANGLE's GL-to-Metal blit is serialized on the renderer thread. Never
+        // wait for it on AppKit's main thread: doing so delays keyboard and
+        // mouse event dispatch and makes guest text appear only after a later
+        // pointer event. One in-flight drawable is sufficient because the
+        // scanout texture is live and the display timer will pick up its newest
+        // contents on the next tick.
+        guard !presentationInFlight else {
+            recordPerformanceIfNeeded()
+            return
+        }
         guard let runtime else {
             failuresInWindow &+= 1
             recordPerformanceIfNeeded()
@@ -447,27 +457,29 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             recordPerformanceIfNeeded()
             return
         }
-        do {
-            guard try runtime.present(resourceID: resourceID, into: drawable.texture) else {
-                failuresInWindow &+= 1
-                EZVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
-                recordPerformanceIfNeeded()
-                return
+        presentationInFlight = true
+        let startedAt = CACurrentMediaTime()
+        runtime.presentAsync(resourceID: resourceID, into: drawable.texture) { [weak self] succeeded in
+            if succeeded { drawable.present() }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.presentationInFlight = false
+                if succeeded {
+                    let duration = CACurrentMediaTime() - startedAt
+                    self.totalPresentationTimeInWindow += duration
+                    self.maximumPresentationTimeInWindow = max(self.maximumPresentationTimeInWindow, duration)
+                    self.presentedFrames &+= 1
+                    self.presentedFramesInWindow &+= 1
+                    if self.presentedFrames == 1 || self.presentedFrames.isMultiple(of: 600) {
+                        EZVMLog.info("VirGL zero-copy frames presented: \(self.presentedFrames)", logger: EZVMLog.graphics)
+                    }
+                } else {
+                    self.failuresInWindow &+= 1
+                    EZVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
+                }
+                self.recordPerformanceIfNeeded()
             }
-            drawable.present()
-            let duration = CACurrentMediaTime() - startedAt
-            totalPresentationTimeInWindow += duration
-            maximumPresentationTimeInWindow = max(maximumPresentationTimeInWindow, duration)
-            presentedFrames &+= 1
-            presentedFramesInWindow &+= 1
-            if presentedFrames == 1 || presentedFrames.isMultiple(of: 600) {
-                EZVMLog.info("VirGL zero-copy frames presented: \(presentedFrames)", logger: EZVMLog.graphics)
-            }
-        } catch {
-            failuresInWindow &+= 1
-            EZVMLog.error("VirGL presenter stopped: \(error.localizedDescription)")
         }
-        recordPerformanceIfNeeded()
     }
 
     private func recordPerformanceIfNeeded() {
