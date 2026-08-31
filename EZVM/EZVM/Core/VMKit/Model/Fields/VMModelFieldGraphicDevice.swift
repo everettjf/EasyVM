@@ -137,6 +137,8 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var windowObservers: [NSObjectProtocol] = []
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
+    private var latestScanout: (resourceID: UInt32, width: Int, height: Int)?
+    private var inputPresentationGeneration: UInt64 = 0
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
         self.guestSize = guestSize
@@ -308,6 +310,27 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     ) {
         if pressed { pressedKeys.insert(code) } else { pressedKeys.remove(code) }
         handler(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
+        refreshPresentationAfterInput()
+    }
+
+    private func refreshPresentationAfterInput() {
+        inputPresentationGeneration &+= 1
+        let generation = inputPresentationGeneration
+        // Some zero-copy Wayland updates modify the current scanout texture
+        // before the guest emits another RESOURCE_FLUSH. Re-present briefly
+        // after input so text does not remain invisible until pointer damage
+        // wakes the compositor. Delayed work is coalesced to the latest event.
+        for delay in [0.016, 0.05] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.inputPresentationGeneration == generation,
+                      let scanout = self.latestScanout else { return }
+                self.presentFrame(
+                    resourceID: scanout.resourceID,
+                    width: scanout.width,
+                    height: scanout.height
+                )
+            }
+        }
     }
 
     private func releaseShortcutIsActive(_ event: NSEvent) -> Bool {
@@ -400,6 +423,11 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func present(resourceID: UInt32, width: Int, height: Int) {
+        latestScanout = (resourceID, width, height)
+        presentFrame(resourceID: resourceID, width: width, height: height)
+    }
+
+    private func presentFrame(resourceID: UInt32, width: Int, height: Int) {
         requestedFramesInWindow &+= 1
         let startedAt = CACurrentMediaTime()
         if width > 0, height > 0 {
