@@ -66,7 +66,11 @@ The final Omarchy/Hyprland validation established a useful local baseline:
 - a clean 64 GiB sparse Omarchy image completed first-run setup without the
   keyboard/timezone loop, reached Hyprland, adapted to full screen after the
   compositor watcher became ready, accepted continuous text immediately, and
-  passed human browser-wheel verification.
+  passed human browser-wheel verification;
+- a signed 1.0.64 rebuild accepted synthesized uppercase and shifted
+  punctuation, obtained a NAT lease and default route, resolved public names,
+  completed TLS 1.3/HTTP/2 to `archlinux.org`, and fetched live package update
+  metadata through `checkupdates`.
 
 Do not use a terminal scrollback result as the sole wheel acceptance test.
 Terminal alternate-screen mode, selection state, and application bindings can

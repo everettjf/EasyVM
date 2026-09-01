@@ -231,8 +231,24 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         // key-down events. Cover both routes so macOS Command consistently
         // becomes Linux Super instead of silently disappearing.
         if forwardCommandChordToGuest(event) { return }
-        if let guestInputHandler,
-           let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) {
+        if let guestInputHandler {
+            if !event.isARepeat,
+               let events = VMGuestAgentKeyboard.chordEventsForMissingModifierTransition(
+                   forMacVirtualKey: event.keyCode,
+                   modifierFlags: event.modifierFlags,
+                   alreadyPressed: pressedKeys
+               ) {
+                guestInputHandler(events)
+                EZVMLog.info(
+                    "Synthesized missing guest modifier transition for keyCode=\(event.keyCode)",
+                    logger: EZVMLog.input
+                )
+                return
+            }
+            guard let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) else {
+                super.keyDown(with: event)
+                return
+            }
             if !event.isARepeat, !pressedKeys.contains(code) {
                 sendKey(code: code, pressed: true, using: guestInputHandler)
             }

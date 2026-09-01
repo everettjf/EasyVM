@@ -245,6 +245,29 @@ enum VMGuestAgentKeyboard {
         }
         return events
     }
+
+    /// Accessibility key injection and a few remote-input sources can attach
+    /// Shift/Control/Option to the key-down event without first delivering the
+    /// corresponding AppKit `flagsChanged` transition. The normal physical
+    /// keyboard path has already placed those Linux modifier codes in
+    /// `alreadyPressed`; only synthesize a complete chord when a transition is
+    /// actually missing so ordinary key-down/key-up ordering stays unchanged.
+    static func chordEventsForMissingModifierTransition(
+        forMacVirtualKey keyCode: UInt16,
+        modifierFlags flags: NSEvent.ModifierFlags,
+        alreadyPressed: Set<UInt16>
+    ) -> [VMGuestAgentInputEvent]? {
+        let activeFlags = flags.intersection(.deviceIndependentFlagsMask)
+        let hasMissingModifier = chordModifiers.contains { flag, code in
+            activeFlags.contains(flag) && !alreadyPressed.contains(code)
+        }
+        guard hasMissingModifier else { return nil }
+        return chordEvents(
+            forMacVirtualKey: keyCode,
+            modifierFlags: activeFlags,
+            alreadyPressed: alreadyPressed
+        )
+    }
 }
 
 struct VMGuestAgentUploadStart: Codable, Equatable {

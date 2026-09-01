@@ -168,6 +168,43 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         )
     }
 
+    func testAccessibilityKeyDownSynthesizesMissingShiftTransition() throws {
+        XCTAssertEqual(
+            VMGuestAgentKeyboard.chordEventsForMissingModifierTransition(
+                forMacVirtualKey: 0,
+                modifierFlags: [.shift],
+                alreadyPressed: []
+            ),
+            [
+                VMGuestAgentInputEvent(type: 1, code: 42, value: 1),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+                VMGuestAgentInputEvent(type: 1, code: 30, value: 1),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+                VMGuestAgentInputEvent(type: 1, code: 30, value: 0),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+                VMGuestAgentInputEvent(type: 1, code: 42, value: 0),
+                VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+            ]
+        )
+    }
+
+    func testPhysicalModifierTransitionIsNotSynthesizedTwice() {
+        XCTAssertNil(
+            VMGuestAgentKeyboard.chordEventsForMissingModifierTransition(
+                forMacVirtualKey: 0,
+                modifierFlags: [.shift],
+                alreadyPressed: [42]
+            )
+        )
+        XCTAssertNil(
+            VMGuestAgentKeyboard.chordEventsForMissingModifierTransition(
+                forMacVirtualKey: 0,
+                modifierFlags: [],
+                alreadyPressed: []
+            )
+        )
+    }
+
     func testDesktopInputRequiresHyprlandToOwnTheGuestKeyboard() {
         let console = VMGuestAgentStatus(
             agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",

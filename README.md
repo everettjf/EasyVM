@@ -159,8 +159,10 @@ Implementation and validation details are in the
 The September 2026 clean-image acceptance run rebuilt and imported a 64 GiB
 sparse Omarchy image, completed the entire first-run flow, reached Hyprland,
 adapted the desktop to full screen, exercised Command-to-Super shortcuts and
-continuous typing, and verified browser scrolling by hand. The deployment
-target remains macOS 26; only Linux guests on macOS 27+ select Custom VirGL.
+continuous typing (including remotely synthesized Shift characters), verified
+browser scrolling by hand, and confirmed guest NAT, DNS, TLS 1.3/HTTP/2, and
+the real pacman update path. The deployment target remains macOS 26; only Linux
+guests on macOS 27+ select Custom VirGL.
 
 ## Guest images
 

@@ -75,6 +75,13 @@ path therefore combines:
 - Linux uinput keyboard, wheel, and negotiated absolute-pointer devices;
 - explicit Command-to-Linux-Super key chords.
 
+Physical keyboards normally deliver modifier changes before the associated
+key-down. Accessibility and remote-control sources may instead attach
+Shift/Control/Option only to the key-down event. EZVM detects that missing
+transition and sends a bounded complete modifier chord; it does not synthesize
+a second modifier when the physical transition is already held. This matters
+for uppercase text and symbols such as `:` as well as for automated acceptance.
+
 Agent readiness must mean that the live compositor owns the EZVM input event
 node. A successful `hyprctl` call is insufficient because stale sockets can
 survive a prior session. The current Omarchy integration intersects the
@@ -206,6 +213,11 @@ The clean-image scenario then established:
   terminal;
 - a long alphabetic command appears and executes immediately, with no pointer
   movement needed to reveal delayed characters;
+- injected `Shift+A` and `Shift+;` produce `A` and `:` while a physically held
+  modifier is not duplicated;
+- NAT assigns `192.168.64.2/24` with a default route, DNS resolves both Arch
+  endpoints, HTTPS negotiates TLS 1.3 and HTTP/2 with a 200 response, and
+  `checkupdates` downloads the live package databases and reports upgrades;
 - pointer movement and browser scrolling work in the real desktop; and
 - the first-run password field is a normal single-line control rather than an
   oversized framebuffer-scaled field.
@@ -227,7 +239,7 @@ established:
 - responsive continuous typing without requiring pointer movement;
 - bounded wheel delivery and successful human verification of browser
   scrolling;
-- successful Swift suite, 24 Guest Agent protocol tests, 17 prototype tests,
+- successful 126-test Swift suite, 27 Guest Agent protocol tests, 17 prototype tests,
   Linux Go Agent tests, the complete image validation suite, a source-rebuilt
   VirGL runtime, Release build, Developer ID signature, strict code-signing
   verification, and signed-archive extraction verification.
