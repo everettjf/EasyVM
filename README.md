@@ -179,7 +179,9 @@ Pick a distribution from the built-in list in the creation flow (Ubuntu Server/D
 EZVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. Its direction is narrower:
 
 1. Make VM creation, launch, stop, recovery, and error handling reliable.
-2. Add tests, CI, signed releases, Homebrew distribution, diagnostics, and configuration migration.
+2. Keep local macOS 27 tests, signed releases, Homebrew distribution,
+   diagnostics, and configuration migration reproducible. Hosted CI can return
+   when a genuine macOS 27 runner can execute the same GUI and VM gates.
 3. Expose a small, local automation surface so scripts and AI agents can create, start, inspect, and discard isolated VMs safely.
 
 The automation layer will remain local-first, explicit, and opt-in. EZVM will not embed an AI model or require a cloud account. See the [refresh roadmap](docs/ROADMAP.md), [ecosystem research](docs/RESEARCH.md), and [Homebrew distribution plan](docs/HOMEBREW.md).

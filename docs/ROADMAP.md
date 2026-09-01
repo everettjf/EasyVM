@@ -1,9 +1,9 @@
 # EZVM capability map and roadmap
 
-_Updated: August 31, 2026_
+_Updated: September 1, 2026_
 
-For the ordered post-5.0 implementation backlog, dependencies, and acceptance
-criteria, see [EZVM post-5.0 execution plan](NEXT_PLAN.md).
+For the ordered post-1.0 implementation backlog, dependencies, and acceptance
+criteria, see [EZVM post-1.0 execution plan](NEXT_PLAN.md).
 
 EZVM is a native macOS application built on Apple's
 [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization).

@@ -181,6 +181,17 @@ desktop D-Bus session for timezone selection, and retry display-watcher startup
 until the compositor/device state is real. Host and guest changes must be
 versioned and tested together.
 
+### A notarized app starts but no Control Center appears
+
+Process launch, a valid Developer ID signature, Gatekeeper acceptance, and a
+responsive SwiftUI event loop are separate release properties. SwiftUI can
+restore the persisted state in which every window was previously closed. A
+GUI smoke test must therefore reject an already-running EZVM instance, launch
+the quarantined candidate through Launch Services, send the same
+reopen/activate lifecycle event as a second user click, and require a readiness
+record from a visible window of at least 800x600. Do not weaken this to a PID
+check: a running process with no usable window is still a broken desktop app.
+
 ## Lifecycle constraints
 
 Custom VirGL supports VM start, pause, resume, reset, stop, and stopped-VM file
@@ -243,6 +254,13 @@ established:
   Linux Go Agent tests, the complete image validation suite, a source-rebuilt
   VirGL runtime, Release build, Developer ID signature, strict code-signing
   verification, and signed-archive extraction verification.
+
+The `1.0.4` release additionally passed Apple notarization, Gatekeeper and GUI
+readiness after quarantine extraction, two concurrent headless VMs, SIGKILL
+restart, corrupt saved-state fallback, EFI boot recovery, authenticated Agent
+upload/download byte round-trips, clean stop, guest `/dev/kvm` validation with
+`KVM_GET_API_VERSION=12`, and the same gates again after a real Homebrew
+`1.0.3 -> 1.0.4` upgrade.
 
 These numbers prove the local path is healthy; they do not by themselves prove
 universal performance parity with QEMU/HVF-based products. Comparative claims

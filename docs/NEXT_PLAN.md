@@ -1,14 +1,14 @@
-# EZVM post-5.0 execution plan
+# EZVM post-1.0 execution plan
 
-_Baseline: EZVM 1.0.0 — August 27, 2026_
+_Baseline: EZVM 1.0.4 — September 1, 2026_
 
 This document turns the broader [capability roadmap](ROADMAP.md) into an
-ordered engineering plan. It covers only work that remains after 1.0.0 and
+ordered engineering plan. It covers only work that remains after 1.0.4 and
 uses evidence-based promotion rules: compiling against an API is not enough;
 a feature becomes stable only after the final signed Homebrew artifact passes
 the relevant real-VM scenario.
 
-## 1.0.0 baseline
+## 1.0.4 baseline
 
 The next cycle starts with these foundations already delivered:
 
@@ -27,6 +27,16 @@ The next cycle starts with these foundations already delivered:
   upload/download, clean shutdown, and guest `/dev/kvm` API version 12;
 - production NAT networking only; restricted bridged, host-only, custom vmnet,
   and physical USB code is absent from the shipping target.
+- macOS 27 Linux guests can use the availability-gated Custom Virtio GPU with
+  pinned VirGL/ANGLE/Metal runtime; macOS 26 and macOS guests retain Apple's
+  graphics path;
+- Omarchy clean-image acceptance covers first-run setup, dynamic resolution,
+  continuous input, Command-to-Super shortcuts, pointer, wheel, NAT/DNS/TLS,
+  and a publicly downloadable checksum-verified image;
+- the signed `1.0.4` artifact and a real Homebrew `1.0.3 -> 1.0.4` upgrade pass
+  GUI reopen/readiness, concurrent VM, SIGKILL recovery, EFI/saved-state
+  fallback, authenticated Agent byte round-trip, clean stop, and guest KVM API
+  version 12.
 
 ## Prioritization rules
 
@@ -37,7 +47,7 @@ The next cycle starts with these foundations already delivered:
 5. Restricted entitlements are not implementation backlog. They have a
    separate re-entry gate and do not consume normal milestone capacity.
 
-## Completed for the 1.0.0 release
+## Completed through the 1.0.4 release
 
 - A versioned, product-neutral `preinstalled-image` manifest is the source of
   truth for raw ARM64 guest identity, compatibility, logical size, and SHA-256.
@@ -73,7 +83,7 @@ failure messages.
 
 ## P1 — Finish current workflows
 
-**Target:** 5.1.0.
+**Target:** 1.1.0.
 
 | Feature | Scope | Acceptance criteria |
 | --- | --- | --- |
@@ -151,7 +161,7 @@ Every promoted capability must have:
 1. **1.0.x:** P0 only—headless cleanup, fixture builder, diagnostics, provenance,
    compatibility matrix, preinstalled-image release verification, and transaction
    fault injection.
-2. **5.1.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
+2. **1.1.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
    shares, portability UX, snapshot maintenance, CLI clone/export, and distro
    presets.
 3. **1.2.0:** serial terminal, carefully scoped TCP forwarding, guided Rosetta,

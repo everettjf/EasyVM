@@ -10,13 +10,14 @@ brew install --cask everettjf/tap/ezvm
 
 ## Current release
 
-The `v1.0.0` release meets the distribution requirements:
+The `v1.0.4` release meets the distribution requirements:
 
 - The release is tagged and hosted by GitHub Releases.
 - The app is signed with Developer ID Application team `YPV49M8592`.
 - Apple notarization and Gatekeeper assessment pass.
-- The immutable ZIP SHA-256 is `2c4c95a2f88d7b98fbdc0c1e3a079337918898b2f02734d878b624f8019ad194`.
-- `brew install --cask everettjf/tap/ezvm` has been tested successfully.
+- The immutable ZIP SHA-256 is `77bff3203756aab11aa512715a53839036360f40c420f328d7b435857a749925`.
+- Both a `1.0.3 -> 1.0.4` Homebrew upgrade and the installed `1.0.4` app were
+  tested successfully.
 
 GitHub Releases should remain the source of truth. The Cask is a small installation manifest pointing at the immutable release artifact.
 
@@ -27,8 +28,8 @@ GitHub Releases should remain the source of truth. The Cask is a small installat
 # frozen_string_literal: true
 
 cask "ezvm" do
-  version "1.0.0"
-  sha256 "ede1daa13cc26a4ce9840c6481ff1e15e264fccccca5034329d524b6c513e36f"
+  version "1.0.4"
+  sha256 "77bff3203756aab11aa512715a53839036360f40c420f328d7b435857a749925"
 
   url "https://github.com/everettjf/ezvm/releases/download/v#{version}/EZVM-#{version}.zip?notarized=1"
   name "EZVM"
@@ -39,6 +40,7 @@ cask "ezvm" do
   depends_on macos: :tahoe
 
   app "EZVM.app"
+  binary "#{appdir}/EZVM.app/Contents/Helpers/ezvm"
 
   zap trash: [
     "~/Library/Application Support/EZVM",
@@ -68,16 +70,28 @@ concurrent headless VMs, Agent authentication and byte-exact file transfer,
 guest KVM API availability, and clean stop. The source VM is not modified. The
 same gates run against the notarized archive and the published Homebrew Cask.
 
-The script requires a clean checkout whose `HEAD` matches `origin/main`. It calculates the next patch version, updates every Xcode target, runs tests and a Release build, commits the version bump when needed, pushes `main` and the tag, signs and notarizes the app locally, creates the GitHub Release, then updates `everettjf/homebrew-tap`. Set `EZVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
+The script requires a clean checkout whose `HEAD` matches `origin/main`. It
+calculates the next patch version, updates every Xcode target, runs tests and a
+Release build, commits the version bump when needed, then builds the pinned
+VirGL runtime, signs and notarizes the app locally, and exercises the exact
+candidate before pushing `main` and the tag. Only after those gates pass does
+it create the GitHub Release and update `everettjf/homebrew-tap`. Set
+`EZVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
 
 1. Build and sign the application with its virtualization entitlement and hardened runtime.
-2. Create the GitHub Release and upload the immutable archive plus checksum.
-3. Test a local Cask against that exact URL and SHA-256.
-4. Publish the Cask to `everettjf/homebrew-tap` automatically after the signed release succeeds.
-5. Submit it to `Homebrew/homebrew-cask` once EZVM meets upstream inclusion requirements; the shorter command will then become `brew install --cask ezvm`.
-6. Verify install, upgrade and uninstall on a clean supported Mac.
+2. Notarize the archive, quarantine-extract it, and pass GUI plus real-VM gates.
+3. Push the exact tested commit/tag and upload the immutable archive plus checksums.
+4. Update `everettjf/homebrew-tap` to that exact URL and SHA-256.
+5. Upgrade/install from Homebrew and repeat the GUI plus real-VM gates.
+6. Submit it to `Homebrew/homebrew-cask` once EZVM meets upstream inclusion requirements; the shorter command will then become `brew install --cask ezvm`.
 7. Publish the working install command in the README and website.
 
 ## Automation boundary
 
-Release automation generates a candidate archive when credentials are unavailable. GitHub Release and Homebrew publication remain gated on a Developer ID certificate, Apple notarization credentials, and tap access.
+EZVM deliberately performs product compilation and release verification on a
+local macOS 27 development machine. The repository currently keeps only the
+GitHub Pages workflow; CI and Release workflows should return when a genuine
+macOS 27 runner can execute the same app, GUI, Virtualization.framework, and
+real-VM gates. GitHub Release and Homebrew publication remain gated on a
+Developer ID certificate, Apple notarization credentials, tap access, a mode
+`0600` Agent enrollment, and a disposable clone of a real ARM64 Linux VM.

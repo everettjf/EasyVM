@@ -2,8 +2,8 @@
 # frozen_string_literal: true
 
 cask "ezvm" do
-  version "1.0.1"
-  sha256 "95939429a7c4f2119ced8173fa8280eb1ca8b24078edc3567716e9625794a17f"
+  version "1.0.4"
+  sha256 "77bff3203756aab11aa512715a53839036360f40c420f328d7b435857a749925"
 
   url "https://github.com/everettjf/ezvm/releases/download/v#{version}/EZVM-#{version}.zip?notarized=1"
   name "EZVM"
