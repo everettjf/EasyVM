@@ -91,11 +91,20 @@ elif ! git -C "$angle" apply --reverse --check "$angle_patch"; then
 fi
 
 shopt -s nullglob
-metal_candidates=(/var/run/com.apple.security.cryptexd/mnt/*/Metal.xctoolchain/usr/bin/metal)
+metal_candidates=(
+  /var/run/com.apple.security.cryptexd/mnt/*/Metal.xctoolchain/usr/bin/metal
+  "$HOME"/Library/Developer/DVTDownloads/MetalToolchain/mounts/*/Metal.xctoolchain/usr/bin/metal
+)
 shopt -u nullglob
-[[ ${#metal_candidates[@]} -gt 0 ]] || fail "Metal Toolchain is not installed"
-metal_bin="$(dirname "${metal_candidates[0]}")"
-[[ -x $metal_bin/metal && -x $metal_bin/metallib ]] || fail "Metal Toolchain is incomplete"
+metal_bin=
+for metal_candidate in "${metal_candidates[@]}"; do
+  candidate_bin="$(dirname "$metal_candidate")"
+  if [[ -x $candidate_bin/metal && -x $candidate_bin/metallib ]]; then
+    metal_bin=$candidate_bin
+    break
+  fi
+done
+[[ -n $metal_bin ]] || fail "Metal Toolchain is not installed or is incomplete"
 tool_wrappers="$work_root/tool-wrappers"
 mkdir -p "$tool_wrappers"
 sed "s|@@METAL_BIN@@|$metal_bin|g" >"$tool_wrappers/xcrun" <<'EOF'
