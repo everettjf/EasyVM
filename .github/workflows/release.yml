@@ -33,7 +33,9 @@ jobs:
           test "${sdk_version%%.*}" -ge 27
 
       - name: Install VirGL source-build tools
-        run: brew install meson pkg-config
+        run: |
+          brew install meson pkg-config
+          xcodebuild -downloadComponent MetalToolchain
 
       - name: Import Developer ID certificate
         if: env.HAS_SIGNING_CERTIFICATE == 'true'
