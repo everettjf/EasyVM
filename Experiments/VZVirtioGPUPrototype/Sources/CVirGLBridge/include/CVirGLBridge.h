@@ -70,6 +70,9 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
                                   uint32_t source_height,
                                   uint32_t destination_width,
                                   uint32_t destination_height);
+void vzvg_renderer_set_diagnostics_enabled(int enabled);
+uint64_t vzvg_renderer_scanout_signature(void);
+uint64_t vzvg_renderer_scanout_signature_generation(void);
 
 int vzvg_renderer_transfer_write(uint32_t resource_id,
                                  uint32_t context_id,

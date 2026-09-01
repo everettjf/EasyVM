@@ -26,8 +26,8 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let normal = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 991.6, height: 707.8)
         )
-        XCTAssertEqual(normal.width, 1920)
-        XCTAssertEqual(normal.height, 1368)
+        XCTAssertEqual(normal.width, 992)
+        XCTAssertEqual(normal.height, 704)
 
         let fullscreen = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 1920, height: 1080)
@@ -38,11 +38,15 @@ final class VMGuestAgentProtocolTests: XCTestCase {
 
     func testGuestResolutionClampsAndStabilizesDimensions() {
         let tiny = VMDisplayGeometry.guestResolution(for: CGSize(width: 200, height: 100))
-        XCTAssertEqual(tiny.width, 2160)
-        XCTAssertEqual(tiny.height, 1080)
+        XCTAssertEqual(tiny.width, 640)
+        XCTAssertEqual(tiny.height, 360)
         let huge = VMDisplayGeometry.guestResolution(for: CGSize(width: 20_000, height: 20_001))
         XCTAssertEqual(huge.width, 8192)
         XCTAssertEqual(huge.height, 8192)
+
+		let portrait = VMDisplayGeometry.guestResolution(for: CGSize(width: 900, height: 1200))
+		XCTAssertEqual(portrait.width, 896)
+		XCTAssertEqual(portrait.height, 1200)
     }
 
     func testVirGLPresentationPreservesGuestAspectRatio() {
@@ -95,6 +99,9 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 1)
         XCTAssertEqual(accumulator.consume(delta: -6.75, hasPreciseDeltas: true), -2)
         XCTAssertEqual(accumulator.consume(delta: 2, hasPreciseDeltas: false), 2)
+        XCTAssertEqual(accumulator.consume(delta: -1_050, hasPreciseDeltas: true), -16)
+        XCTAssertEqual(accumulator.consume(delta: 0, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 500, hasPreciseDeltas: false), 16)
     }
 
     private let token = Data(repeating: 0x5a, count: 32)
@@ -159,6 +166,72 @@ final class VMGuestAgentProtocolTests: XCTestCase {
                 VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
             ]
         )
+    }
+
+    func testDesktopInputRequiresHyprlandToOwnTheGuestKeyboard() {
+        let console = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 1,
+            capabilities: ["input-uinput-v1", "input-uinput-absolute-v1"],
+            inputDevices: ["hyprctl devices unavailable: Hyprland process not found"]
+        )
+        XCTAssertTrue(console.supportsGuestInput)
+        XCTAssertFalse(console.supportsDesktopGuestInput)
+        XCTAssertTrue(console.shouldUseGuestKeyboard)
+
+        let unverifiedDesktop = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 1,
+            capabilities: ["input-uinput-v1", "input-uinput-absolute-v1"],
+            inputDevices: ["hyprctl devices failed"], desktopSessionActive: true
+        )
+        XCTAssertFalse(unverifiedDesktop.supportsDesktopGuestInput)
+        XCTAssertFalse(unverifiedDesktop.shouldUseGuestKeyboard)
+
+        let compositorOwnsKeyboard = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 2,
+            capabilities: ["input-uinput-v1", "input-uinput-absolute-v1"],
+            inputDevices: [
+                "hyprctl devices failed: stale compositor socket",
+                "EZVM Keyboard [sysrq kbd event3]",
+                "Hyprland open input devices [event0 event1 event3 event6]",
+            ],
+            desktopSessionActive: true
+        )
+        XCTAssertTrue(compositorOwnsKeyboard.supportsDesktopGuestInput)
+        XCTAssertTrue(compositorOwnsKeyboard.shouldUseGuestKeyboard)
+
+        let compositorDoesNotOwnKeyboard = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 2,
+            capabilities: ["input-uinput-v1", "input-uinput-absolute-v1"],
+            inputDevices: [
+                "EZVM Keyboard [sysrq kbd event3]",
+                "Hyprland open input devices [event0 event1 event2]",
+            ],
+            desktopSessionActive: true
+        )
+        XCTAssertFalse(compositorDoesNotOwnKeyboard.supportsDesktopGuestInput)
+        XCTAssertFalse(compositorDoesNotOwnKeyboard.shouldUseGuestKeyboard)
+
+        let legacyDesktop = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 2,
+            capabilities: ["input-uinput-v1", "input-uinput-absolute-v1"],
+            inputDevices: ["hyprctl EZVM Keyboard: keyboards: EZVM Keyboard"]
+        )
+        XCTAssertTrue(legacyDesktop.supportsDesktopGuestInput)
+        XCTAssertTrue(legacyDesktop.shouldUseGuestKeyboard)
+
+        let currentDesktop = VMGuestAgentStatus(
+            agentVersion: "2", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 3,
+            capabilities: ["input-uinput-v1", "input-uinput-desktop-v1"],
+            inputDevices: nil
+        )
+        XCTAssertTrue(currentDesktop.supportsDesktopGuestInput)
+        XCTAssertTrue(currentDesktop.shouldUseGuestKeyboard)
     }
 
     func testMutualAuthenticationRoundTrip() throws {
@@ -254,6 +327,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertFalse(legacy.supportsSSH)
         XCTAssertFalse(legacy.supportsFileTransfer)
         XCTAssertFalse(legacy.supportsGuestInput)
+        XCTAssertFalse(legacy.supportsDesktopGuestInput)
         XCTAssertTrue(status.supportsSSH)
         XCTAssertTrue(status.supportsFileTransfer)
         XCTAssertTrue(status.supportsGuestInput)

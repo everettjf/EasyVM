@@ -94,6 +94,30 @@ import Testing
     #expect(maximum.height == VirtioGPU.Limits.maxDimension)
 }
 
+@Test func edidResponseAdvertisesRequestedPreferredModeAndValidChecksum() throws {
+    var request = Data()
+    request.appendLittleEndian(VirtioGPU.Command.getEDID.rawValue)
+    request.appendLittleEndian(UInt32(1))
+    request.appendLittleEndian(UInt64(42))
+    request.appendLittleEndian(UInt32(7))
+    request.appendLittleEndian(UInt32(0))
+    request.appendLittleEndian(UInt32(0))
+    request.appendLittleEndian(UInt32(0))
+
+    let header = try #require(VirtioGPU.Header(request))
+    let response = VirtioGPU.edidResponse(request: header, width: 1920, height: 1080)
+    #expect(response.count == 24 + 8 + 1024)
+    #expect(response.littleEndianUInt32(at: 0) == VirtioGPU.Response.okEDID.rawValue)
+    #expect(response.littleEndianUInt32(at: 24) == 128)
+    let edid = Array(response[32..<(32 + 128)])
+    #expect(Array(edid[0..<8]) == [0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00])
+    let advertisedWidth = UInt16(edid[56]) | UInt16(edid[58] >> 4) << 8
+    let advertisedHeight = UInt16(edid[59]) | UInt16(edid[61] >> 4) << 8
+    #expect(advertisedWidth == 1920)
+    #expect(advertisedHeight == 1080)
+    #expect(edid.reduce(0) { ($0 + Int($1)) & 0xff } == 0)
+}
+
 @Test func responseHeaderPreservesFenceAndContext() throws {
     var request = Data()
     request.appendLittleEndian(VirtioGPU.Command.submit3D.rawValue)
@@ -190,17 +214,34 @@ import Testing
 
 @Test func threeDimensionalResourceLimitsRejectPathologicalAllocations() {
     #expect(VirtioGPU.valid3DResourceDimensions(
+        target: 2,
         width: 1280, height: 720, depth: 1, arraySize: 1, lastLevel: 0, sampleCount: 0
     ))
     #expect(!VirtioGPU.valid3DResourceDimensions(
+        target: 2,
         width: UInt32.max, height: UInt32.max, depth: UInt32.max,
         arraySize: UInt32.max, lastLevel: UInt32.max, sampleCount: UInt32.max
     ))
     #expect(!VirtioGPU.valid3DResourceDimensions(
+        target: 2,
         width: 8192, height: 8192, depth: 8, arraySize: 1, lastLevel: 0, sampleCount: 0
     ))
     #expect(!VirtioGPU.valid3DResourceDimensions(
+        target: 2,
         width: 64, height: 64, depth: 1, arraySize: 1, lastLevel: 16, sampleCount: 0
+    ))
+    #expect(VirtioGPU.valid3DResourceDimensions(
+        target: 0,
+        width: 64 * 1024, height: 1, depth: 1, arraySize: 1, lastLevel: 0, sampleCount: 0
+    ))
+    #expect(!VirtioGPU.valid3DResourceDimensions(
+        target: 0,
+        width: VirtioGPU.Limits.maxBufferBytes + 1,
+        height: 1, depth: 1, arraySize: 1, lastLevel: 0, sampleCount: 0
+    ))
+    #expect(!VirtioGPU.valid3DResourceDimensions(
+        target: 0,
+        width: 64 * 1024, height: 2, depth: 1, arraySize: 1, lastLevel: 0, sampleCount: 0
     ))
 }
 

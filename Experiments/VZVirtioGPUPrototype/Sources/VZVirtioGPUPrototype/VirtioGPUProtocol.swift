@@ -18,6 +18,7 @@ enum VirtioGPU {
         static let maxMipLevel: UInt32 = 15
         static let maxSampleCount: UInt32 = 16
         static let maxResourceTexels: UInt64 = 256 * 1024 * 1024
+        static let maxBufferBytes: UInt32 = 256 * 1024 * 1024
         static let maxResources = 4_096
         static let maxResourcePixelBytes = 256 * 1024 * 1024
         static let maxTotalPixelBytes = 512 * 1024 * 1024
@@ -106,6 +107,7 @@ enum VirtioGPU {
     }
 
     static func valid3DResourceDimensions(
+        target: UInt32,
         width: UInt32,
         height: UInt32,
         depth: UInt32,
@@ -113,6 +115,15 @@ enum VirtioGPU {
         lastLevel: UInt32,
         sampleCount: UInt32
     ) -> Bool {
+        // Gallium's PIPE_BUFFER uses width0 as a byte count rather than a
+        // texture dimension. Applying the 8192 texture-edge limit to buffers
+        // rejects ordinary vertex/index buffers and leaves later VirGL draws
+        // referring to a resource the host never created.
+        if target == 0 {
+            return width > 0 && width <= Limits.maxBufferBytes
+                && height == 1 && depth == 1 && arraySize == 1
+                && lastLevel == 0 && sampleCount == 0
+        }
         guard width > 0, height > 0, depth > 0, arraySize > 0,
               width <= Limits.maxDimension, height <= Limits.maxDimension,
               depth <= Limits.maxResourceDepth, arraySize <= Limits.maxArraySize,
@@ -228,6 +239,90 @@ enum VirtioGPU {
             data.appendLittleEndian(UInt32(0))
         }
         return data
+    }
+
+    static func edidResponse(request: Header, width: UInt32, height: UInt32) -> Data {
+        let edid = makeEDID(width: width, height: height)
+        var data = responseHeader(.okEDID, request: request)
+        data.appendLittleEndian(UInt32(edid.count))
+        data.appendLittleEndian(UInt32(0))
+        data.append(edid)
+        data.append(Data(repeating: 0, count: 1024 - edid.count))
+        return data
+    }
+
+    static func makeEDID(width: UInt32, height: UInt32) -> Data {
+        let size = clampedDisplaySize(width: width, height: height)
+        let activeWidth = UInt16(min(size.width, 4095))
+        let activeHeight = UInt16(min(size.height, 4095))
+        let horizontalBlank = UInt16(max(160, (Int(activeWidth) / 5 + 7) & ~7))
+        let verticalBlank = UInt16(max(45, Int(activeHeight) / 20))
+        let totalWidth = UInt64(activeWidth) + UInt64(horizontalBlank)
+        let totalHeight = UInt64(activeHeight) + UInt64(verticalBlank)
+        let pixelClock = UInt16(min(UInt64(UInt16.max), (totalWidth * totalHeight * 60 + 5_000) / 10_000))
+
+        var bytes = [UInt8](repeating: 0, count: 128)
+        bytes[0..<8] = [0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00]
+        bytes[8] = 0x15 // "EZV"
+        bytes[9] = 0x36
+        bytes[10] = 0x01
+        bytes[11] = 0x00
+        bytes[16] = 1
+        bytes[17] = 36 // 2026
+        bytes[18] = 1
+        bytes[19] = 4
+        bytes[20] = 0xa5 // digital display
+        bytes[21] = 52
+        bytes[22] = 29
+        bytes[23] = 120
+        bytes[24] = 0x0a
+        bytes[35] = 0x01
+        bytes[36] = 0x01
+        bytes[37] = 0x01
+        bytes[38] = 0x01
+        bytes[39] = 0x01
+        bytes[40] = 0x01
+        bytes[41] = 0x01
+        bytes[42] = 0x01
+        bytes[43] = 0x01
+        bytes[44] = 0x01
+        bytes[45] = 0x01
+        bytes[46] = 0x01
+        bytes[47] = 0x01
+        bytes[48] = 0x01
+        bytes[49] = 0x01
+        bytes[50] = 0x01
+        bytes[51] = 0x01
+        bytes[52] = 0x01
+        bytes[53] = 0x01
+
+        let dtd = 54
+        bytes[dtd] = UInt8(truncatingIfNeeded: pixelClock)
+        bytes[dtd + 1] = UInt8(truncatingIfNeeded: pixelClock >> 8)
+        bytes[dtd + 2] = UInt8(truncatingIfNeeded: activeWidth)
+        bytes[dtd + 3] = UInt8(truncatingIfNeeded: horizontalBlank)
+        bytes[dtd + 4] = UInt8((activeWidth >> 8) << 4) | UInt8(horizontalBlank >> 8)
+        bytes[dtd + 5] = UInt8(truncatingIfNeeded: activeHeight)
+        bytes[dtd + 6] = UInt8(truncatingIfNeeded: verticalBlank)
+        bytes[dtd + 7] = UInt8((activeHeight >> 8) << 4) | UInt8(verticalBlank >> 8)
+        let hSyncOffset = UInt16(max(8, Int(horizontalBlank) / 3))
+        let hSyncWidth = UInt16(max(8, Int(horizontalBlank) / 6))
+        let vSyncOffset: UInt16 = 3
+        let vSyncWidth: UInt16 = 5
+        bytes[dtd + 8] = UInt8(truncatingIfNeeded: hSyncOffset)
+        bytes[dtd + 9] = UInt8(truncatingIfNeeded: hSyncWidth)
+        bytes[dtd + 10] = UInt8((vSyncOffset & 0x0f) << 4 | (vSyncWidth & 0x0f))
+        bytes[dtd + 11] = UInt8((hSyncOffset >> 8) << 6 | (hSyncWidth >> 8) << 4)
+        bytes[dtd + 12] = 0x2c
+        bytes[dtd + 13] = 0x1a
+        bytes[dtd + 14] = 0x30
+        bytes[dtd + 17] = 0x1a
+
+        let name = Array("EZVM Display\n".utf8)
+        bytes[72..<90] = [0, 0, 0, 0xfc, 0] + name
+        bytes[126] = 0
+        bytes[127] = UInt8(truncatingIfNeeded: 256 - bytes.prefix(127).reduce(0) { ($0 + Int($1)) & 0xff })
+        return Data(bytes)
     }
 }
 

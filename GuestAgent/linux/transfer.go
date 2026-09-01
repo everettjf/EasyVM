@@ -169,6 +169,7 @@ func (session *transferSession) startUpload(value uploadStart) (transferResult, 
 	if err := validateGuestPath(value.DestinationPath, false); err != nil {
 		return transferResult{}, err
 	}
+	uploadMode := os.FileMode(0600)
 	if existing, err := os.Lstat(value.DestinationPath); err == nil {
 		if existing.Mode()&os.ModeSymlink != 0 || existing.IsDir() {
 			return transferResult{}, errors.New("destination is not a regular file")
@@ -176,6 +177,10 @@ func (session *transferSession) startUpload(value uploadStart) (transferResult, 
 		if !value.Overwrite {
 			return transferResult{}, errors.New("destination already exists")
 		}
+		// Atomic replacement creates a new inode. Preserve ordinary permission
+		// bits so updating an executable does not silently turn it into a 0600
+		// file. Never carry setuid, setgid, or sticky bits across an upload.
+		uploadMode = existing.Mode().Perm()
 	} else if !os.IsNotExist(err) {
 		return transferResult{}, err
 	}
@@ -183,7 +188,7 @@ func (session *transferSession) startUpload(value uploadStart) (transferResult, 
 	if err != nil {
 		return transferResult{}, err
 	}
-	if err := temporary.Chmod(0600); err != nil {
+	if err := temporary.Chmod(uploadMode); err != nil {
 		temporary.Close()
 		target.cleanup()
 		return transferResult{}, err

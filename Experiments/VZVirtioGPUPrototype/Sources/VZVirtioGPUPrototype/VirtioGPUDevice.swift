@@ -83,9 +83,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     )
     private var publishedFrameCount = 0
     private var submittedCommandCount = 0
+    private var resourceFlushCount: UInt64 = 0
+    private var diagnosticWindowStartedAt = CFAbsoluteTimeGetCurrent()
+    private var diagnosticWindowSubmitCount = 0
+    private var diagnosticWindowFlushCount: UInt64 = 0
     private var cursorUpdateCount = 0
     private var cursorMoveCount = 0
     private var displayEventGeneration = 0
+    private var assertedDisplayEventGeneration: Int?
     private var displayInfoRequestCount: UInt64 = 0
     private var borrowedScanoutResources: Set<UInt32> = []
     private var savedEvidenceFrame = false
@@ -126,8 +131,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         configuration.pciClassID = VirtioGPU.pciDisplayClass
         configuration.pciSubclassID = VirtioGPU.pciOtherDisplaySubclass
         configuration.virtioQueueCount = VirtioGPU.queueCount
-        // VIRTIO_GPU_F_VIRGL is feature bit 0.
-        configuration.optionalFeatures.subset0 = 1
+        // VIRTIO_GPU_F_VIRGL is bit 0 and VIRTIO_GPU_F_EDID is bit 1.
+        configuration.optionalFeatures.subset0 = 3
 
         // struct virtio_gpu_config: events_read, events_clear, num_scanouts,
         // num_capsets. Stage 3 exposes the VirGL capset.
@@ -152,40 +157,45 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             self.height = requestedHeight
             self.displayEventGeneration &+= 1
             let generation = self.displayEventGeneration
+            self.assertedDisplayEventGeneration = generation
             self.log("publishing display configuration generation=\(generation) size=\(requestedWidth)x\(requestedHeight)")
             guard let device = self.device else { return }
             let changed = VZVirtioDeviceSpecificConfiguration(
                 configurationData: VirtioGPU.deviceConfigurationData(displayEvent: true)
             )
-            device.update(changed) { [weak self, weak device] error in
-                guard let self, let device else { return }
+            device.update(changed) { [weak self] error in
+                guard let self else { return }
                 if let error {
                     self.log("display configuration generation=\(generation) failed: \(error.localizedDescription)", error: true)
                     return
                 }
                 self.log("display configuration generation=\(generation) interrupt delivered")
-                // Leave the event asserted long enough for the guest's config
-                // interrupt handler to issue GET_DISPLAY_INFO. A newer resize
-                // supersedes this clear operation.
-                self.deviceQueue.asyncAfter(deadline: .now() + 0.25) { [weak self, weak device] in
-                    guard let self, let device,
-                          self.displayEventGeneration == generation else { return }
-                    let cleared = VZVirtioDeviceSpecificConfiguration(
-                        configurationData: VirtioGPU.deviceConfigurationData(displayEvent: false)
-                    )
-                    device.update(cleared) { error in
-                        if let error {
-                            self.log("display configuration generation=\(generation) clear failed: \(error.localizedDescription)", error: true)
-                        } else {
-                            self.log("display configuration generation=\(generation) event cleared")
-                        }
-                    }
-                }
+            }
+        }
+    }
+
+    private func clearDisplayEventAfterGuestRead() {
+        guard let generation = assertedDisplayEventGeneration,
+              generation == displayEventGeneration,
+              let device else { return }
+        assertedDisplayEventGeneration = nil
+        let cleared = VZVirtioDeviceSpecificConfiguration(
+            configurationData: VirtioGPU.deviceConfigurationData(displayEvent: false)
+        )
+        device.update(cleared) { [weak self] error in
+            if let error {
+                self?.log("display configuration generation=\(generation) clear failed: \(error.localizedDescription)", error: true)
+            } else {
+                self?.log("display configuration generation=\(generation) acknowledged by guest and cleared")
             }
         }
     }
 
     private let logger = Logger(subsystem: "com.everettjf.EZVM", category: "virtio-gpu")
+
+    private var diagnosticsEnabled: Bool {
+        ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1"
+    }
 
     private func log(_ message: String, error: Bool = false) {
         if error {
@@ -193,6 +203,34 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         } else {
             logger.info("\(message, privacy: .public)")
         }
+        if diagnosticsEnabled {
+            let line = "[virtio-gpu] \(message)\n"
+            fputs(line, stderr)
+            fflush(stderr)
+            if let file = fopen("/tmp/ezvm-virtio-gpu.log", "a") {
+                fputs(line, file)
+                fclose(file)
+            }
+        }
+    }
+
+    private func diagnosticLog(_ message: String) {
+        guard diagnosticsEnabled else { return }
+        log(message)
+    }
+
+    private func recordDiagnosticsIfNeeded(trigger: String) {
+        guard ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1" else { return }
+        let now = CFAbsoluteTimeGetCurrent()
+        guard now - diagnosticWindowStartedAt >= 1 else { return }
+        log(
+            "render activity trigger=\(trigger) submits=\(diagnosticWindowSubmitCount) "
+                + "flushes=\(diagnosticWindowFlushCount) totalSubmits=\(submittedCommandCount) "
+                + "totalFlushes=\(resourceFlushCount) scanout=\(scanoutResourceID ?? 0)"
+        )
+        diagnosticWindowStartedAt = now
+        diagnosticWindowSubmitCount = 0
+        diagnosticWindowFlushCount = 0
     }
 
     func customVirtioConfiguration(
@@ -301,6 +339,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             displayInfoRequestCount &+= 1
             log("guest GET_DISPLAY_INFO request=\(displayInfoRequestCount) generation=\(displayEventGeneration) size=\(width)x\(height)")
             response = VirtioGPU.displayInfoResponse(request: header, width: width, height: height)
+            clearDisplayEventAfterGuestRead()
 
         case .getCapsetInfo:
             response = getCapsetInfo(request, header: header)
@@ -321,12 +360,22 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 response = VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
                 break
             }
-            // RESOURCE_UNREF owns the renderer-side teardown.  Do not synthesize
-            // CTX_DETACH_RESOURCE commands here: the guest orders those itself,
-            // and eagerly detaching from every context can invalidate a resource
-            // while a compositor command stream still references it.
+            diagnosticLog(
+                "RESOURCE_UNREF resource=\(resourceID) contexts="
+                    + contextResources.compactMap { contextID, resourceIDs in
+                        resourceIDs.contains(resourceID) ? String(contextID) : nil
+                    }.sorted().joined(separator: ",")
+            )
+            // virglrenderer keeps a per-context resource table in addition to
+            // its global resource table. RESOURCE_UNREF can legally arrive
+            // without a preceding CTX_DETACH_RESOURCE; dropping only the global
+            // object leaves a stale context entry, and the next DRAW_VBO poisons
+            // the compositor context with "Illegal resource". Detach exactly the
+            // memberships still tracked here before removing the global object.
             for contextID in contexts {
-                contextResources[contextID]?.remove(resourceID)
+                if contextResources[contextID]?.remove(resourceID) != nil {
+                    renderer.detach(contextID: contextID, resourceID: resourceID)
+                }
             }
             if resource.isRendererResource {
                 if resource.virglBacking != nil { renderer.detach(resourceID: resourceID) }
@@ -344,9 +393,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 frameScheduler.cancel()
                 if wasPublishedScanout {
                     lastPublishedScanoutResourceID = nil
-                    Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated() }
                 }
-                log(
+                diagnosticLog(
                     "scanout resource=\(resourceID) was released "
                         + "active=\(wasActiveScanout) published=\(wasPublishedScanout)"
                 )
@@ -387,7 +435,17 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             response = flush(request, header: header)
 
         case .getEDID:
-            response = VirtioGPU.responseHeader(.errorUnspecified, request: header)
+            guard request.count >= 32 else {
+                response = VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+                break
+            }
+            let scanoutID = request.littleEndianUInt32(at: 24)
+            guard scanoutID == 0 else {
+                response = VirtioGPU.responseHeader(.errorInvalidScanoutID, request: header)
+                break
+            }
+            log("guest GET_EDID generation=\(displayEventGeneration) size=\(width)x\(height)")
+            response = VirtioGPU.edidResponse(request: header, width: width, height: height)
 
         case .contextCreate:
             response = createContext(request, header: header)
@@ -397,6 +455,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 response = VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
                 break
             }
+            diagnosticLog(
+                "CTX_DESTROY context=\(header.contextID) resources="
+                    + (contextResources[header.contextID] ?? []).sorted().map(String.init).joined(separator: ",")
+            )
             renderer.destroyContext(id: header.contextID)
             contextResources.removeValue(forKey: header.contextID)
             response = VirtioGPU.responseHeader(.okNoData, request: header)
@@ -530,17 +592,32 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let arraySize = request.littleEndianUInt32(at: 52)
         let lastLevel = request.littleEndianUInt32(at: 56)
         let sampleCount = request.littleEndianUInt32(at: 60)
-        guard resourceID != 0, resources[resourceID] == nil,
-              resources.count < VirtioGPU.Limits.maxResources,
-              VirtioGPU.valid3DResourceDimensions(
+        let target = request.littleEndianUInt32(at: 28)
+        let hasValidDimensions = VirtioGPU.valid3DResourceDimensions(
+                target: target,
                 width: width, height: height, depth: depth, arraySize: arraySize,
                 lastLevel: lastLevel, sampleCount: sampleCount
-              ) else {
+              )
+        guard resourceID != 0, resources[resourceID] == nil,
+              resources.count < VirtioGPU.Limits.maxResources,
+              hasValidDimensions else {
+            log(
+                "RESOURCE_CREATE_3D rejected-before-renderer resource=\(resourceID) "
+                    + "target=\(target) "
+                    + "format=\(request.littleEndianUInt32(at: 32)) "
+                    + "bind=\(request.littleEndianUInt32(at: 36)) "
+                    + "size=\(width)x\(height)x\(depth) array=\(arraySize) "
+                    + "levels=\(lastLevel) samples=\(sampleCount) "
+                    + "flags=\(request.littleEndianUInt32(at: 64)) "
+                    + "duplicate=\(resources[resourceID] != nil) "
+                    + "resourceCount=\(resources.count) dimensionsValid=\(hasValidDimensions)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let arguments = VirGLRenderer.ResourceArguments(
             id: resourceID,
-            target: request.littleEndianUInt32(at: 28),
+            target: target,
             format: request.littleEndianUInt32(at: 32),
             bind: request.littleEndianUInt32(at: 36),
             width: width,
@@ -565,7 +642,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             width: Int(width), height: Int(height),
             isRendererResource: true
         )
-        print("[stage3] created 3D resource \(resourceID): \(width)x\(height)")
+        diagnosticLog(
+            "RESOURCE_CREATE_3D resource=\(resourceID) target=\(arguments.target) "
+                + "format=\(arguments.format) bind=\(arguments.bind) size=\(width)x\(height)x\(depth)"
+        )
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
 
@@ -643,12 +723,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         if attach {
             if contextResources[header.contextID]?.insert(resourceID).inserted == true {
+                diagnosticLog("CTX_ATTACH_RESOURCE context=\(header.contextID) resource=\(resourceID)")
                 renderer.attach(contextID: header.contextID, resourceID: resourceID)
             }
         } else {
             guard contextResources[header.contextID]?.remove(resourceID) != nil else {
                 return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
             }
+            diagnosticLog("CTX_DETACH_RESOURCE context=\(header.contextID) resource=\(resourceID)")
             renderer.detach(contextID: header.contextID, resourceID: resourceID)
         }
         return VirtioGPU.responseHeader(.okNoData, request: header)
@@ -669,6 +751,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         submittedCommandCount += 1
+        diagnosticWindowSubmitCount += 1
+        recordDiagnosticsIfNeeded(trigger: "submit")
         if submittedCommandCount <= 10 || submittedCommandCount.isMultiple(of: 500) {
             print("[stage3] submitted command \(submittedCommandCount): \(byteCount) bytes, context \(header.contextID)")
         }
@@ -726,7 +810,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             scanoutRect = nil
             lastPublishedScanoutResourceID = nil
             frameScheduler.cancel()
-            Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated() }
+            // Linux temporarily disables and releases the old scanout while
+            // applying a hot-plug mode.  Clearing the host layer here exposes
+            // a black frame for the entire compositor rebuild (and, if the
+            // guest misses a flush, indefinitely).  Preserve the last
+            // successfully presented drawable until a new scanout flush
+            // replaces it.  Device reset/shutdown still invalidates it via
+            // releaseDeviceState().
             log("guest disabled scanout 0")
             return VirtioGPU.responseHeader(.okNoData, request: header)
         }
@@ -753,7 +843,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             )
         }
         if lastPublishedScanoutResourceID != resourceID {
-            log("scanout 0 now uses resource \(resourceID)")
+            diagnosticLog("scanout 0 now uses resource \(resourceID)")
         }
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -887,6 +977,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let resourceID = request.littleEndianUInt32(at: 40)
+        resourceFlushCount &+= 1
+        diagnosticWindowFlushCount &+= 1
+        recordDiagnosticsIfNeeded(trigger: "flush")
         guard scanoutResourceID == resourceID, let scanoutRect,
               var resource = resources[resourceID] else {
             return VirtioGPU.responseHeader(.okNoData, request: header)
@@ -898,8 +991,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         ) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
-        if !borrowedScanoutResources.contains(resourceID),
-           let texture = renderer.borrowScanoutTexture(resourceID: resourceID) {
+        if !borrowedScanoutResources.contains(resourceID) {
+            guard let texture = renderer.borrowScanoutTexture(resourceID: resourceID) else {
+                // A flush may arrive before virglrenderer has materialized the
+                // scanout texture. Do not poison the presentation loop with an
+                // invalid resource; the next guest flush retries the borrow.
+                return VirtioGPU.responseHeader(.okNoData, request: header)
+            }
             borrowedScanoutResources.insert(resourceID)
             print(
                 "[stage4] borrowed zero-copy scanout texture: resource=\(resourceID), "
@@ -916,7 +1014,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             ))
             let submitted = frameScheduler.submittedCount
             if submitted == 1 || submitted.isMultiple(of: 600) {
-                log(
+                diagnosticLog(
                     "presentation scheduler submitted=\(submitted) "
                         + "delivered=\(frameScheduler.deliveredCount) "
                         + "coalesced=\(frameScheduler.coalescedCount)"

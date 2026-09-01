@@ -38,7 +38,7 @@ final class VMGuestAgentHostClient {
     private let device: VZVirtioSocketDevice
     private let enrollment: VMGuestAgentEnrollment
     private weak var runtimeState: VMRuntimeState?
-    private let onInputCapabilitiesChanged: (Bool) -> Void
+    private let onInputCapabilitiesChanged: (_ guestKeyboardEnabled: Bool, _ absolutePointerEnabled: Bool) -> Void
     private var connection: VZVirtioSocketConnection?
     private var connectionGeneration: UInt64 = 0
     private var retryTask: DispatchWorkItem?
@@ -59,7 +59,7 @@ final class VMGuestAgentHostClient {
         device: VZVirtioSocketDevice,
         enrollment: VMGuestAgentEnrollment,
         runtimeState: VMRuntimeState,
-        onInputCapabilitiesChanged: @escaping (Bool) -> Void = { _ in }
+        onInputCapabilitiesChanged: @escaping (Bool, Bool) -> Void = { _, _ in }
     ) {
         self.device = device
         self.enrollment = enrollment
@@ -85,7 +85,7 @@ final class VMGuestAgentHostClient {
         sessionID = nil
         liveness.reset()
         capabilities.removeAll()
-        onInputCapabilitiesChanged(false)
+        onInputCapabilitiesChanged(false, false)
         transferTask?.cancel()
         transferTask = nil
         inputTask?.cancel()
@@ -111,6 +111,7 @@ final class VMGuestAgentHostClient {
         guard !events.isEmpty, events.count <= VMGuestAgentInputBatch.maximumEventCount,
               events.last == VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
               capabilities.contains("input-uinput-v1"), sessionID != nil else { return }
+        inputDiagnostic("queue \(events.map { "\($0.type)/\($0.code)/\($0.value)" }.joined(separator: " "))")
         pendingInputBatches.append(events)
         guard inputTask == nil else { return }
         inputTask = Task { [weak self] in
@@ -142,6 +143,7 @@ final class VMGuestAgentHostClient {
                         userInfo: [NSLocalizedDescriptionKey: result.message]
                     )
                 }
+                inputDiagnostic("accepted \(events.count) events: \(result.message)")
             } catch is CancellationError {
                 return
             } catch {
@@ -373,7 +375,17 @@ final class VMGuestAgentHostClient {
             do {
                 let status = try JSONDecoder().decode(VMGuestAgentStatus.self, from: envelope.payload)
                 capabilities = Set(status.capabilities ?? [])
-                onInputCapabilitiesChanged(status.supportsAbsoluteGuestPointer)
+                inputDiagnostic(
+                    "status desktop=\(status.supportsDesktopGuestInput) capabilities=\((status.capabilities ?? []).joined(separator: ",")) devices=\((status.inputDevices ?? []).joined(separator: " | "))"
+                )
+                EZVMLog.info(
+                    "Guest input devices: \((status.inputDevices ?? []).joined(separator: ", "))",
+                    logger: EZVMLog.input
+                )
+                onInputCapabilitiesChanged(
+                    status.shouldUseGuestKeyboard,
+                    status.supportsAbsoluteGuestPointer
+                )
                 runtimeState?.updateGuestAgent(.ready(status))
             } catch {
                 disconnected("The guest agent returned invalid status: \(error.localizedDescription)")
@@ -383,6 +395,11 @@ final class VMGuestAgentHostClient {
         guard let pending = pendingRequests.removeValue(forKey: envelope.requestID) else { return }
         pending.timeout.cancel()
         pending.continuation.resume(returning: envelope.payload)
+    }
+
+    private func inputDiagnostic(_ message: String) {
+        guard ProcessInfo.processInfo.environment["EZVM_INPUT_DIAGNOSTICS"] == "1" else { return }
+        FileHandle.standardError.write(Data("[guest-input] \(message)\n".utf8))
     }
 
     private func heartbeatTick(now: Date = Date()) {
@@ -406,7 +423,7 @@ final class VMGuestAgentHostClient {
         sessionID = nil
         liveness.reset()
         capabilities.removeAll()
-        onInputCapabilitiesChanged(false)
+        onInputCapabilitiesChanged(false, false)
         transferTask?.cancel()
         transferTask = nil
         inputTask?.cancel()

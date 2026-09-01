@@ -4,10 +4,18 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 )
+
+var inputReportCount atomic.Uint64
+var inputDiagnosticLock sync.Mutex
+var lastInputReport string
 
 const (
 	uiSetEVBit   = 0x40045564
@@ -22,7 +30,9 @@ const (
 
 type uinputDevice struct {
 	keyboardFile *os.File
+	relativeFile *os.File
 	absoluteFile *os.File
+	writeLock    sync.Mutex
 }
 
 type uinputSetup struct {
@@ -42,8 +52,11 @@ type uinputAbsSetup struct {
 }
 
 func newGuestInput() guestInput {
-	device := &uinputDevice{keyboardFile: createKeyboardAndRelativePointer()}
-	if device.keyboardFile == nil {
+	device := &uinputDevice{
+		keyboardFile: createKeyboard(),
+		relativeFile: createRelativePointer(),
+	}
+	if device.keyboardFile == nil || device.relativeFile == nil {
 		_ = device.Close()
 		return &uinputDevice{}
 	}
@@ -51,13 +64,17 @@ func newGuestInput() guestInput {
 	return device
 }
 
-func (device *uinputDevice) Available() bool { return device != nil && device.keyboardFile != nil }
+func (device *uinputDevice) Available() bool {
+	return device != nil && device.keyboardFile != nil && device.relativeFile != nil
+}
 
 func (device *uinputDevice) AbsolutePointerAvailable() bool {
 	return device != nil && device.keyboardFile != nil && device.absoluteFile != nil
 }
 
 func (device *uinputDevice) Write(events []inputEvent) error {
+	device.writeLock.Lock()
+	defer device.writeLock.Unlock()
 	// The host may coalesce several independently synchronized reports into
 	// one request. Route each report separately so a keyboard report adjacent
 	// to an absolute-pointer report never gets written to the tablet device.
@@ -76,13 +93,35 @@ func (device *uinputDevice) Write(events []inputEvent) error {
 				file = device.absoluteFile
 				break
 			}
+			if item.Type == 2 {
+				if device.relativeFile == nil {
+					return syscall.ENODEV
+				}
+				file = device.relativeFile
+				break
+			}
 		}
 		if err := writeInputEvents(file, report); err != nil {
 			return err
 		}
 		start = index + 1
 	}
+	inputReportCount.Add(1)
+	parts := make([]string, 0, len(events))
+	for _, event := range events {
+		parts = append(parts, fmt.Sprintf("%d/%d/%d", event.Type, event.Code, event.Value))
+	}
+	inputDiagnosticLock.Lock()
+	lastInputReport = strings.Join(parts, " ")
+	inputDiagnosticLock.Unlock()
 	return nil
+}
+
+func inputDiagnostics() string {
+	inputDiagnosticLock.Lock()
+	last := lastInputReport
+	inputDiagnosticLock.Unlock()
+	return fmt.Sprintf("EZVM input reports=%d last=[%s]", inputReportCount.Load(), last)
 }
 
 func writeInputEvents(file *os.File, events []inputEvent) error {
@@ -109,6 +148,11 @@ func (device *uinputDevice) Close() error {
 		_ = device.absoluteFile.Close()
 		device.absoluteFile = nil
 	}
+	if device.relativeFile != nil {
+		_ = ioctlFile(device.relativeFile, uiDevDestroy, 0)
+		_ = device.relativeFile.Close()
+		device.relativeFile = nil
+	}
 	if device.keyboardFile != nil {
 		_ = ioctlFile(device.keyboardFile, uiDevDestroy, 0)
 		err := device.keyboardFile.Close()
@@ -126,7 +170,49 @@ func ioctlFile(file *os.File, request, argument uintptr) error {
 	return nil
 }
 
-func createKeyboardAndRelativePointer() *os.File {
+func createKeyboard() *os.File {
+	file, err := os.OpenFile("/dev/uinput", os.O_WRONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil
+	}
+	fail := func() *os.File {
+		_ = file.Close()
+		return nil
+	}
+	if ioctlFile(file, uiSetEVBit, 0) != nil ||
+		ioctlFile(file, uiSetEVBit, 1) != nil ||
+		ioctlFile(file, uiSetEVBit, 20) != nil { // EV_REP
+		return fail()
+	}
+	// Advertise only keys the host can actually emit. Claiming every code up to
+	// 0xff made the kernel attach rfkill and power-switch handlers to what is
+	// supposed to be a normal keyboard. Hyprland opened the device, but libinput
+	// then treated its capabilities as a non-standard composite device.
+	for _, code := range keyboardKeyCodes {
+		if ioctlFile(file, uiSetKeyBit, code) != nil {
+			return fail()
+		}
+	}
+	setup := uinputSetup{BusType: 0x03, Vendor: 0x1d6b, Product: 0x0104, Version: 4}
+	copy(setup.Name[:], "EZVM Keyboard")
+	if ioctlFile(file, uiDevSetup, uintptr(unsafe.Pointer(&setup))) != nil ||
+		ioctlFile(file, uiDevCreate, 0) != nil {
+		return fail()
+	}
+	return file
+}
+
+var keyboardKeyCodes = []uintptr{
+	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+	17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+	33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+	49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+	65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+	82, 83, 87, 88, 96, 97, 98, 100, 102, 103, 104, 105, 106, 107,
+	108, 109, 111, 117, 125, 126, 183, 184, 185, 186, 187, 188, 189, 190,
+}
+
+func createRelativePointer() *os.File {
 	file, err := os.OpenFile("/dev/uinput", os.O_WRONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil
@@ -145,18 +231,13 @@ func createKeyboardAndRelativePointer() *os.File {
 			return fail()
 		}
 	}
-	for code := uintptr(1); code <= 0xff; code++ {
-		if ioctlFile(file, uiSetKeyBit, code) != nil {
-			return fail()
-		}
-	}
 	for _, code := range []uintptr{272, 273, 274} {
 		if ioctlFile(file, uiSetKeyBit, code) != nil {
 			return fail()
 		}
 	}
-	setup := uinputSetup{BusType: 0x06, Vendor: 0x1d6b, Product: 0x0104, Version: 2}
-	copy(setup.Name[:], "EZVM Keyboard and Pointer")
+	setup := uinputSetup{BusType: 0x06, Vendor: 0x1d6b, Product: 0x0106, Version: 1}
+	copy(setup.Name[:], "EZVM Relative Pointer")
 	if ioctlFile(file, uiDevSetup, uintptr(unsafe.Pointer(&setup))) != nil ||
 		ioctlFile(file, uiDevCreate, 0) != nil {
 		return fail()

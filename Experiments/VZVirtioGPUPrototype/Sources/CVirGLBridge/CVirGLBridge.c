@@ -165,6 +165,8 @@ typedef void *EGLSync;
 #define GL_NEAREST 0x2600
 #define GL_FRAMEBUFFER_COMPLETE 0x8CD5
 #define GL_NO_ERROR 0
+#define GL_RGBA 0x1908
+#define GL_UNSIGNED_BYTE 0x1401
 
 typedef EGLDisplay (*egl_get_platform_display_fn)(EGLint, void *, const EGLAttrib *);
 typedef EGLBoolean (*egl_initialize_fn)(EGLDisplay, EGLint *, EGLint *);
@@ -190,6 +192,7 @@ typedef void (*gl_flush_fn)(void);
 typedef void (*gl_finish_fn)(void);
 typedef unsigned int (*gl_get_error_fn)(void);
 typedef unsigned int (*gl_check_framebuffer_status_fn)(unsigned int);
+typedef void (*gl_read_pixels_fn)(int, int, int, int, unsigned int, unsigned int, void *);
 
 static void *egl_library;
 static EGLDisplay egl_display;
@@ -227,6 +230,11 @@ static gl_flush_fn gl_flush;
 static gl_finish_fn gl_finish;
 static gl_get_error_fn gl_get_error;
 static gl_check_framebuffer_status_fn gl_check_framebuffer_status;
+static gl_read_pixels_fn gl_read_pixels;
+static bool diagnostics_enabled;
+static uint64_t presentation_count;
+static uint64_t scanout_signature;
+static uint64_t scanout_signature_generation;
 
 #define FENCE_RING_SIZE 1024
 static uint32_t completed_fences[FENCE_RING_SIZE];
@@ -351,6 +359,7 @@ static int initialize_angle(const char *virgl_path) {
     LOAD_GLES(gl_finish, "glFinish");
     LOAD_GLES(gl_get_error, "glGetError");
     LOAD_GLES(gl_check_framebuffer_status, "glCheckFramebufferStatus");
+    LOAD_GLES(gl_read_pixels, "glReadPixels");
 #undef LOAD_GLES
 
     const EGLAttrib display_attributes[] = {
@@ -682,6 +691,30 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
                  source.base.width, source.base.height);
         goto cleanup;
     }
+    presentation_count++;
+    if (diagnostics_enabled && presentation_count % 60 == 1) {
+        // Sample a stable 8x8 grid instead of reading the entire scanout. This
+        // distinguishes runtime UI changes while limiting the synchronous
+        // diagnostic readback to 64 pixels per second.
+        uint64_t signature = UINT64_C(1469598103934665603);
+        for (uint32_t row = 0; row < 8; row++) {
+            for (uint32_t column = 0; column < 8; column++) {
+                uint32_t sample_x = source_x + ((2 * column + 1) * source_width) / 16;
+                uint32_t sample_y = source_y + ((2 * row + 1) * source_height) / 16;
+                unsigned char pixel[4] = {0};
+                gl_read_pixels((int)sample_x, (int)sample_y, 1, 1,
+                               GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+                for (size_t component = 0; component < sizeof(pixel); component++) {
+                    signature ^= pixel[component];
+                    signature *= UINT64_C(1099511628211);
+                }
+            }
+        }
+        if (signature != scanout_signature) {
+            scanout_signature = signature;
+            scanout_signature_generation++;
+        }
+    }
     gl_bind_framebuffer(GL_DRAW_FRAMEBUFFER, draw_framebuffer);
     gl_framebuffer_texture_2d(
         GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, destination_texture, 0
@@ -723,6 +756,18 @@ finish:
     gl_delete_textures(1, &destination_texture);
     egl_destroy_image(egl_display, image);
     return result;
+}
+
+void vzvg_renderer_set_diagnostics_enabled(int enabled) {
+    diagnostics_enabled = enabled != 0;
+}
+
+uint64_t vzvg_renderer_scanout_signature(void) {
+    return scanout_signature;
+}
+
+uint64_t vzvg_renderer_scanout_signature_generation(void) {
+    return scanout_signature_generation;
 }
 
 int vzvg_renderer_transfer_write(uint32_t resource_id, uint32_t context_id,

@@ -372,11 +372,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard !headlessStopRequested else { return }
         headlessStopRequested = true
         writeHeadlessState(launch, phase: "stopping", message: nil)
+        // The VM controller owns the bounded graceful-shutdown fallback.
+        // Scheduling a second force-stop here at the same 20-second deadline
+        // races VZVirtualMachine.stop() against itself and turns a successful
+        // stopping transition into an invalid stopping -> stopping failure.
         headlessState?.requestStop()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
-            guard let self, self.headlessState?.phase != .stopped else { return }
-            self.headlessState?.forceStop()
-        }
     }
 
     private func writeHeadlessState(_ launch: HeadlessLaunchConfiguration, phase: String, message: String?) {

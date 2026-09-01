@@ -17,6 +17,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -59,17 +60,19 @@ type envelope struct {
 }
 
 type status struct {
-	AgentVersion    string   `json:"agentVersion"`
-	OperatingSystem string   `json:"operatingSystem"`
-	KernelVersion   string   `json:"kernelVersion"`
-	HostName        string   `json:"hostName"`
-	Addresses       []string `json:"addresses"`
-	BootID          string   `json:"bootID"`
-	UptimeSeconds   uint64   `json:"uptimeSeconds"`
-	Capabilities    []string `json:"capabilities,omitempty"`
-	KVMAvailable    bool     `json:"kvmAvailable"`
-	KVMAPIVersion   int      `json:"kvmAPIVersion,omitempty"`
-	KVMError        string   `json:"kvmError,omitempty"`
+	AgentVersion         string   `json:"agentVersion"`
+	OperatingSystem      string   `json:"operatingSystem"`
+	KernelVersion        string   `json:"kernelVersion"`
+	HostName             string   `json:"hostName"`
+	Addresses            []string `json:"addresses"`
+	BootID               string   `json:"bootID"`
+	UptimeSeconds        uint64   `json:"uptimeSeconds"`
+	Capabilities         []string `json:"capabilities,omitempty"`
+	InputDevices         []string `json:"inputDevices,omitempty"`
+	DesktopSessionActive bool     `json:"desktopSessionActive"`
+	KVMAvailable         bool     `json:"kvmAvailable"`
+	KVMAPIVersion        int      `json:"kvmAPIVersion,omitempty"`
+	KVMError             string   `json:"kvmError,omitempty"`
 }
 
 func main() {
@@ -84,6 +87,8 @@ func main() {
 		log.Fatalf("listen on AF_VSOCK port %d: %v", configuration.Port, err)
 	}
 	defer closeSocket(fd)
+	input := newGuestInput()
+	defer input.Close()
 	log.Printf("EZVM guest agent %s listening on AF_VSOCK port %d", version, configuration.Port)
 	for {
 		connection, err := acceptSocket(fd)
@@ -93,7 +98,7 @@ func main() {
 		}
 		go func() {
 			defer closeSocket(connection)
-			if err := serve(fdStream{connection}, configuration); err != nil {
+			if err := serve(fdStream{connection}, configuration, input); err != nil {
 				log.Printf("session closed: %v", err)
 			}
 		}()
@@ -115,9 +120,7 @@ func loadEnrollment(path string) (enrollment, error) {
 	return value, nil
 }
 
-func serve(stream io.ReadWriter, config enrollment) error {
-	input := newGuestInput()
-	defer input.Close()
+func serve(stream io.ReadWriter, config enrollment, input guestInput) error {
 	return serveWithInput(stream, config, input)
 }
 
@@ -294,11 +297,82 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	capabilities := []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1"}
 	if inputAvailable {
 		capabilities = append(capabilities, "input-uinput-v1")
+		if desktopInputReady() {
+			capabilities = append(capabilities, "input-uinput-desktop-v1")
+		}
 	}
 	if absolutePointerAvailable {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
-	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+}
+
+func inputDeviceNames() []string {
+	data, err := os.ReadFile("/proc/bus/input/devices")
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, block := range strings.Split(string(data), "\n\n") {
+		name := ""
+		handlers := ""
+		for _, line := range strings.Split(block, "\n") {
+			switch {
+			case strings.HasPrefix(line, "N: Name="):
+				name = strings.Trim(strings.TrimPrefix(line, "N: Name="), "\"")
+			case strings.HasPrefix(line, "H: Handlers="):
+				handlers = strings.TrimSpace(strings.TrimPrefix(line, "H: Handlers="))
+			}
+		}
+		if name != "" {
+			if handlers != "" {
+				name += " [" + handlers + "]"
+			}
+			names = append(names, name)
+		}
+	}
+	if consumers := hyprlandInputDevices(); len(consumers) > 0 {
+		names = append(names, "Hyprland open input devices ["+strings.Join(consumers, " ")+"]")
+	} else {
+		names = append(names, "Hyprland open input devices [none]")
+	}
+	return append([]string{hyprlandDeviceDiagnostics(), inputDiagnostics()}, names...)
+}
+
+func hyprlandInputDevices() []string {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var devices []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		pid := entry.Name()
+		if _, err := strconv.Atoi(pid); err != nil {
+			continue
+		}
+		comm := strings.ToLower(readTrimmed("/proc/" + pid + "/comm"))
+		if !strings.Contains(comm, "hyprland") {
+			continue
+		}
+		fds, err := os.ReadDir("/proc/" + pid + "/fd")
+		if err != nil {
+			continue
+		}
+		for _, fd := range fds {
+			target, err := os.Readlink("/proc/" + pid + "/fd/" + fd.Name())
+			if err != nil || !strings.HasPrefix(target, "/dev/input/event") || seen[target] {
+				continue
+			}
+			seen[target] = true
+			devices = append(devices, strings.TrimPrefix(target, "/dev/input/"))
+		}
+	}
+	sort.Strings(devices)
+	return devices
 }
 
 func kvmStatus() (bool, int, string) {

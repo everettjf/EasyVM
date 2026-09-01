@@ -3,11 +3,170 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
 )
+
+type hyprlandSession struct {
+	pid        string
+	uid        uint32
+	gid        uint32
+	runtimeDir string
+	signature  string
+}
+
+func parseHyprlandEnvironment(data []byte) (string, string) {
+	var runtimeDir, signature string
+	for _, item := range strings.Split(string(data), "\x00") {
+		switch {
+		case strings.HasPrefix(item, "XDG_RUNTIME_DIR="):
+			runtimeDir = strings.TrimPrefix(item, "XDG_RUNTIME_DIR=")
+		case strings.HasPrefix(item, "HYPRLAND_INSTANCE_SIGNATURE="):
+			signature = strings.TrimPrefix(item, "HYPRLAND_INSTANCE_SIGNATURE=")
+		}
+	}
+	return runtimeDir, signature
+}
+
+func parseProcessCredentials(data []byte) (uint32, uint32, bool) {
+	var uid, gid uint64
+	var haveUID, haveGID bool
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		var err error
+		switch fields[0] {
+		case "Uid:":
+			uid, err = strconv.ParseUint(fields[1], 10, 32)
+			haveUID = err == nil
+		case "Gid:":
+			gid, err = strconv.ParseUint(fields[1], 10, 32)
+			haveGID = err == nil
+		}
+	}
+	return uint32(uid), uint32(gid), haveUID && haveGID
+}
+
+func hyprlandSignatures(paths ...string) []string {
+	seen := make(map[string]bool)
+	var signatures []string
+	for _, path := range paths {
+		entries, _ := os.ReadDir(path)
+		for _, entry := range entries {
+			if !entry.IsDir() || seen[entry.Name()] {
+				continue
+			}
+			// A stale directory is not a usable Hyprland session.  Both current
+			// and older Hyprland releases expose at least one IPC socket here.
+			matches, _ := filepath.Glob(filepath.Join(path, entry.Name(), ".socket*.sock"))
+			if len(matches) == 0 {
+				continue
+			}
+			seen[entry.Name()] = true
+			signatures = append(signatures, entry.Name())
+		}
+	}
+	sort.Strings(signatures)
+	return signatures
+}
+
+func findHyprlandSessions() []hyprlandSession {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil
+	}
+	var sessions []hyprlandSession
+	for _, entry := range entries {
+		pid := entry.Name()
+		if !entry.IsDir() {
+			continue
+		}
+		if _, err := strconv.Atoi(pid); err != nil {
+			continue
+		}
+		comm, _ := os.ReadFile("/proc/" + pid + "/comm")
+		if !strings.Contains(strings.ToLower(string(comm)), "hyprland") {
+			continue
+		}
+		status, _ := os.ReadFile("/proc/" + pid + "/status")
+		uid, gid, ok := parseProcessCredentials(status)
+		if !ok {
+			continue
+		}
+		environment, _ := os.ReadFile("/proc/" + pid + "/environ")
+		runtimeDir, signature := parseHyprlandEnvironment(environment)
+		if runtimeDir == "" {
+			runtimeDir = "/run/user/" + strconv.FormatUint(uint64(uid), 10)
+		}
+		if signature == "" {
+			procRoot := "/proc/" + pid + "/root"
+			signatures := hyprlandSignatures(
+				filepath.Join(runtimeDir, "hypr"),
+				filepath.Join(procRoot, runtimeDir, "hypr"),
+				"/tmp/hypr",
+				filepath.Join(procRoot, "tmp/hypr"),
+			)
+			if len(signatures) > 0 {
+				signature = signatures[len(signatures)-1]
+			}
+		}
+		sessions = append(sessions, hyprlandSession{pid: pid, uid: uid, gid: gid, runtimeDir: runtimeDir, signature: signature})
+	}
+	return sessions
+}
+
+func hyprlandDeviceDiagnostics() string {
+	sessions := findHyprlandSessions()
+	if len(sessions) == 0 {
+		return "hyprctl devices unavailable: Hyprland process not found"
+	}
+	var failures []string
+	for _, session := range sessions {
+		if session.signature == "" {
+			failures = append(failures, "pid="+session.pid+" has no IPC signature")
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		command := exec.CommandContext(ctx, "hyprctl", "-j", "devices")
+		command.Env = append(os.Environ(),
+			"XDG_RUNTIME_DIR="+session.runtimeDir,
+			"HYPRLAND_INSTANCE_SIGNATURE="+session.signature,
+		)
+		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: session.uid, Gid: session.gid}}
+		output, commandErr := command.CombinedOutput()
+		cancel()
+		if commandErr != nil {
+			failures = append(failures, fmt.Sprintf("pid=%s uid=%d signature=%s: %v %s", session.pid, session.uid, session.signature, commandErr, strings.TrimSpace(string(output))))
+			continue
+		}
+		text := string(output)
+		index := strings.Index(strings.ToLower(text), "ezvm keyboard")
+		if index < 0 {
+			return "hyprctl devices has no EZVM Keyboard"
+		}
+		start := max(0, index-250)
+		end := min(len(text), index+650)
+		return "hyprctl EZVM Keyboard: " + strings.TrimSpace(text[start:end])
+	}
+	return "hyprctl devices failed: " + strings.Join(failures, "; ")
+}
+
+func desktopInputReady() bool {
+	return len(findHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl EZVM Keyboard:")
+}
+
+func desktopSessionActive() bool { return len(findHyprlandSessions()) > 0 }
 
 type sockaddrVM struct {
 	Family   uint16

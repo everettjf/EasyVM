@@ -23,25 +23,25 @@ enum VMDisplayGeometry {
         guard size.width.isFinite, size.height.isFinite,
               size.width > 0, size.height > 0 else { return (1280, 720) }
 
-        // A one-guest-pixel-per-macOS-point mode makes desktop login surfaces
-        // comically large in ordinary Retina windows. Keep at least a 1080p
-        // rendering canvas, preserving the window aspect ratio, and let Metal
-        // downsample it without stretching.
-        let scale = max(1, 1920 / size.width, 1080 / size.height)
-        let scaled = CGSize(width: size.width * scale, height: size.height * scale)
-
-        func dimension(_ value: CGFloat) -> UInt32 {
-            let bounded = max(8, min(8192, value.rounded()))
+		func dimension(_ value: CGFloat) -> UInt32 {
+			let bounded = max(8, min(8192, value.rounded()))
             // VirGL scanout allocations are rounded to an eight-pixel
             // boundary. Advertising a merely-even mode such as 1974 while
             // Linux creates a 1968-wide buffer makes KMS oscillate between the
             // advertised mode and the real scanout during full-screen changes.
             return UInt32(Int(bounded) & ~7)
-        }
-        return (
-            dimension(scaled.width),
-            dimension(scaled.height)
-        )
+		}
+		// Advertise the settled logical viewport, not Retina backing pixels and
+		// not a fixed 16:9 canvas.  This lets Hyprland lay out its desktop to the
+		// actual EZVM content area in ordinary windows and full screen.  The
+		// backend coalesces live-resize/full-screen transitions and applies
+		// hysteresis before this mode reaches DRM, preventing the rapid mode
+		// churn that the former fixed canvas was introduced to avoid.
+		let minimum = CGSize(width: 640, height: 360)
+		return (
+			dimension(max(minimum.width, size.width)),
+			dimension(max(minimum.height, size.height))
+		)
     }
 
     static func aspectFit(content: CGSize, in bounds: CGRect) -> CGRect {
@@ -87,11 +87,15 @@ enum VMAbsolutePointerMapper {
 struct VMScrollWheelAccumulator {
     private var preciseRemainder: CGFloat = 0
     private static let precisePointsPerDetent: CGFloat = 3
+    private static let maximumDetentsPerEvent = 16
 
     mutating func consume(delta: CGFloat, hasPreciseDeltas: Bool) -> Int32 {
         guard delta.isFinite else { return 0 }
         if !hasPreciseDeltas {
-            return Int32(max(-32767, min(32767, Int(delta.rounded()))))
+            return Int32(max(
+                -Self.maximumDetentsPerEvent,
+                min(Self.maximumDetentsPerEvent, Int(delta.rounded()))
+            ))
         }
 
         // AppKit reports trackpad scrolling in fractional pixels while Linux
@@ -100,7 +104,15 @@ struct VMScrollWheelAccumulator {
         preciseRemainder += delta
         let detents = Int(preciseRemainder / Self.precisePointsPerDetent)
         preciseRemainder -= CGFloat(detents) * Self.precisePointsPerDetent
-        return Int32(max(-32767, min(32767, detents)))
+        // Accessibility scrolling, high-resolution wheels, and gesture
+        // momentum can occasionally arrive as a very large single delta.
+        // REL_WHEEL treats the value as literal clicks, so bound each report
+        // while discarding the excess rather than replaying hundreds of lines
+        // over subsequent frames.
+        return Int32(max(
+            -Self.maximumDetentsPerEvent,
+            min(Self.maximumDetentsPerEvent, detents)
+        ))
     }
 }
 
@@ -370,12 +382,16 @@ struct VMGuestAgentStatus: Codable, Equatable {
     let bootID: String
     let uptimeSeconds: UInt64
     let capabilities: [String]?
+    let inputDevices: [String]?
+    let desktopSessionActive: Bool?
     let kvmAvailable: Bool?
     let kvmAPIVersion: Int?
     let kvmError: String?
 
     init(agentVersion: String, operatingSystem: String, kernelVersion: String, hostName: String,
          addresses: [String], bootID: String, uptimeSeconds: UInt64, capabilities: [String]?,
+         inputDevices: [String]? = nil,
+         desktopSessionActive: Bool? = nil,
          kvmAvailable: Bool? = nil, kvmAPIVersion: Int? = nil, kvmError: String? = nil) {
         self.agentVersion = agentVersion
         self.operatingSystem = operatingSystem
@@ -385,6 +401,8 @@ struct VMGuestAgentStatus: Codable, Equatable {
         self.bootID = bootID
         self.uptimeSeconds = uptimeSeconds
         self.capabilities = capabilities
+        self.inputDevices = inputDevices
+        self.desktopSessionActive = desktopSessionActive
         self.kvmAvailable = kvmAvailable
         self.kvmAPIVersion = kvmAPIVersion
         self.kvmError = kvmError
@@ -393,6 +411,46 @@ struct VMGuestAgentStatus: Codable, Equatable {
     var supportsSSH: Bool { capabilities?.contains("ssh-addresses-v1") == true }
     var supportsFileTransfer: Bool { capabilities?.contains("file-transfer-v1") == true }
     var supportsGuestInput: Bool { capabilities?.contains("input-uinput-v1") == true }
+    var supportsDesktopGuestInput: Bool {
+        guard supportsGuestInput else { return false }
+        if capabilities?.contains("input-uinput-desktop-v1") == true { return true }
+        // Images built before the explicit desktop capability already report
+        // the authoritative Hyprland device probe in `inputDevices`.
+        guard let inputDevices else { return false }
+        if inputDevices.contains(where: { $0.hasPrefix("hyprctl EZVM Keyboard:") }) {
+            return true
+        }
+
+        // `hyprctl` can briefly target a stale compositor socket during login
+        // or a compositor restart. The Agent also reports the kernel input
+        // nodes held open by the live Hyprland process; matching that list
+        // against the EZVM keyboard is equally authoritative and avoids
+        // leaving Command/Super and scrolling on the unusable native fallback.
+        let keyboardEvents = Self.eventDeviceNames(
+            in: inputDevices.first(where: { $0.hasPrefix("EZVM Keyboard [") })
+        )
+        let hyprlandEvents = Self.eventDeviceNames(
+            in: inputDevices.first(where: { $0.hasPrefix("Hyprland open input devices [") })
+        )
+        return !keyboardEvents.isDisjoint(with: hyprlandEvents)
+    }
+
+    private static func eventDeviceNames(in diagnostic: String?) -> Set<String> {
+        guard let diagnostic else { return [] }
+        return Set(diagnostic.split { $0.isWhitespace || $0 == "[" || $0 == "]" }
+            .map(String.init)
+            .filter { token in
+                guard token.hasPrefix("event"), token.count > 5 else { return false }
+                return token.dropFirst(5).allSatisfy(\.isNumber)
+            })
+    }
+    var shouldUseGuestKeyboard: Bool {
+        guard supportsGuestInput else { return false }
+        // Agent input is reliable during firmware and first-run setup. Once a
+        // compositor exists, prefer VZ's native USB keyboard until the guest
+        // explicitly proves its uinput device belongs to the desktop seat.
+        return desktopSessionActive != true || supportsDesktopGuestInput
+    }
     var supportsAbsoluteGuestPointer: Bool {
         capabilities?.contains("input-uinput-absolute-v1") == true
     }

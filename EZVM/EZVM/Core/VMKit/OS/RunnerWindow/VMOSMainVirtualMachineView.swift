@@ -133,6 +133,9 @@ struct VMOSMainVirtualMachineView: View {
                         if case let .ready(status) = runtimeState.guestAgentState {
                             Text("Host: \(status.hostName)")
                             Text("OS: \(status.operatingSystem)")
+                            if let inputDevices = status.inputDevices, !inputDevices.isEmpty {
+                                Text("Input: \(inputDevices.joined(separator: ", "))")
+                            }
                             if status.supportsSSH, !status.addresses.isEmpty {
                                 Text("Addresses: \(status.addresses.joined(separator: ", "))")
                                 Menu("Open SSH", systemImage: "terminal") {

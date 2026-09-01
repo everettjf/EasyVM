@@ -80,7 +80,7 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         onFallbackFrame: @escaping @MainActor @Sendable (CGImage) -> Void = { _ in }
     ) throws {
         do {
-            let renderer = try VirGLRenderer(libraryURL: configuration.rendererLibraryURL)
+            let renderer = try VirGLRenderer.acquire(libraryURL: configuration.rendererLibraryURL)
             self.renderer = renderer
             gpuDevice = VirtioGPUDevice(
                 width: configuration.width,

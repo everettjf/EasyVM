@@ -17,6 +17,10 @@ func power(string)                         {}
 type unavailableInput struct{}
 
 func newGuestInput() guestInput                         { return unavailableInput{} }
+func inputDiagnostics() string                          { return "EZVM input unavailable" }
+func hyprlandDeviceDiagnostics() string                 { return "Hyprland unavailable" }
+func desktopInputReady() bool                           { return false }
+func desktopSessionActive() bool                        { return false }
 func (unavailableInput) Available() bool                { return false }
 func (unavailableInput) AbsolutePointerAvailable() bool { return false }
 func (unavailableInput) Write([]inputEvent) error       { return errors.New("uinput is Linux-only") }

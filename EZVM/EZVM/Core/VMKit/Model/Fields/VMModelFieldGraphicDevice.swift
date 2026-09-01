@@ -138,15 +138,15 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var pressedButtons = Set<UInt16>()
     private var pointerCaptured = false
     private var windowObservers: [NSObjectProtocol] = []
-    private var keyEquivalentMonitor: Any?
+    private var commandKeyMonitor: Any?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
     private var displayRefreshTimer: Timer?
     private var presentationInFlight = false
-    // Input is provided by Virtualization.framework's native USB keyboard and
-    // screen-coordinate pointing devices. It must work before a userspace
-    // guest agent starts (notably in firmware and at the display manager).
+    // Input falls back to Virtualization.framework until the authenticated
+    // guest agent advertises uinput. Custom VirGL has no VZ graphics device,
+    // so its reliable desktop input path is the agent once userspace starts.
     private var absolutePointerEnabled = true
 
     init(frame frameRect: NSRect, guestSize: CGSize) {
@@ -169,14 +169,36 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         // still handled by the window controller before it reaches the view.
         capturesSystemKeys = true
         automaticallyReconfiguresDisplay = false
+        commandKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self,
+                  let vmWindow = self.window,
+                  vmWindow.isKeyWindow,
+                  NSApp.keyWindow === vmWindow,
+                  NSApp.modalWindow == nil,
+                  !NSApp.windows.contains(where: {
+                      $0.isVisible && ($0 is NSOpenPanel || $0 is NSSavePanel)
+                  }),
+                  vmWindow.attachedSheet == nil else { return event }
+            // Accessibility input and some system-key event sources leave the
+            // event's window unset even though AppKit is dispatching to the key
+            // VM window. Accept that form, but never steal a chord explicitly
+            // associated with another EZVM window.
+            if let eventWindow = event.window, eventWindow !== vmWindow { return event }
+            if let responderView = vmWindow.firstResponder as? NSView,
+               responderView !== self, !responderView.isDescendant(of: self) {
+                return event
+            }
+            if self.isHostFullScreenShortcut(event) { return event }
+            return self.forwardCommandChordToGuest(event) ? nil : event
+        }
     }
 
     required init?(coder: NSCoder) { nil }
 
     deinit {
+        if let commandKeyMonitor { NSEvent.removeMonitor(commandKeyMonitor) }
         displayRefreshTimer?.invalidate()
         windowObservers.forEach(NotificationCenter.default.removeObserver)
-        if let keyEquivalentMonitor { NSEvent.removeMonitor(keyEquivalentMonitor) }
         releaseInputCapture()
     }
 
@@ -200,22 +222,75 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             releaseInputCapture()
             return
         }
+        // `capturesSystemKeys` normally makes AppKit offer Command chords via
+        // `performKeyEquivalent`, but some event sources (including hardware
+        // layouts and accessibility event injection) deliver them directly as
+        // key-down events. Cover both routes so macOS Command consistently
+        // becomes Linux Super instead of silently disappearing.
+        if forwardCommandChordToGuest(event) { return }
+        if let guestInputHandler,
+           let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) {
+            if !event.isARepeat, !pressedKeys.contains(code) {
+                sendKey(code: code, pressed: true, using: guestInputHandler)
+            }
+            return
+        }
         super.keyDown(with: event)
     }
 
     override func keyUp(with event: NSEvent) {
+        if let guestInputHandler,
+           let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) {
+            if pressedKeys.contains(code) {
+                sendKey(code: code, pressed: false, using: guestInputHandler)
+            }
+            return
+        }
         super.keyUp(with: event)
     }
 
     override func flagsChanged(with event: NSEvent) {
+        if let guestInputHandler,
+           let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
+           let pressed = VMGuestAgentKeyboard.modifierPressed(
+               forMacVirtualKey: event.keyCode,
+               flags: event.modifierFlags
+           ) {
+            if pressed != pressedKeys.contains(code) {
+                sendKey(code: code, pressed: pressed, using: guestInputHandler)
+            }
+            return
+        }
         super.flagsChanged(with: event)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if isHostFullScreenShortcut(event) { return false }
-        // VZVirtualMachineView owns Mac-keyboard to USB-keyboard translation,
-        // including Command -> Linux Super. This path is available at login.
+        if forwardCommandChordToGuest(event) { return true }
+        // Non-Command equivalents and pre-agent firmware input retain the VZ
+        // native fallback. Ordinary desktop key events are handled above.
         return super.performKeyEquivalent(with: event)
+    }
+
+    private func forwardCommandChordToGuest(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command) else { return false }
+        guard !event.isARepeat else { return true }
+        guard let guestInputHandler,
+              let events = VMGuestAgentKeyboard.chordEvents(
+                forMacVirtualKey: event.keyCode,
+                modifierFlags: flags,
+                alreadyPressed: pressedKeys
+              ) else { return false }
+        // AppKit consumes host Command shortcuts before VZ's native USB
+        // keyboard sees them. Send a complete, synchronized Linux Super chord
+        // through the standard uinput keyboard instead.
+        guestInputHandler(events)
+        EZVMLog.info(
+            "Forwarded host Command chord through guest keyboard keyCode=\(event.keyCode)",
+            logger: EZVMLog.input
+        )
+        return true
     }
 
     private func isHostFullScreenShortcut(_ event: NSEvent) -> Bool {
@@ -250,7 +325,19 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        super.scrollWheel(with: event)
+        guard let guestInputHandler else {
+            super.scrollWheel(with: event)
+            return
+        }
+        let detents = scrollWheelAccumulator.consume(
+            delta: event.scrollingDeltaY,
+            hasPreciseDeltas: event.hasPreciseScrollingDeltas
+        )
+        guard detents != 0 else { return }
+        guestInputHandler([
+            VMGuestAgentInputEvent(type: 2, code: 8, value: detents),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ])
     }
 
     private func sendRelativeMotion(_ event: NSEvent) {
@@ -365,8 +452,6 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if let keyEquivalentMonitor { NSEvent.removeMonitor(keyEquivalentMonitor) }
-        keyEquivalentMonitor = nil
         windowObservers.forEach(NotificationCenter.default.removeObserver)
         windowObservers.removeAll()
         window?.acceptsMouseMovedEvents = true
@@ -484,8 +569,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             ? 0
             : totalPresentationTimeInWindow * 1_000 / Double(presentedFramesInWindow)
         let drawable = metalLayer.drawableSize
-        EZVMLog.info(
-            String(
+        let summary = String(
                 format: "VirGL performance: fps=%.1f requested=%llu presented=%llu drawableMisses=%llu failures=%llu avgPresentMs=%.2f maxPresentMs=%.2f drawable=%.0fx%.0f",
                 fps,
                 requestedFramesInWindow,
@@ -496,9 +580,13 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
                 maximumPresentationTimeInWindow * 1_000,
                 drawable.width,
                 drawable.height
-            ),
-            logger: EZVMLog.graphics
-        )
+            )
+        EZVMLog.info(summary, logger: EZVMLog.graphics)
+        if ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1",
+           let file = fopen("/tmp/ezvm-virgl-presentation.log", "a") {
+            fputs("\(summary) bounds=\(Int(bounds.width))x\(Int(bounds.height)) guest=\(Int(guestSize.width))x\(Int(guestSize.height)) layer=\(Int(metalLayer.frame.width))x\(Int(metalLayer.frame.height))\n", file)
+            fclose(file)
+        }
         performanceWindowStartedAt = now
         requestedFramesInWindow = 0
         presentedFramesInWindow = 0

@@ -5,6 +5,10 @@ import Metal
 import OSLog
 
 final class VirGLRenderer {
+    struct ScanoutDiagnostics: Sendable, Equatable {
+        let signature: UInt64
+        let generation: UInt64
+    }
     typealias FenceCompletion = @Sendable (Bool) -> Void
 
     private struct PendingFence {
@@ -43,13 +47,43 @@ final class VirGLRenderer {
     enum RendererError: Error, CustomStringConvertible {
         case load(String)
         case initialize(String)
+        case busy
+        case libraryMismatch(URL, URL)
 
         var description: String {
             switch self {
             case let .load(message): "could not load virglrenderer: \(message)"
             case let .initialize(message): "could not initialize virglrenderer: \(message)"
+            case .busy: "the process-global VirGL renderer is already in use by another VM"
+            case let .libraryMismatch(loaded, requested):
+                "the process-global VirGL renderer loaded \(loaded.path), not \(requested.path)"
             }
         }
+    }
+
+    private static let sharedLock = NSLock()
+    private static var sharedRenderer: VirGLRenderer?
+    private static var sharedRendererIsLeased = false
+
+    /// virglrenderer and the ANGLE winsys are process-global. Keep their
+    /// executor and GL root context alive across sequential VM sessions instead
+    /// of calling renderer_init again, which the pinned renderer rejects.
+    static func acquire(libraryURL: URL) throws -> VirGLRenderer {
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        if let renderer = sharedRenderer {
+            guard renderer.libraryURL.standardizedFileURL == libraryURL.standardizedFileURL else {
+                throw RendererError.libraryMismatch(renderer.libraryURL, libraryURL)
+            }
+            guard !sharedRendererIsLeased else { throw RendererError.busy }
+            sharedRendererIsLeased = true
+            renderer.prepareForReuse()
+            return renderer
+        }
+        let renderer = try VirGLRenderer(libraryURL: libraryURL)
+        sharedRenderer = renderer
+        sharedRendererIsLeased = true
+        return renderer
     }
 
     let libraryURL: URL
@@ -59,6 +93,7 @@ final class VirGLRenderer {
     private var didShutdown = false
     private var nextHostFenceID: UInt32 = 1
     private var pendingFences: [UInt32: PendingFence] = [:]
+    private var lastLoggedScanoutDiagnosticGeneration: UInt64 = 0
     private let logger = Logger(subsystem: "com.everettjf.EZVM", category: "virgl-fence")
 
     init(libraryURL: URL) throws {
@@ -70,6 +105,9 @@ final class VirGLRenderer {
             guard load == 0 else { return (load, -1, Self.lastError, 0, 0) }
             let initialize = vzvg_renderer_initialize()
             guard initialize == 0 else { return (load, initialize, Self.lastError, 0, 0) }
+            vzvg_renderer_set_diagnostics_enabled(
+                ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1" ? 1 : 0
+            )
             var version: UInt32 = 0
             var size: UInt32 = 0
             vzvg_renderer_get_cap_set(1, &version, &size)
@@ -99,7 +137,7 @@ final class VirGLRenderer {
         )
     }
 
-    deinit { shutdown() }
+    deinit { executor.stop() }
 
     func shutdown() {
         shutdownLock.lock()
@@ -116,7 +154,20 @@ final class VirGLRenderer {
         // Device teardown has already destroyed every guest context/resource;
         // keep the empty global renderer initialized for the next VM window.
         // The OS reclaims the ANGLE display when EZVM exits.
-        executor.stop()
+        Self.sharedLock.lock()
+        if Self.sharedRenderer === self {
+            Self.sharedRendererIsLeased = false
+        }
+        Self.sharedLock.unlock()
+    }
+
+    private func prepareForReuse() {
+        shutdownLock.lock()
+        didShutdown = false
+        shutdownLock.unlock()
+        nextHostFenceID = 1
+        pendingFences.removeAll(keepingCapacity: true)
+        executor.configurePolling { [weak self] in self?.pollFences() }
     }
 
     func capabilities(id: UInt32, version: UInt32) -> Data? {
@@ -293,8 +344,36 @@ final class VirGLRenderer {
                 self.logger.error(
                     "scanout presentation failed: resource=\(resourceID, privacy: .public) source=\(width, privacy: .public)x\(height, privacy: .public) renderer=\(Self.lastError, privacy: .public)"
                 )
+            } else if ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1" {
+                let diagnostics = ScanoutDiagnostics(
+                    signature: vzvg_renderer_scanout_signature(),
+                    generation: vzvg_renderer_scanout_signature_generation()
+                )
+                if diagnostics.generation != 0,
+                   diagnostics.generation != self.lastLoggedScanoutDiagnosticGeneration {
+                    self.lastLoggedScanoutDiagnosticGeneration = diagnostics.generation
+                    self.logger.info(
+                        "scanout content changed: generation=\(diagnostics.generation, privacy: .public) signature=\(String(diagnostics.signature, radix: 16), privacy: .public)"
+                    )
+                    if let file = fopen("/tmp/ezvm-virgl-content.log", "a") {
+                        fputs(
+                            "resource=\(resourceID) size=\(width)x\(height) generation=\(diagnostics.generation) signature=\(String(diagnostics.signature, radix: 16))\n",
+                            file
+                        )
+                        fclose(file)
+                    }
+                }
             }
             completion(result == 0)
+        }
+    }
+
+    func scanoutDiagnostics() -> ScanoutDiagnostics {
+        serialized {
+            ScanoutDiagnostics(
+                signature: vzvg_renderer_scanout_signature(),
+                generation: vzvg_renderer_scanout_signature_generation()
+            )
         }
     }
 

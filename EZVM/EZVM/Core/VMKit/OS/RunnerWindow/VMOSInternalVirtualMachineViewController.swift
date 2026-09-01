@@ -191,9 +191,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             detail: graphicsCreation.detail,
             supportsMachineSaveRestore: graphicsBackend.supportsMachineSaveRestore
         )
-        graphicsBackend.setGuestInputHandler { [weak self] events in
-            self?.guestAgentClient?.sendInputEvents(events)
-        }
+        // Keep the VZ native input fallback until the authenticated guest
+        // explicitly advertises uinput. The agent callback switches Custom
+        // VirGL to its reliable desktop input path once it is ready.
+        graphicsBackend.setGuestInputHandler(nil)
         installDisplayView(graphicsBackend.displayView)
         
         let virtualMachineConfigurationResult = runner.createConfiguration(
@@ -956,8 +957,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 device: device,
                 enrollment: enrollment,
                 runtimeState: runtimeState
-            ) { [weak self] absolutePointerEnabled in
-                self?.graphicsBackend?.setAbsolutePointerEnabled(absolutePointerEnabled)
+            ) { [weak self] guestKeyboardEnabled, absolutePointerEnabled in
+                guard let self else { return }
+                if guestKeyboardEnabled {
+                    self.graphicsBackend?.setGuestInputHandler { [weak self] events in
+                        self?.guestAgentClient?.sendInputEvents(events)
+                    }
+                } else {
+                    self.graphicsBackend?.setGuestInputHandler(nil)
+                }
+                self.graphicsBackend?.setAbsolutePointerEnabled(absolutePointerEnabled)
             }
             guestAgentClient = client
             client.start()

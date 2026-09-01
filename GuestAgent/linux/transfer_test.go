@@ -113,6 +113,40 @@ func TestUploadRejectsOverwriteOutOfOrderAndChecksumMismatch(t *testing.T) {
 	}
 }
 
+func TestUploadOverwritePreservesExecutableMode(t *testing.T) {
+	directory := resolvedTempDir(t)
+	destination := filepath.Join(directory, "display-watch")
+	if err := os.WriteFile(destination, []byte("old"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("#!/bin/sh\necho updated\n")
+	session := newTransferSession()
+	defer session.close()
+
+	result := session.handle("uploadStart", mustJSON(t, uploadStart{
+		TransferID: transferTestID, DestinationPath: destination, TotalBytes: uint64(len(content)),
+		SHA256: checksum(content), Overwrite: true,
+	}))
+	if !result.Success {
+		t.Fatal(result.Message)
+	}
+	if result = session.handle("uploadChunk", mustJSON(t, uploadChunk{
+		TransferID: transferTestID, Offset: 0, Data: content,
+	})); !result.Success {
+		t.Fatal(result.Message)
+	}
+	if result = session.handle("uploadCommit", mustJSON(t, transferID{TransferID: transferTestID})); !result.Success {
+		t.Fatal(result.Message)
+	}
+	info, err := os.Stat(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0755 {
+		t.Fatalf("destination mode = %v, want 0755", got)
+	}
+}
+
 func TestDownloadReportsChecksumAndReturnsBoundedChunks(t *testing.T) {
 	directory := resolvedTempDir(t)
 	source := filepath.Join(directory, "source.bin")
