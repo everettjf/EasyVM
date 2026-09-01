@@ -15,7 +15,7 @@ fail() {
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
 [[ "$launch_timeout" =~ ^[1-9][0-9]*$ ]] || fail "EZVM_LAUNCH_TIMEOUT must be a positive integer"
 
-for command in codesign defaults plutil spctl; do
+for command in codesign defaults open osascript pgrep plutil ps spctl; do
   command -v "$command" >/dev/null 2>&1 || fail "required command not found: $command"
 done
 
@@ -53,7 +53,9 @@ trap cleanup EXIT
 # Launch through Launch Services so macOS applies the same sandbox extensions
 # as a normal Finder/Homebrew launch. Track the newly created process even when
 # it never reaches the readiness marker, so the cleanup trap can still stop it.
-existing_pids=" $(pgrep -x EZVM 2>/dev/null | tr '\n' ' ' || true)"
+existing_pids="$(pgrep -x EZVM 2>/dev/null | tr '\n' ' ' || true)"
+[[ -z "${existing_pids// /}" ]] || \
+  fail "another EZVM instance is running; quit it before release verification"
 open -n --stdout "$launch_log" --stderr "$launch_log" \
   --env "EZVM_GUI_READY_FILE=$ready_file" "$app_path"
 
@@ -66,6 +68,20 @@ find_new_app_pid() {
     fi
   done
 }
+
+for _ in {1..50}; do
+  app_pid="$(find_new_app_pid)"
+  [[ -n "$app_pid" ]] && break
+  sleep 0.1
+done
+[[ -n "$app_pid" ]] || { cat "$launch_log" >&2; fail "Launch Services did not start EZVM"; }
+
+# SwiftUI can restore the persisted state where every window was closed.
+# A normal second click on the app sends reopen/activate, so exercise that
+# public lifecycle path before requiring a visible Control Center window.
+osascript \
+  -e 'tell application id "com.everettjf.ezvm" to reopen' \
+  -e 'tell application id "com.everettjf.ezvm" to activate'
 
 for ((second = 1; second <= launch_timeout; second++)); do
   for _ in {1..10}; do

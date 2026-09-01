@@ -885,7 +885,7 @@
 				CODE_SIGN_ENTITLEMENTS = EZVM/EZVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"EZVM/Preview Content\"";
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -899,7 +899,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.ezvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -915,7 +915,7 @@
 				CODE_SIGN_ENTITLEMENTS = EZVM/EZVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"EZVM/Preview Content\"";
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -929,7 +929,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.ezvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1058,7 +1058,7 @@
 				CODE_SIGN_ENTITLEMENTS = EZVM/EZVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"EZVM/Preview Content\"";
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1072,7 +1072,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.ezvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1088,7 +1088,7 @@
 				CODE_SIGN_ENTITLEMENTS = EZVM/EZVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"EZVM/Preview Content\"";
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1102,7 +1102,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.everettjf.ezvm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
