@@ -234,6 +234,22 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertTrue(currentDesktop.shouldUseGuestKeyboard)
     }
 
+    func testDynamicDisplayWaitsForDesktopAndCompletedProvisioning() {
+        func status(desktop: Bool?, provisioning: Bool?) -> VMGuestAgentStatus {
+            VMGuestAgentStatus(
+                agentVersion: "2", operatingSystem: "Linux", kernelVersion: "7",
+                hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 1,
+                capabilities: [], desktopSessionActive: desktop,
+                provisioningPending: provisioning
+            )
+        }
+
+        XCTAssertFalse(status(desktop: false, provisioning: false).allowsDynamicDisplay)
+        XCTAssertFalse(status(desktop: true, provisioning: true).allowsDynamicDisplay)
+        XCTAssertTrue(status(desktop: true, provisioning: false).allowsDynamicDisplay)
+        XCTAssertTrue(status(desktop: true, provisioning: nil).allowsDynamicDisplay)
+    }
+
     func testMutualAuthenticationRoundTrip() throws {
         let guest = try VMGuestAgentAuthenticator(tokenData: token, machineID: machineID)
         let host = try VMGuestAgentAuthenticator(tokenData: token, machineID: machineID)

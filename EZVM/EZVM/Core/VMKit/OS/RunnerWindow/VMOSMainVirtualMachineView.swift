@@ -33,6 +33,10 @@ struct VMOSMainVirtualMachineView: View {
                 recoveryMode: recoveryMode,
                 runtimeState: runtimeState
             )
+            // macOS may reuse the state of a dismissed WindowGroup(value:)
+            // when the same VM URL is opened again. A fresh identity guarantees
+            // that a stopped VZVirtualMachine is never presented a second time.
+            .id(runtimeState.launchIdentity)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .ignoresSafeArea()
 
@@ -284,6 +288,15 @@ struct VMOSMainVirtualMachineView: View {
                 id: recoveryMode ? "start-machine-recovery" : "start-machine",
                 value: rootPath
             )
+        }
+        .onAppear {
+            // `dismissWindow` hides the scene, but AppKit/SwiftUI can retain its
+            // @State for the next `openWindow` with the same value. Recreate the
+            // runtime and representable so the next Run owns a new controller,
+            // lease, graphics backend, and VZVirtualMachine instance.
+            if runtimeState.phase.shouldDismissMachineWindow {
+                runtimeState = VMRuntimeState()
+            }
         }
     }
 

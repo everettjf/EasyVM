@@ -650,6 +650,9 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     struct virgl_renderer_resource_info_ext source = {0};
     source.version = 0;
     if (borrow_texture_for_scanout((int)resource_id, &source) != 0) {
+        snprintf(last_error, sizeof(last_error),
+                 "scanout resource is unavailable: resource=%u",
+                 resource_id);
         return -1;
     }
     if (source_x > source.base.width || source_y > source.base.height ||

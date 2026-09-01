@@ -926,14 +926,17 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         guard model.config.type == .linux,
               (model.config.linuxFeatures ?? .legacy).virtioSocketEnabled else {
             runtimeState?.updateGuestAgent(.unavailable)
+            graphicsBackend?.setDynamicDisplayReady(true)
             return
         }
         guard let device = virtualMachine.socketDevices.first as? VZVirtioSocketDevice else {
             runtimeState?.updateGuestAgent(.unavailable)
+            graphicsBackend?.setDynamicDisplayReady(true)
             return
         }
         guard let identifier = try? Data(contentsOf: model.machineIdentifierURL) else {
             runtimeState?.updateGuestAgent(.disconnected("The VM machine identifier is unreadable."))
+            graphicsBackend?.setDynamicDisplayReady(true)
             return
         }
         let enrollmentResult: VMOSResult<VMGuestAgentEnrollment?, String>
@@ -949,8 +952,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         switch enrollmentResult {
         case .failure(let error):
             runtimeState?.updateGuestAgent(.disconnected(error))
+            graphicsBackend?.setDynamicDisplayReady(true)
         case .success(nil):
             runtimeState?.updateGuestAgent(.notEnrolled)
+            graphicsBackend?.setDynamicDisplayReady(true)
         case .success(let enrollment?):
             guard let runtimeState else { return }
             let client = VMGuestAgentHostClient(
@@ -967,6 +972,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     self.graphicsBackend?.setGuestInputHandler(nil)
                 }
                 self.graphicsBackend?.setAbsolutePointerEnabled(absolutePointerEnabled)
+            } onDesktopSessionChanged: { [weak self] active in
+                self?.graphicsBackend?.setDynamicDisplayReady(active)
             }
             guestAgentClient = client
             client.start()

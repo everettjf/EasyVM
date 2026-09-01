@@ -394,6 +394,18 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 if wasPublishedScanout {
                     lastPublishedScanoutResourceID = nil
                 }
+                // The AppKit display view presents the live scanout texture at
+                // 60 Hz independently of guest RESOURCE_FLUSH notifications.
+                // During a mode switch Linux releases the old scanout before
+                // publishing the replacement.  Stop that timer from borrowing
+                // the now-destroyed renderer resource while leaving the last
+                // CAMetalLayer drawable visible until the replacement's first
+                // successful flush arrives.
+                if wasActiveScanout || wasPublishedScanout {
+                    Task { @MainActor [onScanoutInvalidated] in
+                        onScanoutInvalidated()
+                    }
+                }
                 diagnosticLog(
                     "scanout resource=\(resourceID) was released "
                         + "active=\(wasActiveScanout) published=\(wasPublishedScanout)"

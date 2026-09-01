@@ -71,6 +71,7 @@ protocol VMGraphicsBackend {
     ) -> VMOSResultVoid
     func bind(virtualMachine: VZVirtualMachine?)
     func refreshDisplayConfiguration()
+    func setDynamicDisplayReady(_ ready: Bool)
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?)
     func setAbsolutePointerEnabled(_ enabled: Bool)
     func shutdown()
@@ -106,6 +107,8 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
         virtualMachineView.automaticallyReconfiguresDisplay = false
         virtualMachineView.automaticallyReconfiguresDisplay = true
     }
+
+    func setDynamicDisplayReady(_ ready: Bool) {}
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {}
 
@@ -632,6 +635,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private var runtime: EZVMVirGLRuntime?
     private var requestedResolution: (width: UInt32, height: UInt32)?
     private var pendingDisplayRequest: DispatchWorkItem?
+    private var dynamicDisplayReady = false
     private let dynamicDisplayEnabled = ProcessInfo.processInfo.environment[
         "EZVM_DISABLE_DYNAMIC_VIRGL_DISPLAY"
     ] != "1"
@@ -704,6 +708,13 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             )
             return
         }
+        // A Linux text console can acknowledge a new virtio-gpu mode and then
+        // immediately replace it with its 800x600 fbcon fallback. Omarchy's
+        // first-boot form runs on that console, before Hyprland and its display
+        // watcher exist. Keep the persisted 1280x720 boot mode until the Guest
+        // Agent reports a real desktop session; otherwise the setup UI becomes
+        // cropped even though host-side mode negotiation succeeded.
+        guard dynamicDisplayReady else { return }
         // A macOS full-screen transition exposes several short-lived content
         // sizes (including the toolbar-safe-area width). Sending each one to
         // DRM makes Hyprland destroy and recreate its triple buffers multiple
@@ -729,6 +740,18 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         }
         pendingDisplayRequest = request
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: request)
+    }
+
+    func setDynamicDisplayReady(_ ready: Bool) {
+        guard dynamicDisplayReady != ready else { return }
+        dynamicDisplayReady = ready
+        if ready {
+            requestedResolution = nil
+            refreshDisplayConfiguration()
+        } else {
+            pendingDisplayRequest?.cancel()
+            pendingDisplayRequest = nil
+        }
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {

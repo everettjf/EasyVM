@@ -79,21 +79,28 @@ mkdir -p "$app_path/Contents/Helpers"
 cp "$cli_path" "$app_path/Contents/Helpers/ezvm"
 chmod 755 "$app_path/Contents/Helpers/ezvm"
 
-signing_identity="${EZVM_SIGNING_IDENTITY:--}"
+if [[ -n "${EZVM_SIGNING_IDENTITY:-}" ]]; then
+  signing_identity="$EZVM_SIGNING_IDENTITY"
+elif [[ -n "${EASYVM_SIGNING_IDENTITY:-}" ]]; then
+  signing_identity="$EASYVM_SIGNING_IDENTITY"
+  echo "warning: EASYVM_SIGNING_IDENTITY is deprecated; use EZVM_SIGNING_IDENTITY" >&2
+else
+  signing_identity="-"
+fi
 entitlements_path="$project_root/EZVM/EZVM/EZVM.entitlements"
 
-signing_options=(--force --deep --options runtime --entitlements "$entitlements_path" --sign "$signing_identity")
+signing_options=(--force --deep --entitlements "$entitlements_path" --sign "$signing_identity")
 if [[ "$signing_identity" == "-" ]]; then
   signing_options+=(--timestamp=none)
 else
-  signing_options+=(--timestamp)
+  signing_options+=(--options runtime --timestamp)
 fi
 
-virgl_signing_options=(--force --options runtime --sign "$signing_identity")
+virgl_signing_options=(--force --sign "$signing_identity")
 if [[ "$signing_identity" == "-" ]]; then
   virgl_signing_options+=(--timestamp=none)
 else
-  virgl_signing_options+=(--timestamp)
+  virgl_signing_options+=(--options runtime --timestamp)
 fi
 for library in "$virgl_runtime_destination"/*.dylib; do
   codesign "${virgl_signing_options[@]}" "$library"
@@ -102,6 +109,22 @@ done
 codesign "${signing_options[@]}" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 codesign --display --entitlements :- "$app_path"
+
+if [[ "$signing_identity" != "-" ]]; then
+  app_team_id="$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+  [[ -n "$app_team_id" ]] || {
+    echo "Developer ID build has no TeamIdentifier: $app_path" >&2
+    exit 68
+  }
+  for signed_code in "$app_path/Contents/Helpers/ezvm" "$virgl_runtime_destination"/*.dylib; do
+    nested_team_id="$(codesign --display --verbose=4 "$signed_code" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+    [[ "$nested_team_id" == "$app_team_id" ]] || {
+      echo "TeamIdentifier mismatch: app=$app_team_id nested=${nested_team_id:-missing} path=$signed_code" >&2
+      exit 68
+    }
+  done
+  echo "Verified Developer ID TeamIdentifier $app_team_id across app, CLI, and VirGL runtime."
+fi
 
 # Fail before archiving if a restricted or accidental entitlement enters the
 # production target. Runtime launch and Gatekeeper checks run after notarization.

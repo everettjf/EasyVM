@@ -70,6 +70,7 @@ type status struct {
 	Capabilities         []string `json:"capabilities,omitempty"`
 	InputDevices         []string `json:"inputDevices,omitempty"`
 	DesktopSessionActive bool     `json:"desktopSessionActive"`
+	ProvisioningPending  bool     `json:"provisioningPending,omitempty"`
 	KVMAvailable         bool     `json:"kvmAvailable"`
 	KVMAPIVersion        int      `json:"kvmAPIVersion,omitempty"`
 	KVMError             string   `json:"kvmError,omitempty"`
@@ -304,7 +305,8 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	if absolutePointerAvailable {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
-	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	_, provisioningErr := os.Stat("/var/lib/omarchy/provisioning/pending")
+	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func inputDeviceNames() []string {

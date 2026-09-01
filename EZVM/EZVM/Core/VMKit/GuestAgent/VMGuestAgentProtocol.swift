@@ -384,6 +384,7 @@ struct VMGuestAgentStatus: Codable, Equatable {
     let capabilities: [String]?
     let inputDevices: [String]?
     let desktopSessionActive: Bool?
+    let provisioningPending: Bool?
     let kvmAvailable: Bool?
     let kvmAPIVersion: Int?
     let kvmError: String?
@@ -392,6 +393,7 @@ struct VMGuestAgentStatus: Codable, Equatable {
          addresses: [String], bootID: String, uptimeSeconds: UInt64, capabilities: [String]?,
          inputDevices: [String]? = nil,
          desktopSessionActive: Bool? = nil,
+         provisioningPending: Bool? = nil,
          kvmAvailable: Bool? = nil, kvmAPIVersion: Int? = nil, kvmError: String? = nil) {
         self.agentVersion = agentVersion
         self.operatingSystem = operatingSystem
@@ -403,6 +405,7 @@ struct VMGuestAgentStatus: Codable, Equatable {
         self.capabilities = capabilities
         self.inputDevices = inputDevices
         self.desktopSessionActive = desktopSessionActive
+        self.provisioningPending = provisioningPending
         self.kvmAvailable = kvmAvailable
         self.kvmAPIVersion = kvmAPIVersion
         self.kvmError = kvmError
@@ -453,6 +456,13 @@ struct VMGuestAgentStatus: Codable, Equatable {
     }
     var supportsAbsoluteGuestPointer: Bool {
         capabilities?.contains("input-uinput-absolute-v1") == true
+    }
+    /// Dynamic DRM mode negotiation is safe only after the real desktop owns
+    /// the display and Omarchy's tty-based first-boot provisioning is over.
+    /// Older agents omit `provisioningPending`; a confirmed desktop remains
+    /// the compatible signal for those images.
+    var allowsDynamicDisplay: Bool {
+        desktopSessionActive == true && provisioningPending != true
     }
     var supportsKVMDiagnostics: Bool { capabilities?.contains("kvm-diagnostics-v1") == true }
 }

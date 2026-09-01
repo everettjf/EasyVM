@@ -35,6 +35,7 @@ enum VMGuestAgentTransferState: Equatable {
 final class VMRuntimeState {
     typealias Phase = VMRuntimePhase
 
+    let launchIdentity = UUID()
     private(set) var phase: Phase = .preparing
     private(set) var balloonMemoryTarget: UInt64?
     private(set) var balloonMemoryMaximum: UInt64?
