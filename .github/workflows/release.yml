@@ -38,6 +38,7 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/virgl-python"
           "$RUNNER_TEMP/virgl-python/bin/pip" install PyYAML
           echo "$RUNNER_TEMP/virgl-python/bin" >> "$GITHUB_PATH"
+          echo "VIRGL_PYTHON=$RUNNER_TEMP/virgl-python/bin/python3" >> "$GITHUB_ENV"
           xcodebuild -downloadComponent MetalToolchain
 
       - name: Import Developer ID certificate

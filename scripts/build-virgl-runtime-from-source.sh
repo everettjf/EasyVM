@@ -7,6 +7,7 @@ pins="$project_root/scripts/virgl-runtime-pins.sh"
 output_dir="${1:-$project_root/.build/virgl-runtime-source}"
 work_root="${EZVM_VIRGL_SOURCE_WORK_DIR:-$project_root/.build/virgl-source-work}"
 archive_dir="${EZVM_VIRGL_SOURCE_ARCHIVE_DIR:-$project_root/.build/virgl-source-archives}"
+python_bin="${VIRGL_PYTHON:-/usr/bin/python3}"
 
 fail() {
   echo "build-virgl-runtime-from-source: $*" >&2
@@ -26,6 +27,7 @@ for path in "$output_dir" "$work_root" "$archive_dir"; do
     *) fail "path must be absolute: $path" ;;
   esac
 done
+[[ $python_bin == /* && -x $python_bin ]] || fail "Python must be an executable absolute path: $python_bin"
 
 mkdir -p "$work_root" "$archive_dir" "$(dirname "$output_dir")"
 prepared="$work_root/prepared"
@@ -158,7 +160,7 @@ meson compile -C "$epoxy_build"
 meson install -C "$epoxy_build"
 
 native_file="$work_root/virgl-native.ini"
-printf "[binaries]\npython = '/usr/bin/python3'\n" >"$native_file"
+printf "[binaries]\npython = '%s'\n" "$python_bin" >"$native_file"
 env PKG_CONFIG_PATH="$prefix/lib/pkgconfig:$pc_dir" meson setup \
   --native-file "$native_file" "$virgl_build" "$prepared/virglrenderer" \
   --prefix="$prefix" -Dc_args="-I$angle/include" -Dcpp_args="-I$angle/include" \
