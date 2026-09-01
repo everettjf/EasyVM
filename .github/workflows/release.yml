@@ -35,6 +35,7 @@ jobs:
       - name: Install VirGL source-build tools
         run: |
           brew install meson pkg-config
+          python3 -m pip install --user PyYAML
           xcodebuild -downloadComponent MetalToolchain
 
       - name: Import Developer ID certificate
