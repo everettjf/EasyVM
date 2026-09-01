@@ -51,7 +51,7 @@ For each size transition, the logs should contain this sequence:
 The setup console may keep a fixed mode even when this handshake succeeds.
 Final visual validation therefore needs the real Hyprland desktop.
 
-## August 31, 2026 reference run
+## August 31–September 1, 2026 reference run
 
 The final Omarchy/Hyprland validation established a useful local baseline:
 
@@ -63,6 +63,16 @@ The final Omarchy/Hyprland validation established a useful local baseline:
   layer=1920x1080 drawable=3840x2160`;
 - display generation 2 was read through `GET_EDID` and acknowledged through
   `GET_DISPLAY_INFO` before the event cleared.
+- a clean 64 GiB sparse Omarchy image completed first-run setup without the
+  keyboard/timezone loop, reached Hyprland, adapted to full screen after the
+  compositor watcher became ready, accepted continuous text immediately, and
+  passed human browser-wheel verification.
+
+Do not use a terminal scrollback result as the sole wheel acceptance test.
+Terminal alternate-screen mode, selection state, and application bindings can
+consume or ignore wheel events. Validate at least one ordinary scroll view
+(the browser was used for the reference run) and correlate it with bounded
+Agent wheel delivery.
 
 Treat this as a regression reference, not a universal performance claim. A
 comparison with another VM product is valid only when host, guest image,

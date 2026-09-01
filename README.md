@@ -156,6 +156,12 @@ Implementation and validation details are in the
 [performance guide](docs/VIRGL_PERFORMANCE.md), and isolated
 [prototype record](Experiments/VZVirtioGPUPrototype/README.md).
 
+The September 2026 clean-image acceptance run rebuilt and imported a 64 GiB
+sparse Omarchy image, completed the entire first-run flow, reached Hyprland,
+adapted the desktop to full screen, exercised Command-to-Super shortcuts and
+continuous typing, and verified browser scrolling by hand. The deployment
+target remains macOS 26; only Linux guests on macOS 27+ select Custom VirGL.
+
 ## Guest images
 
 ### macOS

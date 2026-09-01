@@ -1,6 +1,6 @@
 # Custom VirGL architecture and engineering notes
 
-_Last validated: August 31, 2026_
+_Last validated: September 1, 2026_
 
 This document records the production architecture, invariants, observed
 failure modes, and validation baseline for EZVM's macOS 27 Linux graphics path.
@@ -185,9 +185,39 @@ The UI must continue to disable or explain state-save operations for this
 backend. A future implementation would need an explicit renderer-state
 serialization contract; silently attempting native save/restore is unsafe.
 
-## Validation baseline
+## End-to-end Omarchy validation
 
-The August 31 real-guest validation used Omarchy/Hyprland and established:
+The final validation did not reuse a configured development guest. It rebuilt
+the complete 64 GiB sparse Omarchy disk from the maintained AArch64 image
+repository, ran its Linux/ARM64 validation suite to a fail-closed `PASS`, and
+imported an APFS clone through EZVM. This caught an ordering bug that unit-only
+testing missed: incompatible services had to be masked after Omarchy's system
+apply step, because that step could restore them.
+
+The clean-image scenario then established:
+
+- the first-run greeter remains centered at window and full-screen sizes;
+- keyboard layout, account, password, hostname, and timezone advance exactly
+  once, including `America/Los_Angeles` without returning to keyboard setup;
+- the early-boot Agent accepts text and Return before the desktop session;
+- the completed Hyprland desktop consumes the negotiated full-screen mode
+  after compositor startup (allow several seconds for watcher readiness);
+- `Command+K` reaches the guest as `Super+K`, and `Command+Return` opens a
+  terminal;
+- a long alphabetic command appears and executes immediately, with no pointer
+  movement needed to reveal delayed characters;
+- pointer movement and browser scrolling work in the real desktop; and
+- the first-run password field is a normal single-line control rather than an
+  oversized framebuffer-scaled field.
+
+The rebuilt image SHA-256 was
+`88d4fa72b7cafbef5cda3ea5e7306a14cdd75e9f57fadc97f00bc31951394c2b`.
+It is a QA provenance value, not a stable public release identifier.
+
+## Performance baseline
+
+The August 31–September 1 real-guest validation used Omarchy/Hyprland and
+established:
 
 - approximately 60 FPS in windowed and full-screen desktop operation;
 - typical Metal present time around 0.4–0.8 ms;
@@ -195,10 +225,12 @@ The August 31 real-guest validation used Omarchy/Hyprland and established:
 - a complete 1920x1080 generation/EDID/display-info/ack handshake;
 - successful `Super+K` and `Super+Space` batches through Agent/uinput;
 - responsive continuous typing without requiring pointer movement;
-- bounded wheel delivery;
+- bounded wheel delivery and successful human verification of browser
+  scrolling;
 - successful Swift suite, 24 Guest Agent protocol tests, 17 prototype tests,
-  Linux Go Agent tests, Release build, Developer ID signature, and Gatekeeper
-  assessment.
+  Linux Go Agent tests, the complete image validation suite, a source-rebuilt
+  VirGL runtime, Release build, Developer ID signature, strict code-signing
+  verification, and signed-archive extraction verification.
 
 These numbers prove the local path is healthy; they do not by themselves prove
 universal performance parity with QEMU/HVF-based products. Comparative claims
