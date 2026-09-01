@@ -121,6 +121,15 @@ struct CreatePhaseSystemView: View {
         } else {
             formData.imagePath = ""
         }
+        if case .preinstalled(let item) = selection {
+            let resources = VMPreinstalledImageResourceRecommendation.recommended()
+            configData.cpuCount = resources.cpuCount
+            configData.memorySize = resources.memorySize
+            configData.linuxFeatures = .recommended
+            configData.name = item.name
+            formData.hasGeneratedNameSuggestion = true
+            configData.remark = item.detail
+        }
     }
 
     private func switchOSType(_ osType: VMOSType) {
@@ -302,9 +311,28 @@ private struct LinuxImageSelectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            SelectionSectionHeading(
+                title: "Ready-to-run Linux",
+                subtitle: "Verified preinstalled systems that skip the installer."
+            )
+
+            ImageChoiceButton(
+                title: VMPreinstalledImageCatalogItem.omarchy.name,
+                detail: "Omarchy 4 for ARM64 · about 3.15 GB download · 64 GB sparse disk",
+                systemImage: "sparkles.rectangle.stack",
+                accent: .cyan,
+                badge: "Ready to run",
+                isSelected: selection == .preinstalled(.omarchy),
+                identifier: "linux-preinstalled-omarchy"
+            ) {
+                onSelect(.preinstalled(.omarchy))
+            }
+
+            Divider()
+
             HStack(alignment: .firstTextBaseline) {
                 SelectionSectionHeading(
-                    title: "Ubuntu & Linux install image",
+                    title: "Install from ISO",
                     subtitle: "ARM64 installers that run natively on Apple silicon."
                 )
                 Spacer()

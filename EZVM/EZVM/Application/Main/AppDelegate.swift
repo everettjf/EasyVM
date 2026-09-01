@@ -416,6 +416,7 @@ struct PreinstalledImageInstallConfiguration {
     let name: String?
     let thumbnailURL: URL?
     let stagingToken: String
+    let configuration: VMConfigModel?
 
     static var current: PreinstalledImageInstallConfiguration? {
         let arguments = ProcessInfo.processInfo.arguments
@@ -436,7 +437,8 @@ struct PreinstalledImageInstallConfiguration {
             thumbnailURL: thumbnailMarker.flatMap {
                 $0 + 1 < arguments.count ? URL(fileURLWithPath: arguments[$0 + 1]).standardizedFileURL : nil
             },
-            stagingToken: arguments[stagingMarker + 1]
+            stagingToken: arguments[stagingMarker + 1],
+            configuration: nil
         )
     }
 }
@@ -446,6 +448,15 @@ struct PreinstalledImageManifest: Decodable {
     struct Product: Decodable { let id: String; let name: String; let version: String }
     struct Disk: Decodable { let format: String; let virtualSize: UInt64; let sha256: String }
     struct VirtualMachine: Decodable { let name: String; let remark: String? }
+    struct Archive: Decodable {
+        struct Part: Decodable { let name: String; let size: Int64; let sha256: String }
+        let compression: String
+        let compressedSize: Int64
+        let sha256: String
+        let parts: [Part]
+    }
+    struct Thumbnail: Decodable { let name: String; let mediaType: String; let size: Int64; let sha256: String }
+    struct Release: Decodable { let repository: String; let tag: String }
 
     let schemaVersion: Int
     let kind: String
@@ -454,6 +465,9 @@ struct PreinstalledImageManifest: Decodable {
     let product: Product
     let disk: Disk
     let virtualMachine: VirtualMachine
+    let archive: Archive?
+    let thumbnail: Thumbnail?
+    let release: Release?
 
     static func load(from url: URL) throws -> Self {
         let value = try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
@@ -481,6 +495,119 @@ struct PreinstalledImageManifest: Decodable {
             }
         }
     }
+}
+
+@MainActor
+struct VMPreinstalledImageInstaller {
+    static func install(
+        _ install: PreinstalledImageInstallConfiguration,
+        progress: @escaping (VMOSCreatorProgressInfo) -> Void = { _ in }
+    ) async -> VMOSResultVoid {
+        let fileManager = FileManager.default
+        let manifest: PreinstalledImageManifest
+        do {
+            manifest = try PreinstalledImageManifest.load(from: install.manifestURL)
+        } catch {
+            return .failure("Invalid preinstalled-image manifest: \(error.localizedDescription)")
+        }
+        guard fileManager.fileExists(atPath: install.imageURL.path) else {
+            return .failure("Disk image not found: \(install.imageURL.path)")
+        }
+        guard install.destinationURL.pathExtension.lowercased() == "ezvm" else {
+            return .failure("Destination must use the .ezvm extension.")
+        }
+        guard !fileManager.fileExists(atPath: install.destinationURL.path) else {
+            return .failure("Destination already exists: \(install.destinationURL.path)")
+        }
+        guard let attributes = try? fileManager.attributesOfItem(atPath: install.imageURL.path),
+              let imageSize = attributes[.size] as? NSNumber,
+              imageSize.uint64Value == manifest.disk.virtualSize else {
+            return .failure("The preinstalled disk image size does not match its manifest.")
+        }
+        do {
+            guard try sha256(of: install.imageURL) == manifest.disk.sha256.lowercased() else {
+                return .failure("The preinstalled disk image SHA-256 does not match its manifest.")
+            }
+        } catch {
+            return .failure("Could not verify the preinstalled disk image: \(error.localizedDescription)")
+        }
+
+        let stagingURL = install.destinationURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(install.destinationURL.lastPathComponent).install-\(install.stagingToken)", isDirectory: true)
+        defer { try? fileManager.removeItem(at: stagingURL) }
+        let diskURL = stagingURL.appending(path: "Disk.img")
+        do {
+            try fileManager.createDirectory(at: install.destinationURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: stagingURL, withIntermediateDirectories: false)
+            try fileManager.copyItem(at: install.imageURL, to: diskURL)
+        } catch {
+            return .failure("Could not stage the disk image: \(error.localizedDescription)")
+        }
+
+        let defaults = install.configuration ?? VMConfigModel.createWithDefaultValues(osType: .linux)
+        let resources = VMPreinstalledImageResourceRecommendation.recommended()
+        let config = VMConfigModel(
+            type: .linux,
+            name: install.name ?? defaults.name.ifEmpty(manifest.virtualMachine.name),
+            remark: defaults.remark.ifEmpty(manifest.virtualMachine.remark ?? "Preinstalled \(manifest.product.name) \(manifest.product.version)"),
+            cpu: install.configuration?.cpu ?? VMModelFieldCPU(count: resources.cpuCount),
+            memory: install.configuration?.memory ?? VMModelFieldMemory(size: resources.memorySize),
+            graphicsDevices: defaults.graphicsDevices,
+            storageDevices: [VMModelFieldStorageDevice(type: .Block, size: imageSize.uint64Value, imagePath: diskURL.lastPathComponent, format: .raw)],
+            networkDevices: defaults.networkDevices,
+            pointingDevices: defaults.pointingDevices,
+            audioDevices: defaults.audioDevices,
+            directorySharingDevices: defaults.directorySharingDevices,
+            linuxFeatures: defaults.linuxFeatures ?? .recommended
+        )
+        let model = VMModel(rootPath: stagingURL, state: VMStateModel(imagePath: diskURL), config: config)
+        let result = await VMOSCreatorForLinux().create(model: model, progress: progress)
+        guard case .success = result else { return result }
+
+        if let thumbnailURL = install.thumbnailURL {
+            guard let fileSize = try? thumbnailURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                  fileSize <= 20 * 1024 * 1024,
+                  let image = NSImage(contentsOf: thumbnailURL), image.isValid else {
+                return .failure("The supplied thumbnail is not a valid image or exceeds 20 MB.")
+            }
+            let scale = min(1, 720 / max(image.size.width, 1))
+            let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+            let thumbnail = NSImage(size: size)
+            thumbnail.lockFocus()
+            image.draw(in: NSRect(origin: .zero, size: size))
+            thumbnail.unlockFocus()
+            guard let cgImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                  let pngData = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]) else {
+                return .failure("The supplied thumbnail is not a valid image.")
+            }
+            do { try pngData.write(to: stagingURL.appending(path: "screenshot.png"), options: .atomic) }
+            catch { return .failure("Could not install the supplied thumbnail: \(error.localizedDescription)") }
+        }
+        let committedState = VMStateModel(imagePath: install.destinationURL.appending(path: diskURL.lastPathComponent))
+        if case let .failure(error) = committedState.writeStateToFile(path: model.stateURL) {
+            return .failure("Could not finalize the installed machine state: \(error)")
+        }
+        do { try fileManager.moveItem(at: stagingURL, to: install.destinationURL) }
+        catch { return .failure("Could not commit the installed machine: \(error.localizedDescription)") }
+        sharedAppConfigManager.addVMPath(url: install.destinationURL)
+        return .success
+    }
+
+    nonisolated static func sha256(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let data = try handle.read(upToCount: 4 * 1024 * 1024) ?? Data()
+            guard !data.isEmpty else { break }
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+private extension String {
+    func ifEmpty(_ fallback: String) -> String { isEmpty ? fallback : self }
 }
 
 struct HeadlessLaunchConfiguration {

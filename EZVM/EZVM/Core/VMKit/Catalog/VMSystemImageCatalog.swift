@@ -50,6 +50,22 @@ struct VMSystemImageCatalogItem: Identifiable, Hashable {
     }
 }
 
+struct VMPreinstalledImageCatalogItem: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let detail: String
+    let manifestURL: URL
+    let downloadSize: Int64?
+
+    static let omarchy = VMPreinstalledImageCatalogItem(
+        id: "omarchy-aarch64",
+        name: "Omarchy",
+        detail: "Preinstalled Arch Linux desktop · ready on first boot",
+        manifestURL: URL(string: "https://github.com/everettjf/omarchy-aarch64-image/releases/latest/download/ezvm-release-manifest.json")!,
+        downloadSize: 3_145_017_877
+    )
+}
+
 @MainActor
 @Observable
 final class VMMacOSImageCatalogService {

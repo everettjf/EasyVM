@@ -15,6 +15,7 @@ class VMCreateViewStateObject {
     enum SystemImageSelection: Hashable {
         case latestMacOS
         case catalog(VMSystemImageCatalogItem)
+        case preinstalled(VMPreinstalledImageCatalogItem)
         case remoteURL(URL)
         case localFile(URL)
 
@@ -23,6 +24,8 @@ class VMCreateViewStateObject {
             case .latestMacOS:
                 return "Latest compatible macOS"
             case .catalog(let item):
+                return item.name
+            case .preinstalled(let item):
                 return item.name
             case .remoteURL(let url):
                 return url.lastPathComponent.isEmpty ? url.absoluteString : url.lastPathComponent
@@ -39,6 +42,8 @@ class VMCreateViewStateObject {
                 return VMImageStore.exists(fileName: Self.fileName(for: item))
                     ? "Ready in the image cache"
                     : "Downloaded when you create the virtual machine"
+            case .preinstalled(let item):
+                return "Preinstalled image · downloaded and verified when you create the virtual machine · \(Self.formattedSize(item.downloadSize))"
             case .remoteURL(let url):
                 return url.absoluteString
             case .localFile(let url):
@@ -50,6 +55,11 @@ class VMCreateViewStateObject {
             let fallbackExtension = item.osType == .macOS ? "ipsw" : "iso"
             let ext = item.url.pathExtension.isEmpty ? fallbackExtension : item.url.pathExtension
             return "\(item.id).\(ext)"
+        }
+
+        private static func formattedSize(_ bytes: Int64?) -> String {
+            guard let bytes else { return "size unavailable" }
+            return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
         }
     }
 

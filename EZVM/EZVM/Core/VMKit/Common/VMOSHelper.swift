@@ -11,6 +11,75 @@ import Virtualization
 
 
 #if arch(arm64)
+enum VMPreinstalledSparseStreamDecoder {
+    static func decode(from input: FileHandle, to outputURL: URL, expectedSize: UInt64) throws {
+        let output = try FileHandle(forWritingTo: outputURL)
+        defer { try? output.close() }
+        guard try readLine(input) == "EZVM-SPARSE-1",
+              let sizeLine = try readLine(input), let logicalSize = UInt64(sizeLine),
+              logicalSize == expectedSize else {
+            throw DecodeError.invalidHeader
+        }
+        try output.truncate(atOffset: logicalSize)
+        while let line = try readLine(input) {
+            try Task.checkCancellation()
+            if line == "END" { return }
+            let values = line.split(separator: " ")
+            guard values.count == 2,
+                  let offset = UInt64(values[0]), let length = UInt64(values[1]),
+                  offset <= logicalSize, length <= logicalSize - offset else {
+                throw DecodeError.invalidExtent
+            }
+            try output.seek(toOffset: offset)
+            var remaining = length
+            while remaining > 0 {
+                try Task.checkCancellation()
+                let count = Int(min(remaining, 4 * 1024 * 1024))
+                let data = try readExactly(input, count: count)
+                try output.write(contentsOf: data)
+                remaining -= UInt64(data.count)
+            }
+            guard try input.read(upToCount: 1) == Data([0x0a]) else { throw DecodeError.invalidExtent }
+        }
+        throw DecodeError.truncated
+    }
+
+    private static func readLine(_ handle: FileHandle) throws -> String? {
+        var data = Data()
+        while data.count <= 128 {
+            guard let byte = try handle.read(upToCount: 1), !byte.isEmpty else {
+                return data.isEmpty ? nil : String(data: data, encoding: .utf8)
+            }
+            if byte[0] == 0x0a { return String(data: data, encoding: .utf8) }
+            data.append(byte)
+        }
+        throw DecodeError.invalidHeader
+    }
+
+    private static func readExactly(_ handle: FileHandle, count: Int) throws -> Data {
+        var result = Data()
+        result.reserveCapacity(count)
+        while result.count < count {
+            guard let chunk = try handle.read(upToCount: count - result.count), !chunk.isEmpty else {
+                throw DecodeError.truncated
+            }
+            result.append(chunk)
+        }
+        return result
+    }
+
+    enum DecodeError: LocalizedError, Equatable {
+        case invalidHeader, invalidExtent, truncated
+        var errorDescription: String? {
+            switch self {
+            case .invalidHeader: "The sparse image header is invalid."
+            case .invalidExtent: "The sparse image contains an invalid extent."
+            case .truncated: "The sparse image stream ended unexpectedly."
+            }
+        }
+    }
+}
+
 struct VMPreinstalledImageResourceRecommendation: Equatable {
     static let gibibyte: UInt64 = 1024 * 1024 * 1024
 

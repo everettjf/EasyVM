@@ -58,27 +58,32 @@ patch="${BASH_REMATCH[3]}"
 version="$major.$minor.$((patch + 1))"
 tag="v$version"
 
-if git -C "$project_root" rev-parse "$tag" >/dev/null 2>&1 || \
-   git -C "$project_root" ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
-  fail "$tag already exists"
-fi
-
 configured_versions="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' "$project_file" | sort -u)"
 configured_version_count="$(printf '%s\n' "$configured_versions" | sed '/^$/d' | wc -l | tr -d ' ')"
 [[ "$configured_version_count" -eq 1 ]] || fail "Xcode targets do not share one marketing version"
 current_version="$configured_versions"
+if [[ "$current_version" =~ ^$major\.$minor\.([0-9]+)$ ]] && \
+   (( BASH_REMATCH[1] > patch + 1 )); then
+  version="$current_version"
+  tag="v$version"
+fi
+if git -C "$project_root" rev-parse "$tag" >/dev/null 2>&1 || \
+   git -C "$project_root" ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+  fail "$tag already exists"
+fi
 configured_builds="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([^;]*\);/\1/p' "$project_file" | sort -u)"
 configured_build_count="$(printf '%s\n' "$configured_builds" | sed '/^$/d' | wc -l | tr -d ' ')"
 [[ "$configured_build_count" -eq 1 && "$configured_builds" =~ ^[0-9]+$ ]] || fail "Xcode targets do not share one numeric build number"
-next_build="$((configured_builds + 1))"
+next_build="$configured_builds"
 
-if [[ "$current_version" != "$version" ]]; then
-  [[ "$current_version" == "${latest_tag#v}" ]] || \
-    fail "project version is $current_version, expected ${latest_tag#v} or $version"
+if [[ "$current_version" == "${latest_tag#v}" ]]; then
+  next_build="$((configured_builds + 1))"
+  ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
+  git -C "$project_root" add -- EZVM/EZVM.xcodeproj/project.pbxproj
+  git -C "$project_root" commit -m "Prepare EZVM $version (build $next_build)"
+elif [[ "$current_version" != "$version" ]]; then
+  fail "project version is $current_version, expected ${latest_tag#v} or $version"
 fi
-ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
-git -C "$project_root" add -- EZVM/EZVM.xcodeproj/project.pbxproj
-git -C "$project_root" commit -m "Prepare EZVM $version (build $next_build)"
 
 echo "Running EZVM $version release checks…"
 (cd "$project_root" && swift test)
