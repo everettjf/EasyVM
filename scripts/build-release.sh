@@ -81,9 +81,6 @@ chmod 755 "$app_path/Contents/Helpers/ezvm"
 
 if [[ -n "${EZVM_SIGNING_IDENTITY:-}" ]]; then
   signing_identity="$EZVM_SIGNING_IDENTITY"
-elif [[ -n "${EASYVM_SIGNING_IDENTITY:-}" ]]; then
-  signing_identity="$EASYVM_SIGNING_IDENTITY"
-  echo "warning: EASYVM_SIGNING_IDENTITY is deprecated; use EZVM_SIGNING_IDENTITY" >&2
 else
   signing_identity="-"
 fi

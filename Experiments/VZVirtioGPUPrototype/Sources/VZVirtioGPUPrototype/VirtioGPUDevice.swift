@@ -191,7 +191,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
     }
 
-    private let logger = Logger(subsystem: "com.everettjf.EZVM", category: "virtio-gpu")
+    private let logger = Logger(subsystem: "com.everettjf.ezvm", category: "virtio-gpu")
 
     private var diagnosticsEnabled: Bool {
         ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1"

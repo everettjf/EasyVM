@@ -12,12 +12,12 @@ import OSLog
 import Darwin
 
 enum EZVMLog {
-    static let lifecycle = Logger(subsystem: "com.everettjf.EZVM", category: "lifecycle")
-    static let storage = Logger(subsystem: "com.everettjf.EZVM", category: "storage")
-    static let download = Logger(subsystem: "com.everettjf.EZVM", category: "download")
-    static let network = Logger(subsystem: "com.everettjf.EZVM", category: "network")
-    static let graphics = Logger(subsystem: "com.everettjf.EZVM", category: "graphics")
-    static let input = Logger(subsystem: "com.everettjf.EZVM", category: "input")
+    static let lifecycle = Logger(subsystem: "com.everettjf.ezvm", category: "lifecycle")
+    static let storage = Logger(subsystem: "com.everettjf.ezvm", category: "storage")
+    static let download = Logger(subsystem: "com.everettjf.ezvm", category: "download")
+    static let network = Logger(subsystem: "com.everettjf.ezvm", category: "network")
+    static let graphics = Logger(subsystem: "com.everettjf.ezvm", category: "graphics")
+    static let input = Logger(subsystem: "com.everettjf.ezvm", category: "input")
 
     static func info(_ message: String, logger: Logger = lifecycle) {
         logger.info("\(message, privacy: .public)")
@@ -64,7 +64,7 @@ enum EZVMDiagnostics {
         if let store = try? OSLogStore(scope: .currentProcessIdentifier) {
             let position = store.position(date: Date().addingTimeInterval(-3600))
             if let entries = try? store.getEntries(at: position) {
-                for case let entry as OSLogEntryLog in entries where entry.subsystem == "com.everettjf.EZVM" {
+                for case let entry as OSLogEntryLog in entries where entry.subsystem == "com.everettjf.ezvm" {
                     sections.append("\(entry.date.formatted(.iso8601)) [\(entry.category)] \(entry.composedMessage)")
                 }
             }
