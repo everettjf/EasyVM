@@ -95,3 +95,23 @@ macOS 27 runner can execute the same app, GUI, Virtualization.framework, and
 real-VM gates. GitHub Release and Homebrew publication remain gated on a
 Developer ID certificate, Apple notarization credentials, tap access, a mode
 `0600` Agent enrollment, and a disposable clone of a real ARM64 Linux VM.
+
+## Release traps to keep fixed
+
+- Do not publish a tag before the exact candidate has passed signing,
+  notarization, quarantine extraction, GUI readiness, and real-VM gates. A tag
+  must identify tested bytes, not merely compilable source.
+- Do not reuse an already-running local EZVM during GUI verification. It can
+  hide launch, persisted-window-state, or bundled-runtime failures in the new
+  candidate.
+- Do not treat `codesign`, notarization, Gatekeeper, PID existence, or Homebrew
+  installation as interchangeable checks. Each proves a different boundary.
+- Keep the checked-in Cask, GitHub Release asset, tap Cask, version, URL, and
+  SHA-256 synchronized. Test a real previous-version upgrade as well as a clean
+  install.
+- Build VirGL/ANGLE from pinned sources. A successful build against whichever
+  Homebrew libraries happen to be installed is not a reproducible release.
+- Run VM tests against a disposable clone. Destructive recovery and SIGKILL
+  scenarios must never mutate the user's only working machine or source image.
+
+The symptom-oriented checklist is in [troubleshooting](TROUBLESHOOTING.md).

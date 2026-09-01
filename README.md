@@ -156,6 +156,13 @@ Implementation and validation details are in the
 [performance guide](docs/VIRGL_PERFORMANCE.md), and isolated
 [prototype record](Experiments/VZVirtioGPUPrototype/README.md).
 
+If a VM opens without a usable window, input appears only after pointer
+movement, full screen is stretched, Command-to-Super shortcuts fail, setup
+loops, or a release repeatedly asks for Keychain access, start with the
+[troubleshooting guide](docs/TROUBLESHOOTING.md). It separates host display
+problems, guest Agent/compositor problems, image compatibility, and release
+signing problems so that one workaround does not hide a different failure.
+
 The September 2026 clean-image acceptance run rebuilt and imported a 64 GiB
 sparse Omarchy image, completed the entire first-run flow, reached Hyprland,
 adapted the desktop to full screen, exercised Command-to-Super shortcuts and
