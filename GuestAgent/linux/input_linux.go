@@ -226,7 +226,12 @@ func createRelativePointer() *os.File {
 		ioctlFile(file, uiSetEVBit, 2) != nil {
 		return fail()
 	}
-	for _, code := range []uintptr{0, 1, 6, 8, 11, 12} {
+	// Advertise only the wheel protocol the host actually emits. A device that
+	// exposes REL_WHEEL_HI_RES must send a matching high-resolution event (120
+	// units per detent) alongside REL_WHEEL. Advertising codes 11/12 while only
+	// writing the legacy code makes libinput wait for the missing high-resolution
+	// axis and Wayland applications never receive a scroll event.
+	for _, code := range relativePointerCodes {
 		if ioctlFile(file, uiSetRelBit, code) != nil {
 			return fail()
 		}
@@ -244,6 +249,8 @@ func createRelativePointer() *os.File {
 	}
 	return file
 }
+
+var relativePointerCodes = []uintptr{0, 1, 6, 8}
 
 func createAbsolutePointer() *os.File {
 	file, err := os.OpenFile("/dev/uinput", os.O_WRONLY|syscall.O_NONBLOCK, 0)
