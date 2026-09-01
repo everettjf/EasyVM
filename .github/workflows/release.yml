@@ -32,6 +32,9 @@ jobs:
           sdk_version="$(xcrun --sdk macosx --show-sdk-version)"
           test "${sdk_version%%.*}" -ge 27
 
+      - name: Install VirGL source-build tools
+        run: brew install meson pkg-config
+
       - name: Import Developer ID certificate
         if: env.HAS_SIGNING_CERTIFICATE == 'true'
         uses: apple-actions/import-codesign-certs@v3

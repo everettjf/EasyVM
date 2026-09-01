@@ -4,11 +4,15 @@ import XCTest
 #if arch(arm64)
 final class VMPreinstalledImageResourceRecommendationTests: XCTestCase {
     private let gibibyte: UInt64 = 1024 * 1024 * 1024
+    private let testMinimumMemorySize: UInt64 = 1 * 1024 * 1024 * 1024
+    private let testMaximumMemorySize: UInt64 = 64 * 1024 * 1024 * 1024
 
     func testModernMacGetsSixCPUsAndEightGiB() {
         let recommendation = VMPreinstalledImageResourceRecommendation.recommended(
             hostCPUCount: 12,
-            hostMemorySize: 24 * gibibyte
+            hostMemorySize: 24 * gibibyte,
+            minimumMemorySize: testMinimumMemorySize,
+            maximumMemorySize: testMaximumMemorySize
         )
 
         XCTAssertEqual(recommendation.cpuCount, 6)
@@ -18,7 +22,9 @@ final class VMPreinstalledImageResourceRecommendationTests: XCTestCase {
     func testSixteenGiBMacKeepsMoreMemoryForHost() {
         let recommendation = VMPreinstalledImageResourceRecommendation.recommended(
             hostCPUCount: 10,
-            hostMemorySize: 16 * gibibyte
+            hostMemorySize: 16 * gibibyte,
+            minimumMemorySize: testMinimumMemorySize,
+            maximumMemorySize: testMaximumMemorySize
         )
 
         XCTAssertEqual(recommendation.cpuCount, 6)
@@ -28,7 +34,9 @@ final class VMPreinstalledImageResourceRecommendationTests: XCTestCase {
     func testSmallMacScalesCPUAndMemoryDown() {
         let recommendation = VMPreinstalledImageResourceRecommendation.recommended(
             hostCPUCount: 4,
-            hostMemorySize: 8 * gibibyte
+            hostMemorySize: 8 * gibibyte,
+            minimumMemorySize: testMinimumMemorySize,
+            maximumMemorySize: testMaximumMemorySize
         )
 
         XCTAssertEqual(recommendation.cpuCount, 2)
