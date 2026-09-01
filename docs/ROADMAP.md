@@ -1,6 +1,6 @@
 # EZVM capability map and roadmap
 
-_Updated: August 22, 2026_
+_Updated: August 31, 2026_
 
 For the ordered post-5.0 implementation backlog, dependencies, and acceptance
 criteria, see [EZVM post-5.0 execution plan](NEXT_PLAN.md).
@@ -65,10 +65,10 @@ evidence that a restricted entitlement is distributable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | macOS graphics/display | Stable | Configures native Mac graphics displays and a `VZVirtualMachineView`. | Add display-profile presets. |
-| Linux Virtio graphics | Stable | Configures Virtio graphics and scanout. | Test more desktop distributions. |
-| Automatic display resizing | Stable | Uses supported automatic reconfiguration APIs. | Verify save/restore and full-screen transitions. |
-| Keyboard | Stable | Provides a virtual USB keyboard. | Add keyboard-layout troubleshooting. |
-| Pointer and absolute pointing | Stable | Supports the configured pointing-device types. | Improve device descriptions in settings. |
+| Linux Virtio graphics | Stable | macOS 26 uses Apple Virtio graphics. On macOS 27+, Linux can use EZVM's Custom Virtio GPU with VirGLRenderer and ANGLE/Metal; startup failure falls back to Apple Virtio. | Run a broader distro/GPU workload matrix and same-host comparative benchmarks. |
+| Automatic display resizing | Stable | Apple graphics uses framework reconfiguration. Custom VirGL publishes generation-tagged modes and retains the display event until the guest acknowledges it through `GET_EDID`/`GET_DISPLAY_INFO`. | Add automated window/full-screen transition tests across more compositors. |
+| Keyboard | Stable | Apple graphics uses a virtual USB keyboard. Custom VirGL uses the authenticated Agent/uinput path after desktop ownership is verified, including Command-to-Super chords. | Add keyboard-layout troubleshooting and long-running chord/reconnect tests. |
+| Pointer and absolute pointing | Stable | Apple graphics uses configured native devices. Custom VirGL uses the native USB digitizer when possible and capability-negotiated Agent input for desktop keyboard/wheel delivery. | Improve device descriptions and test more pointing hardware. |
 | Mac trackpad | Stable | Uses the native virtual Mac trackpad where supported. | Keep availability-gated. |
 | Audio output | Stable | Provides Virtio/native guest output through host audio. | Add device and permission diagnostics. |
 | Audio input | Stable | Provides host microphone input when authorized. | Explain and test macOS privacy permission denial. |
@@ -80,7 +80,7 @@ evidence that a restricted entitlement is distributable.
 | Host/guest clipboard | In progress | EZVM explicitly enables the SPICE clipboard channel; the Omarchy image restores `spice-vdagent` and its desktop-session integration. | Verify bidirectional Unicode and large-text copy in a built image. |
 | Physical USB passthrough | Restricted | Not included in EZVM 1.0.0. | Requires macOS 27 Accessory Access and an approved entitlement. |
 | USB hot-plug management | Restricted | Not present after USB passthrough removal. | Revisit only with the same approved distribution path. |
-| Custom Virtio devices | Planned | No production device implementation or no-op setting is exposed. | Require a concrete guest-driver use case before building one. |
+| Custom Virtio devices | Experimental | macOS 27 Linux VMs have a real virtio-gpu implementation for VirGL acceleration. The backend is availability-gated, falls back safely, and disables incompatible machine-state restore. | Maintain protocol conformance, fuzz hostile resource requests, and graduate only after wider beta/soak coverage. |
 
 ### Storage, snapshots, and portability
 
@@ -240,7 +240,8 @@ Candidates:
 
 1. Stabilize macOS guest provisioning after macOS 27 API behavior is final.
 2. Add nested virtualization on supported M3-or-newer hosts.
-3. Evaluate a specific Custom Virtio use case with a maintained guest driver.
+3. Soak and harden the implemented Custom Virtio GPU against more Linux
+   desktops, kernels, malformed requests, and lifecycle transitions.
 4. Evaluate user-space TCP forwarding after guest identity and discovery exist.
 5. Revisit DiskImageKit layer compaction and shared base-image workflows.
 

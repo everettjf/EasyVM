@@ -1,5 +1,9 @@
 # VirGL performance validation
 
+For architecture, invariants, known failure modes, and the maintained test
+checklist, read [Custom VirGL architecture and engineering notes](CUSTOM_VIRGL_ARCHITECTURE.md)
+first.
+
 EZVM records two low-overhead graphics streams while a Custom VirGL virtual
 machine is running on macOS 27:
 
@@ -46,3 +50,31 @@ For each size transition, the logs should contain this sequence:
 
 The setup console may keep a fixed mode even when this handshake succeeds.
 Final visual validation therefore needs the real Hyprland desktop.
+
+## August 31, 2026 reference run
+
+The final Omarchy/Hyprland validation established a useful local baseline:
+
+- approximately 60 FPS in windowed and full-screen operation;
+- typical presentation time around 0.4–0.8 ms;
+- zero drawable misses and zero presentation failures in the final sample;
+- one observed transition peak of 5.23 ms;
+- full-screen geometry `bounds=1920x1080 guest=1920x1080
+  layer=1920x1080 drawable=3840x2160`;
+- display generation 2 was read through `GET_EDID` and acknowledged through
+  `GET_DISPLAY_INFO` before the event cleared.
+
+Treat this as a regression reference, not a universal performance claim. A
+comparison with another VM product is valid only when host, guest image,
+CPU/memory allocation, resolution, scale, workload, and capture duration match.
+
+## Symptom routing
+
+| Symptom | Inspect first |
+| --- | --- |
+| Typed text appears after pointer movement | submitted/delivered frames, display cadence, Agent acknowledgement; do not assume key loss |
+| Full screen uses the old mode | generation publish → interrupt → EDID/display-info → event clear sequence |
+| Vertical stretch or huge UI | guest scanout size vs logical bounds; do not stretch the fallback framebuffer |
+| Black desktop with `DRAW_VBO` errors | target-aware resource validation, especially `PIPE_BUFFER` byte widths |
+| Super shortcut is ignored | first responder, AppKit local monitor, full down/up chord, Agent desktop-ready ownership |
+| Scroll jumps too far | bounded wheel delta and high-resolution trackpad conversion |

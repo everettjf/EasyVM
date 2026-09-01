@@ -1,7 +1,7 @@
 # VZ Custom Virtio GPU Prototype
 
-This isolated macOS 27 experiment answers three questions before EZVM adopts a
-new graphics architecture:
+This isolated macOS 27 experiment answered three questions before EZVM adopted
+a new graphics architecture:
 
 1. Can `VZCustomVirtioDevice` expose standard Virtio device ID 16 and bind the
    stock Linux `virtio_gpu` driver?
@@ -93,6 +93,20 @@ ANGLE Metal renderer, delivers VirGL capset 1, creates Hyprland/Xwayland 3D
 resources, and reports submitted commands. Stage 4 succeeds when the log reports
 borrowed scanout textures and `zero-copy Metal frame ... presented` without an
 EGL context-access error.
+
+## Product adoption status
+
+The feasibility work is complete. Its productionized implementation now lives
+in EZVM's normal Linux VM path rather than in the prototype window. The product
+version adds backend fallback, compact/full-screen window behavior,
+guest-acknowledged resolution changes, display-clock presentation, authenticated
+Agent/uinput desktop input, release packaging, and lifecycle cleanup.
+
+Keep this package as an isolated protocol/runtime regression harness. New
+product behavior belongs in EZVM; experiments that can corrupt disks or test
+untrusted command streams should remain here. See
+[`docs/CUSTOM_VIRGL_ARCHITECTURE.md`](../../docs/CUSTOM_VIRGL_ARCHITECTURE.md)
+for the maintained architecture and lessons.
 
 The prototype dynamically loads the VirGLRenderer and ANGLE libraries from an
 installed Try Omarchy application by default. EZVM must make its own licensing

@@ -437,8 +437,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             }
             return
         }
-        // A truly headless CLI process must not initialize UI-only services or
-        // make an interactive Keychain query. A launch that explicitly shows
+        // A truly headless CLI process must not initialize UI-only services.
+        // A launch that explicitly shows
         // a VM window is interactive, though, and needs the guest agent for
         // keyboard and pointer delivery with Custom VirGL.
         if HeadlessLaunchConfiguration.current?.showsWindow != false {

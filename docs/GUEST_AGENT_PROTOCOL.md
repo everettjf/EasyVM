@@ -7,10 +7,18 @@ requires privileged host networking.
 ## Trust and enrollment
 
 Each VM receives an independent random 256-bit token. The host stores its copy
-in Keychain; installation places the guest copy in a root-readable file. The
-token is never stored in the EZVM bundle's `config.json`, included in
-diagnostics, or logged. It is present in the separately exported enrollment
-file and in the guest's root-only `/etc/ezvm-agent/config.json`.
+outside the VM bundle under the user's Application Support directory. The
+enrollment directory is mode `0700` and each token file is mode `0600`, so
+normal VM launches do not trigger an interactive Keychain prompt. Installation
+places the guest copy in a root-readable file. The token is never stored in the
+EZVM bundle's `config.json`, included in diagnostics, or logged. It is present
+in the separately exported enrollment file and in the guest's root-only
+`/etc/ezvm-agent/config.json`.
+
+This storage choice preserves per-VM mutual authentication while allowing
+unattended VM launches and release smoke tests. Treat the host account and its
+Application Support data as part of the trust boundary; enrollment files must
+never be synchronized, committed, or included in support bundles.
 
 The guest starts authentication with a random nonce and an HMAC-SHA256 proof
 bound to the protocol version and VM identity. The host rejects a mismatched VM,
@@ -43,6 +51,10 @@ transfer UI and `ssh-addresses-v1` enables validated `ssh://` links.
 root-owned `/dev/uinput` device; EZVM then forwards keyboard, relative pointer,
 button, and wheel events from the Custom VirGL display. The Apple graphics
 backend continues to use Virtualization.framework's native USB input path.
+`input-uinput-desktop-v1` means the agent has verified that the active desktop
+compositor actually owns the EZVM input device. The host must not infer this
+only from `hyprctl` or a compositor socket: stale runtime sockets can produce a
+false positive or false negative after login/restart.
 `input-uinput-absolute-v1` is advertised only when the agent also creates a
 separate tablet-style `/dev/uinput` device. A capable host sends
 `EV_ABS/ABS_X` and `EV_ABS/ABS_Y` in the inclusive range `0...32767`, followed
@@ -80,8 +92,8 @@ silently installed into a VM and does not need a privileged host entitlement.
 1. Download and verify `EZVM-GuestAgent-<version>-linux-arm64.tar.gz` and its
    `.sha256` file from the same release as the app.
 2. In EZVM, right-click the stopped Linux VM and select **Export Guest Agent
-   Enrollment...**. This creates or retrieves that VM's token from Keychain and
-   writes a mode-`0600` enrollment file.
+   Enrollment...**. This creates or retrieves that VM's protected host-side
+   token and writes a mode-`0600` enrollment file.
 3. Copy the archive and enrollment file into that same VM. Extract the archive,
    rename the enrollment file to `config.json`, and place it beside `install.sh`.
 4. Run `sudo ./install.sh`. The installer supports systemd and OpenRC, installs

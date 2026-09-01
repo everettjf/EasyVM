@@ -112,7 +112,7 @@ and two supported host OS releases before promotion.
 | DiskImageKit layered ASIF snapshots | Crash recovery at every layer mutation, compaction, long branch chains, base-image loss, low-space behavior, performance comparison, and export/import flattening policy. |
 | macOS 27 guest provisioning | Account creation and retry semantics, secret lifetime, cancellation, partially provisioned guest recovery, final-system inspection, and Developer ID/Homebrew validation. |
 | EFI Secure Boot management | Enrollment/disable/reenable lifecycle, corrupted variable store recovery, saved-state compatibility, distro matrix, and clear ownership of keys. |
-| Custom Virtio device | No work until a concrete product use case and maintained guest driver exist; there is intentionally no generic toggle. |
+| Additional Custom Virtio devices | The concrete Linux graphics use case is now implemented as the availability-gated Custom VirGL backend. Do not add a generic device toggle or another device without a maintained guest driver, protocol contract, safe fallback, and lifecycle tests. |
 | OCI/image distribution | Decide whether a local cache/import adapter solves a real workflow without turning EZVM into a registry or CI platform. |
 | Local API or MCP | Threat model, per-operation authorization, local peer identity, audit log, cancellation, and stable CLI schemas first. Start read-only. |
 | macOS guest iCloud workflow | Legal/product/security review of Apple account behavior before any UI or automation work. |

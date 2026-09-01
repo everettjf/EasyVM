@@ -57,6 +57,9 @@ EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/docum
 - Integrates with an optional authenticated Linux guest agent for readiness, IP reporting, SSH links, safe file transfer, and explicit shutdown/restart commands
 - Installs an `ezvm` CLI with versioned JSON inspection, validation, diagnostics, and headless start/status/stop commands
 - Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories
+- On macOS 27 or later, accelerates Linux desktops with a native Custom Virtio
+  GPU backed by VirGLRenderer and ANGLE/Metal; macOS 26 and macOS guests retain
+  the Apple Virtio graphics path
 - Uses Apple's native virtualization stack—no bundled hypervisor or cross-architecture emulation
 - Keeps the app and its VM configuration format intentionally small
 
@@ -130,6 +133,28 @@ installation leaves no partial machine bundle.
 3. Select the **EZVM** scheme and your Mac as the run destination.
 4. Choose your own development team and bundle identifier if code signing requires it.
 5. Build and run with <kbd>⌘R</kbd>.
+
+### Linux graphics backends
+
+EZVM selects the graphics backend at runtime:
+
+| Host and guest | Graphics path |
+| --- | --- |
+| macOS 27+ host, Linux guest | Custom Virtio GPU → VirGLRenderer → ANGLE/Metal |
+| macOS 26 host, Linux guest | Apple Virtio graphics compatibility path |
+| macOS guest | Apple native Mac graphics path |
+
+The Custom VirGL path supports zero-copy scanout presentation, display-clock
+frame pacing, authenticated guest keyboard/wheel input, and guest-acknowledged
+dynamic resolution for window and full-screen transitions. It intentionally
+does not support Virtualization.framework machine-state save/restore: restoring
+guest RAM alone cannot reconstruct VirGL renderer contexts and resources.
+Stopped-VM file snapshots remain supported.
+
+Implementation and validation details are in the
+[Custom VirGL architecture notes](docs/CUSTOM_VIRGL_ARCHITECTURE.md),
+[performance guide](docs/VIRGL_PERFORMANCE.md), and isolated
+[prototype record](Experiments/VZVirtioGPUPrototype/README.md).
 
 ## Guest images
 

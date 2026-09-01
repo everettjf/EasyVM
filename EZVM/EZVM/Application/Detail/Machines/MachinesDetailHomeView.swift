@@ -405,7 +405,7 @@ struct MachinesDetailHomeView: View {
                     try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
                     MacKitUtil.alertInfo(
                         title: "Enrollment exported",
-                        message: "Install this file with the EZVM Guest Agent inside “\(model.config.name)”, then delete the exported copy. The host token remains protected in Keychain."
+                        message: "Install this file with the EZVM Guest Agent inside “\(model.config.name)”, then delete the exported copy. The host token remains protected in EZVM's private application data."
                     )
                 } catch {
                     MacKitUtil.alertWarn(title: "Enrollment failed", message: error.localizedDescription)
