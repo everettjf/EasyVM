@@ -138,6 +138,21 @@ ASIF provides fast, space-efficient storage without making users understand
 overlay internals. Snapshot, restore, conversion, clone, export, and cleanup
 remain transactional and explain their disk-space consequences.
 
+Layered ASIF restore now uses a typed transaction journal that records the
+previous snapshot state and every newly created overlay. It audits the complete
+snapshot and checks staging capacity before replacing machine files, then moves
+through explicit `preparing`, `installing`, and `committed` phases. Startup
+recovery preserves the VM's ASIF base images, restores only the non-disk files
+and previous snapshot head that were part of the transaction, and removes only
+the overlays created by the interrupted operation. Recovery also recognizes
+older unjournaled layered-restore backups so upgrading does not expose an
+existing VM to the generic whole-directory rollback path.
+
+This closes the deterministic transaction and rollback gap. Process-level
+fault injection at every phase, low-space runs on real ASIF images, long layer
+chains, compaction, and host-restart testing remain promotion gates for moving
+the feature out of Beta.
+
 ### Work plan
 
 | Area | Required refinement | Acceptance evidence |

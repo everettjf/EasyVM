@@ -177,8 +177,43 @@ class VMSnapshotManager {
     private static let maximumHashedFileSize: UInt64 = 16 * 1024 * 1024
 
     private struct RestoreTransaction: Codable {
+        enum Kind: String, Codable {
+            case apfsClone
+            case diskImageKitLayered
+        }
+
         let snapshotID: String
         var phase: String
+        let kind: Kind
+        let previousState: VMSnapshotStoreState?
+        var createdLayerPaths: [String]
+
+        init(
+            snapshotID: String,
+            phase: String,
+            kind: Kind = .apfsClone,
+            previousState: VMSnapshotStoreState? = nil,
+            createdLayerPaths: [String] = []
+        ) {
+            self.snapshotID = snapshotID
+            self.phase = phase
+            self.kind = kind
+            self.previousState = previousState
+            self.createdLayerPaths = createdLayerPaths
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case snapshotID, phase, kind, previousState, createdLayerPaths
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            snapshotID = try container.decode(String.self, forKey: .snapshotID)
+            phase = try container.decode(String.self, forKey: .phase)
+            kind = try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .apfsClone
+            previousState = try container.decodeIfPresent(VMSnapshotStoreState.self, forKey: .previousState)
+            createdLayerPaths = try container.decodeIfPresent([String].self, forKey: .createdLayerPaths) ?? []
+        }
     }
 
     static func snapshotsRootURL(vmRootPath: URL) -> URL {
@@ -252,12 +287,35 @@ class VMSnapshotManager {
         }
 
         do {
+            let transaction = (try? Data(contentsOf: transactionURL))
+                .flatMap { try? jsonDecoder().decode(RestoreTransaction.self, from: $0) }
+            if transaction?.phase == "committed" {
+                try? fm.removeItem(at: stagingDir)
+                try? fm.removeItem(at: backupDir)
+                try? fm.removeItem(at: transactionURL)
+                return .success
+            }
+            let layeredRestore = transaction?.kind == .diskImageKitLayered ||
+                (transaction == nil && backupRepresentsLayeredVM(backupDir))
             if fm.fileExists(atPath: backupDir.path(percentEncoded: false)) {
-                for fileName in try listMachineFileNames(vmRootPath: vmRootPath) {
+                let currentFiles = try listMachineFileNames(vmRootPath: vmRootPath)
+                for fileName in currentFiles where !layeredRestore || !fileName.lowercased().hasSuffix(".asif") {
                     try fm.removeItem(at: vmRootPath.appending(path: fileName))
                 }
                 for fileName in try fm.contentsOfDirectory(atPath: backupDir.path(percentEncoded: false)) {
                     try fm.moveItem(at: backupDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
+                }
+            }
+            if let previousState = transaction?.previousState {
+                try writeState(previousState, vmRootPath: vmRootPath)
+            }
+            for layerPath in transaction?.createdLayerPaths ?? [] {
+                let layerURL = vmRootPath.appending(path: layerPath).standardizedFileURL
+                let layersRoot = snapshotsRootURL(vmRootPath: vmRootPath)
+                    .appending(path: "Layers")
+                    .standardizedFileURL
+                if sameFileSystemLocation(layerURL.deletingLastPathComponent(), layersRoot) {
+                    try? fm.removeItem(at: layerURL)
                 }
             }
             try? fm.removeItem(at: stagingDir)
@@ -266,6 +324,18 @@ class VMSnapshotManager {
             return .success
         } catch {
             return .failure("An interrupted snapshot restore needs repair: \(error.localizedDescription)")
+        }
+    }
+
+    private static func backupRepresentsLayeredVM(_ backupDir: URL) -> Bool {
+        let configURL = backupDir.appending(path: "config.json")
+        guard let data = try? Data(contentsOf: configURL),
+              let config = try? JSONDecoder().decode(VMSnapshotVMConfiguration.self, from: data) else {
+            return false
+        }
+        let disks = config.storageDevices.filter { $0.type == "Block" }
+        return !disks.isEmpty && disks.allSatisfy {
+            $0.format == "asif" || ($0.format == nil && $0.imagePath.lowercased().hasSuffix(".asif"))
         }
     }
 
@@ -717,15 +787,28 @@ class VMSnapshotManager {
 
     @available(macOS 27.0, *)
     private static func restoreLayeredSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
-        var state = readState(vmRootPath: vmRootPath)
+        let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
+        guard integrity.isValid else {
+            return .failure("Snapshot integrity check failed: \(integrity.errors.joined(separator: "; "))")
+        }
+
+        let previousState = readState(vmRootPath: vmRootPath)
+        var state = previousState
         var createdLayerURLs: [URL] = []
         let fm = FileManager.default
         let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
         let stagingDir = vmRootPath.appending(path: restoreStagingDirectoryName)
         let backupDir = vmRootPath.appending(path: restoreBackupDirectoryName)
-        var movedToBackup: [String] = []
-        var movedFromStaging: [String] = []
+        let transactionURL = vmRootPath.appending(path: restoreTransactionFileName)
         do {
+            var transaction = RestoreTransaction(
+                snapshotID: snapshot.id,
+                phase: "preparing",
+                kind: .diskImageKitLayered,
+                previousState: previousState
+            )
+            try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+
             for disk in snapshot.diskLayers {
                 let baseURL = vmRootPath.appending(path: disk.baseImageName)
                 guard FileManager.default.fileExists(atPath: baseURL.path(percentEncoded: false)) else {
@@ -734,12 +817,18 @@ class VMSnapshotManager {
                 let layerURL = try appendNewOverlay(baseURL: baseURL, relativeLayerPaths: disk.layerPaths, vmRootPath: vmRootPath)
                 createdLayerURLs.append(layerURL)
                 state.activeDiskLayers[disk.baseImageName] = disk.layerPaths + [relativePath(layerURL, under: vmRootPath)]
+                transaction.createdLayerPaths = createdLayerURLs.map { relativePath($0, under: vmRootPath) }
+                try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             }
 
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
             try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
             let snapshotFileNames = try fm.contentsOfDirectory(atPath: filesDir.path(percentEncoded: false))
+            let requiredBytes = Int64(snapshotFileNames.reduce(UInt64(0)) {
+                $0 + directoryAllocatedSize(filesDir.appending(path: $1))
+            })
+            try VMStorageCapacity.validate(requiredBytes: requiredBytes, at: vmRootPath)
             for fileName in snapshotFileNames {
                 try fm.copyItem(at: filesDir.appending(path: fileName), to: stagingDir.appending(path: fileName))
             }
@@ -749,30 +838,30 @@ class VMSnapshotManager {
                 .filter { !$0.lowercased().hasSuffix(".asif") }
             for fileName in currentNonDiskFiles {
                 try fm.moveItem(at: vmRootPath.appending(path: fileName), to: backupDir.appending(path: fileName))
-                movedToBackup.append(fileName)
             }
+            transaction.phase = "installing"
+            try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             for fileName in snapshotFileNames {
                 try fm.moveItem(at: stagingDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
-                movedFromStaging.append(fileName)
             }
 
             state.currentSnapshotID = snapshot.id
             try writeState(state, vmRootPath: vmRootPath)
+            transaction.phase = "committed"
+            try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             pruneUnreferencedLayers(vmRootPath: vmRootPath)
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
+            try? fm.removeItem(at: transactionURL)
             return .success
         } catch {
-            for fileName in movedFromStaging {
-                try? fm.removeItem(at: vmRootPath.appending(path: fileName))
-            }
-            for fileName in movedToBackup {
-                try? fm.moveItem(at: backupDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
-            }
-            try? fm.removeItem(at: stagingDir)
-            try? fm.removeItem(at: backupDir)
             for url in createdLayerURLs { try? FileManager.default.removeItem(at: url) }
-            return .failure("Failed to restore the DiskImageKit snapshot: \(error.localizedDescription)")
+            switch recoverInterruptedRestore(vmRootPath: vmRootPath) {
+            case .success:
+                return .failure("Failed to restore the DiskImageKit snapshot; the previous machine state was restored: \(error.localizedDescription)")
+            case .failure(let recoveryError):
+                return .failure("Failed to restore the DiskImageKit snapshot, and automatic recovery needs attention: \(recoveryError)")
+            }
         }
     }
 

@@ -300,6 +300,55 @@ final class VMSnapshotManagerTests: XCTestCase {
         try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
     }
 
+    func testInterruptedLayeredRestorePreservesBaseAndRollsBackStateAndFiles() throws {
+        let base = temporaryRoot.appendingPathComponent("Disk.asif")
+        try Data([0x73, 0x68, 0x64, 0x77, 0x01]).write(to: base)
+        try write("partially restored", to: "config.json")
+
+        let snapshots = temporaryRoot.appendingPathComponent("Snapshots", isDirectory: true)
+        let layers = snapshots.appendingPathComponent("Layers", isDirectory: true)
+        let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)
+        try FileManager.default.createDirectory(at: layers, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+        let originalConfig = #"{"storageDevices":[{"type":"Block","imagePath":"Disk.asif","format":"asif"}]}"#
+        try Data(originalConfig.utf8).write(to: backup.appendingPathComponent("config.json"))
+        try Data("new layer".utf8).write(to: layers.appendingPathComponent("new.asif"))
+        try Data(#"{"currentSnapshotID":"new","activeDiskLayers":{"Disk.asif":["Snapshots/Layers/new.asif"]}}"#.utf8)
+            .write(to: snapshots.appendingPathComponent("state.json"))
+        try Data(#"{"snapshotID":"target","phase":"installing","kind":"diskImageKitLayered","previousState":{"currentSnapshotID":"old","activeDiskLayers":{"Disk.asif":["Snapshots/Layers/original.asif"]}},"createdLayerPaths":["Snapshots/Layers/new.asif"]}"#.utf8)
+            .write(to: temporaryRoot.appendingPathComponent(".restore-transaction.json"))
+
+        try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: base.path))
+        XCTAssertEqual(try read("config.json"), originalConfig)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: layers.appendingPathComponent("new.asif").path))
+        let state = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: snapshots.appendingPathComponent("state.json"))
+        ) as? [String: Any]
+        XCTAssertEqual(state?["currentSnapshotID"] as? String, "old")
+    }
+
+    func testCommittedLayeredRestoreFinishesCleanupWithoutRollback() throws {
+        let base = temporaryRoot.appendingPathComponent("Disk.asif")
+        try Data([0x73, 0x68, 0x64, 0x77, 0x01]).write(to: base)
+        try write("restored config", to: "config.json")
+        let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+        try Data("old config".utf8).write(to: backup.appendingPathComponent("config.json"))
+        try Data(#"{"snapshotID":"target","phase":"committed","kind":"diskImageKitLayered","createdLayerPaths":[]}"#.utf8)
+            .write(to: temporaryRoot.appendingPathComponent(".restore-transaction.json"))
+
+        try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
+
+        XCTAssertEqual(try read("config.json"), "restored config")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: base.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: backup.path))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: temporaryRoot.appendingPathComponent(".restore-transaction.json").path
+        ))
+    }
+
     func testProtectedSnapshotCannotBeDeletedUntilUnprotected() throws {
         try write("disk", to: "Disk.img")
         let snapshot = try unwrapSuccess(
