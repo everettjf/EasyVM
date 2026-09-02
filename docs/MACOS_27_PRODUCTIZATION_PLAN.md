@@ -164,9 +164,25 @@ unwinding, in-memory cleanup, or the original process surviving. The production
 module exposes only an internal checkpoint observer; process termination lives
 entirely in the test target.
 
-Low-space runs on larger real ASIF images, long layer chains, compaction, and a
-full host-restart exercise remain promotion gates for moving the feature out of
-Beta.
+Low-space runs on larger real ASIF images, a full host-restart exercise, and
+representative long-running performance measurements remain promotion gates for
+moving the feature out of Beta.
+
+Long-chain validation now creates and opens a real 32-layer ASIF history. Audit
+does not stop at file signatures: it asks DiskImageKit to assemble each complete
+stack read-only, which rejects reordered layers and broken parent relationships.
+Branch restore and leaf deletion tests also prove that cleanup removes an
+abandoned active head while retaining every layer referenced by another branch.
+The snapshot UI reports the maximum active/saved depth and turns the depth
+advisory orange at 32 layers. This is an EZVM maintenance threshold, not an
+Apple framework limit.
+
+The macOS 27 DiskImageKit SDK exposes image creation, opening, stacking, and
+truncation, but no public merge, flatten, or compaction operation. EZVM therefore
+does not present an unsafe in-place Compact action. A future consolidation
+workflow must create a replacement image transactionally, verify it, preserve
+the source until commit, and explicitly define how snapshot branches are
+exported or retired.
 
 ### Work plan
 
@@ -176,7 +192,7 @@ Beta.
 | Progress | Expose real byte/phase progress, cancellation boundaries, and “finishing safely” states for long operations. | Closing the UI does not abandon work; cancellation resolves to complete-or-absent output. |
 | Integrity | Record base/layer identity, checksums where appropriate, current head, referenced branches, and saved-state compatibility. | Audit accounts for every layer and refuses missing, reordered, foreign, or corrupted chains. |
 | Recovery | Use journaled transaction stages and startup recovery for every layer mutation. | Process kills at each commit point preserve the old head or atomically install the new one. |
-| Maintenance | Add dry-run orphan cleanup, protected snapshots, chain-depth warnings, compaction/flattening policy, and export behavior. | Cleanup never removes referenced data; long chains have a measured, reversible maintenance path. |
+| Maintenance | Add dry-run orphan cleanup and a transactional replacement-image consolidation workflow; retain protected snapshots, chain-depth warnings, and explicit export behavior. | Cleanup never removes referenced data; long chains have a measured, reversible maintenance path without claiming unsupported in-place compaction. |
 
 ### Stress matrix
 

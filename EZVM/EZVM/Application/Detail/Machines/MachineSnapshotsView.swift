@@ -18,6 +18,7 @@ class MachineSnapshotsViewStateObject {
     var snapshots: [VMSnapshotModel] = []
     var snapshotTree: [VMSnapshotTreeNode] = []
     var currentSnapshotID: String?
+    var maximumASIFLayerDepth = 0
     var selectedBackend: VMSnapshotBackend = .apfsClone
     var newSnapshotName: String = ""
     var snapshotBeforeRestore = true
@@ -52,6 +53,7 @@ class MachineSnapshotsViewStateObject {
         snapshots = VMSnapshotManager.listSnapshots(vmRootPath: rootPath)
         snapshotTree = VMSnapshotManager.snapshotTree(vmRootPath: rootPath)
         currentSnapshotID = VMSnapshotManager.currentSnapshotID(vmRootPath: rootPath)
+        maximumASIFLayerDepth = VMSnapshotManager.maximumASIFLayerDepth(vmRootPath: rootPath)
         selectedBackend = VMSnapshotManager.selectedBackend(vmRootPath: rootPath)
     }
 
@@ -182,7 +184,7 @@ class MachineSnapshotsViewStateObject {
                 if invalid.isEmpty {
                     self.message = warningCount == 0
                         ? "All \(reports.count) snapshots passed integrity checks"
-                        : "All snapshots are structurally valid; \(warningCount) legacy warning(s)"
+                        : "All snapshots are structurally valid; \(warningCount) warning(s)"
                 } else {
                     let names = invalid.map { $0.0.name }.joined(separator: ", ")
                     self.message = "\(invalid.count) snapshot(s) failed integrity checks: \(names)"
@@ -399,6 +401,20 @@ struct MachineSnapshotsView: View {
                 .foregroundStyle(.secondary)
                 Text("· \(state.snapshots.count) snapshots · \(state.totalSnapshotSize)")
                     .foregroundStyle(.secondary)
+                if state.selectedBackend == .diskImageKitLayered,
+                   state.maximumASIFLayerDepth > 0 {
+                    Text("· \(state.maximumASIFLayerDepth)-layer depth")
+                        .foregroundStyle(
+                            state.maximumASIFLayerDepth >= VMSnapshotManager.recommendedMaximumASIFLayerDepth
+                                ? .orange
+                                : .secondary
+                        )
+                        .help(
+                            state.maximumASIFLayerDepth >= VMSnapshotManager.recommendedMaximumASIFLayerDepth
+                                ? "This snapshot chain is deep. Consolidate the machine before creating many more snapshots."
+                                : "Maximum ASIF overlay depth across the active machine and saved snapshots."
+                        )
+                }
                 }
                 .font(.caption)
             }

@@ -281,6 +281,100 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot), snapshot.id)
     }
 
+    func testASIFAuditRejectsAReorderedLayerStack() throws {
+        let root = temporaryRoot.appendingPathComponent("reordered-stack", isDirectory: true)
+        let fixture = try makeLayeredRestoreFixture(at: root)
+        let disk = try XCTUnwrap(fixture.current.diskLayers.first)
+        XCTAssertGreaterThanOrEqual(disk.layerPaths.count, 2)
+        let reordered = VMSnapshotModel(
+            id: fixture.current.id,
+            name: fixture.current.name,
+            createdAt: fixture.current.createdAt,
+            parentSnapshotID: fixture.current.parentSnapshotID,
+            totalSize: fixture.current.totalSize,
+            backend: fixture.current.backend,
+            diskLayers: [VMSnapshotDiskLayer(
+                baseImageName: disk.baseImageName,
+                layerPaths: disk.layerPaths.reversed()
+            )],
+            fileManifest: fixture.current.fileManifest,
+            isProtected: fixture.current.isProtected
+        )
+        try writeSnapshotMetadata(reordered, at: root)
+
+        let report = VMSnapshotManager.auditSnapshot(vmRootPath: root, snapshot: reordered)
+
+        XCTAssertFalse(report.isValid)
+        XCTAssertTrue(report.errors.contains { $0.contains("stack order or parent relationship") })
+    }
+
+    func testASIFLongChainIsUsableAndReportsAdvisoryDepth() throws {
+        let root = temporaryRoot.appendingPathComponent("long-stack", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let diskURL = root.appendingPathComponent("Disk.asif")
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: diskURL, size: 64 * 1024 * 1024))
+        let config = #"{"storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#
+        try Data(config.utf8).write(to: root.appendingPathComponent("config.json"))
+        _ = try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root)
+
+        var latest: VMSnapshotModel?
+        for index in 1...VMSnapshotManager.recommendedMaximumASIFLayerDepth {
+            latest = try unwrapSuccess(
+                VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Layer \(index)")
+            )
+        }
+        let snapshot = try XCTUnwrap(latest)
+        let report = VMSnapshotManager.auditSnapshot(vmRootPath: root, snapshot: snapshot)
+
+        XCTAssertTrue(report.isValid, report.errors.joined(separator: "; "))
+        XCTAssertTrue(report.warnings.contains { $0.contains("32 layers deep") })
+        XCTAssertEqual(
+            VMSnapshotManager.maximumASIFLayerDepth(vmRootPath: root),
+            VMSnapshotManager.recommendedMaximumASIFLayerDepth + 1
+        )
+        XCTAssertNotNil(try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root))
+    }
+
+    func testASIFBranchRestoreAndLeafDeletionPruneOnlyUnreferencedLayers() throws {
+        let root = temporaryRoot.appendingPathComponent("branch-pruning", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let diskURL = root.appendingPathComponent("Disk.asif")
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: diskURL, size: 64 * 1024 * 1024))
+        let config = #"{"storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#
+        try Data(config.utf8).write(to: root.appendingPathComponent("config.json"))
+        _ = try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root)
+        let branchPoint = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Branch point")
+        )
+        let oldLeaf = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Old leaf")
+        )
+        let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: root)
+            .appendingPathComponent("Layers", isDirectory: true)
+        let beforeRestore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+        let oldLeafReferences = Set(try XCTUnwrap(oldLeaf.diskLayers.first).layerPaths.map {
+            URL(fileURLWithPath: $0).lastPathComponent
+        })
+        let abandonedHead = try XCTUnwrap(beforeRestore.subtracting(oldLeafReferences).first)
+
+        try unwrapSuccess(VMSnapshotManager.restoreSnapshot(vmRootPath: root, snapshot: branchPoint))
+
+        let afterRestore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+        XCTAssertFalse(afterRestore.contains(abandonedHead))
+        XCTAssertTrue(oldLeafReferences.isSubset(of: afterRestore))
+        XCTAssertEqual(afterRestore.count, beforeRestore.count)
+
+        try unwrapSuccess(VMSnapshotManager.deleteSnapshot(vmRootPath: root, snapshot: oldLeaf))
+
+        let afterLeafDeletion = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+        let branchPointReferences = Set(try XCTUnwrap(branchPoint.diskLayers.first).layerPaths.map {
+            URL(fileURLWithPath: $0).lastPathComponent
+        })
+        XCTAssertTrue(branchPointReferences.isSubset(of: afterLeafDeletion))
+        XCTAssertEqual(afterLeafDeletion.count, branchPointReferences.count + 1)
+        XCTAssertTrue(VMSnapshotManager.auditSnapshot(vmRootPath: root, snapshot: branchPoint).isValid)
+    }
+
     func testInterruptedRestoreRollsBackOriginalBundleAndIsIdempotent() throws {
         try write("partially restored", to: "config.json")
         let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)
@@ -540,6 +634,15 @@ final class VMSnapshotManagerTests: XCTestCase {
             VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Current")
         )
         return (target, current, targetConfig, currentConfig)
+    }
+
+    private func writeSnapshotMetadata(_ snapshot: VMSnapshotModel, at root: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let metadataURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: root)
+            .appendingPathComponent(snapshot.id, isDirectory: true)
+            .appendingPathComponent("snapshot.json")
+        try encoder.encode(snapshot).write(to: metadataURL, options: .atomic)
     }
 
     private func read(_ relativePath: String) throws -> String {

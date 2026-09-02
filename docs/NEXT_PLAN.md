@@ -124,7 +124,7 @@ and two supported host OS releases before promotion.
 
 | Experiment | Remaining proof |
 | --- | --- |
-| DiskImageKit layered ASIF snapshots | Crash recovery at every layer mutation, compaction, long branch chains, base-image loss, low-space behavior, performance comparison, and export/import flattening policy. |
+| DiskImageKit layered ASIF snapshots | Low-space and full-host-restart recovery, base-image loss, performance comparison, and export/import flattening policy. Eight-boundary process termination, a real 32-layer chain, stack-order validation, and branch-aware cleanup are covered. DiskImageKit 27 exposes no public in-place compaction API, so consolidation requires a transactional replacement-image design. |
 | macOS 27 guest provisioning | Account creation and retry semantics, secret lifetime, cancellation, partially provisioned guest recovery, final-system inspection, and Developer ID/Homebrew validation. |
 | EFI Secure Boot management | Enrollment/disable/reenable lifecycle, corrupted variable store recovery, saved-state compatibility, distro matrix, and clear ownership of keys. |
 | Additional Custom Virtio devices | The concrete Linux graphics use case is now implemented as the availability-gated Custom VirGL backend. Do not add a generic device toggle or another device without a maintained guest driver, protocol contract, safe fallback, and lifecycle tests. |

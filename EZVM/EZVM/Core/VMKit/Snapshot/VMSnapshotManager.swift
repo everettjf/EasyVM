@@ -179,6 +179,7 @@ enum VMSnapshotRestoreCheckpoint: String, CaseIterable {
 class VMSnapshotManager {
 
     static let snapshotsDirectoryName = "Snapshots"
+    static let recommendedMaximumASIFLayerDepth = 32
     private static let filesDirectoryName = "files"
     private static let metaFileName = "snapshot.json"
     private static let stateFileName = "state.json"
@@ -356,6 +357,17 @@ class VMSnapshotManager {
             return nil
         }
         return currentID
+    }
+
+    static func maximumASIFLayerDepth(vmRootPath: URL) -> Int {
+        let activeDepth = readState(vmRootPath: vmRootPath).activeDiskLayers.values
+            .map(\.count)
+            .max() ?? 0
+        let snapshotDepth = listSnapshots(vmRootPath: vmRootPath)
+            .flatMap(\.diskLayers)
+            .map { $0.layerPaths.count }
+            .max() ?? 0
+        return max(activeDepth, snapshotDepth)
     }
 
     static func selectedBackend(vmRootPath: URL) -> VMSnapshotBackend {
@@ -598,23 +610,57 @@ class VMSnapshotManager {
             let layersRoot = snapshotsRootURL(vmRootPath: vmRootPath)
                 .appending(path: "Layers")
                 .standardizedFileURL
+            var baseNames = Set<String>()
             for disk in snapshot.diskLayers {
+                if !baseNames.insert(disk.baseImageName).inserted {
+                    errors.append("The ASIF base image appears more than once: \(disk.baseImageName)")
+                    continue
+                }
                 let baseURL = vmRootPath.appending(path: disk.baseImageName).standardizedFileURL
                 guard sameFileSystemLocation(baseURL.deletingLastPathComponent(), vmRootPath),
                       VMDiskImageManager.existingASIFImageHasValidHeader(url: baseURL) else {
                     errors.append("The ASIF base image is missing or invalid: \(disk.baseImageName)")
                     continue
                 }
+                if Set(disk.layerPaths).count != disk.layerPaths.count {
+                    errors.append("The ASIF stack repeats a layer for \(disk.baseImageName).")
+                    continue
+                }
+                var structurallyValid = true
                 for layerPath in disk.layerPaths {
                     let layerURL = vmRootPath.appending(path: layerPath).standardizedFileURL
                     guard sameFileSystemLocation(layerURL.deletingLastPathComponent(), layersRoot) else {
                         errors.append("The ASIF layer escapes the snapshot layer store: \(layerPath)")
+                        structurallyValid = false
                         continue
                     }
                     if !VMDiskImageManager.existingASIFImageHasValidHeader(url: layerURL) {
                         errors.append("The ASIF snapshot layer is missing or invalid: \(layerPath)")
+                        structurallyValid = false
                     }
                 }
+                if disk.layerPaths.count >= recommendedMaximumASIFLayerDepth {
+                    warnings.append(
+                        "The ASIF stack for \(disk.baseImageName) is \(disk.layerPaths.count) layers deep; " +
+                        "consider consolidating the machine before adding many more snapshots."
+                    )
+                }
+#if canImport(DiskImageKit)
+                if #available(macOS 27.0, *), structurallyValid {
+                    do {
+                        try validateLayerStack(
+                            baseURL: baseURL,
+                            relativeLayerPaths: disk.layerPaths,
+                            vmRootPath: vmRootPath
+                        )
+                    } catch {
+                        errors.append(
+                            "The ASIF stack order or parent relationship is invalid for " +
+                            "\(disk.baseImageName): \(error.localizedDescription)"
+                        )
+                    }
+                }
+#endif
             }
         }
 
@@ -955,6 +1001,22 @@ class VMSnapshotManager {
             image = try image.appending(layer)
         }
         return image
+    }
+
+    @available(macOS 27.0, *)
+    private static func validateLayerStack(
+        baseURL: URL,
+        relativeLayerPaths: [String],
+        vmRootPath: URL
+    ) throws {
+        var image = try DiskImage(opening: .open(url: baseURL, mode: .readOnly))
+        for path in relativeLayerPaths {
+            let layer = try DiskImage(
+                opening: .open(url: vmRootPath.appending(path: path), mode: .readOnly)
+            )
+            image = try image.appending(layer)
+        }
+        _ = image.size
     }
 
     private static func relativePath(_ url: URL, under root: URL) -> String {
