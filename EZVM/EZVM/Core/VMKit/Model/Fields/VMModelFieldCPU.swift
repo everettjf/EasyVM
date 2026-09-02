@@ -19,11 +19,11 @@ struct VMModelFieldCPU: Decodable, Encodable {
     }
     
     static func defaultCount() -> Int {
-        let totalAvailableCPUs = ProcessInfo.processInfo.processorCount
-        var virtualCPUCount = totalAvailableCPUs <= 1 ? 1 : totalAvailableCPUs - 1
-        virtualCPUCount = Swift.max(virtualCPUCount, Self.minCount())
-        virtualCPUCount = Swift.min(virtualCPUCount, Self.maxCount())
-        return virtualCPUCount
+        VMCPUResourceRecommendation.recommended(
+            hostCPUCount: ProcessInfo.processInfo.processorCount,
+            minimumCPUCount: Self.minCount(),
+            maximumCPUCount: Self.maxCount()
+        )
     }
     
     static func maxCount() -> Int {

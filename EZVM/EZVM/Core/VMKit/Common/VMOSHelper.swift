@@ -200,6 +200,20 @@ enum VMPreinstalledSparseStreamDecoder {
     }
 }
 
+enum VMCPUResourceRecommendation {
+    static func recommended(
+        hostCPUCount: Int,
+        minimumCPUCount: Int,
+        maximumCPUCount: Int
+    ) -> Int {
+        // Interactive guests rarely benefit from consuming nearly every host
+        // core. Keep two logical processors for macOS and cap the initial
+        // allocation at six; users can still raise it in Hardware settings.
+        let hostAwareCount = max(hostCPUCount - 2, minimumCPUCount)
+        return min(max(hostAwareCount, minimumCPUCount), min(6, maximumCPUCount))
+    }
+}
+
 struct VMPreinstalledImageResourceRecommendation: Equatable {
     static let gibibyte: UInt64 = 1024 * 1024 * 1024
 
@@ -214,10 +228,11 @@ struct VMPreinstalledImageResourceRecommendation: Equatable {
         minimumMemorySize: UInt64 = VZVirtualMachineConfiguration.minimumAllowedMemorySize,
         maximumMemorySize: UInt64 = VZVirtualMachineConfiguration.maximumAllowedMemorySize
     ) -> Self {
-        // Six vCPUs are ample for an interactive Linux desktop while leaving
-        // enough scheduling capacity for macOS on smaller Apple silicon Macs.
-        let availableCPUCount = max(hostCPUCount - 2, minimumCPUCount)
-        let cpuCount = min(max(availableCPUCount, minimumCPUCount), min(6, maximumCPUCount))
+        let cpuCount = VMCPUResourceRecommendation.recommended(
+            hostCPUCount: hostCPUCount,
+            minimumCPUCount: minimumCPUCount,
+            maximumCPUCount: maximumCPUCount
+        )
 
         // Omarchy's full desktop is memory-sensitive. Prefer 8 GiB, but scale
         // down on common 8/16 GiB Macs so the host is not pushed into swap.
