@@ -3,6 +3,19 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestProvisioningCredentialTests: XCTestCase {
+    func testKeychainAccountIgnoresDirectoryHintAndTrailingSlash() {
+        let plain = URL(fileURLWithPath: "/tmp/Provisioned.ezvm")
+        let directory = URL(filePath: "/tmp/Provisioned.ezvm/", directoryHint: .isDirectory)
+        XCTAssertEqual(
+            VMGuestProvisioningCredentialStore.accountKey(vmRootPath: plain),
+            VMGuestProvisioningCredentialStore.accountKey(vmRootPath: directory)
+        )
+        XCTAssertEqual(
+            VMGuestProvisioningCredentialStore.accountKey(vmRootPath: directory),
+            "/tmp/Provisioned.ezvm"
+        )
+    }
+
     func testCredentialRoundTripsWithoutChangingFields() throws {
         let credential = VMGuestProvisioningCredential(
             fullName: "Test User",

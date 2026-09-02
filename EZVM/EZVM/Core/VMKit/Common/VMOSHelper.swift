@@ -29,10 +29,7 @@ enum VMHostCapability: String, CaseIterable, Identifiable {
         case .virtualization:
             ["com.apple.security.virtualization"]
         case .vmnet:
-            [
-                "com.apple.developer.networking.vmnet",
-                "com.apple.vm.networking",
-            ]
+            ["com.apple.developer.networking.vmnet"]
         case .accessoryAccess:
             ["com.apple.developer.accessory-access.usb"]
         }
@@ -549,8 +546,16 @@ enum VMGuestProvisioningCredentialStore {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: vmRootPath.standardizedFileURL.path(percentEncoded: false),
+            kSecAttrAccount as String: accountKey(vmRootPath: vmRootPath),
         ]
+    }
+
+    static func accountKey(vmRootPath: URL) -> String {
+        var path = vmRootPath.standardizedFileURL.path(percentEncoded: false)
+        while path.count > 1, path.hasSuffix("/") {
+            path.removeLast()
+        }
+        return path
     }
 
     private static func message(for status: OSStatus) -> String {

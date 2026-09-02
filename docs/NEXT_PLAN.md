@@ -25,11 +25,11 @@ The next cycle starts with these foundations already delivered:
   shutdown/restart, and atomic chunked file transfer;
 - real Alpine release fixtures that verify Agent authentication, byte-exact
   upload/download, clean shutdown, and guest `/dev/kvm` API version 12;
-- production NAT networking only; restricted bridged, host-only, custom vmnet,
-  and physical USB code is absent from the shipping target.
+- macOS 27 VMNet networking includes NAT, bridged, host-only, logical networks,
+  and validated TCP/UDP forwarding; physical USB uses Accessory Access with
+  explicit user selection and hot-plug lifecycle management;
 - macOS 27 Linux guests can use the availability-gated Custom Virtio GPU with
-  pinned VirGL/ANGLE/Metal runtime; macOS 26 and macOS guests retain Apple's
-  graphics path;
+  pinned VirGL/ANGLE/Metal runtime; macOS guests retain Apple's graphics path;
 - Omarchy clean-image acceptance covers first-run setup, dynamic resolution,
   continuous input, Command-to-Super shortcuts, pointer, wheel, NAT/DNS/TLS,
   and a publicly downloadable checksum-verified image;
@@ -127,21 +127,19 @@ and two supported host OS releases before promotion.
 | Local API or MCP | Threat model, per-operation authorization, local peer identity, audit log, cancellation, and stable CLI schemas first. Start read-only. |
 | macOS guest iCloud workflow | Legal/product/security review of Apple account behavior before any UI or automation work. |
 
-## Restricted and out-of-scope work
+## Out-of-scope work
 
 These items are not scheduled in P0–P3:
 
-- bridged networking, host-only networking, custom vmnet topologies, and vmnet
-  port forwarding require Apple approval for `com.apple.vm.networking` plus a
-  matching Developer ID provisioning profile;
-- physical USB passthrough and hot-plug require the applicable Accessory Access
-  entitlement and a proven Homebrew distribution path;
+- EZVM targets macOS 27 and uses only `com.apple.developer.networking.vmnet`
+  for advanced VM networking;
+- physical USB passthrough and hot-plug require the Accessory Access entitlement
+  already carried by the signed Homebrew build;
 - x86 guests, general GPU passthrough, and general PCIe passthrough are not
   provided by Virtualization.framework and remain out of scope.
 
-Restricted work can re-enter only through the checklist in
-[ROADMAP.md](ROADMAP.md#restricted-feature-re-entry-checklist). No UI placeholder,
-dead implementation, or entitlement may ship before that checklist passes.
+No UI placeholder, dead implementation, or legacy entitlement may ship for an
+out-of-scope feature.
 
 ## Cross-cutting definition of done
 

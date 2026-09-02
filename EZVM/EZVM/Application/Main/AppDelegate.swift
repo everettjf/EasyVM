@@ -29,6 +29,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 #if arch(arm64)
+        if let fixture = ReleaseFixtureCreationConfiguration.current {
+            createReleaseFixture(fixture)
+            return
+        }
         if let install = PreinstalledImageInstallConfiguration.current {
             installPreinstalledImage(install)
             return
@@ -117,6 +121,67 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 #if arch(arm64)
+    private func createReleaseFixture(_ fixture: ReleaseFixtureCreationConfiguration) {
+        NSApp.setActivationPolicy(.prohibited)
+        for window in NSApp.windows { window.orderOut(nil) }
+        Task {
+            if !FileManager.default.fileExists(atPath: fixture.imageURL.path) {
+                guard fixture.osType == .macOS else {
+                    fixture.report("failed: installer image not found: \(fixture.imageURL.path)")
+                    exit(66)
+                }
+                let download = await downloadLatestMacOSFixture(to: fixture.imageURL)
+                if case let .failure(message) = download {
+                    fixture.report("failed: \(message)")
+                    exit(69)
+                }
+            }
+            let result = await VMOSCreateFactory.getCreator(fixture.osType).create(model: fixture.model) { progress in
+                switch progress {
+                case .info(let message): print(message)
+                case .error(let message): FileHandle.standardError.write(Data((message + "\n").utf8))
+                case .progress(let fraction): print("fixture-progress \(Int(fraction * 100))%")
+                }
+                fflush(stdout)
+            }
+            switch result {
+            case .success:
+                if fixture.provisionsMacGuest {
+                    let credential = VMGuestProvisioningCredential(
+                        fullName: "EZVM Release Test",
+                        username: "ezvmm9",
+                        password: UUID().uuidString + "aA1!",
+                        logsInAutomatically: false,
+                        enablesRemoteLogin: false
+                    )
+                    if case let .failure(message) = VMGuestProvisioningCredentialStore.save(
+                        credential,
+                        vmRootPath: fixture.destinationURL
+                    ) {
+                        fixture.report("failed: \(message)")
+                        exit(71)
+                    }
+                }
+                fixture.report("created")
+                exit(0)
+            case .failure(let message):
+                fixture.report("failed: \(message)")
+                exit(70)
+            }
+        }
+    }
+
+    private func downloadLatestMacOSFixture(to destination: URL) async -> VMOSResultVoid {
+        await withCheckedContinuation { continuation in
+            VMOSDownloaderForMacOS().downloadLatest(toLocalPath: destination) { result in
+                continuation.resume(returning: result)
+            } downloadProgressHandler: { fraction in
+                print("fixture-download-progress \(Int(fraction * 100))%")
+                fflush(stdout)
+            }
+        }
+    }
+
     private func installPreinstalledImage(_ install: PreinstalledImageInstallConfiguration) {
         NSApp.setActivationPolicy(.prohibited)
         for window in NSApp.windows { window.orderOut(nil) }
@@ -409,6 +474,72 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 #if arch(arm64)
+struct ReleaseFixtureCreationConfiguration {
+    let osType: VMOSType
+    let imageURL: URL
+    let destinationURL: URL
+    let resultURL: URL
+    let provisionsMacGuest: Bool
+
+    static var current: ReleaseFixtureCreationConfiguration? {
+        let environment = ProcessInfo.processInfo.environment
+        guard let osValue = environment["EZVM_RELEASE_CREATE_OS"],
+              let osType = VMOSType(rawValue: osValue),
+              let imagePath = environment["EZVM_RELEASE_CREATE_IMAGE"], !imagePath.isEmpty,
+              let destinationPath = environment["EZVM_RELEASE_CREATE_VM"], !destinationPath.isEmpty,
+              let resultPath = environment["EZVM_RELEASE_CREATE_RESULT"], !resultPath.isEmpty else {
+            return nil
+        }
+        return ReleaseFixtureCreationConfiguration(
+            osType: osType,
+            imageURL: URL(filePath: imagePath).standardizedFileURL,
+            destinationURL: URL(filePath: destinationPath, directoryHint: .isDirectory).standardizedFileURL,
+            resultURL: URL(filePath: resultPath).standardizedFileURL,
+            provisionsMacGuest: osType == .macOS && environment["EZVM_RELEASE_PROVISION_MACOS"] == "1"
+        )
+    }
+
+    var model: VMModel {
+        let defaults = VMConfigModel.createWithDefaultValues(osType: osType)
+        let storageDevices: [VMModelFieldStorageDevice]
+        switch osType {
+        case .linux:
+            storageDevices = defaults.storageDevices + [
+                VMModelFieldStorageDevice(type: .USB, size: 0, imagePath: imageURL.path)
+            ]
+        case .macOS:
+            storageDevices = defaults.storageDevices
+        }
+        let config = VMConfigModel(
+            type: osType,
+            name: osType == .linux ? "Ubuntu Release Fixture" : "macOS Release Fixture",
+            remark: "Disposable M9 release fixture",
+            cpu: defaults.cpu,
+            memory: defaults.memory,
+            graphicsDevices: defaults.graphicsDevices,
+            storageDevices: storageDevices,
+            networkDevices: defaults.networkDevices,
+            pointingDevices: defaults.pointingDevices,
+            audioDevices: defaults.audioDevices,
+            directorySharingDevices: defaults.directorySharingDevices,
+            linuxFeatures: defaults.linuxFeatures
+        )
+        return VMModel(
+            rootPath: destinationURL,
+            state: VMStateModel(imagePath: imageURL),
+            config: config
+        )
+    }
+
+    func report(_ value: String) {
+        do {
+            try (value + "\n").write(to: resultURL, atomically: true, encoding: .utf8)
+        } catch {
+            FileHandle.standardError.write(Data("Could not write fixture result: \(error.localizedDescription)\n".utf8))
+        }
+    }
+}
+
 struct PreinstalledImageInstallConfiguration {
     let manifestURL: URL
     let imageURL: URL

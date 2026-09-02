@@ -99,7 +99,7 @@ struct CreatePhaseConfigurationView: View {
                     }
                     Toggle("Log in automatically", isOn: $formData.provisioningAutomaticLogin)
                     Toggle("Enable Remote Login (SSH)", isOn: $formData.provisioningRemoteLogin)
-                    Text("The password is stored in this Mac’s Keychain until the VM’s first successful start. Guest macOS 26 and earlier ignore provisioning.")
+                    Text("The password is stored in this Mac’s Keychain until the VM’s first successful start.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

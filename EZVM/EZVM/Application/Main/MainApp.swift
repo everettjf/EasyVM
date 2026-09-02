@@ -134,7 +134,7 @@ private struct VirtualizationFeaturesSettingsView: View {
             } header: {
                 Text("Signed capabilities")
             } footer: {
-                Text("These values come from the entitlements in the running EZVM process. VMNet accepts the current macOS 27 entitlement and reports the legacy entitlement when present.")
+                Text("These values come from the macOS 27 entitlements in the running EZVM process.")
             }
 
             Section {

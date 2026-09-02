@@ -981,7 +981,7 @@
     "The image will be saved and reused for future virtual machines." : {
 
     },
-    "The password is stored in this Mac’s Keychain until the VM’s first successful start. Guest macOS 26 and earlier ignore provisioning." : {
+    "The password is stored in this Mac’s Keychain until the VM’s first successful start." : {
 
     },
     "The signed-release list updates automatically via IPSW.me. Downloads come directly from Apple; EZVM performs the final host compatibility check before installation." : {
@@ -990,7 +990,7 @@
     "The virtual machine is running. Shut it down before creating or restoring snapshots." : {
 
     },
-    "These values come from the entitlements in the running EZVM process. VMNet accepts the current macOS 27 entitlement and reports the legacy entitlement when present." : {
+    "These values come from the macOS 27 entitlements in the running EZVM process." : {
 
     },
     "This window will close automatically when it is safe." : {

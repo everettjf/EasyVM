@@ -59,13 +59,6 @@ final class VMNetworkConfigurationTests: XCTestCase {
         )
     }
 
-    func testHostCapabilitiesRecognizeLegacyVMNetEntitlement() {
-        XCTAssertEqual(
-            VMHostCapability.vmnet.grantedEntitlementKey { $0 == "com.apple.vm.networking" },
-            "com.apple.vm.networking"
-        )
-    }
-
     func testHostCapabilitiesReportMissingEntitlements() {
         XCTAssertNil(VMHostCapability.virtualization.grantedEntitlementKey { _ in false })
         XCTAssertNil(VMHostCapability.vmnet.grantedEntitlementKey { _ in false })

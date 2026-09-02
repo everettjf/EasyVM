@@ -142,9 +142,8 @@ physical host usage.
   hash, and logical size before import.
 - Install transactionally so interruption cannot leave a machine that appears
   valid but contains a partial disk.
-- macOS 26 and 27 do not require different Omarchy images merely because their
-  host graphics backends differ. Guest changes must remain compatible with the
-  Apple Virtio path unless the manifest explicitly says otherwise.
+- Guest changes must remain compatible with the Apple Virtio fallback unless
+  the manifest explicitly says otherwise.
 
 ## Guest has no internet access
 

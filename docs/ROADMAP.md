@@ -69,7 +69,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | macOS graphics/display | Stable | Configures native Mac graphics displays and a `VZVirtualMachineView`. | Add display-profile presets. |
-| Linux Virtio graphics | Stable | macOS 26 uses Apple Virtio graphics. On macOS 27+, Linux can use EZVM's Custom Virtio GPU with VirGLRenderer and ANGLE/Metal; startup failure falls back to Apple Virtio. | Run a broader distro/GPU workload matrix and same-host comparative benchmarks. |
+| Linux Virtio graphics | Stable | On macOS 27+, Linux can use EZVM's Custom Virtio GPU with VirGLRenderer and ANGLE/Metal; startup failure falls back to Apple Virtio. | Run a broader distro/GPU workload matrix and same-host comparative benchmarks. |
 | Automatic display resizing | Stable | Apple graphics uses framework reconfiguration. Custom VirGL publishes generation-tagged modes and retains the display event until the guest acknowledges it through `GET_EDID`/`GET_DISPLAY_INFO`. | Add automated window/full-screen transition tests across more compositors. |
 | Keyboard | Stable | Apple graphics uses a virtual USB keyboard. Custom VirGL uses the authenticated Agent/uinput path after desktop ownership is verified, including Command-to-Super chords. | Add keyboard-layout troubleshooting and long-running chord/reconnect tests. |
 | Pointer and absolute pointing | Stable | Apple graphics uses configured native devices. Custom VirGL uses the native USB digitizer when possible and capability-negotiated Agent input for desktop keyboard/wheel delivery. | Improve device descriptions and test more pointing hardware. |
@@ -109,7 +109,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | Standard NAT | Stable | Production builds use `VZNATNetworkDeviceAttachment`. | Add connectivity diagnostics and tested DNS behavior. |
-| Bridged networking | Beta | The macOS 27 VMNet capability and external-interface selection are integrated without the legacy restricted entitlement. | Validate more host interface changes and failure recovery. |
+| Bridged networking | Beta | The macOS 27 VMNet capability and external-interface selection are integrated. | Validate more host interface changes and failure recovery. |
 | Host-only networking | Beta | Named logical networks, subnet/mask configuration, and process-lifetime network reuse are integrated. | Add cross-process ownership and recovery. |
 | Custom network topology | Beta | VMNet shared/host modes persist subnet, external interface, MTU, and validated topology settings. | Expand DHCP/DNS policy controls and failure diagnostics. |
 | Shared logical network across processes | Planned | VMNet serialization APIs are available. | Complete the XPC ownership and recovery design. |
@@ -295,7 +295,7 @@ Every patch release must satisfy:
 6. Headless service and read-only CLI.
 7. Nested virtualization on supported hardware.
 8. Stabilize macOS 27 provisioning and DiskImageKit features.
-9. Reconsider restricted network and USB features only after Apple approval.
+9. Keep advanced networking and USB validation on the macOS 27 Developer ID path.
 
 This order favors capabilities that improve reliability and daily use without
 expanding the entitlement or distribution risk of the production application.
@@ -310,5 +310,5 @@ expanding the entitlement or distribution risk of the production application.
 - [Clipboard sharing](https://developer.apple.com/documentation/virtualization/clipboard-sharing)
 - [Nested virtualization support](https://developer.apple.com/documentation/virtualization/vzgenericplatformconfiguration/isnestedvirtualizationsupported)
 - [WWDC26: Expand the capabilities of your Virtualization app](https://developer.apple.com/videos/play/wwdc2026/224/)
-- [`com.apple.vm.networking`](https://developer.apple.com/documentation/bundleresources/entitlements/com_apple_vm_networking)
+- [`com.apple.developer.networking.vmnet`](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.networking.vmnet)
 - [Accessory Access entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.accessory-access.usb)
