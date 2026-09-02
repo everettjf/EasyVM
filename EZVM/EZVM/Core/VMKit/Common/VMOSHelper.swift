@@ -75,6 +75,37 @@ struct VMUSBDeviceDescriptorSummary: Equatable, Identifiable {
     }
 }
 
+enum VMUSBDeviceOperation: Equatable {
+    case attaching
+    case detaching
+}
+
+enum VMUSBPassthroughNotice: Equatable {
+    case unexpectedDisconnect(deviceTitle: String)
+    case attachFailed(deviceTitle: String, detail: String)
+    case detachFailed(deviceTitle: String, detail: String)
+
+    var message: String {
+        switch self {
+        case .unexpectedDisconnect(let deviceTitle):
+            "\(deviceTitle) was disconnected from the virtual machine."
+        case .attachFailed(let deviceTitle, let detail):
+            "Could not connect \(deviceTitle). Make sure it is approved, connected, and not in use by another app. \(detail)"
+        case .detachFailed(let deviceTitle, let detail):
+            "Could not disconnect \(deviceTitle). It may still be attached; disconnect it before saving machine state. \(detail)"
+        }
+    }
+}
+
+struct VMUSBPassthroughSnapshot: Equatable {
+    var devices: [VMUSBDeviceDescriptorSummary]
+    var attachedRegistryIDs: Set<UInt64>
+    var operations: [UInt64: VMUSBDeviceOperation] = [:]
+    var notice: VMUSBPassthroughNotice?
+
+    var hasAttachedDevices: Bool { !attachedRegistryIDs.isEmpty }
+}
+
 enum VMUSBControllerSupport {
     static func canSaveMachineState(
         backendSupportsSaveRestore: Bool,

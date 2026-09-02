@@ -62,6 +62,15 @@ boot is interrupted.
 
 ## 2. Accessory Access and USB passthrough
 
+**Current implementation:** USB runtime state now keeps the approved device
+list, attached registry IDs, per-device attach/detach operations, and a
+non-blocking notice together. An operation failure therefore cannot erase an
+attached device or incorrectly re-enable machine-state saving. Operation
+tokens reject late callbacks after physical removal or teardown, explicit
+detach is distinguished from an unexpected controller disconnect, and the UI
+prevents duplicate actions while explaining recovery. Physical-device,
+permission-revocation, and sleep/wake testing below remains the promotion gate.
+
 ### Product outcome
 
 USB passthrough feels like connecting a device to a physical computer: devices

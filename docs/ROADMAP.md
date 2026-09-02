@@ -82,8 +82,8 @@ notarization success alone is not evidence that an entitlement is usable.
 | Serial port terminal | Planned | Framework support exists; EZVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
 | Host/guest clipboard | In progress | EZVM explicitly enables the SPICE clipboard channel; the Omarchy image restores `spice-vdagent` and its desktop-session integration. | Verify bidirectional Unicode and large-text copy in a built image. |
-| Physical USB passthrough | Beta | macOS 27 Accessory Access explicitly registers devices, claims them only after user selection, and supports connect/disconnect without changing default boot. | Complete the signed Omarchy/Ubuntu release-candidate matrix and wider hardware soak. |
-| USB hot-plug management | Beta | Runtime attach/detach, descriptor parsing, shutdown safety, and signed entitlement diagnostics are integrated. | Expand the physical-device compatibility matrix. |
+| Physical USB passthrough | Beta | macOS 27 Accessory Access explicitly registers devices, claims them only after user selection, and supports connect/disconnect without changing default boot. Per-device in-flight state prevents duplicate actions and preserves safety state after errors. | Complete the signed Omarchy/Ubuntu release-candidate matrix and wider hardware soak. |
+| USB hot-plug management | Beta | Runtime attach/detach, descriptor parsing, shutdown safety, signed entitlement diagnostics, late-callback rejection, and distinct explicit/unexpected disconnect handling are integrated. | Complete permission-revocation, sleep/wake, multi-device, and physical-device compatibility testing. |
 | Custom Virtio devices | Beta | macOS 27 Linux VMs have a real virtio-gpu implementation for VirGL acceleration. The backend is availability-gated, falls back safely, and disables incompatible machine-state restore. | Maintain protocol conformance, fuzz hostile resource requests, and complete wider distro/GPU soak coverage. |
 
 ### Storage, snapshots, and portability

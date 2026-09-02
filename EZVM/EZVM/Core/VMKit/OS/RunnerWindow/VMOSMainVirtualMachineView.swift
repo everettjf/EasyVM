@@ -439,16 +439,30 @@ struct VMOSMainVirtualMachineView: View {
             Button("Try Again", systemImage: "arrow.clockwise") {
                 runtimeState.discoverUSBAccessories()
             }
-        case .ready(let devices, let attachedRegistryIDs):
-            if devices.isEmpty {
+        case .ready(let snapshot):
+            if let notice = snapshot.notice {
+                Label(notice.message, systemImage: "exclamationmark.triangle")
+                Button("Dismiss", systemImage: "xmark") {
+                    runtimeState.dismissUSBPassthroughNotice()
+                }
+                Divider()
+            }
+            if snapshot.devices.isEmpty {
                 Text("No approved USB accessories are connected")
             } else {
-                ForEach(devices) { device in
-                    if attachedRegistryIDs.contains(device.registryID) {
+                ForEach(snapshot.devices) { device in
+                    switch snapshot.operations[device.registryID] {
+                    case .attaching:
+                        Button("Connecting \(device.title)…", systemImage: "hourglass") {}
+                            .disabled(true)
+                    case .detaching:
+                        Button("Disconnecting \(device.title)…", systemImage: "hourglass") {}
+                            .disabled(true)
+                    case nil where snapshot.attachedRegistryIDs.contains(device.registryID):
                         Button("Disconnect \(device.title)", systemImage: "eject") {
                             runtimeState.detachUSBAccessory(registryID: device.registryID)
                         }
-                    } else {
+                    case nil:
                         Button("Connect \(device.title)", systemImage: "cable.connector.horizontal") {
                             runtimeState.attachUSBAccessory(registryID: device.registryID)
                         }

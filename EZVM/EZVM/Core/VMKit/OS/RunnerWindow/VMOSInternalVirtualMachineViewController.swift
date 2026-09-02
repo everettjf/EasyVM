@@ -762,6 +762,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         usbAccessoryCoordinator?.detach(registryID: registryID)
     }
 
+    func dismissUSBPassthroughNotice() {
+        usbAccessoryCoordinator?.dismissNotice()
+    }
+
     private func updateBalloonMemoryState() {
         guard let device = virtualMachine?.memoryBalloonDevices.first as? VZVirtioTraditionalMemoryBalloonDevice else {
             runtimeState?.updateBalloonMemory(target: nil, maximum: nil)
@@ -1242,6 +1246,9 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     private let update: (VMUSBPassthroughState) -> Void
     private var accessories: [UInt64: AAUSBAccessory] = [:]
     private var attachedDevices: [UInt64: VZUSBPassthroughDevice] = [:]
+    private var operations: [UInt64: VMUSBDeviceOperation] = [:]
+    private var operationTokens: [UInt64: UUID] = [:]
+    private var notice: VMUSBPassthroughNotice?
     private var isRegistered = false
 
     var hasAttachedDevices: Bool { !attachedDevices.isEmpty }
@@ -1282,45 +1289,88 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         }
         accessories.removeAll()
         attachedDevices.removeAll()
+        operations.removeAll()
+        operationTokens.removeAll()
+        notice = nil
     }
 
     func attach(registryID: UInt64) {
-        guard attachedDevices[registryID] == nil,
+        guard operations[registryID] == nil,
+              attachedDevices[registryID] == nil,
               let accessory = accessories[registryID],
               let controller = virtualMachine?.usbControllers.first else { return }
+        operations[registryID] = .attaching
+        let operationToken = UUID()
+        operationTokens[registryID] = operationToken
+        notice = nil
+        publish()
         do {
             let configuration = VZUSBPassthroughDeviceConfiguration(device: accessory)
             let device = try VZUSBPassthroughDevice(configuration: configuration)
             controller.attach(device: device) { [weak self] error in
                 Task { @MainActor in
                     guard let self else { return }
+                    guard self.operationTokens[registryID] == operationToken else {
+                        if error == nil {
+                            controller.detach(device: device) { _ in }
+                        }
+                        return
+                    }
+                    self.operations.removeValue(forKey: registryID)
+                    self.operationTokens.removeValue(forKey: registryID)
                     if let error {
-                        self.update(.failed("Could not attach the USB accessory: \(error.localizedDescription)"))
+                        self.notice = .attachFailed(
+                            deviceTitle: self.title(for: registryID),
+                            detail: error.localizedDescription
+                        )
                     } else {
                         self.attachedDevices[registryID] = device
-                        self.publish()
                     }
+                    self.publish()
                 }
             }
         } catch {
-            update(.failed("Could not prepare the USB accessory: \(error.localizedDescription)"))
+            operations.removeValue(forKey: registryID)
+            operationTokens.removeValue(forKey: registryID)
+            notice = .attachFailed(
+                deviceTitle: title(for: registryID),
+                detail: error.localizedDescription
+            )
+            publish()
         }
     }
 
     func detach(registryID: UInt64) {
-        guard let device = attachedDevices[registryID],
+        guard operations[registryID] == nil,
+              let device = attachedDevices[registryID],
               let controller = virtualMachine?.usbControllers.first else { return }
+        operations[registryID] = .detaching
+        let operationToken = UUID()
+        operationTokens[registryID] = operationToken
+        notice = nil
+        publish()
         controller.detach(device: device) { [weak self] error in
-            Task { @MainActor in
-                guard let self else { return }
+                Task { @MainActor in
+                    guard let self else { return }
+                    guard self.operationTokens[registryID] == operationToken else { return }
+                    self.operations.removeValue(forKey: registryID)
+                    self.operationTokens.removeValue(forKey: registryID)
                 if let error {
-                    self.update(.failed("Could not detach the USB accessory: \(error.localizedDescription)"))
+                    self.notice = .detachFailed(
+                        deviceTitle: self.title(for: registryID),
+                        detail: error.localizedDescription
+                    )
                 } else {
                     self.attachedDevices.removeValue(forKey: registryID)
-                    self.publish()
                 }
+                self.publish()
             }
         }
+    }
+
+    func dismissNotice() {
+        notice = nil
+        publish()
     }
 
     nonisolated func usbAccessoryDidConnect(_ usbAccessory: AAUSBAccessory) {
@@ -1332,9 +1382,17 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
 
     nonisolated func usbAccessoryDidDisconnect(_ usbAccessory: AAUSBAccessory) {
         Task { @MainActor [weak self] in
-            self?.accessories.removeValue(forKey: usbAccessory.registryID)
-            self?.attachedDevices.removeValue(forKey: usbAccessory.registryID)
-            self?.publish()
+            guard let self else { return }
+            let registryID = usbAccessory.registryID
+            let deviceTitle = self.title(for: registryID)
+            let wasAttached = self.attachedDevices.removeValue(forKey: registryID) != nil
+            self.accessories.removeValue(forKey: registryID)
+            self.operations.removeValue(forKey: registryID)
+            self.operationTokens.removeValue(forKey: registryID)
+            if wasAttached {
+                self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
+            }
+            self.publish()
         }
     }
 
@@ -1348,11 +1406,18 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     forDisconnected: device,
                     in: self.attachedDevices
                   ) else { return }
-            EZVMLog.info(
-                "USB passthrough device disconnected unexpectedly (registry ID: \(registryID)).",
-                logger: EZVMLog.lifecycle
-            )
+            let wasExplicitDetach = self.operations[registryID] == .detaching
+            let deviceTitle = self.title(for: registryID)
             self.attachedDevices.removeValue(forKey: registryID)
+            self.operations.removeValue(forKey: registryID)
+            self.operationTokens.removeValue(forKey: registryID)
+            if !wasExplicitDetach {
+                self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
+                EZVMLog.info(
+                    "USB passthrough device disconnected unexpectedly (registry ID: \(registryID)).",
+                    logger: EZVMLog.lifecycle
+                )
+            }
             self.publish()
         }
     }
@@ -1363,7 +1428,20 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         }.sorted {
             ($0.vendorID, $0.productID, $0.registryID) < ($1.vendorID, $1.productID, $1.registryID)
         }
-        update(.ready(devices: devices, attachedRegistryIDs: Set(attachedDevices.keys)))
+        update(.ready(VMUSBPassthroughSnapshot(
+            devices: devices,
+            attachedRegistryIDs: Set(attachedDevices.keys),
+            operations: operations,
+            notice: notice
+        )))
+    }
+
+    private func title(for registryID: UInt64) -> String {
+        guard let accessory = accessories[registryID] else { return "USB accessory" }
+        return VMUSBDeviceDescriptorSummary.parse(
+            registryID: registryID,
+            descriptor: accessory.deviceDescriptorData
+        )?.title ?? "USB accessory"
     }
 }
 

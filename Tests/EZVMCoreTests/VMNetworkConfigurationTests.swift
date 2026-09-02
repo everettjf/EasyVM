@@ -59,6 +59,51 @@ final class VMNetworkConfigurationTests: XCTestCase {
         )
     }
 
+    func testUSBFailureSnapshotRetainsAttachedDevicesAndBlocksMachineState() {
+        let device = VMUSBDeviceDescriptorSummary(
+            registryID: 17,
+            vendorID: 0x1234,
+            productID: 0xABCD
+        )
+        let snapshot = VMUSBPassthroughSnapshot(
+            devices: [device],
+            attachedRegistryIDs: [17],
+            operations: [:],
+            notice: .detachFailed(deviceTitle: device.title, detail: "Busy")
+        )
+
+        XCTAssertTrue(snapshot.hasAttachedDevices)
+        XCTAssertFalse(VMUSBControllerSupport.canSaveMachineState(
+            backendSupportsSaveRestore: true,
+            attachedAccessoryCount: snapshot.hasAttachedDevices ? 1 : 0
+        ))
+        XCTAssertTrue(snapshot.notice?.message.contains("may still be attached") == true)
+    }
+
+    func testUSBOperationStateDistinguishesAttachAndDetach() {
+        var snapshot = VMUSBPassthroughSnapshot(
+            devices: [],
+            attachedRegistryIDs: [],
+            operations: [7: .attaching],
+            notice: nil
+        )
+        XCTAssertEqual(snapshot.operations[7], .attaching)
+
+        snapshot.operations[7] = .detaching
+        XCTAssertEqual(snapshot.operations[7], .detaching)
+    }
+
+    func testUnexpectedUSBDisconnectNoticeNamesDevice() {
+        let notice = VMUSBPassthroughNotice.unexpectedDisconnect(
+            deviceTitle: "USB 1234:ABCD"
+        )
+
+        XCTAssertEqual(
+            notice.message,
+            "USB 1234:ABCD was disconnected from the virtual machine."
+        )
+    }
+
     func testVirtualMachineLabelTrimsWhitespaceAndAppliesToConfiguration() {
         let configuration = VZVirtualMachineConfiguration()
         VMConfigurationIdentity.apply(machineName: "  Development VM\n", to: configuration)

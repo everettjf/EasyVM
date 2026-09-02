@@ -33,7 +33,7 @@ enum VMGuestAgentTransferState: Equatable {
 enum VMUSBPassthroughState: Equatable {
     case idle
     case discovering
-    case ready(devices: [VMUSBDeviceDescriptorSummary], attachedRegistryIDs: Set<UInt64>)
+    case ready(VMUSBPassthroughSnapshot)
     case failed(String)
 }
 
@@ -76,8 +76,8 @@ final class VMRuntimeState {
         phase.canSaveMachineState(backendSupportsSaveRestore: canPersistMachineState)
     }
     var hasAttachedUSBAccessories: Bool {
-        guard case let .ready(_, attachedRegistryIDs) = usbPassthroughState else { return false }
-        return !attachedRegistryIDs.isEmpty
+        guard case let .ready(snapshot) = usbPassthroughState else { return false }
+        return snapshot.hasAttachedDevices
     }
     var canPersistMachineState: Bool {
         VMUSBControllerSupport.canSaveMachineState(
@@ -163,6 +163,7 @@ final class VMRuntimeState {
     func discoverUSBAccessories() { controller?.discoverUSBAccessories() }
     func attachUSBAccessory(registryID: UInt64) { controller?.attachUSBAccessory(registryID: registryID) }
     func detachUSBAccessory(registryID: UInt64) { controller?.detachUSBAccessory(registryID: registryID) }
+    func dismissUSBPassthroughNotice() { controller?.dismissUSBPassthroughNotice() }
     func confirmMacGuestProvisioningCompleted() { controller?.confirmMacGuestProvisioningCompleted() }
 }
 
