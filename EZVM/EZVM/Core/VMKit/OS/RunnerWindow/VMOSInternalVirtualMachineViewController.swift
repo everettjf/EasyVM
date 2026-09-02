@@ -431,6 +431,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // a full-screen round trip first.
         refreshAutomaticDisplayConfiguration()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
+            if let unmetRequirement = unmetReleaseSmokeRequirement(smokeTest) {
+                fail(unmetRequirement)
+                return
+            }
             if smokeTest.requireGuestAgent || smokeTest.requireGuestInput || smokeTest.requireAbsoluteGuestPointer || smokeTest.requireKVM {
                 startGuestAgent(model: model, releaseSmoke: smokeTest)
                 startReleaseGuestAgentSmokeTest(smokeTest)
@@ -448,6 +452,22 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             updateBalloonMemoryState()
             startGuestAgent(model: model)
         }
+    }
+
+    private func unmetReleaseSmokeRequirement(_ smoke: VMReleaseSmokeTestConfiguration) -> String? {
+        if smoke.requireVirGL, graphicsBackend?.kind != .customVirGL {
+            return "Release test requires Custom VirGL, but the active backend is \(graphicsBackend?.kind.rawValue ?? "unknown")."
+        }
+        if smoke.requireMemoryBalloon, virtualMachineConfiguration?.memoryBalloonDevices.isEmpty != false {
+            return "Release test requires a Virtio memory balloon device."
+        }
+        if smoke.requireEntropy, virtualMachineConfiguration?.entropyDevices.isEmpty != false {
+            return "Release test requires a Virtio entropy device."
+        }
+        if smoke.requireVirtioSocket, virtualMachineConfiguration?.socketDevices.isEmpty != false {
+            return "Release test requires a Virtio socket device."
+        }
+        return nil
     }
 
     private func startReleaseGuestAgentSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {

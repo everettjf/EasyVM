@@ -48,6 +48,10 @@ run_linux_guest_gate() {
   local enrollment="$2"
   [[ -f "$enrollment" ]] || fail "missing Guest Agent enrollment for $fixture"
   EZVM_RELEASE_SMOKE_ENROLLMENT="$enrollment" \
+  EZVM_RELEASE_REQUIRE_VIRGL=1 \
+  EZVM_RELEASE_REQUIRE_MEMORY_BALLOON=1 \
+  EZVM_RELEASE_REQUIRE_ENTROPY=1 \
+  EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET=1 \
     "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
 }
 

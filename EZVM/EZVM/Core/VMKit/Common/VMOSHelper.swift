@@ -244,6 +244,10 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let injectVisibleGuestInput: Bool
     let requireAbsoluteGuestPointer: Bool
     let requireKVM: Bool
+    let requireVirGL: Bool
+    let requireMemoryBalloon: Bool
+    let requireEntropy: Bool
+    let requireVirtioSocket: Bool
     let guestAgentEnrollmentURL: URL?
 }
 
@@ -256,6 +260,10 @@ enum VMReleaseSmokeTest {
     static let injectVisibleGuestInputEnvironmentKey = "EZVM_RELEASE_INJECT_VISIBLE_INPUT"
     static let requireAbsoluteGuestPointerEnvironmentKey = "EZVM_RELEASE_REQUIRE_ABSOLUTE_POINTER"
     static let requireKVMEnvironmentKey = "EZVM_RELEASE_REQUIRE_KVM"
+    static let requireVirGLEnvironmentKey = "EZVM_RELEASE_REQUIRE_VIRGL"
+    static let requireMemoryBalloonEnvironmentKey = "EZVM_RELEASE_REQUIRE_MEMORY_BALLOON"
+    static let requireEntropyEnvironmentKey = "EZVM_RELEASE_REQUIRE_ENTROPY"
+    static let requireVirtioSocketEnvironmentKey = "EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET"
     static let guestAgentEnrollmentEnvironmentKey = "EZVM_RELEASE_AGENT_ENROLLMENT_FILE"
 
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> VMReleaseSmokeTestConfiguration? {
@@ -274,6 +282,10 @@ enum VMReleaseSmokeTest {
             injectVisibleGuestInput: environment[injectVisibleGuestInputEnvironmentKey] == "1",
             requireAbsoluteGuestPointer: environment[requireAbsoluteGuestPointerEnvironmentKey] == "1",
             requireKVM: environment[requireKVMEnvironmentKey] == "1",
+            requireVirGL: environment[requireVirGLEnvironmentKey] == "1",
+            requireMemoryBalloon: environment[requireMemoryBalloonEnvironmentKey] == "1",
+            requireEntropy: environment[requireEntropyEnvironmentKey] == "1",
+            requireVirtioSocket: environment[requireVirtioSocketEnvironmentKey] == "1",
             guestAgentEnrollmentURL: environment[guestAgentEnrollmentEnvironmentKey].flatMap {
                 $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL
             }

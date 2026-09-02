@@ -25,6 +25,10 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertFalse(configuration.injectVisibleGuestInput)
         XCTAssertFalse(configuration.requireAbsoluteGuestPointer)
         XCTAssertFalse(configuration.requireKVM)
+        XCTAssertFalse(configuration.requireVirGL)
+        XCTAssertFalse(configuration.requireMemoryBalloon)
+        XCTAssertFalse(configuration.requireEntropy)
+        XCTAssertFalse(configuration.requireVirtioSocket)
         XCTAssertNil(configuration.guestAgentEnrollmentURL)
     }
 
@@ -37,6 +41,10 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.injectVisibleGuestInputEnvironmentKey: "1",
             VMReleaseSmokeTest.requireAbsoluteGuestPointerEnvironmentKey: "1",
             VMReleaseSmokeTest.requireKVMEnvironmentKey: "1",
+            VMReleaseSmokeTest.requireVirGLEnvironmentKey: "1",
+            VMReleaseSmokeTest.requireMemoryBalloonEnvironmentKey: "1",
+            VMReleaseSmokeTest.requireEntropyEnvironmentKey: "1",
+            VMReleaseSmokeTest.requireVirtioSocketEnvironmentKey: "1",
             VMReleaseSmokeTest.guestAgentEnrollmentEnvironmentKey: "/tmp/agent.json",
         ]))
         XCTAssertTrue(configuration.requireGuestAgent)
@@ -44,6 +52,10 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertTrue(configuration.injectVisibleGuestInput)
         XCTAssertTrue(configuration.requireAbsoluteGuestPointer)
         XCTAssertTrue(configuration.requireKVM)
+        XCTAssertTrue(configuration.requireVirGL)
+        XCTAssertTrue(configuration.requireMemoryBalloon)
+        XCTAssertTrue(configuration.requireEntropy)
+        XCTAssertTrue(configuration.requireVirtioSocket)
         XCTAssertEqual(configuration.guestAgentEnrollmentURL?.path, "/tmp/agent.json")
     }
 }
