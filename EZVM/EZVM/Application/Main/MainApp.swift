@@ -100,6 +100,7 @@ private struct ControlCenterCommands: Commands {
 
 #if arch(arm64)
 private struct VirtualizationFeaturesSettingsView: View {
+    @State private var capabilityRefreshID = UUID()
     @AppStorage(EZVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioning = false
     @AppStorage(EZVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
     @AppStorage(EZVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
@@ -119,6 +120,20 @@ private struct VirtualizationFeaturesSettingsView: View {
                     }
                     .foregroundStyle(capability.isAvailable ? .primary : .secondary)
                 }
+            }
+
+            Section {
+                ForEach(VMHostCapability.allCases) { capability in
+                    HostCapabilityStatusRow(capability: capability, refreshID: capabilityRefreshID)
+                }
+
+                Button("Refresh Signed Capabilities", systemImage: "arrow.clockwise") {
+                    capabilityRefreshID = UUID()
+                }
+            } header: {
+                Text("Signed capabilities")
+            } footer: {
+                Text("These values come from the entitlements in the running EZVM process. VMNet accepts the current macOS 27 entitlement and reports the legacy entitlement when present.")
             }
 
             Section {
@@ -174,6 +189,30 @@ private struct VirtualizationFeaturesSettingsView: View {
     private func featureToggle(_ title: String, isOn: Binding<Bool>, capability: VirtualizationCapability) -> some View {
         Toggle(title, isOn: isOn)
             .disabled(!capability.isAvailable)
+    }
+}
+
+private struct HostCapabilityStatusRow: View {
+    let capability: VMHostCapability
+    let refreshID: UUID
+
+    var body: some View {
+        let _ = refreshID
+        let grantedKey = capability.grantedEntitlementKey()
+
+        HStack(alignment: .firstTextBaseline) {
+            Label(capability.title, systemImage: grantedKey == nil ? "xmark.circle" : "checkmark.circle.fill")
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(grantedKey == nil ? "Missing" : "Granted")
+                Text(grantedKey ?? capability.entitlementKeys.joined(separator: " or "))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .foregroundStyle(grantedKey == nil ? .secondary : .primary)
+        .accessibilityElement(children: .combine)
     }
 }
 #endif

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Security
 import Virtualization
 
 
@@ -20,7 +19,7 @@ class VMOSDownloaderForMacOS : VMOSDownloader {
     }
 
     func downloadLatest(toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
-        guard hasVirtualizationEntitlement else {
+        guard VMHostCapability.virtualization.isGranted else {
             completionHandler(.failure("This build is not signed with the Apple virtualization entitlement. Build EZVM with code signing enabled, or install an official signed release."))
             return
         }
@@ -44,14 +43,6 @@ class VMOSDownloaderForMacOS : VMOSDownloader {
         fileDownloader.cancel()
     }
 
-    private var hasVirtualizationEntitlement: Bool {
-        guard let task = SecTaskCreateFromSelf(nil) else { return false }
-        return SecTaskCopyValueForEntitlement(
-            task,
-            "com.apple.security.virtualization" as CFString,
-            nil
-        ) as? Bool == true
-    }
 }
 
 

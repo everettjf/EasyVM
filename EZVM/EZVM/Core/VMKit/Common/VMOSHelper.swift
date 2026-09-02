@@ -9,6 +9,51 @@ import Foundation
 import Security
 import Virtualization
 
+enum VMHostCapability: String, CaseIterable, Identifiable {
+    case virtualization
+    case vmnet
+    case accessoryAccess
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .virtualization: "Virtualization"
+        case .vmnet: "VMNet"
+        case .accessoryAccess: "Accessory Access"
+        }
+    }
+
+    var entitlementKeys: [String] {
+        switch self {
+        case .virtualization:
+            ["com.apple.security.virtualization"]
+        case .vmnet:
+            [
+                "com.apple.developer.networking.vmnet",
+                "com.apple.vm.networking",
+            ]
+        case .accessoryAccess:
+            ["com.apple.developer.accessory-access.usb"]
+        }
+    }
+
+    func grantedEntitlementKey(
+        lookup: (String) -> Bool = VMHostCapability.entitlementValue
+    ) -> String? {
+        entitlementKeys.first(where: lookup)
+    }
+
+    var isGranted: Bool {
+        grantedEntitlementKey() != nil
+    }
+
+    private static func entitlementValue(for key: String) -> Bool {
+        guard let task = SecTaskCreateFromSelf(nil) else { return false }
+        return SecTaskCopyValueForEntitlement(task, key as CFString, nil) as? Bool == true
+    }
+}
+
 
 #if arch(arm64)
 enum VMPreinstalledSparseStreamDecoder {
