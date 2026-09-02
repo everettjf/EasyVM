@@ -9,38 +9,46 @@ private struct VMCreateGuideProgressView: View {
     let completedStepIDs: Set<UUID>
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
                 if index > 0 {
                     Rectangle()
                         .fill(completedStepIDs.contains(step.id) ? Color.green : Color.secondary.opacity(0.22))
-                        .frame(height: 1)
+                        .frame(height: 2)
+                        .padding(.top, 11)
                         .accessibilityHidden(true)
                 }
 
-                VStack(spacing: 5) {
+                VStack(spacing: 7) {
                     ZStack {
                         Circle()
                             .fill(circleColor(for: step.id))
-                            .frame(width: 14, height: 14)
+                            .frame(width: 24, height: 24)
                         if completedStepIDs.contains(step.id) {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.white)
+                        } else if step.id == currentStepID {
+                            Circle()
+                                .fill(.white)
+                                .frame(width: 8, height: 8)
                         }
                     }
                     Text(step.name)
-                        .font(.caption2)
+                        .font(.caption.weight(step.id == currentStepID ? .semibold : .regular))
                         .foregroundStyle(step.id == currentStepID ? .primary : .secondary)
                         .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
-                .frame(minWidth: 70)
-                .accessibilityElement(children: .combine)
+                .frame(minWidth: step.name == "Name & Location" ? 116 : 82)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Step \(index + 1) of \(steps.count): \(step.name)")
                 .accessibilityValue(accessibilityValue(for: step.id))
                 .accessibilityIdentifier("create-guide-progress-\(index + 1)")
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Create virtual machine progress")
     }
 
     private func circleColor(for id: UUID) -> Color {
@@ -223,7 +231,7 @@ struct VMCreateStepperGuideView: View {
                     currentStepID: steps[stepperState.current].id,
                     completedStepIDs: completedSetupStepIDs
                 )
-                .frame(maxWidth: 560)
+                .frame(maxWidth: 680)
             } else {
                 Text(steps[stepperState.current].subtitle)
                     .font(.caption)

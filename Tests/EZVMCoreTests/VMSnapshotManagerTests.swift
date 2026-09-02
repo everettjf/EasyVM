@@ -66,6 +66,21 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertEqual(VMSnapshotManager.snapshotCount(vmRootPath: temporaryRoot), 0)
     }
 
+    func testAuditAcceptsEquivalentRootURLWithoutDirectoryHint() throws {
+        try write("configuration", to: "config.json")
+        try write("disk", to: "Disk.img")
+
+        // VMModel URLs can be reconstructed from persisted path strings, which
+        // drops Foundation's directory hint and changes only the trailing `/`.
+        let persistedRoot = URL(fileURLWithPath: temporaryRoot.path)
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: persistedRoot, name: "Persisted URL")
+        )
+
+        let report = VMSnapshotManager.auditSnapshot(vmRootPath: persistedRoot, snapshot: snapshot)
+        XCTAssertTrue(report.isValid, report.errors.joined(separator: "; "))
+    }
+
     func testCreateSnapshotFailsForEmptyMachine() throws {
         switch VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Empty") {
         case .success:

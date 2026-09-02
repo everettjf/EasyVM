@@ -60,7 +60,7 @@ struct CreatePhaseConfigurationView: View {
                 CreateResourceControlsView()
 
                 DisclosureGroup("Advanced hardware") {
-                    VMCreateConfigurationView()
+                    VMCreateConfigurationView(includePrimaryResources: false)
                         .padding(.top, 8)
                 }
 
@@ -230,7 +230,8 @@ private struct CreateResourceControlsView: View {
     }
 
     private var minimumStorageGiB: Double {
-        Double(VMModelFieldStorageDevice.minDiskSize() / gibibyte)
+        let rawMinimum = Double(VMModelFieldStorageDevice.minDiskSize()) / Double(gibibyte)
+        return max(16, ceil(rawMinimum / 8) * 8)
     }
 
     private var maximumStorageGiB: Double {
@@ -318,23 +319,40 @@ struct CreatePhaseReviewView: View {
         systemImage: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        GroupBox {
-            VStack(spacing: 10) { content() }
-                .padding(4)
-        } label: {
+        VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: systemImage)
+                .font(.headline)
+                .padding(.leading, 2)
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(.separator.opacity(0.45), lineWidth: 1)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func reviewRow(_ label: String, _ value: String) -> some View {
-        LabeledContent(label) {
+        HStack(alignment: .firstTextBaseline, spacing: 18) {
+            Text(label)
+                .fontWeight(.medium)
+                .frame(width: 108, alignment: .leading)
             Text(value)
                 .foregroundStyle(.secondary)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-                .truncationMode(.middle)
+                .multilineTextAlignment(.leading)
+                .lineLimit(3)
                 .textSelection(.enabled)
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
     }
 
     private var storageSummary: String {

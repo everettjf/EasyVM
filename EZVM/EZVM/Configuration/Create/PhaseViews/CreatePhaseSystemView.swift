@@ -63,13 +63,12 @@ struct CreatePhaseSystemView: View {
     }
 
     private var systemSelection: some View {
-        LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 190, maximum: 240), spacing: 14)
-        ], alignment: .leading, spacing: 14) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 3), spacing: 14) {
             SystemChoiceCard(
                 title: "macOS",
                 detail: "Choose a compatible macOS restore image",
                 systemImage: "apple.logo",
+                accent: .blue,
                 badge: "Choose version",
                 isSelected: configData.osType == .macOS && formData.hasChosenSystem
             ) {
@@ -80,7 +79,8 @@ struct CreatePhaseSystemView: View {
             SystemChoiceCard(
                 title: "Omarchy",
                 detail: "Preinstalled Arch Linux desktop, ready on first boot",
-                systemImage: "sparkles.rectangle.stack",
+                systemImage: "o.circle.fill",
+                accent: .purple,
                 badge: "Recommended",
                 isSelected: formData.systemImageSelection == .preinstalled(.omarchy)
             ) {
@@ -91,35 +91,11 @@ struct CreatePhaseSystemView: View {
             linuxCard(
                 title: "Ubuntu",
                 detail: "Popular Linux desktop with long-term support",
-                systemImage: "circle.hexagongrid",
+                systemImage: "circle.grid.cross.fill",
+                accent: Color(red: 0.91, green: 0.25, blue: 0.12),
                 itemID: "ubuntu-24.04-desktop",
                 badge: "Quick install"
             )
-
-            linuxCard(
-                title: "Fedora",
-                detail: "Current Linux developer tooling",
-                systemImage: "f.circle",
-                itemID: "fedora-42-server"
-            )
-
-            linuxCard(
-                title: "Debian",
-                detail: "Stable and lightweight Linux",
-                systemImage: "swirl.circle.righthalf.filled",
-                itemID: "debian-13-netinst"
-            )
-
-            SystemChoiceCard(
-                title: "Other Linux",
-                detail: "Choose an ARM64 ISO image from this Mac",
-                systemImage: "plus",
-                badge: "Select ISO",
-                isSelected: isSelectedLocalLinuxImage
-            ) {
-                switchOSType(.linux)
-                selectFromFileSystem()
-            }
         }
     }
 
@@ -144,6 +120,7 @@ struct CreatePhaseSystemView: View {
         title: String,
         detail: String,
         systemImage: String,
+        accent: Color = .accentColor,
         itemID: String,
         badge: String? = nil
     ) -> some View {
@@ -152,6 +129,7 @@ struct CreatePhaseSystemView: View {
             title: title,
             detail: detail,
             systemImage: systemImage,
+            accent: accent,
             badge: badge,
             isSelected: item.map { formData.systemImageSelection == .catalog($0) } ?? false
         ) {
@@ -159,12 +137,6 @@ struct CreatePhaseSystemView: View {
             switchOSType(.linux)
             selectImage(.catalog(item))
         }
-    }
-
-    private var isSelectedLocalLinuxImage: Bool {
-        guard configData.osType == .linux,
-              case .localFile = formData.systemImageSelection else { return false }
-        return true
     }
 
     private func selectImage(_ selection: VMCreateViewStateObject.SystemImageSelection) {
@@ -214,6 +186,7 @@ private struct SystemChoiceCard: View {
     let title: String
     let detail: String
     let systemImage: String
+    var accent: Color = .accentColor
     let badge: String?
     let isSelected: Bool
     let action: () -> Void
@@ -222,10 +195,11 @@ private struct SystemChoiceCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 Image(systemName: systemImage)
-                    .font(.title2)
-                    .foregroundStyle(isSelected ? Color.white : Color.accentColor)
-                    .frame(width: 42, height: 42)
-                    .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                    .font(.system(size: 28, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(isSelected ? Color.white : accent)
+                    .frame(width: 54, height: 54)
+                    .background(isSelected ? accent : accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 14))
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -243,15 +217,15 @@ private struct SystemChoiceCard: View {
                         .foregroundStyle(.tint)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
-            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+            .padding(18)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(isSelected ? Color.accentColor.opacity(0.10) : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        .background(isSelected ? accent.opacity(0.10) : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.25), lineWidth: isSelected ? 2 : 1)
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(isSelected ? accent : Color.secondary.opacity(0.25), lineWidth: isSelected ? 2 : 1)
         }
         .accessibilityLabel("\(title), \(detail)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])

@@ -11,12 +11,15 @@ import Virtualization
 
 #if arch(arm64)
 struct VMCreateConfigurationView: View {
+    var includePrimaryResources = true
     
     var body: some View {
         Form {
-            Section ("CPU / Memory") {
-                VMConfigurationCPUView()
-                VMConfigurationMemoryView()
+            if includePrimaryResources {
+                Section("CPU / Memory") {
+                    VMConfigurationCPUView()
+                    VMConfigurationMemoryView()
+                }
             }
             
             Section ("Display / Storage / Network") {

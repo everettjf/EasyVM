@@ -489,7 +489,10 @@ class VMSnapshotManager {
         let directory = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
         let metadataURL = snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
         let filesURL = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
-        guard directory.standardizedFileURL.deletingLastPathComponent() == snapshotsRootURL(vmRootPath: vmRootPath).standardizedFileURL else {
+        guard sameFileSystemLocation(
+            directory.standardizedFileURL.deletingLastPathComponent(),
+            snapshotsRootURL(vmRootPath: vmRootPath)
+        ) else {
             return VMSnapshotIntegrityReport(errors: ["The snapshot directory escapes the snapshot store."], warnings: [])
         }
 
@@ -506,14 +509,14 @@ class VMSnapshotManager {
                 .standardizedFileURL
             for disk in snapshot.diskLayers {
                 let baseURL = vmRootPath.appending(path: disk.baseImageName).standardizedFileURL
-                guard baseURL.deletingLastPathComponent() == vmRootPath.standardizedFileURL,
+                guard sameFileSystemLocation(baseURL.deletingLastPathComponent(), vmRootPath),
                       VMDiskImageManager.existingASIFImageHasValidHeader(url: baseURL) else {
                     errors.append("The ASIF base image is missing or invalid: \(disk.baseImageName)")
                     continue
                 }
                 for layerPath in disk.layerPaths {
                     let layerURL = vmRootPath.appending(path: layerPath).standardizedFileURL
-                    guard layerURL.deletingLastPathComponent() == layersRoot else {
+                    guard sameFileSystemLocation(layerURL.deletingLastPathComponent(), layersRoot) else {
                         errors.append("The ASIF layer escapes the snapshot layer store: \(layerPath)")
                         continue
                     }
@@ -837,6 +840,13 @@ class VMSnapshotManager {
         url.standardizedFileURL.pathComponents
             .dropFirst(root.standardizedFileURL.pathComponents.count)
             .joined(separator: "/")
+    }
+
+    /// URL equality distinguishes a directory URL ending in `/` from the same
+    /// file-system path without it. Compare normalized path components so
+    /// containment checks do not reject valid snapshot directories.
+    private static func sameFileSystemLocation(_ lhs: URL, _ rhs: URL) -> Bool {
+        lhs.standardizedFileURL.pathComponents == rhs.standardizedFileURL.pathComponents
     }
 
     private static func createFileManifest(rootURL: URL) throws -> [VMSnapshotFileRecord] {

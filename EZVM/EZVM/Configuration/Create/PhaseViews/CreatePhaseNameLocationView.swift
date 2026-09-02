@@ -149,10 +149,14 @@ struct CreatePhaseNameLocationView: View {
 
     var body: some View {
         @Bindable var configData = configData
-        VStack {
-            Text("Name the virtual machine :")
-                .font(.title3)
-                .padding(.all)
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Name your virtual machine")
+                    .font(.title2.weight(.semibold))
+                Text("Choose a memorable name and where its files should live.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
 
             Form {
                 Section("Basic") {
@@ -213,6 +217,7 @@ struct CreatePhaseNameLocationView: View {
             }
             .formStyle(.grouped)
         }
+        .frame(maxWidth: 720, alignment: .leading)
         .onChange(of: configData.name) {
             refreshRootPath()
         }
