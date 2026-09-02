@@ -140,6 +140,13 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
     }
 
     static func createConfigurations(_ models: [VMModelFieldNetworkDevice]) -> VMOSResult<[VZNetworkDeviceConfiguration], String> {
+        if let error = collectionValidationError(
+            models,
+            vmnetEntitlementGranted: VMHostCapability.vmnet.isGranted,
+            availableInterfaceNames: hostInterfaceNames()
+        ) {
+            return .failure(error)
+        }
         var configurations: [VZNetworkDeviceConfiguration] = []
         for model in models {
             switch model.createConfiguration() {
@@ -150,11 +157,57 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
         return .success(configurations)
     }
 
+    static func collectionValidationError(
+        _ models: [VMModelFieldNetworkDevice],
+        vmnetEntitlementGranted: Bool,
+        availableInterfaceNames: Set<String>? = nil
+    ) -> String? {
+        var networkSignatures: [String: String] = [:]
+        var externalEndpointOwners: [String: String] = [:]
+
+        for (index, model) in models.enumerated() {
+            if let error = model.validationError(
+                vmnetEntitlementGranted: vmnetEntitlementGranted,
+                availableInterfaceNames: availableInterfaceNames
+            ) {
+                return error
+            }
+            if let identifier = model.networkIdentifier,
+               model.type == .VMNetShared || model.type == .VMNetHost {
+                if let existing = networkSignatures[identifier],
+                   existing != model.vmnetConfigurationSignature {
+                    return "VMNet network ‘\(identifier)’ is configured more than once with different settings."
+                }
+                networkSignatures[identifier] = model.vmnetConfigurationSignature
+            }
+            guard model.type == .VMNetShared else { continue }
+            let networkOwner = model.networkIdentifier.map {
+                "named:\($0):\(model.vmnetConfigurationSignature)"
+            } ?? "anonymous:\(index)"
+            for rule in model.portForwardingRules {
+                let endpoint = "\(rule.transport.rawValue):\(rule.externalPort)"
+                if let existingOwner = externalEndpointOwners[endpoint],
+                   existingOwner != networkOwner {
+                    return "External \(rule.transport.displayName) port \(rule.externalPort) is forwarded more than once in this virtual machine."
+                }
+                externalEndpointOwners[endpoint] = networkOwner
+            }
+        }
+        return nil
+    }
+
     var validationError: String? {
         validationError(vmnetEntitlementGranted: VMHostCapability.vmnet.isGranted)
     }
 
     func validationError(vmnetEntitlementGranted: Bool) -> String? {
+        validationError(vmnetEntitlementGranted: vmnetEntitlementGranted, availableInterfaceNames: nil)
+    }
+
+    func validationError(
+        vmnetEntitlementGranted: Bool,
+        availableInterfaceNames: Set<String>?
+    ) -> String? {
         guard type == .VMNetShared || type == .VMNetHost else { return nil }
         if !vmnetEntitlementGranted {
             return "The signed EZVM app does not have the VMNet entitlement."
@@ -169,19 +222,48 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
         if let ipv4Subnet, Self.parseIPv4(ipv4Subnet) == nil {
             return "The VMNet IPv4 subnet is not a valid IPv4 address."
         }
-        if let ipv4SubnetMask, Self.parseIPv4(ipv4SubnetMask) == nil {
-            return "The VMNet subnet mask is not a valid IPv4 address."
+        if let ipv4SubnetMask {
+            guard let mask = Self.ipv4Value(ipv4SubnetMask) else {
+                return "The VMNet subnet mask is not a valid IPv4 address."
+            }
+            guard Self.isContiguousSubnetMask(mask) else {
+                return "The VMNet subnet mask must contain contiguous network bits, such as 255.255.255.0."
+            }
+        }
+        if let ipv4Subnet, let ipv4SubnetMask,
+           let subnet = Self.ipv4Value(ipv4Subnet),
+           let mask = Self.ipv4Value(ipv4SubnetMask),
+           subnet != subnet & mask {
+            return "The VMNet subnet must be a network address. For this mask, use \(Self.ipv4String(subnet & mask))."
         }
         if type == .VMNetHost, externalInterface != nil {
             return "An external interface can only be selected for VMNet Shared mode."
+        }
+        if let externalInterface, let availableInterfaceNames,
+           !availableInterfaceNames.contains(externalInterface) {
+            return "The VMNet external interface ‘\(externalInterface)’ is not available on this Mac. Choose a connected interface or use Automatic."
         }
         if type != .VMNetShared, !portForwardingRules.isEmpty {
             return "Port forwarding is only available for VMNet Shared mode."
         }
         var externalEndpoints = Set<String>()
         for rule in portForwardingRules {
+            guard rule.externalPort != 0, rule.internalPort != 0 else {
+                return "VMNet port-forwarding ports must be between 1 and 65535."
+            }
             guard Self.parseIPv4(rule.internalAddress) != nil else {
                 return "A VMNet port-forwarding destination is not a valid IPv4 address."
+            }
+            if let ipv4Subnet, let ipv4SubnetMask,
+               let subnet = Self.ipv4Value(ipv4Subnet),
+               let mask = Self.ipv4Value(ipv4SubnetMask),
+               let destination = Self.ipv4Value(rule.internalAddress) {
+                let broadcast = (subnet & mask) | ~mask
+                guard destination & mask == subnet & mask,
+                      destination != subnet & mask,
+                      destination != broadcast else {
+                    return "VMNet forwarding destination \(rule.internalAddress) must be a usable address inside \(ipv4Subnet)/\(ipv4SubnetMask)."
+                }
             }
             let endpoint = "\(rule.transport.rawValue):\(rule.externalPort)"
             guard externalEndpoints.insert(endpoint).inserted else {
@@ -284,6 +366,33 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
     private static func parseIPv4(_ value: String) -> in_addr? {
         var address = in_addr()
         return value.withCString { inet_pton(AF_INET, $0, &address) == 1 ? address : nil }
+    }
+
+    private static func ipv4Value(_ value: String) -> UInt32? {
+        parseIPv4(value).map { UInt32(bigEndian: $0.s_addr) }
+    }
+
+    private static func ipv4String(_ value: UInt32) -> String {
+        "\((value >> 24) & 0xFF).\((value >> 16) & 0xFF).\((value >> 8) & 0xFF).\(value & 0xFF)"
+    }
+
+    private static func isContiguousSubnetMask(_ mask: UInt32) -> Bool {
+        guard mask != 0 else { return false }
+        let inverted = ~mask
+        return inverted & (inverted &+ 1) == 0
+    }
+
+    private static func hostInterfaceNames() -> Set<String>? {
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&interfaces) == 0, let first = interfaces else { return nil }
+        defer { freeifaddrs(interfaces) }
+        var names = Set<String>()
+        var current: UnsafeMutablePointer<ifaddrs>? = first
+        while let interface = current {
+            names.insert(String(cString: interface.pointee.ifa_name))
+            current = interface.pointee.ifa_next
+        }
+        return names
     }
 
     private var vmnetConfigurationSignature: String {

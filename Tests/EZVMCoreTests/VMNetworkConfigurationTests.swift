@@ -239,5 +239,128 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertNil(host.validationError(vmnetEntitlementGranted: true))
         XCTAssertNotNil(shared.validationError(vmnetEntitlementGranted: false))
     }
+
+    func testVMNetRejectsNonContiguousMasksAndNonNetworkSubnets() {
+        XCTAssertTrue(VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            ipv4Subnet: "192.168.73.0",
+            ipv4SubnetMask: "255.0.255.0"
+        ).validationError(vmnetEntitlementGranted: true)?.contains("contiguous") == true)
+
+        XCTAssertEqual(
+            VMModelFieldNetworkDevice(
+                type: .VMNetShared,
+                ipv4Subnet: "192.168.73.42",
+                ipv4SubnetMask: "255.255.255.0"
+            ).validationError(vmnetEntitlementGranted: true),
+            "The VMNet subnet must be a network address. For this mask, use 192.168.73.0."
+        )
+    }
+
+    func testVMNetRejectsInvalidForwardingPortsAndDestinationsOutsideSubnet() {
+        let zeroPort = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 0,
+            internalAddress: "192.168.73.10",
+            internalPort: 22
+        )
+        XCTAssertTrue(VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            portForwardingRules: [zeroPort]
+        ).validationError(vmnetEntitlementGranted: true)?.contains("between 1 and 65535") == true)
+
+        let outsideSubnet = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.74.10",
+            internalPort: 22
+        )
+        XCTAssertTrue(VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            ipv4Subnet: "192.168.73.0",
+            ipv4SubnetMask: "255.255.255.0",
+            portForwardingRules: [outsideSubnet]
+        ).validationError(vmnetEntitlementGranted: true)?.contains("usable address inside") == true)
+    }
+
+    func testVMNetRejectsUnavailableExternalInterface() {
+        XCTAssertTrue(VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            externalInterface: "en99"
+        ).validationError(
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: ["en0", "bridge0"]
+        )?.contains("not available") == true)
+    }
+
+    func testVMNetCollectionPreflightRejectsConflictsBeforeCreation() {
+        let firstRule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.73.10",
+            internalPort: 22
+        )
+        let secondRule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.74.10",
+            internalPort: 22
+        )
+        let first = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "lab",
+            ipv4Subnet: "192.168.73.0",
+            ipv4SubnetMask: "255.255.255.0",
+            portForwardingRules: [firstRule]
+        )
+        let conflictingName = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "lab",
+            ipv4Subnet: "192.168.74.0",
+            ipv4SubnetMask: "255.255.255.0",
+            portForwardingRules: [secondRule]
+        )
+
+        XCTAssertTrue(VMModelFieldNetworkDevice.collectionValidationError(
+            [first, conflictingName],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: []
+        )?.contains("different settings") == true)
+
+        let duplicatePort = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "other",
+            ipv4Subnet: "192.168.74.0",
+            ipv4SubnetMask: "255.255.255.0",
+            portForwardingRules: [secondRule]
+        )
+        XCTAssertTrue(VMModelFieldNetworkDevice.collectionValidationError(
+            [first, duplicatePort],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: []
+        )?.contains("forwarded more than once") == true)
+    }
+
+    func testVMNetCollectionAllowsIdenticalNamedNetworkReuse() {
+        let rule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.73.10",
+            internalPort: 22
+        )
+        let shared = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "shared-lab",
+            ipv4Subnet: "192.168.73.0",
+            ipv4SubnetMask: "255.255.255.0",
+            portForwardingRules: [rule]
+        )
+
+        XCTAssertNil(VMModelFieldNetworkDevice.collectionValidationError(
+            [shared, shared],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: []
+        ))
+    }
 }
 #endif

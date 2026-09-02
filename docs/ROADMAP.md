@@ -111,9 +111,9 @@ notarization success alone is not evidence that an entitlement is usable.
 | Standard NAT | Stable | Production builds use `VZNATNetworkDeviceAttachment`. | Add connectivity diagnostics and tested DNS behavior. |
 | Bridged networking | Beta | The macOS 27 VMNet capability and external-interface selection are integrated. | Validate more host interface changes and failure recovery. |
 | Host-only networking | Beta | Named logical networks, subnet/mask configuration, and process-lifetime network reuse are integrated. | Add cross-process ownership and recovery. |
-| Custom network topology | Beta | VMNet shared/host modes persist subnet, external interface, MTU, and validated topology settings. | Expand DHCP/DNS policy controls and failure diagnostics. |
+| Custom network topology | Beta | VMNet shared/host modes persist subnet, external interface, MTU, and topology settings. Complete-collection preflight rejects invalid masks/network addresses, unavailable interfaces, conflicting named networks, and cross-network forwarding collisions before any VMNet object is created. | Add live host-port ownership, DHCP/DNS policy controls, and runtime failure diagnostics. |
 | Shared logical network across processes | Planned | VMNet serialization APIs are available. | Complete the XPC ownership and recovery design. |
-| vmnet port forwarding | Beta | Validated TCP/UDP rules and collision checks are integrated with VMNet shared networks. | Add live rule editing and broader reconnect tests. |
+| vmnet port forwarding | Beta | TCP/UDP rules validate nonzero ports, usable in-subnet destinations, per-network duplicates, and cross-network endpoint collisions before creation. | Add live host-port occupancy checks, live rule editing, and broader reconnect tests. |
 | User-space port forwarding | Planned research | Could avoid vmnet by proxying host sockets to a known guest service. | First solve guest discovery, security, lifecycle, and UDP semantics. |
 | Guest IP discovery | Stable | The authenticated Linux guest agent reports sorted non-loopback addresses over Virtio Socket. | Expand distro and reconnect soak coverage. |
 | One-click SSH | Stable | Capability-gated menu opens validated IPv4/IPv6 `ssh://` URLs without shell interpolation or stored credentials. | Add optional per-VM username preference after credential policy is designed. |

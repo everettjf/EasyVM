@@ -98,6 +98,16 @@ permission problems explain how to recover.
 
 ## 3. VMNet advanced networking
 
+**Current implementation:** EZVM now preflights the complete network-device
+collection before creating any VMNet object. Validation rejects unavailable
+external interfaces, non-contiguous masks, host addresses used as subnets,
+zero ports, forwarding destinations outside the configured subnet, conflicting
+definitions of one logical-network name, and duplicate external endpoints
+across distinct networks. Identical reuse of a named logical network remains
+valid. This removes partial network creation on a later validation failure;
+live host-port ownership and runtime interface/VPN transitions remain in the
+real-system verification backlog below.
+
 ### Product outcome
 
 The default remains simple NAT. Advanced users can deliberately choose bridged,
