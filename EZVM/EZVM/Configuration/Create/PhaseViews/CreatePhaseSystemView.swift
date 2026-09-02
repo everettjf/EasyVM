@@ -11,6 +11,9 @@ import SwiftUI
 
 class CreatePhaseSystemViewHandler: VMCreateStepperGuidePhaseHandler {
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
+        guard context.formData.hasChosenSystem else {
+            return .failure("Choose a system before continuing.")
+        }
         if case .localFile(let url) = context.formData.systemImageSelection,
            !FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
             return .failure("The selected system image no longer exists: \(url.path(percentEncoded: false))")
@@ -28,14 +31,17 @@ struct CreatePhaseSystemView: View {
     @Environment(VMConfigurationViewStateObject.self) private var configData
 
     @State private var customImageURL = ""
+    @State private var showingMacOSVersions = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
-                operatingSystemPicker
-                imageSelection
-                selectedImageSummary
+                if showingMacOSVersions {
+                    macOSVersionSelection
+                } else {
+                    systemSelection
+                }
             }
             .frame(maxWidth: 720, alignment: .leading)
             .padding(.horizontal, 4)
@@ -47,75 +53,123 @@ struct CreatePhaseSystemView: View {
         VStack(alignment: .leading, spacing: 5) {
             Text("Choose a system")
                 .font(.title2.weight(.semibold))
-            Text("Choose an image now. Downloading starts only after you click Create.")
+            Text(showingMacOSVersions
+                 ? "Choose a compatible restore image. Downloading starts only after you click Create."
+                 : "What would you like to run?")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }
 
-    private var operatingSystemPicker: some View {
-        Picker("Operating system", selection: Binding(
-            get: { configData.osType },
-            set: { switchOSType($0) }
-        )) {
-            Label("macOS", systemImage: "apple.logo")
-                .tag(VMOSType.macOS)
-            Label("Linux", systemImage: "pc")
-                .tag(VMOSType.linux)
+    private var systemSelection: some View {
+        LazyVGrid(columns: [
+            GridItem(.adaptive(minimum: 190, maximum: 240), spacing: 14)
+        ], alignment: .leading, spacing: 14) {
+            SystemChoiceCard(
+                title: "macOS",
+                detail: "Choose a compatible macOS restore image",
+                systemImage: "apple.logo",
+                badge: "Choose version",
+                isSelected: configData.osType == .macOS && formData.hasChosenSystem
+            ) {
+                switchOSType(.macOS)
+                showingMacOSVersions = true
+            }
+
+            SystemChoiceCard(
+                title: "Omarchy",
+                detail: "Preinstalled Arch Linux desktop, ready on first boot",
+                systemImage: "sparkles.rectangle.stack",
+                badge: "Recommended",
+                isSelected: formData.systemImageSelection == .preinstalled(.omarchy)
+            ) {
+                switchOSType(.linux)
+                selectImage(.preinstalled(.omarchy))
+            }
+
+            linuxCard(
+                title: "Ubuntu",
+                detail: "Popular Linux desktop with long-term support",
+                systemImage: "circle.hexagongrid",
+                itemID: "ubuntu-24.04-desktop",
+                badge: "Quick install"
+            )
+
+            linuxCard(
+                title: "Fedora",
+                detail: "Current Linux developer tooling",
+                systemImage: "f.circle",
+                itemID: "fedora-42-server"
+            )
+
+            linuxCard(
+                title: "Debian",
+                detail: "Stable and lightweight Linux",
+                systemImage: "swirl.circle.righthalf.filled",
+                itemID: "debian-13-netinst"
+            )
+
+            SystemChoiceCard(
+                title: "Other Linux",
+                detail: "Choose an ARM64 ISO image from this Mac",
+                systemImage: "plus",
+                badge: "Select ISO",
+                isSelected: isSelectedLocalLinuxImage
+            ) {
+                switchOSType(.linux)
+                selectFromFileSystem()
+            }
         }
-        .pickerStyle(.segmented)
-        .accessibilityIdentifier("create-os-picker")
     }
 
-    @ViewBuilder
-    private var imageSelection: some View {
-        if configData.osType == .macOS {
+    private var macOSVersionSelection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Button("All systems", systemImage: "chevron.left") {
+                showingMacOSVersions = false
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+
             MacOSImageSelectionView(
                 selection: formData.systemImageSelection,
                 customURL: $customImageURL,
                 onSelect: selectImage,
                 onChooseLocal: selectFromFileSystem
             )
-        } else {
-            LinuxImageSelectionView(
-                selection: formData.systemImageSelection,
-                customURL: $customImageURL,
-                onSelect: selectImage,
-                onChooseLocal: selectFromFileSystem
-            )
         }
     }
 
-    private var selectedImageSummary: some View {
-        GroupBox {
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.green)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(formData.systemImageSelection.title)
-                        .font(.headline)
-                    Text(formData.systemImageSelection.detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                }
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private func linuxCard(
+        title: String,
+        detail: String,
+        systemImage: String,
+        itemID: String,
+        badge: String? = nil
+    ) -> some View {
+        let item = VMSystemImageCatalog.linuxItems.first { $0.id == itemID }
+        return SystemChoiceCard(
+            title: title,
+            detail: detail,
+            systemImage: systemImage,
+            badge: badge,
+            isSelected: item.map { formData.systemImageSelection == .catalog($0) } ?? false
+        ) {
+            guard let item else { return }
+            switchOSType(.linux)
+            selectImage(.catalog(item))
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("selected-system-image")
-        .id(formData.systemImageSelection)
+    }
+
+    private var isSelectedLocalLinuxImage: Bool {
+        guard configData.osType == .linux,
+              case .localFile = formData.systemImageSelection else { return false }
+        return true
     }
 
     private func selectImage(_ selection: VMCreateViewStateObject.SystemImageSelection) {
         formData.systemImageSelection = selection
+        formData.hasChosenSystem = true
         if case .localFile(let url) = selection {
             formData.imagePath = url.path(percentEncoded: false)
         } else {
@@ -141,6 +195,7 @@ struct CreatePhaseSystemView: View {
             configData.name = existingName
         }
         formData.imagePath = ""
+        formData.hasChosenSystem = false
         formData.systemImageSelection = osType == .macOS
             ? .latestMacOS
             : .catalog(VMSystemImageCatalog.linuxItems[0])
@@ -152,6 +207,55 @@ struct CreatePhaseSystemView: View {
             guard let path else { return }
             selectImage(.localFile(path))
         }
+    }
+}
+
+private struct SystemChoiceCard: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+    let badge: String?
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(isSelected ? Color.white : Color.accentColor)
+                    .frame(width: 42, height: 42)
+                    .background(isSelected ? Color.accentColor : Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2, reservesSpace: true)
+                }
+
+                if let badge {
+                    Text(badge)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tint)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
+            .padding(16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(isSelected ? Color.accentColor.opacity(0.10) : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.25), lineWidth: isSelected ? 2 : 1)
+        }
+        .accessibilityLabel("\(title), \(detail)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("system-choice-\(title.lowercased().replacingOccurrences(of: " ", with: "-"))")
     }
 }
 

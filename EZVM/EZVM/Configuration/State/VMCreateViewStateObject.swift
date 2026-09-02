@@ -87,6 +87,7 @@ class VMCreateViewStateObject {
     // phase
     var imagePath: String = ""
     var systemImageSelection: SystemImageSelection = .latestMacOS
+    var hasChosenSystem = false
 
     // macOS 27 first-boot provisioning. The password lives only in this
     // in-memory form and is moved to Keychain after the VM is installed.
