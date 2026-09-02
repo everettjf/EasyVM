@@ -676,7 +676,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             Task { @MainActor in
                 guard let self else { return }
                 switch result {
-                case .success: self.runtimeState?.update(.paused)
+                case .success:
+                    self.guestAgentClient?.virtualMachineDidPause()
+                    self.runtimeState?.update(.paused)
                 case .failure(let error): self.fail("Could not pause the virtual machine: \(error.localizedDescription)")
                 }
             }
@@ -689,7 +691,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             Task { @MainActor in
                 guard let self else { return }
                 switch result {
-                case .success: self.runtimeState?.update(.running)
+                case .success:
+                    self.runtimeState?.update(.running)
+                    self.guestAgentClient?.virtualMachineDidResume()
                 case .failure(let error): self.fail("Could not resume the virtual machine: \(error.localizedDescription)")
                 }
             }

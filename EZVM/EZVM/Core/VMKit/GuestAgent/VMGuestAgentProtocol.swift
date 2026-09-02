@@ -3,6 +3,19 @@ import CryptoKit
 import Darwin
 import Foundation
 
+struct VMGuestAgentRetryPolicy: Equatable {
+    let maximumDelay: TimeInterval
+
+    init(maximumDelay: TimeInterval = 30) {
+        self.maximumDelay = maximumDelay
+    }
+
+    func delay(afterFailureCount failureCount: Int) -> TimeInterval {
+        guard failureCount > 0 else { return 0 }
+        return min(pow(2, Double(min(failureCount - 1, 5))), maximumDelay)
+    }
+}
+
 enum VMDisplayGeometry {
     static func stabilizedResolution(
         candidate: (width: UInt32, height: UInt32),

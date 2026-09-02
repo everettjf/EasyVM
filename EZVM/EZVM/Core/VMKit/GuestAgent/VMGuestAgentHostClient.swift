@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Virtualization
 import Darwin
@@ -30,6 +31,11 @@ private enum VMGuestAgentClientError: LocalizedError {
 
 @MainActor
 final class VMGuestAgentHostClient {
+    private enum SuspensionReason: Hashable {
+        case virtualMachinePaused
+        case hostSleeping
+    }
+
     private struct PendingRequest {
         let continuation: CheckedContinuation<Data, Error>
         let timeout: Task<Void, Never>
@@ -44,6 +50,10 @@ final class VMGuestAgentHostClient {
     private var connection: VZVirtioSocketConnection?
     private var connectionGeneration: UInt64 = 0
     private var retryTask: DispatchWorkItem?
+    private var retryFailureCount = 0
+    private let retryPolicy = VMGuestAgentRetryPolicy()
+    private var suspensionReasons: Set<SuspensionReason> = []
+    private var workspaceObservers: [NSObjectProtocol] = []
     private var heartbeatTimer: Timer?
     private var stopped = false
     private let writeLock = NSLock()
@@ -75,6 +85,7 @@ final class VMGuestAgentHostClient {
 
     func start() {
         guard !stopped else { return }
+        installWorkspaceObservers()
         runtimeState?.updateGuestAgent(.connecting)
         connect()
     }
@@ -84,6 +95,8 @@ final class VMGuestAgentHostClient {
         connectionGeneration &+= 1
         retryTask?.cancel()
         retryTask = nil
+        removeWorkspaceObservers()
+        suspensionReasons.removeAll()
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
         closeConnection()
@@ -98,6 +111,14 @@ final class VMGuestAgentHostClient {
         inputTask = nil
         pendingInputBatches.removeAll()
         failPendingRequests(CancellationError())
+    }
+
+    func virtualMachineDidPause() {
+        suspendConnection(for: .virtualMachinePaused)
+    }
+
+    func virtualMachineDidResume() {
+        resumeConnection(after: .virtualMachinePaused)
     }
 
     func send(_ operation: VMGuestAgentOperation) {
@@ -239,7 +260,7 @@ final class VMGuestAgentHostClient {
     }
 
     private func connect() {
-        guard !stopped else { return }
+        guard !stopped, suspensionReasons.isEmpty else { return }
         connectionGeneration &+= 1
         let generation = connectionGeneration
         device.connect(toPort: VMGuestAgentProtocol.port) { [weak self] result in
@@ -357,6 +378,7 @@ final class VMGuestAgentHostClient {
 
     private func authenticated(sessionID: String, generation: UInt64) {
         guard !stopped, connectionGeneration == generation else { return }
+        retryFailureCount = 0
         self.sessionID = sessionID
         sendSequence = 0
         liveness.markResponse()
@@ -457,9 +479,11 @@ final class VMGuestAgentHostClient {
     }
 
     private func scheduleRetry(_ reason: String) {
-        guard !stopped else { return }
+        guard !stopped, suspensionReasons.isEmpty else { return }
         runtimeState?.updateGuestAgent(.disconnected(reason))
         retryTask?.cancel()
+        retryFailureCount += 1
+        let delay = retryPolicy.delay(afterFailureCount: retryFailureCount)
         let task = DispatchWorkItem { [weak self] in
             Task { @MainActor in
                 guard let self, !self.stopped else { return }
@@ -468,7 +492,58 @@ final class VMGuestAgentHostClient {
             }
         }
         retryTask = task
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: task)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: task)
+    }
+
+    private func installWorkspaceObservers() {
+        guard workspaceObservers.isEmpty else { return }
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers = [
+            center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.suspendConnection(for: .hostSleeping) }
+            },
+            center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.resumeConnection(after: .hostSleeping) }
+            },
+        ]
+    }
+
+    private func removeWorkspaceObservers() {
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers.forEach(center.removeObserver)
+        workspaceObservers.removeAll()
+    }
+
+    private func suspendConnection(for reason: SuspensionReason) {
+        guard !stopped else { return }
+        suspensionReasons.insert(reason)
+        connectionGeneration &+= 1
+        retryTask?.cancel()
+        retryTask = nil
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+        closeConnection()
+        connection = nil
+        sessionID = nil
+        liveness.reset()
+        capabilities.removeAll()
+        onInputCapabilitiesChanged(false, false)
+        transferTask?.cancel()
+        transferTask = nil
+        inputTask?.cancel()
+        inputTask = nil
+        pendingInputBatches.removeAll()
+        failPendingRequests(CancellationError())
+        runtimeState?.updateGuestAgent(.disconnected("Connection suspended."))
+    }
+
+    private func resumeConnection(after reason: SuspensionReason) {
+        guard !stopped else { return }
+        suspensionReasons.remove(reason)
+        guard suspensionReasons.isEmpty else { return }
+        retryFailureCount = 0
+        runtimeState?.updateGuestAgent(.connecting)
+        connect()
     }
 
     private func request<T: Encodable, Response: Decodable>(

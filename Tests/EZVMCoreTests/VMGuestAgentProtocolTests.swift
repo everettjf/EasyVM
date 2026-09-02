@@ -3,6 +3,16 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
+    func testRetryPolicyUsesBoundedExponentialBackoff() {
+        let policy = VMGuestAgentRetryPolicy(maximumDelay: 30)
+        XCTAssertEqual(policy.delay(afterFailureCount: 0), 0)
+        XCTAssertEqual(policy.delay(afterFailureCount: 1), 1)
+        XCTAssertEqual(policy.delay(afterFailureCount: 2), 2)
+        XCTAssertEqual(policy.delay(afterFailureCount: 3), 4)
+        XCTAssertEqual(policy.delay(afterFailureCount: 6), 30)
+        XCTAssertEqual(policy.delay(afterFailureCount: 50), 30)
+    }
+
     func testDisplayResolutionHysteresisIgnoresWindowChromeJitter() {
         let current = (width: UInt32(1920), height: UInt32(1080))
         let chromeCandidate = (width: UInt32(1968), height: UInt32(1080))
