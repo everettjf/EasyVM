@@ -8,12 +8,11 @@ It is intentionally more durable than the chronological prototype notes.
 
 ## Scope and compatibility
 
-EZVM keeps a macOS 26 deployment target. Graphics selection is runtime-gated:
+EZVM requires macOS 27. Graphics selection still fails safely:
 
 | Host / guest | Requested backend | Fallback |
 | --- | --- | --- |
 | macOS 27+, Linux | Custom Virtio GPU + VirGL | Apple Virtio if the runtime is unavailable or initialization fails |
-| macOS 26, Linux | Apple Virtio | None required |
 | macOS guest | Apple Mac graphics | Custom VirGL is never selected |
 
 The Custom VirGL setting defaults on where supported. The running VM window

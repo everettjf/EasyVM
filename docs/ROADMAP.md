@@ -27,18 +27,22 @@ entitlements, and capabilities that the framework does not provide.
 
 ## Distribution rule
 
-The Homebrew release must contain only entitlements that work with a normal
-Developer ID distribution. The current production entitlement set is:
+The Homebrew release contains the macOS 27 capabilities validated by the
+Developer ID provisioning and runtime smoke tests. The production entitlement
+set is:
 
 ```xml
 <key>com.apple.security.virtualization</key>
 <true/>
+<key>com.apple.developer.networking.vmnet</key>
+<true/>
+<key>com.apple.developer.accessory-access.usb</key>
+<true/>
 ```
 
-Restricted capabilities must remain out of the production target until Apple
-has approved the entitlement and a matching provisioning profile has been
-validated in a Homebrew-installed build. A notarization success alone is not
-evidence that a restricted entitlement is distributable.
+Every capability must remain covered by the release allowlist, a matching
+Developer ID provisioning profile, and a Homebrew-installed runtime test. A
+notarization success alone is not evidence that an entitlement is usable.
 
 ## Capability matrix
 
@@ -78,8 +82,8 @@ evidence that a restricted entitlement is distributable.
 | Serial port terminal | Planned | Framework support exists; EZVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
 | Host/guest clipboard | In progress | EZVM explicitly enables the SPICE clipboard channel; the Omarchy image restores `spice-vdagent` and its desktop-session integration. | Verify bidirectional Unicode and large-text copy in a built image. |
-| Physical USB passthrough | Restricted | Not included in EZVM 1.0.0. | Requires macOS 27 Accessory Access and an approved entitlement. |
-| USB hot-plug management | Restricted | Not present after USB passthrough removal. | Revisit only with the same approved distribution path. |
+| Physical USB passthrough | In progress | The macOS 27 Accessory Access capability is enabled and signed; product integration is underway. | Complete explicit claim, attach/detach, hot-plug, and release behavior. |
+| USB hot-plug management | In progress | Accessory Access entitlement and diagnostics are present. | Complete the same runtime and distribution gates as USB passthrough. |
 | Custom Virtio devices | Experimental | macOS 27 Linux VMs have a real virtio-gpu implementation for VirGL acceleration. The backend is availability-gated, falls back safely, and disables incompatible machine-state restore. | Maintain protocol conformance, fuzz hostile resource requests, and graduate only after wider beta/soak coverage. |
 
 ### Storage, snapshots, and portability
@@ -105,11 +109,11 @@ evidence that a restricted entitlement is distributable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | Standard NAT | Stable | Production builds use `VZNATNetworkDeviceAttachment`. | Add connectivity diagnostics and tested DNS behavior. |
-| Bridged networking | Restricted | Not included in EZVM 1.0.0. | Requires `com.apple.vm.networking` approval and profile validation. |
-| Host-only networking | Restricted | Not included in EZVM 1.0.0; previous implementation used vmnet logical networks. | Restore only after entitlement approval. |
-| Custom network topology | Restricted | Not included in EZVM 1.0.0. | Depends on vmnet and should remain an experimental branch. |
-| Shared logical network across processes | Restricted | Not in production. | Requires vmnet serialization/XPC design and entitlement approval. |
-| vmnet port forwarding | Restricted | Not included in EZVM 1.0.0. | Same entitlement constraint as custom networking. |
+| Bridged networking | In progress | The macOS 27 VMNet capability is enabled without the legacy restricted entitlement. | Implement and validate external-interface selection. |
+| Host-only networking | In progress | The macOS 27 VMNet capability is enabled. | Implement logical network configuration and lifecycle. |
+| Custom network topology | In progress | The macOS 27 VMNet capability is enabled. | Productize subnet, DHCP, DNS, NAT, and failure diagnostics. |
+| Shared logical network across processes | Planned | VMNet serialization APIs are available. | Complete the XPC ownership and recovery design. |
+| vmnet port forwarding | In progress | The macOS 27 VMNet capability is enabled. | Add validated TCP/UDP rules and collision handling. |
 | User-space port forwarding | Planned research | Could avoid vmnet by proxying host sockets to a known guest service. | First solve guest discovery, security, lifecycle, and UDP semantics. |
 | Guest IP discovery | Stable | The authenticated Linux guest agent reports sorted non-loopback addresses over Virtio Socket. | Expand distro and reconnect soak coverage. |
 | One-click SSH | Stable | Capability-gated menu opens validated IPv4/IPv6 `ssh://` URLs without shell interpolation or stored credentials. | Add optional per-VM username preference after credential policy is designed. |

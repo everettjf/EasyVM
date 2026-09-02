@@ -16,12 +16,10 @@ Apple graphics.
 | Host and guest | Expected graphics path |
 | --- | --- |
 | macOS 27+, Linux | Custom Virtio GPU with VirGL/ANGLE; Apple Virtio fallback on startup failure |
-| macOS 26, Linux | Apple Virtio graphics compatibility path |
 | macOS guest | Apple native Mac graphics path |
 
-The EZVM deployment target remains macOS 26. A macOS 26 success does not test
-Custom VirGL, and a macOS 27 Custom VirGL fix must not silently remove the
-Apple compatibility path.
+The EZVM deployment target is macOS 27. A Custom VirGL fix must not silently
+remove the Apple Virtio fallback.
 
 Run `ezvm doctor` and `ezvm validate "/path/to/Machine.ezvm"` before modifying
 a machine. Do not attach disks or logs containing credentials to a bug report.

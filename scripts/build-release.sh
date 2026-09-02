@@ -49,17 +49,35 @@ else
   virgl_runtime_source="$project_root/.build/virgl-runtime-source"
 fi
 
-xcodebuild \
-  -project "$project_root/EZVM/EZVM.xcodeproj" \
-  -scheme EZVM \
-  -configuration Release \
-  -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath "$derived_data" \
-  CODE_SIGNING_ALLOWED=NO \
-  MARKETING_VERSION="$version" \
-  build
-
-app_path="$derived_data/Build/Products/Release/EZVM.app"
+if [[ -n "${EZVM_SIGNING_IDENTITY:-}" ]]; then
+  archive_path="$derived_data/EZVM.xcarchive"
+  export_path="$derived_data/DeveloperIDExport"
+  xcodebuild archive \
+    -project "$project_root/EZVM/EZVM.xcodeproj" \
+    -scheme EZVM \
+    -configuration Release \
+    -destination 'generic/platform=macOS' \
+    -archivePath "$archive_path" \
+    -allowProvisioningUpdates \
+    MARKETING_VERSION="$version"
+  xcodebuild -exportArchive \
+    -archivePath "$archive_path" \
+    -exportPath "$export_path" \
+    -exportOptionsPlist "$project_root/scripts/developer-id-export-options.plist" \
+    -allowProvisioningUpdates
+  app_path="$export_path/EZVM.app"
+else
+  xcodebuild \
+    -project "$project_root/EZVM/EZVM.xcodeproj" \
+    -scheme EZVM \
+    -configuration Release \
+    -destination 'platform=macOS,arch=arm64' \
+    -derivedDataPath "$derived_data" \
+    CODE_SIGNING_ALLOWED=NO \
+    MARKETING_VERSION="$version" \
+    build
+  app_path="$derived_data/Build/Products/Release/EZVM.app"
+fi
 if [[ -z "${EZVM_VIRGL_RUNTIME_SOURCE:-}" ]]; then
   (cd "$project_root" && \
     "$project_root/scripts/build-virgl-runtime-from-source.sh" "$virgl_runtime_source")
@@ -86,10 +104,14 @@ else
 fi
 entitlements_path="$project_root/EZVM/EZVM/EZVM.entitlements"
 
-signing_options=(--force --deep --entitlements "$entitlements_path" --sign "$signing_identity")
+signing_options=(--force --deep --sign "$signing_identity")
 if [[ "$signing_identity" == "-" ]]; then
+  signing_options+=(--entitlements "$entitlements_path")
   signing_options+=(--timestamp=none)
 else
+  # Preserve the application/team identifiers and capability entitlements
+  # authorized by Xcode's Developer ID export and embedded profile.
+  signing_options+=(--preserve-metadata=entitlements)
   signing_options+=(--options runtime --timestamp)
 fi
 

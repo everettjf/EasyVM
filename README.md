@@ -6,7 +6,7 @@
 
 **Virtual machines, made easy — a focused native app for Apple silicon Macs.**
 
-[![macOS 26+](https://img.shields.io/badge/macOS-26%2B-111827?logo=apple)](https://support.apple.com/macos)
+[![macOS 27+](https://img.shields.io/badge/macOS-27%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
 [![License](https://img.shields.io/github/license/everettjf/ezvm)](LICENSE)
 [![Pages](https://github.com/everettjf/ezvm/actions/workflows/pages.yml/badge.svg)](https://everettjf.github.io/ezvm/)
@@ -15,7 +15,7 @@
 
 ## Install EZVM
 
-On an Apple silicon Mac running **macOS 26 Tahoe or later**, install the signed
+On an Apple silicon Mac running **macOS 27 or later**, install the signed
 and notarized app with Homebrew:
 
 ```bash
@@ -57,16 +57,16 @@ EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/docum
 - Integrates with an optional authenticated Linux guest agent for readiness, IP reporting, SSH links, safe file transfer, and explicit shutdown/restart commands
 - Installs an `ezvm` CLI with versioned JSON inspection, validation, diagnostics, and headless start/status/stop commands
 - Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories
-- On macOS 27 or later, accelerates Linux desktops with a native Custom Virtio
-  GPU backed by VirGLRenderer and ANGLE/Metal; macOS 26 and macOS guests retain
-  the Apple Virtio graphics path
+- Accelerates Linux desktops with a native Custom Virtio GPU backed by
+  VirGLRenderer and ANGLE/Metal; macOS guests retain Apple native graphics and
+  Linux guests fall back to Apple Virtio if Custom VirGL can't start
 - Uses Apple's native virtualization stack—no bundled hypervisor or cross-architecture emulation
 - Keeps the app and its VM configuration format intentionally small
 
 ## Requirements
 
 - An Apple silicon Mac
-- macOS 26 Tahoe or later
+- macOS 27 or later
 - An ARM64 guest image; EZVM does not emulate x86 guests
 
 ## Installation details
@@ -141,7 +141,6 @@ EZVM selects the graphics backend at runtime:
 | Host and guest | Graphics path |
 | --- | --- |
 | macOS 27+ host, Linux guest | Custom Virtio GPU → VirGLRenderer → ANGLE/Metal |
-| macOS 26 host, Linux guest | Apple Virtio graphics compatibility path |
 | macOS guest | Apple native Mac graphics path |
 
 The Custom VirGL path supports zero-copy scanout presentation, display-clock
@@ -168,8 +167,8 @@ sparse Omarchy image, completed the entire first-run flow, reached Hyprland,
 adapted the desktop to full screen, exercised Command-to-Super shortcuts and
 continuous typing (including remotely synthesized Shift characters), verified
 browser scrolling by hand, and confirmed guest NAT, DNS, TLS 1.3/HTTP/2, and
-the real pacman update path. The deployment target remains macOS 26; only Linux
-guests on macOS 27+ select Custom VirGL.
+the real pacman update path. The deployment target is macOS 27; Linux guests
+select Custom VirGL while retaining the Apple Virtio startup fallback.
 
 ## Guest images
 
