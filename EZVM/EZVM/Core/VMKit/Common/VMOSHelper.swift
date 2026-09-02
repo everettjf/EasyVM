@@ -106,10 +106,32 @@ struct VMCreationDirectoryTransaction {
     }
 }
 
+final class VMOperationCancellationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+}
+
 
 #if arch(arm64)
 enum VMPreinstalledSparseStreamDecoder {
-    static func decode(from input: FileHandle, to outputURL: URL, expectedSize: UInt64) throws {
+    static func decode(
+        from input: FileHandle,
+        to outputURL: URL,
+        expectedSize: UInt64,
+        shouldCancel: () -> Bool = { Task.isCancelled }
+    ) throws {
         let output = try FileHandle(forWritingTo: outputURL)
         defer { try? output.close() }
         guard try readLine(input) == "EZVM-SPARSE-1",
@@ -119,7 +141,7 @@ enum VMPreinstalledSparseStreamDecoder {
         }
         try output.truncate(atOffset: logicalSize)
         while let line = try readLine(input) {
-            try Task.checkCancellation()
+            if shouldCancel() { throw CancellationError() }
             if line == "END" { return }
             let values = line.split(separator: " ")
             guard values.count == 2,
@@ -130,7 +152,7 @@ enum VMPreinstalledSparseStreamDecoder {
             try output.seek(toOffset: offset)
             var remaining = length
             while remaining > 0 {
-                try Task.checkCancellation()
+                if shouldCancel() { throw CancellationError() }
                 let count = Int(min(remaining, 4 * 1024 * 1024))
                 let data = try readExactly(input, count: count)
                 try output.write(contentsOf: data)

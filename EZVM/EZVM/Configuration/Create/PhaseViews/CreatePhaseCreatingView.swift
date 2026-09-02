@@ -327,9 +327,11 @@ private final class VMPreinstalledImageDownloadCoordinator {
     private var activeDownload: VMOSHTTPFileDownloader?
     private var activeContinuation: CheckedContinuation<VMOSResultVoid, Never>?
     private var cancelled = false
+    private let cancellationFlag = VMOperationCancellationFlag()
 
     func cancel() {
         cancelled = true
+        cancellationFlag.cancel()
         activeDownload?.cancel()
         activeDownload = nil
         finishDownload(.failure("The download was cancelled."))
@@ -408,12 +410,23 @@ private final class VMPreinstalledImageDownloadCoordinator {
 
             progress("Verifying compressed image", 0.60)
             let compressedURL = cacheDirectory.appending(path: "\(item.id).sparse.gz")
-            try await Self.concatenate(parts: partURLs, to: compressedURL, expectedSize: archive.compressedSize, expectedSHA256: archive.sha256)
+            try await Self.concatenate(
+                parts: partURLs,
+                to: compressedURL,
+                expectedSize: archive.compressedSize,
+                expectedSHA256: archive.sha256,
+                cancellationFlag: cancellationFlag
+            )
             for partURL in partURLs { try? FileManager.default.removeItem(at: partURL) }
 
             progress("Reconstructing sparse disk", 0.68)
             let imageURL = cacheDirectory.appending(path: "\(item.id).raw")
-            try await Self.decodeSparseGzip(compressedURL, to: imageURL, expectedSize: decoded.disk.virtualSize)
+            try await Self.decodeSparseGzip(
+                compressedURL,
+                to: imageURL,
+                expectedSize: decoded.disk.virtualSize,
+                cancellationFlag: cancellationFlag
+            )
             try? FileManager.default.removeItem(at: compressedURL)
 
             progress("Verifying reconstructed disk", 0.88)
@@ -526,8 +539,17 @@ private final class VMPreinstalledImageDownloadCoordinator {
         return await matches(url, size: metadata.size, sha256: metadata.sha256)
     }
 
-    nonisolated private static func concatenate(parts: [URL], to output: URL, expectedSize: Int64, expectedSHA256: String) async throws {
+    nonisolated private static func concatenate(
+        parts: [URL],
+        to output: URL,
+        expectedSize: Int64,
+        expectedSHA256: String,
+        cancellationFlag: VMOperationCancellationFlag
+    ) async throws {
         try await Task.detached {
+            defer {
+                if cancellationFlag.isCancelled { try? FileManager.default.removeItem(at: output) }
+            }
             FileManager.default.createFile(atPath: output.path, contents: nil)
             let writer = try FileHandle(forWritingTo: output)
             defer { try? writer.close() }
@@ -537,7 +559,7 @@ private final class VMPreinstalledImageDownloadCoordinator {
                 let reader = try FileHandle(forReadingFrom: part)
                 defer { try? reader.close() }
                 while true {
-                    try Task.checkCancellation()
+                    if cancellationFlag.isCancelled { throw CancellationError() }
                     let data = try reader.read(upToCount: 4 * 1024 * 1024) ?? Data()
                     guard !data.isEmpty else { break }
                     try writer.write(contentsOf: data)
@@ -552,9 +574,17 @@ private final class VMPreinstalledImageDownloadCoordinator {
         }.value
     }
 
-    nonisolated private static func decodeSparseGzip(_ archive: URL, to output: URL, expectedSize: UInt64) async throws {
+    nonisolated private static func decodeSparseGzip(
+        _ archive: URL,
+        to output: URL,
+        expectedSize: UInt64,
+        cancellationFlag: VMOperationCancellationFlag
+    ) async throws {
         try await Task.detached {
             try? FileManager.default.removeItem(at: output)
+            defer {
+                if cancellationFlag.isCancelled { try? FileManager.default.removeItem(at: output) }
+            }
             FileManager.default.createFile(atPath: output.path, contents: nil)
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/gzip")
@@ -564,7 +594,12 @@ private final class VMPreinstalledImageDownloadCoordinator {
             process.standardError = Pipe()
             try process.run()
             do {
-                try VMPreinstalledSparseStreamDecoder.decode(from: pipe.fileHandleForReading, to: output, expectedSize: expectedSize)
+                try VMPreinstalledSparseStreamDecoder.decode(
+                    from: pipe.fileHandleForReading,
+                    to: output,
+                    expectedSize: expectedSize,
+                    shouldCancel: { cancellationFlag.isCancelled }
+                )
                 process.waitUntilExit()
                 guard process.terminationStatus == 0 else { throw PreparationError.validation("The compressed image could not be decoded.") }
             } catch {

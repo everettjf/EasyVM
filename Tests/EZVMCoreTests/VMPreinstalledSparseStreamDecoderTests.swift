@@ -3,6 +3,30 @@ import XCTest
 
 #if arch(arm64)
 final class VMPreinstalledSparseStreamDecoderTests: XCTestCase {
+    func testCancellationStopsDecodeAndCanBeCleanedUp() throws {
+        let output = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cancelled-\(UUID().uuidString).raw")
+        defer { try? FileManager.default.removeItem(at: output) }
+        FileManager.default.createFile(atPath: output.path, contents: nil)
+        let payload = Data("EZVM-SPARSE-1\n16\n0 8\n12345678\nEND\n".utf8)
+        let inputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cancelled-\(UUID().uuidString).stream")
+        defer { try? FileManager.default.removeItem(at: inputURL) }
+        try payload.write(to: inputURL)
+        let input = try FileHandle(forReadingFrom: inputURL)
+        defer { try? input.close() }
+
+        XCTAssertThrowsError(
+            try VMPreinstalledSparseStreamDecoder.decode(
+                from: input,
+                to: output,
+                expectedSize: 16,
+                shouldCancel: { true }
+            )
+        ) { error in
+            XCTAssertTrue(error is CancellationError)
+        }
+    }
     func testDecodesSparseExtentsAtExactOffsets() throws {
         let fixture = try makeFixture(stream: Data("EZVM-SPARSE-1\n16\n2 3\nabc\n10 2\nXY\nEND\n".utf8))
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
