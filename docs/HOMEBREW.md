@@ -70,6 +70,28 @@ concurrent headless VMs, Agent authentication and byte-exact file transfer,
 guest KVM API availability, and clean stop. The source VM is not modified. The
 same gates run against the notarized archive and the published Homebrew Cask.
 
+### macOS 27 three-guest release matrix
+
+Before publishing a macOS 27 candidate, keep stopped, disposable fixtures for
+the three creation choices and run the exact signed app through the matrix:
+
+```bash
+EZVM_MATRIX_MACOS_VM="$HOME/EZVM Test Fixtures/macOS.ezvm" \
+EZVM_MATRIX_OMARCHY_VM="$HOME/EZVM Test Fixtures/Omarchy.ezvm" \
+EZVM_MATRIX_UBUNTU_VM="$HOME/EZVM Test Fixtures/Ubuntu.ezvm" \
+EZVM_MATRIX_OMARCHY_ENROLLMENT="$HOME/EZVM Test Fixtures/omarchy-enrollment.json" \
+EZVM_MATRIX_UBUNTU_ENROLLMENT="$HOME/EZVM Test Fixtures/ubuntu-enrollment.json" \
+scripts/verify-macos27-guest-matrix.sh /path/to/EZVM.app 1.1.0
+```
+
+The script rejects mislabeled fixtures, verifies the app signature,
+Gatekeeper, entitlements, GUI readiness, and then exercises CLI lifecycle,
+concurrent ownership, forced-exit recovery, saved-state recovery, EFI recovery,
+Guest Agent authentication, byte-exact transfer, and clean shutdown. Set
+`EZVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
+gate. Fixtures are cloned before destructive recovery checks; the originals
+remain unchanged.
+
 The script requires a clean checkout whose `HEAD` matches `origin/main`. It
 calculates the next patch version, updates every Xcode target, runs tests and a
 Release build, commits the version bump when needed, then builds the pinned

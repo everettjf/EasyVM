@@ -27,9 +27,10 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                     } else {
                         ForEach(configData.directorySharingDevices) { device in
                             ForEach(device.data.items, id: \.path) { item in
+                                let pathStatus = VMSharedFolderPathValidator.status(for: item.path)
                                 HStack(spacing: 12) {
-                                    Image(systemName: "folder.fill")
-                                        .foregroundStyle(.tint)
+                                    Image(systemName: pathStatus == .available ? "folder.fill" : "exclamationmark.triangle.fill")
+                                        .foregroundStyle(pathStatus == .available ? Color.accentColor : Color.orange)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(item.name).fontWeight(.medium)
                                         Text(item.path.path(percentEncoded: false))
@@ -37,6 +38,11 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                                             .foregroundStyle(.secondary)
                                             .lineLimit(1)
                                             .truncationMode(.middle)
+                                        if let message = pathStatus.message {
+                                            Text(message)
+                                                .font(.caption)
+                                                .foregroundStyle(.orange)
+                                        }
                                     }
                                     Spacer()
                                     Toggle("Read Only", isOn: Binding(
@@ -52,6 +58,8 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                                     .buttonStyle(.borderless)
                                     .help("Remove shared folder")
                                 }
+                                .accessibilityElement(children: .combine)
+                                .accessibilityValue(pathStatus.message ?? "Available")
                             }
                         }
                     }

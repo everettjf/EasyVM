@@ -126,8 +126,9 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
     private func resolveSystemImage(context: VMCreateStepperGuidePhaseContext) async -> VMOSResult<URL, String> {
         switch context.formData.systemImageSelection {
         case .localFile(let url):
-            guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
-                return .failure("The selected image no longer exists: \(url.path(percentEncoded: false))")
+            let expectedExtension = context.configData.osType == .macOS ? "ipsw" : "iso"
+            if let error = VMSystemImageFileValidator.validate(url, expectedExtension: expectedExtension) {
+                return .failure("The selected image is unavailable or invalid: \(error)")
             }
             context.formData.creationStage = "Using local system image"
             context.formData.changeProgress(0.35)
@@ -137,7 +138,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             guard let target = VMImageStore.preparePath(fileName: "macOS-Latest.ipsw") else {
                 return .failure("Unable to prepare the system image cache")
             }
-            if FileManager.default.fileExists(atPath: target.path(percentEncoded: false)) {
+            if cachedImageIsValid(target, expectedExtension: "ipsw", context: context) {
                 context.formData.creationStage = "Using cached macOS image"
                 context.formData.changeProgress(0.35)
                 return .success(target)
@@ -150,7 +151,12 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             guard let target = VMImageStore.preparePath(fileName: "\(item.id).\(ext)") else {
                 return .failure("Unable to prepare the system image cache")
             }
-            if FileManager.default.fileExists(atPath: target.path(percentEncoded: false)) {
+            if cachedImageIsValid(
+                target,
+                expectedExtension: ext,
+                expectedSize: item.fileSize,
+                context: context
+            ) {
                 context.formData.creationStage = "Using cached system image"
                 context.formData.changeProgress(0.35)
                 return .success(target)
@@ -166,12 +172,34 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             guard let target = VMImageStore.preparePath(fileName: fileName) else {
                 return .failure("Unable to prepare the system image cache")
             }
-            if FileManager.default.fileExists(atPath: target.path(percentEncoded: false)) {
+            if cachedImageIsValid(target, expectedExtension: fallbackExtension, context: context) {
                 context.formData.creationStage = "Using cached system image"
                 context.formData.changeProgress(0.35)
                 return .success(target)
             }
             return await downloadImage(osType: context.configData.osType, target: target, remoteURL: url, context: context)
+        }
+    }
+
+    private func cachedImageIsValid(
+        _ target: URL,
+        expectedExtension: String,
+        expectedSize: Int64? = nil,
+        context: VMCreateStepperGuidePhaseContext
+    ) -> Bool {
+        guard FileManager.default.fileExists(atPath: target.path(percentEncoded: false)) else { return false }
+        guard let error = VMSystemImageFileValidator.validate(
+            target,
+            expectedExtension: expectedExtension,
+            expectedSize: expectedSize
+        ) else { return true }
+        context.formData.addLog("Discarding invalid cached image: \(error)")
+        do {
+            try FileManager.default.removeItem(at: target)
+            return false
+        } catch {
+            context.formData.addLog("❌ Could not remove the invalid cached image: \(error.localizedDescription)")
+            return false
         }
     }
 

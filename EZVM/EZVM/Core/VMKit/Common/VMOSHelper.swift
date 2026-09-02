@@ -930,4 +930,54 @@ enum VMThumbnailPreferences {
     }
 }
 
+enum VMSharedFolderPathStatus: Equatable {
+    case available
+    case missing
+    case notDirectory
+    case unreadable
+
+    var message: String? {
+        switch self {
+        case .available: nil
+        case .missing: "Folder not found"
+        case .notDirectory: "This item is not a folder"
+        case .unreadable: "Folder is not readable"
+        }
+    }
+}
+
+enum VMSharedFolderPathValidator {
+    static func status(for url: URL, fileManager: FileManager = .default) -> VMSharedFolderPathStatus {
+        let path = url.standardizedFileURL.path(percentEncoded: false)
+        var isDirectory = ObjCBool(false)
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else { return .missing }
+        guard isDirectory.boolValue else { return .notDirectory }
+        guard fileManager.isReadableFile(atPath: path) else { return .unreadable }
+        return .available
+    }
+}
+
+enum VMSystemImageFileValidator {
+    static func validate(
+        _ url: URL,
+        expectedExtension: String,
+        expectedSize: Int64? = nil
+    ) -> String? {
+        let normalizedExtension = expectedExtension.lowercased()
+        guard url.pathExtension.lowercased() == normalizedExtension else {
+            return "Expected a .\(normalizedExtension) system image."
+        }
+        guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+              values.isRegularFile == true,
+              let fileSize = values.fileSize,
+              fileSize > 0 else {
+            return "The system image is missing, empty, or not a regular file."
+        }
+        if let expectedSize, Int64(fileSize) != expectedSize {
+            return "The cached system image has the wrong size and must be downloaded again."
+        }
+        return nil
+    }
+}
+
 #endif

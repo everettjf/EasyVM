@@ -114,9 +114,10 @@ struct CreatePhaseSharingView: View {
     private func sharedFolderRow(
         _ entry: (deviceID: UUID, item: VMModelFieldDirectorySharingDevice.SharingItem, tag: String)
     ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "folder.fill")
-                .foregroundStyle(.tint)
+        let pathStatus = VMSharedFolderPathValidator.status(for: entry.item.path)
+        return HStack(spacing: 12) {
+            Image(systemName: pathStatus == .available ? "folder.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(pathStatus == .available ? Color.accentColor : Color.orange)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.item.name).fontWeight(.medium)
@@ -125,6 +126,11 @@ struct CreatePhaseSharingView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if let message = pathStatus.message {
+                    Text("\(message). Choose another folder or remove this share.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
             Spacer()
             Toggle("Read Only", isOn: Binding(
@@ -140,6 +146,8 @@ struct CreatePhaseSharingView: View {
             .buttonStyle(.borderless)
         }
         .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(pathStatus.message ?? "Available")
     }
 
     private func addDroppedURLs(_ urls: [URL]) -> Bool {
@@ -165,9 +173,13 @@ struct CreatePhaseSharingView: View {
     private func chooseFolder() {
         MacKitUtil.selectDirectory(title: "Choose a Folder to Share") { url in
             guard let url else { return }
-            feedbackMessage = configData.addSharedDirectory(url)
-                ? "Added “\(url.lastPathComponent)”."
-                : "“\(url.lastPathComponent)” is already shared."
+            if configData.addSharedDirectory(url) {
+                feedbackMessage = "Added “\(url.lastPathComponent)”."
+            } else if let message = VMSharedFolderPathValidator.status(for: url).message {
+                feedbackMessage = "Couldn’t share “\(url.lastPathComponent)”: \(message.lowercased())."
+            } else {
+                feedbackMessage = "“\(url.lastPathComponent)” is already shared."
+            }
         }
     }
 
@@ -196,9 +208,19 @@ struct VMConfigurationDirectorySharingDevicesView: View {
                 List(configData.directorySharingDevices) { item in
                     HStack {
                         Spacer()
-                        Text(item.data.items.map(\.name).joined(separator: ", "))
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(item.data.items.map(\.name).joined(separator: ", "))
                             .lineLimit(2)
                             .multilineTextAlignment(.trailing)
+                            let unavailableCount = item.data.items.filter {
+                                VMSharedFolderPathValidator.status(for: $0.path) != .available
+                            }.count
+                            if unavailableCount > 0 {
+                                Label("\(unavailableCount) unavailable", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
                     }
                 }
                 .frame(width:400)

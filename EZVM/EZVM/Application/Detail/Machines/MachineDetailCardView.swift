@@ -137,9 +137,7 @@ struct MachineThumbnailView: View {
     init(model: VMModel, runPhase: VMRunPhase?) {
         self.model = model
         self.runPhase = runPhase
-        let fallback = UserDefaults.standard.string(forKey: VMThumbnailPreferences.generatedStyleKey)
-            ?? VMGeneratedThumbnailStyle.aurora.rawValue
-        _generatedStyleRaw = AppStorage(wrappedValue: fallback, VMThumbnailPreferences.generatedStyleKey(for: model.rootPath))
+        _generatedStyleRaw = AppStorage(wrappedValue: "", VMThumbnailPreferences.generatedStyleKey(for: model.rootPath))
     }
 
     var body: some View {
@@ -156,7 +154,7 @@ struct MachineThumbnailView: View {
                 GeneratedMachineThumbnailView(
                     title: model.config.name,
                     type: model.config.type,
-                    style: VMGeneratedThumbnailStyle(rawValue: generatedStyleRaw) ?? .aurora
+                    style: effectiveGeneratedStyle
                 )
             }
         }
@@ -183,6 +181,8 @@ struct MachineThumbnailView: View {
         .contextMenu {
             Menu("Cover Style", systemImage: "paintpalette") {
                 Picker("Cover Style", selection: $generatedStyleRaw) {
+                    Text("App Default").tag("")
+                    Divider()
                     ForEach(VMGeneratedThumbnailStyle.allCases) { style in
                         Text(style.title).tag(style.rawValue)
                     }
@@ -190,6 +190,12 @@ struct MachineThumbnailView: View {
             }
         }
         .help("Right-click to choose this virtual machine’s cover style")
+    }
+
+    private var effectiveGeneratedStyle: VMGeneratedThumbnailStyle {
+        if let style = VMGeneratedThumbnailStyle(rawValue: generatedStyleRaw) { return style }
+        let appDefault = UserDefaults.standard.string(forKey: VMThumbnailPreferences.generatedStyleKey)
+        return VMGeneratedThumbnailStyle(rawValue: appDefault ?? "") ?? .aurora
     }
 }
 
