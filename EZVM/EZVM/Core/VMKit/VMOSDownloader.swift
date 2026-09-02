@@ -30,6 +30,7 @@ class VMOSDownloaderFactory {
 
 // Plain HTTP file download with progress, shared by the macOS and Linux downloaders.
 class VMOSHTTPFileDownloader: NSObject, URLSessionDownloadDelegate {
+    private let stateLock = NSLock()
     private var downloadTask: URLSessionDownloadTask?
     private var session: URLSession?
     private var targetURL: URL?
@@ -42,11 +43,13 @@ class VMOSHTTPFileDownloader: NSObject, URLSessionDownloadDelegate {
     }
 
     func download(imageURL: URL, toLocalPath: URL, completionHandler: @escaping (VMOSResultVoid) -> Void, downloadProgressHandler: @escaping (Double) -> Void) {
-        cancel()
-        targetURL = toLocalPath
-        self.completionHandler = completionHandler
-        progressHandler = downloadProgressHandler
-        expectedTotalSize = -1
+        cancel(notify: false)
+        stateLock.withLock {
+            targetURL = toLocalPath
+            self.completionHandler = completionHandler
+            progressHandler = downloadProgressHandler
+            expectedTotalSize = -1
+        }
 
         let configuration = URLSessionConfiguration.default
         configuration.waitsForConnectivity = true
@@ -63,13 +66,24 @@ class VMOSHTTPFileDownloader: NSObject, URLSessionDownloadDelegate {
     }
 
     func cancel() {
-        downloadTask?.cancel { [resumeDataURL] resumeData in
+        cancel(notify: true)
+    }
+
+    private func cancel(notify: Bool) {
+        let state = stateLock.withLock { () -> (URLSessionDownloadTask?, URLSession?, URL?, ((VMOSResultVoid) -> Void)?) in
+            let state = (downloadTask, session, resumeDataURL, notify ? completionHandler : nil)
+            downloadTask = nil
+            session = nil
+            completionHandler = nil
+            progressHandler = nil
+            return state
+        }
+        state.0?.cancel { [resumeDataURL = state.2] resumeData in
             guard let resumeData, let resumeDataURL else { return }
             try? resumeData.write(to: resumeDataURL, options: .atomic)
         }
-        downloadTask = nil
-        session?.finishTasksAndInvalidate()
-        session = nil
+        state.1?.invalidateAndCancel()
+        state.3?(.failure("The download was cancelled. Retry to resume it."))
     }
 
     func urlSession(
@@ -79,16 +93,18 @@ class VMOSHTTPFileDownloader: NSObject, URLSessionDownloadDelegate {
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
+        guard stateLock.withLock({ self.downloadTask === downloadTask }) else { return }
         guard totalBytesExpectedToWrite > 0 else { return }
         expectedTotalSize = totalBytesExpectedToWrite
-        progressHandler?(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+        let handler = stateLock.withLock { progressHandler }
+        handler?(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
     }
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let targetURL else { return }
+        guard let targetURL = stateLock.withLock({ self.downloadTask === downloadTask ? self.targetURL : nil }) else { return }
         if let response = downloadTask.response as? HTTPURLResponse,
            !(200..<300).contains(response.statusCode) {
-            completionHandler?(.failure("Download failed: server returned HTTP \(response.statusCode)."))
+            finish(.failure("Download failed: server returned HTTP \(response.statusCode)."))
             return
         }
         do {
@@ -102,16 +118,21 @@ class VMOSHTTPFileDownloader: NSObject, URLSessionDownloadDelegate {
             try? FileManager.default.removeItem(at: targetURL)
             try FileManager.default.moveItem(at: location, to: targetURL)
             if let resumeDataURL { try? FileManager.default.removeItem(at: resumeDataURL) }
-            completionHandler?(.success)
+            finish(.success)
         } catch {
-            completionHandler?(.failure("Downloaded image validation failed: \(error.localizedDescription)"))
+            finish(.failure("Downloaded image validation failed: \(error.localizedDescription)"))
         }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard stateLock.withLock({ self.downloadTask === task }) else { return }
         defer {
-            self.downloadTask = nil
-            self.session = nil
+            stateLock.withLock {
+                guard self.downloadTask === task else { return }
+                self.downloadTask = nil
+                self.session = nil
+                self.targetURL = nil
+            }
         }
         guard let error else { return }
         let nsError = error as NSError
@@ -120,8 +141,26 @@ class VMOSHTTPFileDownloader: NSObject, URLSessionDownloadDelegate {
             try? resumeData.write(to: resumeDataURL, options: .atomic)
         }
         if nsError.code != NSURLErrorCancelled {
-            completionHandler?(.failure("Download failed. \(error.localizedDescription). It can be resumed by retrying."))
+            finish(.failure("Download failed. \(error.localizedDescription). It can be resumed by retrying."))
         }
+    }
+
+    private func finish(_ result: VMOSResultVoid) {
+        let completion = stateLock.withLock { () -> ((VMOSResultVoid) -> Void)? in
+            let completion = completionHandler
+            completionHandler = nil
+            progressHandler = nil
+            return completion
+        }
+        completion?(result)
+    }
+}
+
+private extension NSLock {
+    func withLock<T>(_ body: () -> T) -> T {
+        lock()
+        defer { unlock() }
+        return body()
     }
 }
 

@@ -341,9 +341,15 @@ private final class VMPreinstalledImageDownloadCoordinator {
     ) async -> VMOSResult<VMPreparedPreinstalledImage, String> {
         do {
             progress("Fetching release manifest", 0.01)
-            let (manifestData, response) = try await URLSession.shared.data(from: item.manifestURL)
-            try Self.validateHTTPResponse(response)
-            try Task.checkCancellation()
+            let stagingDirectory = FileManager.default.temporaryDirectory
+                .appending(path: "EZVM-manifest-\(UUID().uuidString)", directoryHint: .isDirectory)
+            try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: stagingDirectory) }
+            let stagingManifestURL = stagingDirectory.appending(path: "ezvm-release-manifest.json")
+            try await download(item.manifestURL, to: stagingManifestURL) { fraction in
+                progress("Fetching release manifest", 0.01 + fraction * 0.01)
+            }
+            let manifestData = try Data(contentsOf: stagingManifestURL)
             guard !cancelled else { throw CancellationError() }
 
             let decoded = try JSONDecoder().decode(PreinstalledImageManifest.self, from: manifestData)
@@ -449,12 +455,6 @@ private final class VMPreinstalledImageDownloadCoordinator {
         guard let continuation = activeContinuation else { return }
         activeContinuation = nil
         continuation.resume(returning: result)
-    }
-
-    nonisolated private static func validateHTTPResponse(_ response: URLResponse) throws {
-        guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else {
-            throw PreparationError.download("The release server returned an invalid response.")
-        }
     }
 
     nonisolated private static func validateDistribution(_ manifest: PreinstalledImageManifest) throws {

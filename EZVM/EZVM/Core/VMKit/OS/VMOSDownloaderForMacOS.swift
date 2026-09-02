@@ -13,6 +13,8 @@ import Virtualization
 
 class VMOSDownloaderForMacOS : VMOSDownloader {
     private let fileDownloader = VMOSHTTPFileDownloader()
+    private let stateLock = NSLock()
+    private var latestCompletion: ((VMOSResultVoid) -> Void)?
 
     func isSupport() -> Bool {
         true
@@ -24,13 +26,15 @@ class VMOSDownloaderForMacOS : VMOSDownloader {
             return
         }
 
+        stateLock.withLock { latestCompletion = completionHandler }
         VZMacOSRestoreImage.fetchLatestSupported { [self](result: Result<VZMacOSRestoreImage, Error>) in
+            guard stateLock.withLock({ latestCompletion != nil }) else { return }
             switch result {
             case let .failure(error):
-                completionHandler(.failure("Apple’s restore image service is unavailable: \(error.localizedDescription) Check your internet connection and try again, or choose a specific macOS image."))
+                finishLatest(.failure("Apple’s restore image service is unavailable: \(error.localizedDescription) Check your internet connection and try again, or choose a specific macOS image."))
 
             case let .success(restoreImage):
-                fileDownloader.download(imageURL: restoreImage.url, toLocalPath: toLocalPath, completionHandler: completionHandler, downloadProgressHandler: downloadProgressHandler)
+                fileDownloader.download(imageURL: restoreImage.url, toLocalPath: toLocalPath, completionHandler: finishLatest, downloadProgressHandler: downloadProgressHandler)
             }
         }
     }
@@ -41,6 +45,16 @@ class VMOSDownloaderForMacOS : VMOSDownloader {
 
     func cancelDownload() {
         fileDownloader.cancel()
+        finishLatest(.failure("The download was cancelled. Retry to resume it."))
+    }
+
+    private func finishLatest(_ result: VMOSResultVoid) {
+        let completion = stateLock.withLock { () -> ((VMOSResultVoid) -> Void)? in
+            let completion = latestCompletion
+            latestCompletion = nil
+            return completion
+        }
+        completion?(result)
     }
 
 }
