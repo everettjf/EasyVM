@@ -44,6 +44,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var releaseSmokeVisibleInputInjected = false
     private var releaseSmokeVisibleInputHoldUntil: Date?
     private var shutdownFallbackGeneration = 0
+    private var networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
+    private var networkReconnectTokens: [Int: UUID] = [:]
     private var displayRefreshObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
     // Keep the controller alive while a window-close save is still running.
@@ -252,6 +254,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         virtualMachine?.delegate = nil
         graphicsBackend?.bind(virtualMachine: nil)
         virtualMachine = VZVirtualMachine(configuration: configuration)
+        networkReconnectTokens.removeAll()
+        networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: configuration.networkDevices.count)
+        runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
         // This controller owns the complete runtime lifecycle. Routing delegate
         // callbacks elsewhere would clear the registry without transitioning
         // the scene to `.stopped`, leaving an unusable stopped window alive.
@@ -322,6 +327,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 // succeed start
                 Task { @MainActor in
                     self.runtimeState?.update(.running)
+                    self.markNetworkRuntimeStarted()
                     self.markMachineRunning()
                     self.startScreenshotTimer()
                 }
@@ -362,6 +368,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     case .success:
                         try? FileManager.default.removeItem(at: stateURL)
                         self.runtimeState?.update(.running)
+                        self.markNetworkRuntimeStarted()
                         self.markMachineRunning()
                         self.startScreenshotTimer()
                         self.startGuestAgent(model: model)
@@ -509,6 +516,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func didStart(rootPath: URL, model: VMModel) {
         runtimeState?.update(.running)
+        markNetworkRuntimeStarted()
         markMachineRunning()
         // Custom VirGL starts with the persisted fallback mode (normally
         // 1280x720). Negotiate once the VM and window are both live so Linux
@@ -785,6 +793,50 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         runtimeState?.updateBalloonMemory(target: device.targetVirtualMachineMemorySize, maximum: maximum)
     }
 
+    func reconnectNetworkDevice(deviceIndex: Int) {
+        guard virtualMachine != nil,
+              virtualMachine.state == .running || virtualMachine.state == .paused,
+              virtualMachine.networkDevices.indices.contains(deviceIndex),
+              virtualMachineConfiguration?.networkDevices.indices.contains(deviceIndex) == true,
+              let attachment = virtualMachineConfiguration?.networkDevices[deviceIndex].attachment,
+              networkRuntimeTracker.beginReconnect(deviceIndex: deviceIndex) else { return }
+
+        let operationToken = UUID()
+        networkReconnectTokens[deviceIndex] = operationToken
+        let device = virtualMachine.networkDevices[deviceIndex]
+        runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
+        EZVMLog.info("Reconnecting network adapter \(deviceIndex + 1).", logger: EZVMLog.network)
+        device.attachment = attachment
+
+        // VZNetworkDevice has no completion handler for attachment changes.
+        // A failure is authoritative through the VM delegate; a short delayed
+        // read only confirms that the requested attachment remained installed.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self, weak device] in
+            guard let self,
+                  self.networkReconnectTokens[deviceIndex] == operationToken,
+                  let device,
+                  self.virtualMachine?.networkDevices.indices.contains(deviceIndex) == true,
+                  self.virtualMachine.networkDevices[deviceIndex] === device else { return }
+            if device.attachment != nil {
+                self.networkReconnectTokens.removeValue(forKey: deviceIndex)
+                self.networkRuntimeTracker.markConnected(deviceIndex: deviceIndex)
+                self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
+                EZVMLog.info("Network adapter \(deviceIndex + 1) reconnected.", logger: EZVMLog.network)
+            } else {
+                self.networkReconnectTokens.removeValue(forKey: deviceIndex)
+                self.networkRuntimeTracker.markDisconnected(
+                    deviceIndex: deviceIndex,
+                    reason: "The host did not accept the network attachment. Check the selected interface and try again."
+                )
+                self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
+                EZVMLog.error(
+                    "Network adapter \(deviceIndex + 1) remained disconnected after a reconnect request.",
+                    logger: EZVMLog.network
+                )
+            }
+        }
+    }
+
     func discoverUSBAccessories() {
         guard VMHostCapability.accessoryAccess.isGranted else {
             runtimeState?.updateUSBPassthrough(.failed("This build is missing the Accessory Access entitlement."))
@@ -971,6 +1023,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func releaseVirtualMachineAfterStop() {
         cancelShutdownFallback()
+        networkReconnectTokens.removeAll()
+        networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
+        runtimeState?.updateNetworkRuntime(.unavailable)
         usbAccessoryCoordinator?.stop()
         usbAccessoryCoordinator = nil
         runtimeState?.updateUSBPassthrough(.idle)
@@ -1032,6 +1087,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private func markMachineRunning() {
         guard let runLease else { return }
         VMRunningRegistry.shared.transition(runLease, to: .running)
+    }
+
+    private func markNetworkRuntimeStarted() {
+        networkRuntimeTracker.markStarted()
+        runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
     }
 
     private func markMachineStopping() {
@@ -1284,8 +1344,20 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     }
     
     public func virtualMachine(_ virtualMachine: VZVirtualMachine, networkDevice: VZNetworkDevice, attachmentWasDisconnectedWithError error: Error) {
-        
-        EZVMLog.error("Network device disconnected: \(error.localizedDescription)", logger: EZVMLog.network)
+        guard let deviceIndex = virtualMachine.networkDevices.firstIndex(where: { $0 === networkDevice }) else {
+            EZVMLog.error("An unknown network device disconnected: \(error.localizedDescription)", logger: EZVMLog.network)
+            return
+        }
+        networkReconnectTokens.removeValue(forKey: deviceIndex)
+        networkRuntimeTracker.markDisconnected(
+            deviceIndex: deviceIndex,
+            reason: error.localizedDescription
+        )
+        runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
+        EZVMLog.error(
+            "Network adapter \(deviceIndex + 1) disconnected: \(error.localizedDescription)",
+            logger: EZVMLog.network
+        )
     }
 }
 

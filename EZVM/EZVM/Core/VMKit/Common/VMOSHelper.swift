@@ -1064,6 +1064,85 @@ struct VMMacOSCatalogCache: Codable, Equatable {
     let payload: VMMacOSCatalogPayload
 }
 
+struct VMNetworkDeviceIssue: Equatable, Identifiable {
+    let deviceIndex: Int
+    let reason: String
+
+    var id: Int { deviceIndex }
+    var title: String { "Network Adapter \(deviceIndex + 1)" }
+}
+
+enum VMNetworkRuntimeState: Equatable {
+    case unavailable
+    case preparing(deviceCount: Int)
+    case connected(deviceCount: Int)
+    case reconnecting(deviceCount: Int, issues: [VMNetworkDeviceIssue], deviceIndices: [Int])
+    case degraded(deviceCount: Int, issues: [VMNetworkDeviceIssue])
+
+    var issues: [VMNetworkDeviceIssue] {
+        switch self {
+        case .reconnecting(_, let issues, _), .degraded(_, let issues): issues
+        default: []
+        }
+    }
+
+    var reconnectingDeviceIndices: Set<Int> {
+        guard case .reconnecting(_, _, let deviceIndices) = self else { return [] }
+        return Set(deviceIndices)
+    }
+}
+
+struct VMNetworkRuntimeTracker: Equatable {
+    private(set) var deviceCount: Int
+    private(set) var isStarted = false
+    private(set) var disconnectedReasons: [Int: String] = [:]
+    private(set) var reconnectingIndices = Set<Int>()
+
+    init(deviceCount: Int) {
+        self.deviceCount = max(deviceCount, 0)
+    }
+
+    var state: VMNetworkRuntimeState {
+        guard deviceCount > 0 else { return .unavailable }
+        let issues = disconnectedReasons
+            .map { VMNetworkDeviceIssue(deviceIndex: $0.key, reason: $0.value) }
+            .sorted { $0.deviceIndex < $1.deviceIndex }
+        guard isStarted else { return .preparing(deviceCount: deviceCount) }
+        if !reconnectingIndices.isEmpty {
+            return .reconnecting(
+                deviceCount: deviceCount,
+                issues: issues,
+                deviceIndices: reconnectingIndices.sorted()
+            )
+        }
+        return issues.isEmpty
+            ? .connected(deviceCount: deviceCount)
+            : .degraded(deviceCount: deviceCount, issues: issues)
+    }
+
+    mutating func markStarted() {
+        isStarted = true
+    }
+
+    mutating func markDisconnected(deviceIndex: Int, reason: String) {
+        guard (0..<deviceCount).contains(deviceIndex) else { return }
+        disconnectedReasons[deviceIndex] = reason
+        reconnectingIndices.remove(deviceIndex)
+    }
+
+    mutating func beginReconnect(deviceIndex: Int) -> Bool {
+        guard disconnectedReasons[deviceIndex] != nil else { return false }
+        reconnectingIndices.insert(deviceIndex)
+        return true
+    }
+
+    mutating func markConnected(deviceIndex: Int) {
+        guard (0..<deviceCount).contains(deviceIndex) else { return }
+        disconnectedReasons.removeValue(forKey: deviceIndex)
+        reconnectingIndices.remove(deviceIndex)
+    }
+}
+
 enum VMRuntimePhase: Equatable {
     case preparing
     case starting

@@ -122,6 +122,14 @@ creation remains authoritative if another process claims the port afterward;
 cross-process ownership and runtime interface/VPN transitions remain in the
 real-system verification backlog below.
 
+At runtime, every configured adapter now has an explicit preparing, connected,
+reconnecting, or disconnected state. The framework disconnect callback is no
+longer log-only: EZVM keeps failures independent for multi-adapter VMs, shows
+the affected adapter and framework reason in the VM window, and offers a
+bounded reattach of the original configuration. Reconnect attempts use
+per-adapter operation identities so an old callback cannot clear a newer
+failure, and VM teardown invalidates every pending attempt.
+
 ### Product outcome
 
 The default remains simple NAT. Advanced users can deliberately choose bridged,
@@ -135,7 +143,7 @@ and failure recovery without learning VMNet implementation details.
 | Presets | Present NAT, Bridged, Host-only, and Shared network as outcome-oriented cards; hide subnet, MTU, interface, and forwarding details until requested. | Default creation needs no networking knowledge; advanced review states host/guest/LAN reachability. |
 | Preflight | Validate entitlement, external interface, subnet overlap, malformed masks, duplicate logical networks, occupied TCP/UDP host endpoints, and conflicting forwarding rules before VM start. | Structural failures perform no host-port probe; each unique valid endpoint is probed once before any VMNet object exists, and known conflicts fail synchronously with the conflicting value and recovery action. |
 | Ownership | Centralize logical-network creation and serialization so GUI, CLI, and multiple EZVM processes recreate the intended topology safely. | Two VMs/processes can join the same logical network without duplicate ownership or stale objects. |
-| Runtime recovery | Model Wi-Fi/Ethernet changes, VPN routes, sleep/wake, interface removal, and framework disconnect callbacks. | UI distinguishes reconnecting from failed; restart requirements are explicit; no stale “Connected” state remains. |
+| Runtime recovery | Continue hardening Wi-Fi/Ethernet changes, VPN routes, sleep/wake, and interface removal around the implemented per-adapter disconnect/reconnect state. | UI already distinguishes preparing, connected, reconnecting, and failed without stale “Connected” state; signed-fixture runs must now prove recovery and clearly identify cases that require settings changes or restart. |
 | Diagnostics | Provide sanitized topology, interface identity, port rules, and failing VMNet stage without exposing unrelated host network data. | A diagnostic bundle can distinguish entitlement, configuration, port, interface, and runtime failures. |
 
 ### Verification matrix

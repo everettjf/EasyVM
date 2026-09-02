@@ -99,6 +99,14 @@ struct VMOSMainVirtualMachineView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, 16)
                 .padding(.horizontal, 18)
+
+            VMNetworkRuntimeBanner(
+                state: runtimeState.networkRuntimeState,
+                reconnect: runtimeState.reconnectNetworkDevice
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(.top, 16)
+            .padding(.trailing, 18)
         }
         .overlay {
             if isSharedFolderDropTargeted {
@@ -144,6 +152,13 @@ struct VMOSMainVirtualMachineView: View {
                           ?? (backend == .customVirGL
                               ? "Custom VirGL acceleration is active"
                               : "Apple Virtio graphics is active"))
+                }
+
+                if runtimeState.networkRuntimeState != .unavailable {
+                    VMNetworkRuntimeMenu(
+                        state: runtimeState.networkRuntimeState,
+                        reconnect: runtimeState.reconnectNetworkDevice
+                    )
                 }
 
                 Menu("USB", systemImage: "cable.connector") {
@@ -751,6 +766,122 @@ struct VMOSMainVirtualMachineView: View {
         } catch {
             MacKitUtil.alertWarn(title: "Thumbnail not saved", message: error.localizedDescription)
         }
+    }
+}
+
+private struct VMNetworkRuntimeMenu: View {
+    let state: VMNetworkRuntimeState
+    let reconnect: (Int) -> Void
+
+    var body: some View {
+        Menu {
+            Text(summary)
+            if !state.issues.isEmpty {
+                Divider()
+                ForEach(state.issues) { issue in
+                    Text("\(issue.title): \(issue.reason)")
+                    Button("Reconnect \(issue.title)", systemImage: "arrow.clockwise") {
+                        reconnect(issue.deviceIndex)
+                    }
+                    .disabled(state.reconnectingDeviceIndices.contains(issue.deviceIndex))
+                }
+            }
+        } label: {
+            Label("Network", systemImage: symbol)
+        }
+        .help(summary)
+        .accessibilityLabel("Virtual machine network")
+        .accessibilityValue(summary)
+    }
+
+    private var symbol: String {
+        switch state {
+        case .unavailable: "network.slash"
+        case .preparing: "network"
+        case .connected: "network"
+        case .reconnecting: "arrow.triangle.2.circlepath"
+        case .degraded: "network.slash"
+        }
+    }
+
+    private var summary: String {
+        switch state {
+        case .unavailable: "No virtual network adapter"
+        case .preparing(let count): "Preparing \(adapterCount(count))"
+        case .connected(let count): "\(adapterCount(count)) connected"
+        case .reconnecting(_, _, let deviceIndices): "Reconnecting \(issueCount(deviceIndices.count))"
+        case .degraded(_, let issues): "\(issueCount(issues.count)) disconnected"
+        }
+    }
+
+    private func adapterCount(_ count: Int) -> String {
+        "\(count) network adapter\(count == 1 ? "" : "s")"
+    }
+
+    private func issueCount(_ count: Int) -> String {
+        "\(count) network adapter\(count == 1 ? "" : "s")"
+    }
+}
+
+private struct VMNetworkRuntimeBanner: View {
+    let state: VMNetworkRuntimeState
+    let reconnect: (Int) -> Void
+
+    var body: some View {
+        switch state {
+        case .reconnecting(_, let issues, let deviceIndices):
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Reconnecting \(reconnectingTitle(issues: issues, deviceIndices: deviceIndices))…")
+                    .font(.callout.weight(.medium))
+            }
+            .networkRuntimeCard()
+        case .degraded(_, let issues):
+            if let issue = issues.first {
+                HStack(spacing: 10) {
+                    Image(systemName: "network.slash")
+                        .foregroundStyle(.orange)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(issue.title) disconnected")
+                            .font(.callout.weight(.semibold))
+                        Text(issue.reason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    Button("Reconnect") {
+                        reconnect(issue.deviceIndex)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                .accessibilityElement(children: .contain)
+                .networkRuntimeCard()
+            }
+        case .unavailable, .preparing, .connected:
+            EmptyView()
+        }
+    }
+
+    private func reconnectingTitle(issues: [VMNetworkDeviceIssue], deviceIndices: [Int]) -> String {
+        guard deviceIndices.count == 1,
+              let index = deviceIndices.first,
+              let issue = issues.first(where: { $0.deviceIndex == index }) else {
+            return "network adapters"
+        }
+        return issue.title
+    }
+}
+
+private extension View {
+    func networkRuntimeCard() -> some View {
+        padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(.regularMaterial, in: .rect(cornerRadius: 11))
+            .shadow(color: .black.opacity(0.16), radius: 9, y: 3)
+            .frame(maxWidth: 460)
     }
 }
 

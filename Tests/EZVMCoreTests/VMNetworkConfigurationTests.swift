@@ -5,6 +5,71 @@ import Darwin
 
 #if arch(arm64)
 final class VMNetworkConfigurationTests: XCTestCase {
+    func testNetworkRuntimeTrackerDistinguishesPreparingConnectedAndDegraded() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 2)
+        XCTAssertEqual(tracker.state, .preparing(deviceCount: 2))
+
+        tracker.markStarted()
+        XCTAssertEqual(tracker.state, .connected(deviceCount: 2))
+
+        tracker.markDisconnected(deviceIndex: 1, reason: "Interface unavailable")
+        XCTAssertEqual(
+            tracker.state,
+            .degraded(
+                deviceCount: 2,
+                issues: [VMNetworkDeviceIssue(deviceIndex: 1, reason: "Interface unavailable")]
+            )
+        )
+    }
+
+    func testNetworkRuntimeTrackerReconnectsOnlyDisconnectedAdapters() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 2)
+        tracker.markStarted()
+
+        XCTAssertFalse(tracker.beginReconnect(deviceIndex: 0))
+        tracker.markDisconnected(deviceIndex: 0, reason: "Link lost")
+        XCTAssertTrue(tracker.beginReconnect(deviceIndex: 0))
+        XCTAssertEqual(
+            tracker.state,
+            .reconnecting(
+                deviceCount: 2,
+                issues: [VMNetworkDeviceIssue(deviceIndex: 0, reason: "Link lost")],
+                deviceIndices: [0]
+            )
+        )
+
+        tracker.markConnected(deviceIndex: 0)
+        XCTAssertEqual(tracker.state, .connected(deviceCount: 2))
+    }
+
+    func testNetworkRuntimeTrackerKeepsIndependentAdapterFailures() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 3)
+        tracker.markStarted()
+        tracker.markDisconnected(deviceIndex: 2, reason: "Third")
+        tracker.markDisconnected(deviceIndex: 0, reason: "First")
+        tracker.markDisconnected(deviceIndex: 99, reason: "Unknown")
+
+        XCTAssertEqual(
+            tracker.state,
+            .degraded(
+                deviceCount: 3,
+                issues: [
+                    VMNetworkDeviceIssue(deviceIndex: 0, reason: "First"),
+                    VMNetworkDeviceIssue(deviceIndex: 2, reason: "Third"),
+                ]
+            )
+        )
+
+        tracker.markConnected(deviceIndex: 0)
+        XCTAssertEqual(
+            tracker.state,
+            .degraded(
+                deviceCount: 3,
+                issues: [VMNetworkDeviceIssue(deviceIndex: 2, reason: "Third")]
+            )
+        )
+    }
+
     func testUSBPassthroughDisablesMachineStateWhileAttached() {
         XCTAssertFalse(VMUSBControllerSupport.canSaveMachineState(
             backendSupportsSaveRestore: true,

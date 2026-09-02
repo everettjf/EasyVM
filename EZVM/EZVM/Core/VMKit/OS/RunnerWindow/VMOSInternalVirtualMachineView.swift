@@ -60,6 +60,7 @@ final class VMRuntimeState {
     private(set) var guestAgentTransferState: VMGuestAgentTransferState = .idle
     private(set) var usbPassthroughState: VMUSBPassthroughState = .idle
     private(set) var macGuestProvisioningState: VMMacGuestProvisioningState = .unavailable
+    private(set) var networkRuntimeState: VMNetworkRuntimeState = .unavailable
     private(set) var graphicsBackendKind: VMGraphicsBackendKind?
     private(set) var graphicsBackendDetail: String?
     private(set) var supportsMachineSaveRestore = true
@@ -135,6 +136,10 @@ final class VMRuntimeState {
         macGuestProvisioningState = state
     }
 
+    func updateNetworkRuntime(_ state: VMNetworkRuntimeState) {
+        networkRuntimeState = state
+    }
+
     func updateGraphicsBackend(
         kind: VMGraphicsBackendKind,
         detail: String?,
@@ -168,6 +173,7 @@ final class VMRuntimeState {
     func dismissUSBPassthroughNotice() { controller?.dismissUSBPassthroughNotice() }
     func confirmMacGuestProvisioningCompleted() { controller?.confirmMacGuestProvisioningCompleted() }
     func retryMacGuestProvisioningOnNextStart() { controller?.retryMacGuestProvisioningOnNextStart() }
+    func reconnectNetworkDevice(deviceIndex: Int) { controller?.reconnectNetworkDevice(deviceIndex: deviceIndex) }
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {
