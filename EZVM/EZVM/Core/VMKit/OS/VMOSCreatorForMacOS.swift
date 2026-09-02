@@ -21,6 +21,7 @@ final class VMOSCreatorForMacOS: VMOSCreator {
     }
     
     func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {
+        let transaction = VMCreationDirectoryTransaction(rootURL: model.getRootPath())
         do {
             // create bundle
             let rootPath = model.getRootPath()
@@ -54,6 +55,15 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             progress(.info("Succeed install"))
             
         } catch {
+            installationObserver?.invalidate()
+            installationObserver = nil
+            virtualMachine = nil
+            do {
+                try transaction.rollback()
+                progress(.info("Removed the incomplete virtual machine bundle"))
+            } catch {
+                progress(.error("Could not remove the incomplete virtual machine bundle: \(error.localizedDescription)"))
+            }
             progress(.error("\(error)"))
             return .failure("\(error)")
         }

@@ -88,6 +88,24 @@ enum VMUSBControllerSupport {
     }
 }
 
+/// Tracks whether a VM bundle belongs to the current creation attempt so a
+/// failed install can remove its partial files without ever deleting a folder
+/// that existed before the user clicked Create.
+struct VMCreationDirectoryTransaction {
+    let rootURL: URL
+    let existedBeforeCreation: Bool
+
+    init(rootURL: URL, fileManager: FileManager = .default) {
+        self.rootURL = rootURL
+        existedBeforeCreation = fileManager.fileExists(atPath: rootURL.path)
+    }
+
+    func rollback(fileManager: FileManager = .default) throws {
+        guard !existedBeforeCreation, fileManager.fileExists(atPath: rootURL.path) else { return }
+        try fileManager.removeItem(at: rootURL)
+    }
+}
+
 
 #if arch(arm64)
 enum VMPreinstalledSparseStreamDecoder {

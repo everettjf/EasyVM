@@ -18,7 +18,7 @@ final class VMOSCreatorForLinux: VMOSCreator {
 
     
     func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {
-        
+        let transaction = VMCreationDirectoryTransaction(rootURL: model.getRootPath())
         do {
             try await prepareRosettaIfNeeded(model: model, progress: progress)
             progress(.progress(0.1))
@@ -45,6 +45,12 @@ final class VMOSCreatorForLinux: VMOSCreator {
             progress(.progress(1.0))
             
         } catch {
+            do {
+                try transaction.rollback()
+                progress(.info("Removed the incomplete virtual machine bundle"))
+            } catch {
+                progress(.error("Could not remove the incomplete virtual machine bundle: \(error.localizedDescription)"))
+            }
             progress(.error("\(error)"))
             return .failure("\(error)")
         }
