@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import XCTest
 @testable import EZVMCore
 
@@ -409,6 +410,85 @@ final class VMSnapshotManagerTests: XCTestCase {
         }
     }
 
+    func testLayeredRestoreSurvivesProcessTerminationAtEveryCheckpoint() throws {
+        for checkpoint in VMSnapshotRestoreCheckpoint.allCases {
+            let root = temporaryRoot.appendingPathComponent("process-\(checkpoint.rawValue)", isDirectory: true)
+            let fixture = try makeLayeredRestoreFixture(at: root)
+            let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: root)
+                .appendingPathComponent("Layers", isDirectory: true)
+            let layersBeforeRestore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+            process.arguments = [
+                "xctest",
+                "-XCTest",
+                "VMSnapshotManagerTests/testLayeredRestoreCrashChild",
+                Bundle(for: VMSnapshotManagerTests.self).bundleURL.path,
+            ]
+            var environment = ProcessInfo.processInfo.environment
+            environment["EZVM_SNAPSHOT_CRASH_ROOT"] = root.path
+            environment["EZVM_SNAPSHOT_CRASH_ID"] = fixture.target.id
+            environment["EZVM_SNAPSHOT_CRASH_CHECKPOINT"] = checkpoint.rawValue
+            process.environment = environment
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+            XCTAssertEqual(process.terminationReason, .exit, "Checkpoint: \(checkpoint)")
+            XCTAssertEqual(process.terminationStatus, 86, "Checkpoint: \(checkpoint)")
+
+            try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: root))
+
+            let committed = checkpoint == .journalCommitted
+            XCTAssertEqual(
+                try String(contentsOf: root.appendingPathComponent("config.json"), encoding: .utf8),
+                committed ? fixture.targetConfig : fixture.currentConfig,
+                "Checkpoint: \(checkpoint)"
+            )
+            XCTAssertEqual(
+                VMSnapshotManager.currentSnapshotID(vmRootPath: root),
+                committed ? fixture.target.id : fixture.current.id,
+                "Checkpoint: \(checkpoint)"
+            )
+            XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("Disk.asif").path))
+            let layersAfterRecovery = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+            if committed {
+                XCTAssertEqual(layersAfterRecovery.count, layersBeforeRestore.count + 1, "Checkpoint: \(checkpoint)")
+                XCTAssertTrue(layersBeforeRestore.isSubset(of: layersAfterRecovery), "Checkpoint: \(checkpoint)")
+            } else {
+                XCTAssertEqual(layersAfterRecovery, layersBeforeRestore, "Checkpoint: \(checkpoint)")
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-staging").path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-backup").path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-transaction.json").path))
+        }
+    }
+
+    func testLayeredRestoreCrashChild() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let rootPath = environment["EZVM_SNAPSHOT_CRASH_ROOT"],
+              let snapshotID = environment["EZVM_SNAPSHOT_CRASH_ID"],
+              let checkpointName = environment["EZVM_SNAPSHOT_CRASH_CHECKPOINT"] else {
+            return
+        }
+        let root = URL(fileURLWithPath: rootPath, isDirectory: true)
+        let snapshot = try XCTUnwrap(
+            VMSnapshotManager.listSnapshots(vmRootPath: root).first { $0.id == snapshotID }
+        )
+        let checkpoint = try XCTUnwrap(VMSnapshotRestoreCheckpoint(rawValue: checkpointName))
+        _ = VMSnapshotManager.restoreSnapshot(
+            vmRootPath: root,
+            snapshot: snapshot,
+            checkpointObserver: { reachedCheckpoint in
+                if reachedCheckpoint == checkpoint {
+                    _exit(86)
+                }
+            }
+        )
+        XCTFail("The crash checkpoint was not reached: \(checkpoint)")
+    }
+
     func testProtectedSnapshotCannotBeDeletedUntilUnprotected() throws {
         try write("disk", to: "Disk.img")
         let snapshot = try unwrapSuccess(
@@ -437,6 +517,29 @@ final class VMSnapshotManagerTests: XCTestCase {
 
     private func write(_ value: String, to relativePath: String) throws {
         try Data(value.utf8).write(to: temporaryRoot.appendingPathComponent(relativePath))
+    }
+
+    private func makeLayeredRestoreFixture(at root: URL) throws -> (
+        target: VMSnapshotModel,
+        current: VMSnapshotModel,
+        targetConfig: String,
+        currentConfig: String
+    ) {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let diskURL = root.appendingPathComponent("Disk.asif")
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: diskURL, size: 64 * 1024 * 1024))
+        let targetConfig = #"{"marker":"target","storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#
+        let currentConfig = #"{"marker":"current","storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#
+        try Data(targetConfig.utf8).write(to: root.appendingPathComponent("config.json"))
+        _ = try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root)
+        let target = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Target")
+        )
+        try Data(currentConfig.utf8).write(to: root.appendingPathComponent("config.json"))
+        let current = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Current")
+        )
+        return (target, current, targetConfig, currentConfig)
     }
 
     private func read(_ relativePath: String) throws -> String {

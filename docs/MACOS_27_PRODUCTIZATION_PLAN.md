@@ -157,9 +157,16 @@ set, while an interruption after the durable commit preserves the complete new
 state and overlay. It also prevents post-commit cleanup failures from deleting
 an overlay that the committed state already references.
 
-Process-level termination at those boundaries, low-space runs on real ASIF
-images, long layer chains, compaction, and host-restart testing remain promotion
-gates for moving the feature out of Beta.
+The same eight-boundary matrix also runs the restore in a separate XCTest
+process and terminates it immediately with `_exit`, then starts recovery in the
+parent process. This proves the journal is sufficient without relying on stack
+unwinding, in-memory cleanup, or the original process surviving. The production
+module exposes only an internal checkpoint observer; process termination lives
+entirely in the test target.
+
+Low-space runs on larger real ASIF images, long layer chains, compaction, and a
+full host-restart exercise remain promotion gates for moving the feature out of
+Beta.
 
 ### Work plan
 
