@@ -628,12 +628,69 @@ enum VMEFISecureBootManager {
     }
 }
 
+enum VMGuestProvisioningAttemptState: String, Codable, Equatable {
+    case prepared
+    case applying
+    case awaitingConfirmation
+}
+
 struct VMGuestProvisioningCredential: Codable, Equatable {
     let fullName: String
     let username: String
     let password: String
     let logsInAutomatically: Bool
     let enablesRemoteLogin: Bool
+    let attemptID: UUID
+    let attemptState: VMGuestProvisioningAttemptState
+
+    init(
+        fullName: String,
+        username: String,
+        password: String,
+        logsInAutomatically: Bool,
+        enablesRemoteLogin: Bool,
+        attemptID: UUID = UUID(),
+        attemptState: VMGuestProvisioningAttemptState = .prepared
+    ) {
+        self.fullName = fullName
+        self.username = username
+        self.password = password
+        self.logsInAutomatically = logsInAutomatically
+        self.enablesRemoteLogin = enablesRemoteLogin
+        self.attemptID = attemptID
+        self.attemptState = attemptState
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case fullName, username, password, logsInAutomatically, enablesRemoteLogin
+        case attemptID, attemptState
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        fullName = try values.decode(String.self, forKey: .fullName)
+        username = try values.decode(String.self, forKey: .username)
+        password = try values.decode(String.self, forKey: .password)
+        logsInAutomatically = try values.decode(Bool.self, forKey: .logsInAutomatically)
+        enablesRemoteLogin = try values.decode(Bool.self, forKey: .enablesRemoteLogin)
+        attemptID = try values.decodeIfPresent(UUID.self, forKey: .attemptID) ?? UUID()
+        attemptState = try values.decodeIfPresent(
+            VMGuestProvisioningAttemptState.self,
+            forKey: .attemptState
+        ) ?? .prepared
+    }
+
+    func withAttemptState(_ state: VMGuestProvisioningAttemptState) -> Self {
+        Self(
+            fullName: fullName,
+            username: username,
+            password: password,
+            logsInAutomatically: logsInAutomatically,
+            enablesRemoteLogin: enablesRemoteLogin,
+            attemptID: attemptID,
+            attemptState: state
+        )
+    }
 }
 
 enum VMGuestProvisioningCredentialPolicy {
@@ -649,6 +706,10 @@ enum VMGuestProvisioningCredentialPolicy {
         case .userConfirmedSetupCompleted:
             true
         }
+    }
+
+    static func shouldSubmitProvisioning(for state: VMGuestProvisioningAttemptState) -> Bool {
+        state == .prepared
     }
 }
 

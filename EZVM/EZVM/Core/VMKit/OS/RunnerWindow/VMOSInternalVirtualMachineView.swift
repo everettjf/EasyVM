@@ -40,7 +40,9 @@ enum VMUSBPassthroughState: Equatable {
 enum VMMacGuestProvisioningState: Equatable {
     case unavailable
     case applying(username: String)
+    case needsVerification(username: String)
     case awaitingConfirmation(username: String)
+    case retryPrepared(username: String)
     case completed
     case failed(String)
 }
@@ -165,6 +167,7 @@ final class VMRuntimeState {
     func detachUSBAccessory(registryID: UInt64) { controller?.detachUSBAccessory(registryID: registryID) }
     func dismissUSBPassthroughNotice() { controller?.dismissUSBPassthroughNotice() }
     func confirmMacGuestProvisioningCompleted() { controller?.confirmMacGuestProvisioningCompleted() }
+    func retryMacGuestProvisioningOnNextStart() { controller?.retryMacGuestProvisioningOnNextStart() }
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {

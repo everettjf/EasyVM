@@ -361,30 +361,28 @@ struct VMOSMainVirtualMachineView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(.regularMaterial, in: .rect(cornerRadius: 12))
+        case .needsVerification(let username):
+            provisioningVerificationCard(
+                username: username,
+                title: "Check the macOS account",
+                detail: "The previous provisioning attempt was interrupted. Sign in as “\(username)” if the account exists; otherwise choose Retry Next Start. EZVM will not submit it again automatically."
+            )
         case .awaitingConfirmation(let username):
-            HStack(spacing: 12) {
-                Image(systemName: "person.crop.circle.badge.questionmark")
-                    .font(.title2)
-                    .foregroundStyle(.tint)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Confirm macOS setup")
-                        .font(.headline)
-                    Text("After you can sign in as “\(username)”, confirm to remove the temporary password from this Mac’s Keychain.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 12)
-                Button("Setup Complete") {
-                    runtimeState.confirmMacGuestProvisioningCompleted()
-                }
-                .buttonStyle(.borderedProminent)
-                .help("Remove the temporary provisioning credential after verifying the account in the guest")
-            }
-            .frame(maxWidth: 720)
+            provisioningVerificationCard(
+                username: username,
+                title: "Confirm macOS setup",
+                detail: "After you can sign in as “\(username)”, confirm to remove the temporary password from this Mac’s Keychain."
+            )
+        case .retryPrepared(let username):
+            Label(
+                "Provisioning for “\(username)” will be retried the next time this VM starts. Shut down macOS, then run the VM again.",
+                systemImage: "arrow.clockwise.circle.fill"
+            )
+            .font(.callout)
+            .foregroundStyle(.blue)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(.regularMaterial, in: .rect(cornerRadius: 12))
-            .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
         case .completed:
             Label("macOS setup confirmed — temporary password removed", systemImage: "checkmark.circle.fill")
                 .font(.callout.weight(.medium))
@@ -401,6 +399,44 @@ struct VMOSMainVirtualMachineView: View {
                 .padding(.vertical, 10)
                 .background(.regularMaterial, in: .rect(cornerRadius: 12))
         }
+    }
+
+    private func provisioningVerificationCard(
+        username: String,
+        title: String,
+        detail: String
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.questionmark")
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            Button("Retry Next Start") {
+                runtimeState.retryMacGuestProvisioningOnNextStart()
+            }
+            .buttonStyle(.bordered)
+            .help("Keep the temporary credential and submit provisioning again on the next VM start")
+            Button("Setup Complete") {
+                runtimeState.confirmMacGuestProvisioningCompleted()
+            }
+            .buttonStyle(.borderedProminent)
+            .help("Remove the temporary provisioning credential after verifying the account in the guest")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("macOS guest provisioning for \(username)")
+        .frame(maxWidth: 720)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: .rect(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
     }
 
     private var guestAgentSymbol: String {

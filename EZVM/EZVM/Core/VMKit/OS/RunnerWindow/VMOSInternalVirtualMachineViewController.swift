@@ -384,7 +384,24 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 fail(error)
                 return
             case .success(let credential?):
+                if !VMGuestProvisioningCredentialPolicy.shouldSubmitProvisioning(for: credential.attemptState) {
+                    runtimeState?.updateMacGuestProvisioning(
+                        credential.attemptState == .applying
+                            ? .needsVerification(username: credential.username)
+                            : .awaitingConfirmation(username: credential.username)
+                    )
+                    break
+                }
                 do {
+                    let applyingCredential = credential.withAttemptState(.applying)
+                    if case let .failure(error) = VMGuestProvisioningCredentialStore.save(
+                        applyingCredential,
+                        vmRootPath: rootPath
+                    ) {
+                        runtimeState?.updateMacGuestProvisioning(.failed(error))
+                        fail(error)
+                        return
+                    }
                     runtimeState?.updateMacGuestProvisioning(.applying(username: credential.username))
                     let provisioning = VZMacGuestProvisioningOptions()
                     provisioning.fullName = credential.fullName
@@ -398,6 +415,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         Task { @MainActor in
                             guard let self else { return }
                             if let error {
+                                _ = VMGuestProvisioningCredentialStore.save(
+                                    credential.withAttemptState(.prepared),
+                                    vmRootPath: rootPath
+                                )
                                 self.runtimeState?.updateMacGuestProvisioning(.failed(error.localizedDescription))
                                 if !self.recoverInvalidEFIBootIfPossible(error: error, rootPath: rootPath, model: model) {
                                     self.fail("Could not start the provisioned virtual machine: \(error.localizedDescription)")
@@ -407,15 +428,24 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                                 // Virtualization.framework does not publish a callback that
                                 // confirms the guest account has been created, so retain the
                                 // retry credential until the user verifies setup in the guest.
-                                self.runtimeState?.updateMacGuestProvisioning(
-                                    .awaitingConfirmation(username: credential.username)
-                                )
+                                let awaitingCredential = credential.withAttemptState(.awaitingConfirmation)
+                                if case let .failure(error) = VMGuestProvisioningCredentialStore.save(
+                                    awaitingCredential,
+                                    vmRootPath: rootPath
+                                ) {
+                                    EZVMLog.error(error, logger: EZVMLog.lifecycle)
+                                }
+                                self.runtimeState?.updateMacGuestProvisioning(.awaitingConfirmation(username: credential.username))
                                 self.didStart(rootPath: rootPath, model: model)
                             }
                         }
                     }
                     return
                 } catch {
+                    _ = VMGuestProvisioningCredentialStore.save(
+                        credential.withAttemptState(.prepared),
+                        vmRootPath: rootPath
+                    )
                     fail("Guest provisioning settings were rejected: \(error.localizedDescription)")
                     return
                 }
@@ -454,6 +484,26 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         case .failure(let error):
             runtimeState?.updateMacGuestProvisioning(.failed(error))
             EZVMLog.error(error, logger: EZVMLog.lifecycle)
+        }
+    }
+
+    func retryMacGuestProvisioningOnNextStart() {
+        guard let rootPath else { return }
+        switch VMGuestProvisioningCredentialStore.load(vmRootPath: rootPath) {
+        case .success(let credential?):
+            switch VMGuestProvisioningCredentialStore.save(
+                credential.withAttemptState(.prepared),
+                vmRootPath: rootPath
+            ) {
+            case .success:
+                runtimeState?.updateMacGuestProvisioning(.retryPrepared(username: credential.username))
+            case .failure(let error):
+                runtimeState?.updateMacGuestProvisioning(.failed(error))
+            }
+        case .success(nil):
+            runtimeState?.updateMacGuestProvisioning(.failed("The temporary provisioning credential is no longer available."))
+        case .failure(let error):
+            runtimeState?.updateMacGuestProvisioning(.failed(error))
         }
     }
 
