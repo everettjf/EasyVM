@@ -83,7 +83,7 @@ failure messages.
 
 ## P1 — Finish current workflows
 
-**Target:** 1.1.0.
+**Target:** 2.0.0.
 
 | Feature | Scope | Acceptance criteria |
 | --- | --- | --- |
@@ -159,10 +159,10 @@ Every promoted capability must have:
 1. **1.0.x:** P0 only—headless cleanup, fixture builder, diagnostics, provenance,
    compatibility matrix, preinstalled-image release verification, and transaction
    fault injection.
-2. **1.1.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
+2. **2.0.0:** Guest Agent soak, transfer jobs/drag-and-drop, clipboard, runtime
    shares, portability UX, snapshot maintenance, CLI clone/export, and distro
    presets.
-3. **1.2.0:** serial terminal, carefully scoped TCP forwarding, guided Rosetta,
+3. **2.1.0:** serial terminal, carefully scoped TCP forwarding, guided Rosetta,
    Docker/KVM profile, recovery automation, and selected Shortcuts actions.
 4. **Later:** promote individual P3 experiments only when their evidence is
    complete; do not bundle experimental graduation into a deadline-driven

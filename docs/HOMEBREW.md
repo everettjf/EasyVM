@@ -81,7 +81,7 @@ EZVM_MATRIX_OMARCHY_VM="$HOME/EZVM Test Fixtures/Omarchy.ezvm" \
 EZVM_MATRIX_UBUNTU_VM="$HOME/EZVM Test Fixtures/Ubuntu.ezvm" \
 EZVM_MATRIX_OMARCHY_ENROLLMENT="$HOME/EZVM Test Fixtures/omarchy-enrollment.json" \
 EZVM_MATRIX_UBUNTU_ENROLLMENT="$HOME/EZVM Test Fixtures/ubuntu-enrollment.json" \
-scripts/verify-macos27-guest-matrix.sh /path/to/EZVM.app 1.1.0
+scripts/verify-macos27-guest-matrix.sh /path/to/EZVM.app 2.0.0
 ```
 
 The script rejects mislabeled fixtures, verifies the app signature,
