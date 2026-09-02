@@ -47,14 +47,29 @@ struct CreatePhaseConfigurationView: View {
     @Environment(VMConfigurationViewStateObject.self) private var configData
 
     var body: some View {
-        VStack(spacing: 14) {
-            Text("Config Virtual Hardwares")
-                .font(.title3)
-                .padding(.all)
-            VMCreateConfigurationView()
-            if configData.osType == .macOS {
-                guestProvisioningSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Choose resources")
+                        .font(.title2.weight(.semibold))
+                    Text("Recommended values are already selected for this Mac.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                CreateResourceControlsView()
+
+                DisclosureGroup("Advanced hardware") {
+                    VMCreateConfigurationView()
+                        .padding(.top, 8)
+                }
+
+                if configData.osType == .macOS {
+                    guestProvisioningSection
+                }
             }
+            .frame(maxWidth: 720, alignment: .leading)
+            .padding(.bottom, 12)
         }
     }
 
@@ -108,6 +123,230 @@ struct CreatePhaseConfigurationView: View {
         } label: {
             Label("macOS 27 First-Boot Provisioning", systemImage: "person.crop.circle.badge.checkmark")
         }
+    }
+}
+
+private struct CreateResourceControlsView: View {
+    @Environment(VMConfigurationViewStateObject.self) private var configData
+
+    private let gibibyte = UInt64(1024 * 1024 * 1024)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            resourceRow(
+                title: "Processors",
+                detail: "\(ProcessInfo.processInfo.processorCount) logical cores available",
+                value: "\(configData.cpuCount) CPU"
+            ) {
+                Slider(value: cpuBinding, in: Double(VMModelFieldCPU.minCount())...Double(VMModelFieldCPU.maxCount()), step: 1)
+                    .accessibilityLabel("Processors")
+                    .accessibilityValue("\(configData.cpuCount)")
+            }
+
+            Divider()
+
+            resourceRow(
+                title: "Memory",
+                detail: "\(hostMemoryDescription) installed · \(remainingMemoryDescription) remains",
+                value: "\(memoryGiB) GB"
+            ) {
+                Slider(value: memoryBinding, in: minimumMemoryGiB...maximumMemoryGiB, step: 1)
+                    .accessibilityLabel("Memory")
+                    .accessibilityValue("\(memoryGiB) gigabytes")
+            }
+
+            Divider()
+
+            resourceRow(
+                title: "Storage",
+                detail: "\(primaryDiskFormat) · grows as needed",
+                value: "\(storageGiB) GB"
+            ) {
+                Slider(value: storageBinding, in: minimumStorageGiB...maximumStorageGiB, step: 8)
+                    .accessibilityLabel("Storage")
+                    .accessibilityValue("\(storageGiB) gigabytes")
+            }
+        }
+        .padding(.horizontal, 18)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.separator.opacity(0.5), lineWidth: 1)
+        }
+    }
+
+    private func resourceRow<Control: View>(
+        title: String,
+        detail: String,
+        value: String,
+        @ViewBuilder control: () -> Control
+    ) -> some View {
+        HStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).fontWeight(.medium)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 180, alignment: .leading)
+
+            control()
+
+            Text(value)
+                .monospacedDigit()
+                .frame(width: 72, alignment: .trailing)
+        }
+        .padding(.vertical, 16)
+    }
+
+    private var cpuBinding: Binding<Double> {
+        Binding(
+            get: { Double(configData.cpuCount) },
+            set: { configData.cpuCount = Int($0.rounded()) }
+        )
+    }
+
+    private var memoryBinding: Binding<Double> {
+        Binding(
+            get: { Double(configData.memorySize / gibibyte) },
+            set: { configData.memorySize = UInt64($0.rounded()) * gibibyte }
+        )
+    }
+
+    private var storageBinding: Binding<Double> {
+        Binding(
+            get: { Double(primaryStorage.size / gibibyte) },
+            set: { updatePrimaryStorage(size: UInt64($0.rounded()) * gibibyte) }
+        )
+    }
+
+    private var minimumMemoryGiB: Double {
+        max(1, Double(VMModelFieldMemory.minSize() / gibibyte))
+    }
+
+    private var maximumMemoryGiB: Double {
+        let hostGiB = Double(ProcessInfo.processInfo.physicalMemory / gibibyte)
+        return max(minimumMemoryGiB, min(hostGiB - 2, Double(VMModelFieldMemory.maxSize() / gibibyte)))
+    }
+
+    private var minimumStorageGiB: Double {
+        Double(VMModelFieldStorageDevice.minDiskSize() / gibibyte)
+    }
+
+    private var maximumStorageGiB: Double {
+        max(minimumStorageGiB, min(512, Double(VMModelFieldStorageDevice.maxDiskSize() / gibibyte)))
+    }
+
+    private var primaryStorage: VMModelFieldStorageDevice {
+        configData.storageDevices.first(where: { $0.data.type == .Block })?.data ?? .default()
+    }
+
+    private var memoryGiB: UInt64 { configData.memorySize / gibibyte }
+    private var storageGiB: UInt64 { primaryStorage.size / gibibyte }
+    private var primaryDiskFormat: String { primaryStorage.format.rawValue.uppercased() }
+
+    private var hostMemoryDescription: String {
+        ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory)
+    }
+
+    private var remainingMemoryDescription: String {
+        let remaining = ProcessInfo.processInfo.physicalMemory > configData.memorySize
+            ? ProcessInfo.processInfo.physicalMemory - configData.memorySize
+            : 0
+        return ByteCountFormatter.string(fromByteCount: Int64(remaining), countStyle: .memory)
+    }
+
+    private func updatePrimaryStorage(size: UInt64) {
+        guard let index = configData.storageDevices.firstIndex(where: { $0.data.type == .Block }) else { return }
+        let existing = configData.storageDevices[index].data
+        configData.storageDevices[index] = VMModelFieldStorageDeviceItemModel(
+            data: VMModelFieldStorageDevice(
+                type: existing.type,
+                size: size,
+                imagePath: existing.imagePath,
+                format: existing.format
+            )
+        )
+    }
+}
+
+final class CreatePhaseReviewViewHandler: VMCreateStepperGuidePhaseHandler {
+    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid { .success }
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid { .success }
+}
+
+struct CreatePhaseReviewView: View {
+    @Environment(VMCreateViewStateObject.self) private var formData
+    @Environment(VMConfigurationViewStateObject.self) private var configData
+
+    private let gibibyte = UInt64(1024 * 1024 * 1024)
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Ready to create \(configData.name)")
+                        .font(.title2.weight(.semibold))
+                    Text("Review your choices. Nothing downloads until you click Create.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                reviewSection("System", systemImage: configData.osType == .macOS ? "apple.logo" : "pc") {
+                    reviewRow("Image", formData.systemImageSelection.title)
+                    reviewRow("Source", formData.systemImageSelection.detail)
+                }
+
+                reviewSection("Machine", systemImage: "desktopcomputer") {
+                    reviewRow("Name", configData.name)
+                    reviewRow("Location", formData.rootPath)
+                }
+
+                reviewSection("Resources", systemImage: "slider.horizontal.3") {
+                    reviewRow("Hardware", "\(configData.cpuCount) CPU · \(configData.memorySize / gibibyte) GB memory")
+                    reviewRow("Storage", storageSummary)
+                    reviewRow("Shared folders", sharingSummary)
+                }
+            }
+            .frame(maxWidth: 720, alignment: .leading)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private func reviewSection<Content: View>(
+        _ title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        GroupBox {
+            VStack(spacing: 10) { content() }
+                .padding(4)
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
+    }
+
+    private func reviewRow(_ label: String, _ value: String) -> some View {
+        LabeledContent(label) {
+            Text(value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+        }
+    }
+
+    private var storageSummary: String {
+        guard let disk = configData.storageDevices.first(where: { $0.data.type == .Block })?.data else {
+            return "No virtual disk"
+        }
+        return "\(disk.size / gibibyte) GB · \(disk.format.rawValue.uppercased())"
+    }
+
+    private var sharingSummary: String {
+        let count = configData.directorySharingDevices.reduce(0) { $0 + $1.data.items.count }
+        return count == 0 ? "None · can be added later" : "\(count) folder\(count == 1 ? "" : "s")"
     }
 }
 
