@@ -20,6 +20,7 @@ struct VMOSMainVirtualMachineView: View {
     @State private var settingsModel: VMModel?
     @State private var isShowingSharedFolderResult = false
     @State private var sharedFolderResult = ""
+    @State private var isSharedFolderDropTargeted = false
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     
     var body: some View {
@@ -87,6 +88,24 @@ struct VMOSMainVirtualMachineView: View {
                 .padding(28)
                 .background(.regularMaterial, in: .rect(cornerRadius: 16))
             }
+        }
+        .overlay {
+            if isSharedFolderDropTargeted {
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color.accentColor.opacity(0.16))
+                    .overlay {
+                        Label("Drop folders to share after restart", systemImage: "folder.fill.badge.plus")
+                            .font(.title3.weight(.semibold))
+                            .padding(18)
+                            .background(.regularMaterial, in: Capsule())
+                    }
+                    .padding(24)
+            }
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            addDroppedSharedFolders(urls)
+        } isTargeted: {
+            isSharedFolderDropTargeted = $0
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -507,6 +526,40 @@ struct VMOSMainVirtualMachineView: View {
                 sharedFolderResult = "EZVM could not add the shared folder: \(error)"
             }
             isShowingSharedFolderResult = true
+        }
+    }
+
+    private func addDroppedSharedFolders(_ urls: [URL]) -> Bool {
+        let directories = VMSharedFolderDrop.directories(from: urls)
+        guard !directories.isEmpty else {
+            sharedFolderResult = "Only folders can be shared with a virtual machine."
+            isShowingSharedFolderResult = true
+            return false
+        }
+        guard case let .success(model) = VMModel.loadConfigFromFile(rootPath: rootPath) else {
+            sharedFolderResult = "EZVM could not load this virtual machine’s settings."
+            isShowingSharedFolderResult = true
+            return false
+        }
+        let state = VMConfigurationViewStateObject(configModel: model.config)
+        let added = directories.reduce(into: 0) { count, url in
+            if state.addSharedDirectory(url) { count += 1 }
+        }
+        guard added > 0 else {
+            sharedFolderResult = "Those folders are already shared."
+            isShowingSharedFolderResult = true
+            return false
+        }
+        switch state.getConfigModel().writeConfigToFile(path: model.configURL) {
+        case .success:
+            NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+            sharedFolderResult = "Added \(added) shared folder\(added == 1 ? "" : "s"). It will be available after the next start."
+            isShowingSharedFolderResult = true
+            return true
+        case .failure(let error):
+            sharedFolderResult = "EZVM could not add the shared folders: \(error)"
+            isShowingSharedFolderResult = true
+            return false
         }
     }
 

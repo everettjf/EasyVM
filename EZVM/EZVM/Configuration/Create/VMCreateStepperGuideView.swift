@@ -79,6 +79,7 @@ struct VMCreateStepperGuideItem: Identifiable {
     let content: AnyView
     let handler: any VMCreateStepperGuidePhaseHandler
     var nextTitle: String? = nil
+    var secondaryNextTitle: String? = nil
     var autoAdvanceOnSuccess = false
     var participatesInSetupProgress = true
 }
@@ -125,6 +126,7 @@ struct VMCreateStepperGuideView: View {
             VMCreateStepperGuideItem(systemImage: "desktopcomputer", name: "System", subtitle: "Choose OS and image", content: AnyView(CreatePhaseSystemView()), handler: CreatePhaseSystemViewHandler()),
             VMCreateStepperGuideItem(systemImage: "tag", name: "Name & Location", subtitle: "Name and save location", content: AnyView(CreatePhaseNameLocationView()), handler: CreatePhaseNameLocationViewHandler()),
             VMCreateStepperGuideItem(systemImage: "slider.horizontal.3", name: "Resources", subtitle: "CPU, memory, and storage", content: AnyView(CreatePhaseConfigurationView()), handler: CreatePhaseConfigurationViewHandler()),
+            VMCreateStepperGuideItem(systemImage: "folder", name: "Sharing", subtitle: "Share Mac folders", content: AnyView(CreatePhaseSharingView()), handler: CreatePhaseSharingViewHandler(), secondaryNextTitle: "Not Now"),
             VMCreateStepperGuideItem(systemImage: "checklist", name: "Review", subtitle: "Confirm and create", content: AnyView(CreatePhaseReviewView()), handler: CreatePhaseReviewViewHandler(), nextTitle: "Create"),
             VMCreateStepperGuideItem(systemImage: "arrow.down.circle", name: "Creating", subtitle: "Download and install once", content: AnyView(CreatePhaseCreatingView()), handler: CreatePhaseCreatingViewHandler(), autoAdvanceOnSuccess: true, participatesInSetupProgress: false),
             VMCreateStepperGuideItem(systemImage: "checkmark.seal", name: "Completion", subtitle: "Ready to run", content: AnyView(CreatePhaseCompleteView()), handler: CreatePhaseCompleteViewHandler(), participatesInSetupProgress: false),
@@ -188,6 +190,13 @@ struct VMCreateStepperGuideView: View {
                         Label("Previous", systemImage: "chevron.left")
                     }
                     .disabled(isStepInitializing || formData.disablePreviousButton)
+                }
+                if let secondaryNextTitle = steps[stepperState.current].secondaryNextTitle {
+                    Button(secondaryNextTitle) {
+                        tryMoveNextStep()
+                    }
+                    .disabled(isStepInitializing || disableNext)
+                    .accessibilityIdentifier("create-guide-secondary-next")
                 }
                 Button {
                     if stepFailed { retryCurrentStep() } else { tryMoveNextStep() }

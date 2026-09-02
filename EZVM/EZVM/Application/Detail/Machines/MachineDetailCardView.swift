@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 
 #if arch(arm64)
@@ -157,6 +158,8 @@ struct MachineDetailCardView: View {
     let action: MachineDetailCardAction
 
     @State private var runningRegistry = VMRunningRegistry.shared
+    @State private var isDropTargeted = false
+    @State private var shareFeedback: String?
 
     var snapshotCount: Int {
         VMSnapshotManager.snapshotCount(vmRootPath: model.rootPath)
@@ -247,6 +250,56 @@ struct MachineDetailCardView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(.separator.opacity(0.45), lineWidth: 1)
+        }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.14))
+                    .overlay {
+                        Label("Drop folders to share", systemImage: "folder.fill.badge.plus")
+                            .font(.headline)
+                            .padding(14)
+                            .background(.regularMaterial, in: Capsule())
+                    }
+            }
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            addSharedFolders(urls)
+        } isTargeted: {
+            isDropTargeted = $0
+        }
+        .alert("Shared Folder", isPresented: Binding(
+            get: { shareFeedback != nil },
+            set: { if !$0 { shareFeedback = nil } }
+        )) {
+            Button("OK") { shareFeedback = nil }
+        } message: {
+            Text(shareFeedback ?? "")
+        }
+    }
+
+    private func addSharedFolders(_ urls: [URL]) -> Bool {
+        let directories = VMSharedFolderDrop.directories(from: urls)
+        guard !directories.isEmpty else {
+            shareFeedback = "Only folders can be shared with a virtual machine."
+            return false
+        }
+        let state = VMConfigurationViewStateObject(configModel: model.config)
+        let added = directories.reduce(into: 0) { count, url in
+            if state.addSharedDirectory(url) { count += 1 }
+        }
+        guard added > 0 else {
+            shareFeedback = "Those folders are already shared."
+            return false
+        }
+        switch state.getConfigModel().writeConfigToFile(path: model.configURL) {
+        case .success:
+            NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+            shareFeedback = "Added \(added) shared folder\(added == 1 ? "" : "s"). Changes apply after the next start."
+            return true
+        case .failure(let error):
+            shareFeedback = "EZVM could not add the shared folders: \(error)"
+            return false
         }
     }
 }

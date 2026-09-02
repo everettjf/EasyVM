@@ -11,6 +11,8 @@ import SwiftUI
 struct VMConfigurationDirectorySharingDevicesEditView: View {
     @Environment(VMConfigurationViewStateObject.self) private var configData
     @Environment(\.dismiss) private var dismiss
+    @State private var isDropTargeted = false
+    @State private var dropFeedback: String?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -62,6 +64,22 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                 }
             }
             .formStyle(.grouped)
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.accentColor.opacity(0.14))
+                        .overlay {
+                            Label("Drop folders to share", systemImage: "folder.fill.badge.plus")
+                                .font(.title3.weight(.semibold))
+                        }
+                        .padding(12)
+                }
+            }
+            .dropDestination(for: URL.self) { urls, _ in
+                addDroppedURLs(urls)
+            } isTargeted: {
+                isDropTargeted = $0
+            }
 
             Divider()
             HStack {
@@ -73,8 +91,27 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                     .keyboardShortcut(.defaultAction)
             }
             .padding()
+
+            if let dropFeedback {
+                Text(dropFeedback)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+                    .padding(.bottom, 10)
+            }
         }
         .frame(minWidth: 560, minHeight: 380)
+    }
+
+    private func addDroppedURLs(_ urls: [URL]) -> Bool {
+        let directories = VMSharedFolderDrop.directories(from: urls)
+        let added = directories.reduce(into: 0) { count, url in
+            if configData.addSharedDirectory(url) { count += 1 }
+        }
+        dropFeedback = added > 0
+            ? "Added \(added) shared folder\(added == 1 ? "" : "s")."
+            : "Drop folders that are not already shared."
+        return added > 0
     }
 
     private func chooseFolder() {

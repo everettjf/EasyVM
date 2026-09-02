@@ -29,9 +29,6 @@ struct VMCreateConfigurationView: View {
                 VMConfigurationPointingDevicesView()
                 VMConfigurationAudioDevicesView()
             }
-            Section("Sharing Directory") {
-                VMConfigurationDirectorySharingDevicesView()
-            }
             VMLinuxFeaturesConfigurationSection()
         }
         .formStyle(.grouped)
