@@ -15,6 +15,10 @@ fail() {
 [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
 cli="$app_path/Contents/Helpers/ezvm"
 [[ -x "$cli" ]] || fail "CLI executable not found: $cli"
+guest_type="$(ruby -rjson -e 'puts JSON.parse(File.read(File.join(ARGV.fetch(0), "config.json"))).fetch("type")' "$vm_path")" \
+  || fail "could not read the guest type from $vm_path/config.json"
+[[ "$guest_type" == "linux" || "$guest_type" == "macOS" ]] \
+  || fail "unsupported guest type in fixture: $guest_type"
 
 smoke_parent="$(dirname "$vm_path")"
 smoke_directory="$(mktemp -d "$smoke_parent/.ezvm-cli-smoke.XXXXXX")"
@@ -83,12 +87,20 @@ saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "col
 [[ ! -e "$smoke_vm/MachineState.vzvmsave" ]] || fail "corrupt saved state was not discarded"
 "$cli" stop "$smoke_vm" --timeout 30 >/dev/null || fail "stop after saved-state fallback failed"
 
-# Reproduce the exact Virtualization.framework failure seen in production. A
-# rejected EFI store must be preserved as a diagnostic backup and replaced once.
-truncate -s 0 "$second_vm/NVRAM"
-efi_recovery_json="$("$cli" start "$second_vm" --timeout "$timeout")" || fail "EFI recovery start failed: $efi_recovery_json"
-[[ "$efi_recovery_json" == *'"phase":"running"'* ]] || fail "EFI recovery did not report running: $efi_recovery_json"
-[[ -s "$second_vm/NVRAM" && -e "$second_vm/NVRAM.invalid-backup" ]] || fail "EFI recovery did not replace and back up NVRAM"
-"$cli" stop "$second_vm" --timeout 30 >/dev/null || fail "stop after EFI recovery failed"
+# Reproduce the exact Virtualization.framework EFI failure seen in Linux
+# guests. macOS guests use VZMacAuxiliaryStorage rather than an EFI variable
+# store, so creating a synthetic NVRAM file there would test nothing and make
+# the three-guest matrix fail for the wrong reason.
+if [[ "$guest_type" == "linux" ]]; then
+  truncate -s 0 "$second_vm/NVRAM"
+  efi_recovery_json="$("$cli" start "$second_vm" --timeout "$timeout")" || fail "EFI recovery start failed: $efi_recovery_json"
+  [[ "$efi_recovery_json" == *'"phase":"running"'* ]] || fail "EFI recovery did not report running: $efi_recovery_json"
+  [[ -s "$second_vm/NVRAM" && -e "$second_vm/NVRAM.invalid-backup" ]] || fail "EFI recovery did not replace and back up NVRAM"
+  "$cli" stop "$second_vm" --timeout 30 >/dev/null || fail "stop after EFI recovery failed"
+fi
 
-echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, saved-state fallback, and EFI boot recovery."
+if [[ "$guest_type" == "linux" ]]; then
+  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, saved-state fallback, and EFI boot recovery."
+else
+  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, and saved-state fallback."
+fi

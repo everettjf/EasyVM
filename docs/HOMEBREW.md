@@ -86,8 +86,8 @@ scripts/verify-macos27-guest-matrix.sh /path/to/EZVM.app 1.1.0
 
 The script rejects mislabeled fixtures, verifies the app signature,
 Gatekeeper, entitlements, GUI readiness, and then exercises CLI lifecycle,
-concurrent ownership, forced-exit recovery, saved-state recovery, EFI recovery,
-Guest Agent authentication, byte-exact transfer, and clean shutdown. Set
+concurrent ownership, forced-exit recovery, saved-state recovery, Linux EFI
+recovery, Guest Agent authentication, byte-exact transfer, and clean shutdown. Set
 `EZVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
 gate. Fixtures are cloned before destructive recovery checks; the originals
 remain unchanged.
