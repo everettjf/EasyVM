@@ -20,4 +20,19 @@ final class VMThumbnailValidatorTests: XCTestCase {
         pixels[0] = 64
         XCTAssertTrue(VMThumbnailValidator.isMeaningfulRGBA(pixels))
     }
+
+    func testPerMachineStylePreferenceKeyIsStableAndDistinct() {
+        let first = URL(fileURLWithPath: "/tmp/Alpha.ezvm")
+        let equivalent = URL(fileURLWithPath: "/tmp/folder/../Alpha.ezvm")
+        let second = URL(fileURLWithPath: "/tmp/Beta.ezvm")
+
+        XCTAssertEqual(
+            VMThumbnailPreferences.generatedStyleKey(for: first),
+            VMThumbnailPreferences.generatedStyleKey(for: equivalent)
+        )
+        XCTAssertNotEqual(
+            VMThumbnailPreferences.generatedStyleKey(for: first),
+            VMThumbnailPreferences.generatedStyleKey(for: second)
+        )
+    }
 }

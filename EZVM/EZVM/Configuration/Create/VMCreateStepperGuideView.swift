@@ -36,7 +36,9 @@ private struct VMCreateGuideProgressView: View {
                 }
                 .frame(minWidth: 70)
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel("Step \(index + 1) of \(steps.count): \(step.name)")
                 .accessibilityValue(accessibilityValue(for: step.id))
+                .accessibilityIdentifier("create-guide-progress-\(index + 1)")
             }
         }
     }
@@ -190,6 +192,8 @@ struct VMCreateStepperGuideView: View {
                         Label("Previous", systemImage: "chevron.left")
                     }
                     .disabled(isStepInitializing || formData.disablePreviousButton)
+                    .keyboardShortcut(.leftArrow, modifiers: [.command])
+                    .accessibilityIdentifier("create-guide-previous")
                 }
                 if let secondaryNextTitle = steps[stepperState.current].secondaryNextTitle {
                     Button(secondaryNextTitle) {

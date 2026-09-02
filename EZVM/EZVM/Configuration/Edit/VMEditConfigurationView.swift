@@ -65,6 +65,8 @@ struct VMEditConfigurationView: View {
                 .foregroundStyle(selection == category ? Color.accentColor : .secondary)
                 .background(selection == category ? Color.accentColor.opacity(0.11) : .clear, in: RoundedRectangle(cornerRadius: 9))
                 .accessibilityAddTraits(selection == category ? .isSelected : [])
+                .accessibilityLabel("\(category.rawValue) settings")
+                .accessibilityIdentifier("vm-settings-\(category.rawValue.lowercased())")
             }
         }
         .padding(.horizontal, 20)
@@ -130,6 +132,7 @@ struct VMEditConfigurationView: View {
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(configData.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityHint("Save changes and close settings")
         }.padding(16)
     }
 
