@@ -59,6 +59,46 @@ final class VMLinuxFeatureConfigurationTests: XCTestCase {
         XCTAssertEqual(selection.active, .customVirGL)
         XCTAssertNil(selection.fallbackReason)
     }
+
+    func testCustomVirGLUsesAppleInputWhileInstallationMediaIsAttached() {
+        let selection = VMGraphicsBackendSelection.resolve(
+            isLinux: true,
+            hostSupportsCustomVirtio: true,
+            experimentalEnabled: true,
+            customBackendImplemented: true,
+            hasInstallationMedia: true,
+            guestInputReady: true
+        )
+        XCTAssertEqual(selection.requested, .customVirGL)
+        XCTAssertEqual(selection.active, .appleVirtio)
+        XCTAssertTrue(selection.fallbackReason?.contains("installation media") == true)
+    }
+
+    func testCustomVirGLWaitsForVerifiedGuestInput() {
+        let selection = VMGraphicsBackendSelection.resolve(
+            isLinux: true,
+            hostSupportsCustomVirtio: true,
+            experimentalEnabled: true,
+            customBackendImplemented: true,
+            guestInputReady: false
+        )
+        XCTAssertEqual(selection.requested, .customVirGL)
+        XCTAssertEqual(selection.active, .appleVirtio)
+        XCTAssertTrue(selection.fallbackReason?.contains("Guest Agent") == true)
+    }
+
+    func testGuestInputReadinessIsScopedToMachineIdentity() throws {
+        let suiteName = "VMLinuxFeatureConfigurationTests.readiness.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let first = Data("first-machine".utf8)
+        let second = Data("second-machine".utf8)
+
+        XCTAssertFalse(VMGuestAgentEnrollmentStore.isInputReady(machineIdentifierData: first, defaults: defaults))
+        VMGuestAgentEnrollmentStore.markInputReady(machineIdentifierData: first, defaults: defaults)
+        XCTAssertTrue(VMGuestAgentEnrollmentStore.isInputReady(machineIdentifierData: first, defaults: defaults))
+        XCTAssertFalse(VMGuestAgentEnrollmentStore.isInputReady(machineIdentifierData: second, defaults: defaults))
+    }
     func testRecommendedFeaturesRoundTripAndCreateVirtioDevices() throws {
         let encoded = try JSONEncoder().encode(VMLinuxFeatureConfiguration.recommended)
         let decoded = try JSONDecoder().decode(VMLinuxFeatureConfiguration.self, from: encoded)

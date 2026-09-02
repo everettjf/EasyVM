@@ -40,6 +40,7 @@ final class VMGuestAgentHostClient {
     private weak var runtimeState: VMRuntimeState?
     private let onInputCapabilitiesChanged: (_ guestKeyboardEnabled: Bool, _ absolutePointerEnabled: Bool) -> Void
     private let onDesktopSessionChanged: (_ active: Bool) -> Void
+    private let onStatusReady: (_ status: VMGuestAgentStatus) -> Void
     private var connection: VZVirtioSocketConnection?
     private var connectionGeneration: UInt64 = 0
     private var retryTask: DispatchWorkItem?
@@ -61,13 +62,15 @@ final class VMGuestAgentHostClient {
         enrollment: VMGuestAgentEnrollment,
         runtimeState: VMRuntimeState,
         onInputCapabilitiesChanged: @escaping (Bool, Bool) -> Void = { _, _ in },
-        onDesktopSessionChanged: @escaping (Bool) -> Void = { _ in }
+        onDesktopSessionChanged: @escaping (Bool) -> Void = { _ in },
+        onStatusReady: @escaping (VMGuestAgentStatus) -> Void = { _ in }
     ) {
         self.device = device
         self.enrollment = enrollment
         self.runtimeState = runtimeState
         self.onInputCapabilitiesChanged = onInputCapabilitiesChanged
         self.onDesktopSessionChanged = onDesktopSessionChanged
+        self.onStatusReady = onStatusReady
     }
 
     func start() {
@@ -390,6 +393,7 @@ final class VMGuestAgentHostClient {
                     status.supportsAbsoluteGuestPointer
                 )
                 onDesktopSessionChanged(status.allowsDynamicDisplay)
+                onStatusReady(status)
                 runtimeState?.updateGuestAgent(.ready(status))
             } catch {
                 disconnected("The guest agent returned invalid status: \(error.localizedDescription)")

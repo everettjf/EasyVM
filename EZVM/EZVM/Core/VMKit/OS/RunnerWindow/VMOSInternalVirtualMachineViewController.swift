@@ -182,9 +182,17 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         
         let runner = VMOSRunnerFactory.getRunner(model.config.type)
+        let machineIdentifierData = try? Data(contentsOf: model.machineIdentifierURL)
+        let hasInstallationMedia = model.config.storageDevices.contains { $0.type == .USB }
+        let guestInputReady = machineIdentifierData.map {
+            VMGuestAgentEnrollmentStore.isInputReady(machineIdentifierData: $0)
+        } ?? false
+        let releaseSmokeRequiresVirGL = VMReleaseSmokeTest.configuration(for: rootPath)?.requireVirGL == true
         let graphicsCreation = VMGraphicsBackendFactory.make(
             forLinux: model.config.type == .linux,
-            devices: model.config.graphicsDevices
+            devices: model.config.graphicsDevices,
+            hasInstallationMedia: hasInstallationMedia,
+            guestInputReady: guestInputReady || releaseSmokeRequiresVirGL
         )
         let graphicsBackend = graphicsCreation.backend
         self.graphicsBackend = graphicsBackend
@@ -1027,6 +1035,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 self.graphicsBackend?.setAbsolutePointerEnabled(absolutePointerEnabled)
             } onDesktopSessionChanged: { [weak self] active in
                 self?.graphicsBackend?.setDynamicDisplayReady(active)
+            } onStatusReady: { status in
+                guard status.supportsDesktopGuestInput else { return }
+                VMGuestAgentEnrollmentStore.markInputReady(machineIdentifierData: identifier)
             }
             guestAgentClient = client
             client.start()

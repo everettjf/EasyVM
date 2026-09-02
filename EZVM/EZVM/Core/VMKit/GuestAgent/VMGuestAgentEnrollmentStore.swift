@@ -29,6 +29,7 @@ struct VMGuestAgentEnrollment: Codable, Equatable {
 enum VMGuestAgentEnrollmentStore {
     static let sharedDirectoryTag = "ezvm-agent"
     static let sharedConfigurationFileName = "config.json"
+    static let inputReadinessKeyPrefix = "guestAgent.inputReady."
 
     static func machineID(machineIdentifierData: Data) -> String {
         SHA256.hash(data: machineIdentifierData).map { String(format: "%02x", $0) }.joined()
@@ -103,10 +104,31 @@ enum VMGuestAgentEnrollmentStore {
             if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
                 try FileManager.default.removeItem(at: url)
             }
+            UserDefaults.standard.removeObject(
+                forKey: inputReadinessKey(machineIdentifierData: machineIdentifierData)
+            )
             return .success
         } catch {
             return .failure("Could not delete guest-agent enrollment: \(error.localizedDescription)")
         }
+    }
+
+    static func isInputReady(
+        machineIdentifierData: Data,
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        defaults.bool(forKey: inputReadinessKey(machineIdentifierData: machineIdentifierData))
+    }
+
+    static func markInputReady(
+        machineIdentifierData: Data,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(true, forKey: inputReadinessKey(machineIdentifierData: machineIdentifierData))
+    }
+
+    static func inputReadinessKey(machineIdentifierData: Data) -> String {
+        inputReadinessKeyPrefix + machineID(machineIdentifierData: machineIdentifierData)
     }
 
     static func installationConfiguration(_ enrollment: VMGuestAgentEnrollment) throws -> Data {

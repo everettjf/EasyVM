@@ -239,10 +239,15 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         // becomes Linux Super instead of silently disappearing.
         if forwardCommandChordToGuest(event) { return }
         if let guestInputHandler {
+            let effectiveFlags = VMGuestAgentKeyboard.effectiveModifierFlags(
+                reported: event.modifierFlags,
+                characters: event.characters,
+                charactersIgnoringModifiers: event.charactersIgnoringModifiers
+            )
             if !event.isARepeat,
                let events = VMGuestAgentKeyboard.chordEventsForMissingModifierTransition(
                    forMacVirtualKey: event.keyCode,
-                   modifierFlags: event.modifierFlags,
+                   modifierFlags: effectiveFlags,
                    alreadyPressed: pressedKeys
                ) {
                 guestInputHandler(events)
@@ -807,20 +812,32 @@ enum VMGraphicsBackendFactory {
     // presenter, and lifecycle implementation are linked into the app target.
     static let customBackendImplemented = true
 
-    static func selection(forLinux: Bool = true) -> VMGraphicsBackendSelection {
+    static func selection(
+        forLinux: Bool = true,
+        hasInstallationMedia: Bool = false,
+        guestInputReady: Bool = true
+    ) -> VMGraphicsBackendSelection {
         VMGraphicsBackendSelection.resolve(
             isLinux: forLinux,
             hostSupportsCustomVirtio: VirtualizationCapability.customVirtio.isAvailable,
             experimentalEnabled: EZVMExperimentalFeatures.customVirGLGraphicsEnabled(),
-            customBackendImplemented: customBackendImplemented
+            customBackendImplemented: customBackendImplemented,
+            hasInstallationMedia: hasInstallationMedia,
+            guestInputReady: guestInputReady
         )
     }
 
     static func make(
         forLinux: Bool = true,
-        devices: [VMModelFieldGraphicDevice]
+        devices: [VMModelFieldGraphicDevice],
+        hasInstallationMedia: Bool = false,
+        guestInputReady: Bool = true
     ) -> VMGraphicsBackendCreation {
-        let selection = selection(forLinux: forLinux)
+        let selection = selection(
+            forLinux: forLinux,
+            hasInstallationMedia: hasInstallationMedia,
+            guestInputReady: guestInputReady
+        )
         if let fallbackReason = selection.fallbackReason {
             EZVMLog.info("Graphics backend fallback: \(fallbackReason)")
         }

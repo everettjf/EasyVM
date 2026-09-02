@@ -268,6 +268,26 @@ enum VMGuestAgentKeyboard {
             alreadyPressed: alreadyPressed
         )
     }
+
+    static func effectiveModifierFlags(
+        reported flags: NSEvent.ModifierFlags,
+        characters: String?,
+        charactersIgnoringModifiers: String?
+    ) -> NSEvent.ModifierFlags {
+        var effective = flags.intersection(.deviceIndependentFlagsMask)
+        guard !effective.contains(.shift), let characters, !characters.isEmpty else {
+            return effective
+        }
+        let ignoring = charactersIgnoringModifiers ?? characters
+        let shiftedUSSymbols = CharacterSet(charactersIn: "~!@#$%^&*()_+{}|:\"<>?")
+        let explicitlyShifted = characters != ignoring || characters.unicodeScalars.contains {
+            CharacterSet.uppercaseLetters.contains($0) || shiftedUSSymbols.contains($0)
+        }
+        if explicitlyShifted {
+            effective.insert(.shift)
+        }
+        return effective
+    }
 }
 
 struct VMGuestAgentUploadStart: Codable, Equatable {

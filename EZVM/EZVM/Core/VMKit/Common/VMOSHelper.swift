@@ -385,7 +385,9 @@ struct VMGraphicsBackendSelection: Equatable {
         isLinux: Bool,
         hostSupportsCustomVirtio: Bool,
         experimentalEnabled: Bool,
-        customBackendImplemented: Bool
+        customBackendImplemented: Bool,
+        hasInstallationMedia: Bool = false,
+        guestInputReady: Bool = true
     ) -> VMGraphicsBackendSelection {
         guard isLinux, experimentalEnabled else {
             return VMGraphicsBackendSelection(
@@ -404,6 +406,20 @@ struct VMGraphicsBackendSelection: Equatable {
                 requested: .customVirGL,
                 active: .appleVirtio,
                 fallbackReason: "The Custom VirGL backend is enabled but has not been linked into this build."
+            )
+        }
+        guard !hasInstallationMedia else {
+            return VMGraphicsBackendSelection(
+                requested: .customVirGL,
+                active: .appleVirtio,
+                fallbackReason: "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input."
+            )
+        }
+        guard guestInputReady else {
+            return VMGraphicsBackendSelection(
+                requested: .customVirGL,
+                active: .appleVirtio,
+                fallbackReason: "Apple Virtio is used until the EZVM Guest Agent confirms reliable keyboard and pointer input."
             )
         }
         return VMGraphicsBackendSelection(

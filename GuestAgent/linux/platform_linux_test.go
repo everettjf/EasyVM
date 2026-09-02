@@ -26,3 +26,12 @@ func TestParseProcessCredentialsRejectsIncompleteStatus(t *testing.T) {
 		t.Fatal("incomplete process credentials were accepted")
 	}
 }
+
+func TestIntersectsInputDeviceSets(t *testing.T) {
+	if !intersects([]string{"event3", "event4"}, []string{"event1", "event3"}) {
+		t.Fatal("shared input event was not detected")
+	}
+	if intersects([]string{"event3"}, []string{"event1", "event2"}) {
+		t.Fatal("disjoint input devices were accepted")
+	}
+}

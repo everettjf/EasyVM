@@ -205,6 +205,18 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         )
     }
 
+    func testAccessibilityTextInfersMissingShiftForUppercaseAndSymbols() {
+        XCTAssertTrue(VMGuestAgentKeyboard.effectiveModifierFlags(
+            reported: [], characters: "!", charactersIgnoringModifiers: "1"
+        ).contains(.shift))
+        XCTAssertTrue(VMGuestAgentKeyboard.effectiveModifierFlags(
+            reported: [], characters: "E", charactersIgnoringModifiers: "e"
+        ).contains(.shift))
+        XCTAssertFalse(VMGuestAgentKeyboard.effectiveModifierFlags(
+            reported: [], characters: "e", charactersIgnoringModifiers: "e"
+        ).contains(.shift))
+    }
+
     func testDesktopInputRequiresHyprlandToOwnTheGuestKeyboard() {
         let console = VMGuestAgentStatus(
             agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",

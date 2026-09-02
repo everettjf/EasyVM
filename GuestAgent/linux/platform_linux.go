@@ -163,10 +163,101 @@ func hyprlandDeviceDiagnostics() string {
 }
 
 func desktopInputReady() bool {
-	return len(findHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl EZVM Keyboard:")
+	if len(findHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl EZVM Keyboard:") {
+		return true
+	}
+	return intersects(ezvmKeyboardEventDevices(), desktopCompositorInputDevices())
 }
 
-func desktopSessionActive() bool { return len(findHyprlandSessions()) > 0 }
+func desktopSessionActive() bool { return len(desktopCompositorPIDs()) > 0 }
+
+var desktopCompositorNames = map[string]bool{
+	"gnome-shell":  true,
+	"hyprland":     true,
+	"kwin_wayland": true,
+	"sway":         true,
+	"weston":       true,
+}
+
+func desktopCompositorPIDs() []string {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil
+	}
+	var pids []string
+	for _, entry := range entries {
+		pid := entry.Name()
+		if !entry.IsDir() {
+			continue
+		}
+		if _, err := strconv.Atoi(pid); err != nil {
+			continue
+		}
+		name := strings.ToLower(readTrimmed("/proc/" + pid + "/comm"))
+		if desktopCompositorNames[name] {
+			pids = append(pids, pid)
+		}
+	}
+	return pids
+}
+
+func desktopCompositorInputDevices() []string {
+	seen := make(map[string]bool)
+	var devices []string
+	for _, pid := range desktopCompositorPIDs() {
+		fds, _ := os.ReadDir("/proc/" + pid + "/fd")
+		for _, fd := range fds {
+			target, err := os.Readlink("/proc/" + pid + "/fd/" + fd.Name())
+			if err != nil || !strings.HasPrefix(target, "/dev/input/event") {
+				continue
+			}
+			device := strings.TrimPrefix(target, "/dev/input/")
+			if !seen[device] {
+				seen[device] = true
+				devices = append(devices, device)
+			}
+		}
+	}
+	sort.Strings(devices)
+	return devices
+}
+
+func ezvmKeyboardEventDevices() []string {
+	data, err := os.ReadFile("/proc/bus/input/devices")
+	if err != nil {
+		return nil
+	}
+	var devices []string
+	for _, block := range strings.Split(string(data), "\n\n") {
+		if !strings.Contains(block, `N: Name="EZVM Keyboard"`) {
+			continue
+		}
+		for _, line := range strings.Split(block, "\n") {
+			if !strings.HasPrefix(line, "H: Handlers=") {
+				continue
+			}
+			for _, field := range strings.Fields(strings.TrimPrefix(line, "H: Handlers=")) {
+				if strings.HasPrefix(field, "event") {
+					devices = append(devices, field)
+				}
+			}
+		}
+	}
+	return devices
+}
+
+func intersects(left, right []string) bool {
+	values := make(map[string]bool, len(left))
+	for _, value := range left {
+		values[value] = true
+	}
+	for _, value := range right {
+		if values[value] {
+			return true
+		}
+	}
+	return false
+}
 
 type sockaddrVM struct {
 	Family   uint16
