@@ -8,6 +8,43 @@ private let ezvmVMNetSuccess = vmnet_return_t.VMNET_SUCCESS
 private let ezvmVMNetHostMode = vmnet_mode_t.VMNET_HOST_MODE
 private let ezvmVMNetSharedMode = vmnet_mode_t.VMNET_SHARED_MODE
 
+enum VMHostPortAvailability: Equatable {
+    case available
+    case occupied
+    case unavailable(String)
+}
+
+enum VMHostPortProbe {
+    static func availability(
+        transport: VMModelFieldNetworkDevice.PortForwardingRule.Transport,
+        port: UInt16
+    ) -> VMHostPortAvailability {
+        let socketType = transport == .tcp ? SOCK_STREAM : SOCK_DGRAM
+        let descriptor = socket(AF_INET, socketType, 0)
+        guard descriptor >= 0 else {
+            return .unavailable(String(cString: strerror(errno)))
+        }
+        defer { close(descriptor) }
+
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = port.bigEndian
+        address.sin_addr = in_addr(s_addr: INADDR_ANY)
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard result == 0 else {
+            return errno == EADDRINUSE
+                ? .occupied
+                : .unavailable(String(cString: strerror(errno)))
+        }
+        return .available
+    }
+}
+
 private final class VMNetLogicalNetworkRegistry: @unchecked Sendable {
     enum Lookup {
         case missing
@@ -143,7 +180,8 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
         if let error = collectionValidationError(
             models,
             vmnetEntitlementGranted: VMHostCapability.vmnet.isGranted,
-            availableInterfaceNames: hostInterfaceNames()
+            availableInterfaceNames: hostInterfaceNames(),
+            hostPortAvailability: VMHostPortProbe.availability
         ) {
             return .failure(error)
         }
@@ -160,10 +198,13 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
     static func collectionValidationError(
         _ models: [VMModelFieldNetworkDevice],
         vmnetEntitlementGranted: Bool,
-        availableInterfaceNames: Set<String>? = nil
+        availableInterfaceNames: Set<String>? = nil,
+        hostPortAvailability: ((PortForwardingRule.Transport, UInt16) -> VMHostPortAvailability)? = nil
     ) -> String? {
         var networkSignatures: [String: String] = [:]
         var externalEndpointOwners: [String: String] = [:]
+        var externalEndpoints: [String: (PortForwardingRule.Transport, UInt16)] = [:]
+        var ownersAlreadyActive = Set<String>()
 
         for (index, model) in models.enumerated() {
             if let error = model.validationError(
@@ -184,6 +225,13 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
             let networkOwner = model.networkIdentifier.map {
                 "named:\($0):\(model.vmnetConfigurationSignature)"
             } ?? "anonymous:\(index)"
+            if let identifier = model.networkIdentifier,
+               case .found = VMNetLogicalNetworkRegistry.shared.lookup(
+                   identifier: identifier,
+                   signature: model.vmnetConfigurationSignature
+               ) {
+                ownersAlreadyActive.insert(networkOwner)
+            }
             for rule in model.portForwardingRules {
                 let endpoint = "\(rule.transport.rawValue):\(rule.externalPort)"
                 if let existingOwner = externalEndpointOwners[endpoint],
@@ -191,6 +239,22 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
                     return "External \(rule.transport.displayName) port \(rule.externalPort) is forwarded more than once in this virtual machine."
                 }
                 externalEndpointOwners[endpoint] = networkOwner
+                externalEndpoints[endpoint] = (rule.transport, rule.externalPort)
+            }
+        }
+        if let hostPortAvailability {
+            for endpoint in externalEndpoints.keys.sorted() {
+                guard let owner = externalEndpointOwners[endpoint],
+                      !ownersAlreadyActive.contains(owner),
+                      let (transport, port) = externalEndpoints[endpoint] else { continue }
+                switch hostPortAvailability(transport, port) {
+                case .available:
+                    break
+                case .occupied:
+                    return "External \(transport.displayName) port \(port) is already in use on this Mac. Choose another external port or stop the process using it."
+                case .unavailable(let detail):
+                    return "EZVM could not verify external \(transport.displayName) port \(port): \(detail). Choose another port or check local network permissions."
+                }
             }
         }
         return nil

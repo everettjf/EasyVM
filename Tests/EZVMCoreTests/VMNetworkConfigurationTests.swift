@@ -1,5 +1,6 @@
 import XCTest
 import Virtualization
+import Darwin
 @testable import EZVMCore
 
 #if arch(arm64)
@@ -361,6 +362,184 @@ final class VMNetworkConfigurationTests: XCTestCase {
             vmnetEntitlementGranted: true,
             availableInterfaceNames: []
         ))
+    }
+
+    func testVMNetCollectionPreflightReportsOccupiedHostPortBeforeCreation() {
+        let rule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.73.10",
+            internalPort: 22
+        )
+        let model = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            ipv4Subnet: "192.168.73.0",
+            ipv4SubnetMask: "255.255.255.0",
+            portForwardingRules: [rule]
+        )
+        var probes: [(VMModelFieldNetworkDevice.PortForwardingRule.Transport, UInt16)] = []
+
+        let error = VMModelFieldNetworkDevice.collectionValidationError(
+            [model],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: [],
+            hostPortAvailability: { transport, port in
+                probes.append((transport, port))
+                return .occupied
+            }
+        )
+
+        XCTAssertEqual(probes.count, 1)
+        XCTAssertEqual(probes.first?.0, .tcp)
+        XCTAssertEqual(probes.first?.1, 2222)
+        XCTAssertTrue(error?.contains("TCP port 2222 is already in use") == true)
+    }
+
+    func testVMNetCollectionPreflightExplainsIndeterminateHostPortProbe() {
+        let rule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .udp,
+            externalPort: 5353,
+            internalAddress: "192.168.73.10",
+            internalPort: 5353
+        )
+        let model = VMModelFieldNetworkDevice(type: .VMNetShared, portForwardingRules: [rule])
+
+        let error = VMModelFieldNetworkDevice.collectionValidationError(
+            [model],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: [],
+            hostPortAvailability: { _, _ in .unavailable("Permission denied") }
+        )
+
+        XCTAssertTrue(error?.contains("could not verify external UDP port 5353") == true)
+        XCTAssertTrue(error?.contains("Permission denied") == true)
+    }
+
+    func testVMNetCollectionPreflightDoesNotProbeUntilStructuralValidationPasses() {
+        let invalidRule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.73.10",
+            internalPort: 0
+        )
+        let model = VMModelFieldNetworkDevice(type: .VMNetShared, portForwardingRules: [invalidRule])
+        var probeCount = 0
+
+        let error = VMModelFieldNetworkDevice.collectionValidationError(
+            [model],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: [],
+            hostPortAvailability: { _, _ in
+                probeCount += 1
+                return .available
+            }
+        )
+
+        XCTAssertEqual(probeCount, 0)
+        XCTAssertEqual(error, "VMNet port-forwarding ports must be between 1 and 65535.")
+    }
+
+    func testVMNetCollectionPreflightProbesAnIdenticalNamedEndpointOnce() {
+        let rule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.73.10",
+            internalPort: 22
+        )
+        let first = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "development",
+            portForwardingRules: [rule]
+        )
+        let second = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "development",
+            portForwardingRules: [rule]
+        )
+        var probes: [(VMModelFieldNetworkDevice.PortForwardingRule.Transport, UInt16)] = []
+
+        let error = VMModelFieldNetworkDevice.collectionValidationError(
+            [first, second],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: [],
+            hostPortAvailability: { transport, port in
+                probes.append((transport, port))
+                return .available
+            }
+        )
+
+        XCTAssertNil(error)
+        XCTAssertEqual(probes.count, 1)
+        XCTAssertEqual(probes.first?.0, .tcp)
+        XCTAssertEqual(probes.first?.1, 2222)
+    }
+
+    func testHostPortProbeDetectsRealTCPOccupationAndKeepsUDPIndependent() throws {
+        let reservation = try reserveLoopbackPort(transport: .tcp)
+        defer { close(reservation.descriptor) }
+
+        XCTAssertEqual(
+            VMHostPortProbe.availability(transport: .tcp, port: reservation.port),
+            .occupied
+        )
+        XCTAssertEqual(
+            VMHostPortProbe.availability(transport: .udp, port: reservation.port),
+            .available
+        )
+    }
+
+    func testHostPortProbeReleasesSuccessfulAvailabilityCheck() throws {
+        let reservation = try reserveLoopbackPort(transport: .udp)
+        let port = reservation.port
+        close(reservation.descriptor)
+
+        XCTAssertEqual(VMHostPortProbe.availability(transport: .udp, port: port), .available)
+        let secondReservation = try reservePort(transport: .udp, port: port)
+        close(secondReservation)
+    }
+
+    private func reserveLoopbackPort(
+        transport: VMModelFieldNetworkDevice.PortForwardingRule.Transport
+    ) throws -> (descriptor: Int32, port: UInt16) {
+        let descriptor = try reservePort(transport: transport, port: 0)
+        var address = sockaddr_in()
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let status = withUnsafeMutablePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                getsockname(descriptor, $0, &length)
+            }
+        }
+        guard status == 0 else {
+            close(descriptor)
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+        return (descriptor, UInt16(bigEndian: address.sin_port))
+    }
+
+    private func reservePort(
+        transport: VMModelFieldNetworkDevice.PortForwardingRule.Transport,
+        port: UInt16
+    ) throws -> Int32 {
+        let type = transport == .tcp ? SOCK_STREAM : SOCK_DGRAM
+        let descriptor = socket(AF_INET, type, 0)
+        guard descriptor >= 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = port.bigEndian
+        address.sin_addr = in_addr(s_addr: INADDR_ANY)
+        let status = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard status == 0 else {
+            close(descriptor)
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+        return descriptor
     }
 }
 #endif
