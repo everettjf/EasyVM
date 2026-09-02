@@ -19,6 +19,13 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
     enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
         case Mac, Virtio
         var id: Self { self }
+
+        var displayName: String {
+            switch self {
+            case .Mac: "Mac Display"
+            case .Virtio: "Virtio Display"
+            }
+        }
     }
     
     let type: DeviceType
@@ -28,9 +35,9 @@ struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible
     
     var description: String {
         if type == .Virtio {
-            return "\(type) \(width)*\(height)"
+            return "\(type.displayName) · \(width) × \(height)"
         } else {
-            return "\(type) \(width)*\(height) (\(pixelsPerInch) PixelsPerInch)"
+            return "\(type.displayName) · \(width) × \(height) · \(pixelsPerInch) ppi"
         }
     }
     

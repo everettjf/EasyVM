@@ -23,26 +23,13 @@ struct VMConfigurationGraphicDevicesView: View {
     
     var content: some View {
         
-        LabeledContent("Graphics Devices") {
-            VStack(alignment: .trailing) {
-                
-                List (configData.graphicDevices) { item in
-                    HStack {
-                        Spacer()
-                        Text("\(String(describing: item.data))")
-                    }
+        LabeledContent("Display") {
+            VStack(alignment: .trailing, spacing: 10) {
+                ForEach(configData.graphicDevices) { item in
+                    Label(item.data.description, systemImage: "display")
                 }
-                .frame(width:400)
-                
-                HStack {
-                    Spacer()
-                    Button {
-                        showingEditView.toggle()
-                    } label: {
-                        Image(systemName: "slider.vertical.3")
-                    }
-                }
-                
+                Button("Manage Displays…", systemImage: "slider.horizontal.3") { showingEditView = true }
+                    .accessibilityHint("Configure guest display type and resolution")
             }
         }
     }

@@ -21,6 +21,11 @@ struct VMConfigurationMemoryView: View {
                         }.buttonStyle(.borderless).controlSize(.small)
                     }
                 }
+                if memoryBinding.wrappedValue > hostMemoryGiB * 0.75 {
+                    Label("This leaves little memory for macOS and may cause heavy swapping.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
         }
         .accessibilityElement(children: .contain)

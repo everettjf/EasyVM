@@ -17,9 +17,18 @@ struct VMConfigurationCPUView: View {
                 }
                 Text("Host: \(ProcessInfo.processInfo.activeProcessorCount) logical processors")
                     .font(.caption).foregroundStyle(.secondary)
+                if configData.cpuCount > recommendedMaximum {
+                    Label("Leaving processors for macOS keeps the VM and host responsive.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var recommendedMaximum: Int {
+        max(2, Int(Double(ProcessInfo.processInfo.activeProcessorCount) * 0.75))
     }
 }
 #endif
