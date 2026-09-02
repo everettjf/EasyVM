@@ -101,6 +101,60 @@ final class VMNetworkConfigurationTests: XCTestCase {
         ))
     }
 
+    func testUSBDescriptorPrefersReadableRegistryNamesWithoutDuplicatingVendor() {
+        let named = VMUSBDeviceDescriptorSummary(
+            registryID: 1,
+            vendorID: 0x1234,
+            productID: 0xABCD,
+            manufacturerName: "Acme",
+            productName: "Fast Disk"
+        )
+        XCTAssertEqual(named.title, "Acme Fast Disk")
+        XCTAssertEqual(named.identifier, "1234:ABCD")
+        XCTAssertEqual(named.menuTitle, "Acme Fast Disk · 1234:ABCD")
+
+        let alreadyNamed = VMUSBDeviceDescriptorSummary(
+            registryID: 2,
+            vendorID: 0x1234,
+            productID: 0xABCD,
+            manufacturerName: "Acme",
+            productName: "ACME Secure Key"
+        )
+        XCTAssertEqual(alreadyNamed.title, "ACME Secure Key")
+    }
+
+    func testUSBDescriptorSanitizesUntrustedRegistryNamesAndFallsBackToIdentifier() {
+        let sanitized = VMUSBDeviceDescriptorSummary(
+            registryID: 1,
+            vendorID: 0x1234,
+            productID: 0xABCD,
+            manufacturerName: "  Acme\n",
+            productName: "Disk\u{0000}\u{0007}  "
+        )
+        XCTAssertEqual(sanitized.title, "Acme Disk")
+
+        let fallback = VMUSBDeviceDescriptorSummary(
+            registryID: 2,
+            vendorID: 0x1234,
+            productID: 0xABCD,
+            manufacturerName: "\n\t",
+            productName: "\u{0000}"
+        )
+        XCTAssertEqual(fallback.title, "USB 1234:ABCD")
+        XCTAssertEqual(fallback.menuTitle, fallback.title)
+    }
+
+    func testUSBDescriptorBoundsLongRegistryNames() {
+        let summary = VMUSBDeviceDescriptorSummary(
+            registryID: 1,
+            vendorID: 1,
+            productID: 2,
+            productName: String(repeating: "x", count: 100)
+        )
+        XCTAssertEqual(summary.productName?.count, 80)
+        XCTAssertEqual(summary.title.count, 80)
+    }
+
     func testUSBControllerSupportAddsExactlyOneController() {
         let configuration = VZVirtualMachineConfiguration()
         VMUSBControllerSupport.addEmptyXHCIController(to: configuration)

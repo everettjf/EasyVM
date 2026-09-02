@@ -8,6 +8,7 @@
 import Cocoa
 import AccessoryAccess
 import Foundation
+import IOKit
 import ScreenCaptureKit
 import Virtualization
 
@@ -1546,9 +1547,10 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
 
     private func publish() {
         let devices = accessories.values.compactMap {
-            VMUSBDeviceDescriptorSummary.parse(registryID: $0.registryID, descriptor: $0.deviceDescriptorData)
+            self.summary(for: $0)
         }.sorted {
-            ($0.vendorID, $0.productID, $0.registryID) < ($1.vendorID, $1.productID, $1.registryID)
+            ($0.title.localizedLowercase, $0.vendorID, $0.productID, $0.registryID)
+                < ($1.title.localizedLowercase, $1.vendorID, $1.productID, $1.registryID)
         }
         update(.ready(VMUSBPassthroughSnapshot(
             devices: devices,
@@ -1560,10 +1562,46 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
 
     private func title(for registryID: UInt64) -> String {
         guard let accessory = accessories[registryID] else { return "USB accessory" }
+        return summary(for: accessory)?.title ?? "USB accessory"
+    }
+
+    private func summary(for accessory: AAUSBAccessory) -> VMUSBDeviceDescriptorSummary? {
+        let names = VMUSBRegistryMetadata.names(registryID: accessory.registryID)
         return VMUSBDeviceDescriptorSummary.parse(
-            registryID: registryID,
-            descriptor: accessory.deviceDescriptorData
-        )?.title ?? "USB accessory"
+            registryID: accessory.registryID,
+            descriptor: accessory.deviceDescriptorData,
+            manufacturerName: names.manufacturer,
+            productName: names.product
+        )
+    }
+}
+
+private enum VMUSBRegistryMetadata {
+    static func names(registryID: UInt64) -> (manufacturer: String?, product: String?) {
+        guard let matching = IORegistryEntryIDMatching(registryID) else {
+            return (nil, nil)
+        }
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, matching)
+        guard service != IO_OBJECT_NULL else { return (nil, nil) }
+        defer { IOObjectRelease(service) }
+
+        return (
+            stringProperty(service: service, keys: ["USB Vendor Name", "kUSBVendorString"]),
+            stringProperty(service: service, keys: ["USB Product Name", "kUSBProductString"])
+        )
+    }
+
+    private static func stringProperty(service: io_service_t, keys: [String]) -> String? {
+        for key in keys {
+            guard let value = IORegistryEntryCreateCFProperty(
+                service,
+                key as CFString,
+                kCFAllocatorDefault,
+                0
+            )?.takeRetainedValue() else { continue }
+            if let string = value as? String { return string }
+        }
+        return nil
     }
 }
 

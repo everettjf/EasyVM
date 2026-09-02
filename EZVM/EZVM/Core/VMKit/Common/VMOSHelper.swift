@@ -56,22 +56,74 @@ struct VMUSBDeviceDescriptorSummary: Equatable, Identifiable {
     let registryID: UInt64
     let vendorID: UInt16
     let productID: UInt16
+    let manufacturerName: String?
+    let productName: String?
 
     var id: UInt64 { registryID }
 
-    var title: String {
-        String(format: "USB %04X:%04X", vendorID, productID)
+    init(
+        registryID: UInt64,
+        vendorID: UInt16,
+        productID: UInt16,
+        manufacturerName: String? = nil,
+        productName: String? = nil
+    ) {
+        self.registryID = registryID
+        self.vendorID = vendorID
+        self.productID = productID
+        self.manufacturerName = Self.sanitizedDisplayName(manufacturerName)
+        self.productName = Self.sanitizedDisplayName(productName)
     }
 
-    static func parse(registryID: UInt64, descriptor: Data) -> VMUSBDeviceDescriptorSummary? {
+    var title: String {
+        if let productName {
+            if let manufacturerName,
+               !productName.localizedCaseInsensitiveContains(manufacturerName) {
+                return "\(manufacturerName) \(productName)"
+            }
+            return productName
+        }
+        if let manufacturerName {
+            return "\(manufacturerName) USB Device"
+        }
+        return String(format: "USB %04X:%04X", vendorID, productID)
+    }
+
+    var identifier: String {
+        String(format: "%04X:%04X", vendorID, productID)
+    }
+
+    var menuTitle: String {
+        manufacturerName == nil && productName == nil ? title : "\(title) · \(identifier)"
+    }
+
+    static func parse(
+        registryID: UInt64,
+        descriptor: Data,
+        manufacturerName: String? = nil,
+        productName: String? = nil
+    ) -> VMUSBDeviceDescriptorSummary? {
         guard descriptor.count >= 12, descriptor[0] >= 12, descriptor[1] == 1 else { return nil }
         let vendorID = UInt16(descriptor[8]) | (UInt16(descriptor[9]) << 8)
         let productID = UInt16(descriptor[10]) | (UInt16(descriptor[11]) << 8)
         return VMUSBDeviceDescriptorSummary(
             registryID: registryID,
             vendorID: vendorID,
-            productID: productID
+            productID: productID,
+            manufacturerName: manufacturerName,
+            productName: productName
         )
+    }
+
+    private static func sanitizedDisplayName(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let scalarView = value.unicodeScalars.filter { scalar in
+            !CharacterSet.controlCharacters.contains(scalar)
+        }
+        let normalized = String(String.UnicodeScalarView(scalarView))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return nil }
+        return String(normalized.prefix(80))
     }
 }
 

@@ -504,17 +504,17 @@ struct VMOSMainVirtualMachineView: View {
                 ForEach(snapshot.devices) { device in
                     switch snapshot.operations[device.registryID] {
                     case .attaching:
-                        Button("Connecting \(device.title)…", systemImage: "hourglass") {}
+                        Button("Connecting \(device.menuTitle)…", systemImage: "hourglass") {}
                             .disabled(true)
                     case .detaching:
-                        Button("Disconnecting \(device.title)…", systemImage: "hourglass") {}
+                        Button("Disconnecting \(device.menuTitle)…", systemImage: "hourglass") {}
                             .disabled(true)
                     case nil where snapshot.attachedRegistryIDs.contains(device.registryID):
-                        Button("Disconnect \(device.title)", systemImage: "eject") {
+                        Button("Disconnect \(device.menuTitle)", systemImage: "eject") {
                             runtimeState.detachUSBAccessory(registryID: device.registryID)
                         }
                     case nil:
-                        Button("Connect \(device.title)", systemImage: "cable.connector.horizontal") {
+                        Button("Connect \(device.menuTitle)", systemImage: "cable.connector.horizontal") {
                             runtimeState.attachUSBAccessory(registryID: device.registryID)
                         }
                     }

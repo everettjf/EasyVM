@@ -76,7 +76,10 @@ non-blocking notice together. An operation failure therefore cannot erase an
 attached device or incorrectly re-enable machine-state saving. Operation
 tokens reject late callbacks after physical removal or teardown, explicit
 detach is distinguished from an unexpected controller disconnect, and the UI
-prevents duplicate actions while explaining recovery. Physical-device,
+prevents duplicate actions while explaining recovery. Device discovery prefers
+sanitized manufacturer and product names from the matching IORegistry entry,
+keeps VID:PID visible for disambiguation, and deliberately never reads or logs
+USB serial numbers. Physical-device,
 permission-revocation, and sleep/wake testing below remains the promotion gate.
 
 ### Product outcome
@@ -89,7 +92,7 @@ permission problems explain how to recover.
 
 | Area | Required refinement | Acceptance evidence |
 | --- | --- | --- |
-| Discovery | Prefer manufacturer/product/serial descriptions, with VID:PID only as a fallback; distinguish claimable, claimed elsewhere, attached, and unavailable. | Common storage, phone, security-key, and input devices are recognizable without reading hexadecimal IDs. |
+| Discovery | Keep sanitized manufacturer/product names with visible VID:PID disambiguation; distinguish claimable, claimed elsewhere, attached, and unavailable without collecting serial numbers. | Common storage, phone, security-key, and input devices are recognizable while unique device identifiers remain private. |
 | Lifecycle | Keep `VZUSBController.Delegate` as the authoritative guest-side disconnect signal; reconcile it with Accessory Access connect/disconnect events and clear delegates on teardown. | Sudden physical unplug removes the attached state once, never leaves Save/Stop blocked, and never calls a released coordinator. |
 | Interaction | Use one explicit Connect/Disconnect action per device, show progress, and surface unexpected unplug as a non-blocking notice. | Double-clicks, simultaneous events, and detach failure cannot produce contradictory controls. |
 | Permissions | Detect missing entitlement, denied selection, revoked access, and device ownership conflicts separately. | Each condition names the exact recovery action without sending users through unrelated settings. |
