@@ -35,9 +35,7 @@ struct GeneratedMachineThumbnailView: View {
             background
             switch style {
             case .aurora:
-                titleText(.system(size: 46, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .shadow(color: .purple.opacity(0.45), radius: 16)
+                VMAuroraThumbnailView(title: title, type: type)
             case .midnight:
                 titleText(.system(size: 43, weight: .semibold, design: .rounded)).foregroundStyle(.white)
             case .ocean:
@@ -92,12 +90,17 @@ struct GeneratedMachineThumbnailView: View {
         }
     }
 
+    @ViewBuilder
     private var background: some View {
-        LinearGradient(
-            colors: palette,
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        if style == .aurora {
+            Color.clear
+        } else {
+            LinearGradient(
+                colors: palette,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
     }
 
     private var palette: [Color] {
@@ -121,6 +124,142 @@ struct GeneratedMachineThumbnailView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.35)
             .padding(.horizontal, 22)
+    }
+}
+
+private struct VMAuroraThumbnailView: View {
+    let title: String
+    let type: VMOSType
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: identity.palette,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Circle()
+                .fill(identity.glow.opacity(0.34))
+                .frame(width: 190, height: 190)
+                .blur(radius: 34)
+                .offset(x: 125, y: -65)
+
+            Circle()
+                .fill(.white.opacity(0.08))
+                .frame(width: 130, height: 130)
+                .blur(radius: 20)
+                .offset(x: -145, y: 90)
+
+            HStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(identity.platform, systemImage: identity.smallSymbol)
+                        .font(.caption2.weight(.semibold))
+                        .textCase(.uppercase)
+                        .tracking(1.2)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(.white.opacity(0.13), in: Capsule())
+
+                    Text(displayTitle)
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.68)
+                        .multilineTextAlignment(.leading)
+
+                    Text(identity.detail)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.68))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: identity.largeSymbol)
+                    .font(.system(size: 54, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.white.opacity(0.82))
+                    .frame(width: 72)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 18)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(identity.platform), \(title)")
+    }
+
+    private var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.localizedCaseInsensitiveContains(identity.platform) else {
+            return identity.platform
+        }
+        return trimmed.isEmpty ? identity.platform : trimmed
+    }
+
+    private var identity: VMAuroraThumbnailIdentity {
+        VMAuroraThumbnailIdentity(title: title, type: type)
+    }
+}
+
+private struct VMAuroraThumbnailIdentity {
+    let platform: String
+    let detail: String
+    let smallSymbol: String
+    let largeSymbol: String
+    let palette: [Color]
+    let glow: Color
+
+    init(title: String, type: VMOSType) {
+        let normalizedTitle = title.lowercased()
+        if type == .macOS {
+            platform = "macOS"
+            detail = "Apple silicon virtual machine"
+            smallSymbol = "apple.logo"
+            largeSymbol = "macwindow"
+            palette = [
+                Color(red: 0.08, green: 0.13, blue: 0.28),
+                Color(red: 0.22, green: 0.20, blue: 0.48),
+                Color(red: 0.08, green: 0.40, blue: 0.62),
+            ]
+            glow = Color(red: 0.33, green: 0.76, blue: 1.00)
+        } else if normalizedTitle.contains("ubuntu") {
+            platform = "Ubuntu"
+            detail = "ARM64 Linux virtual machine"
+            smallSymbol = "circle.grid.cross"
+            largeSymbol = "circle.grid.cross.fill"
+            palette = [
+                Color(red: 0.22, green: 0.07, blue: 0.18),
+                Color(red: 0.48, green: 0.12, blue: 0.28),
+                Color(red: 0.84, green: 0.28, blue: 0.16),
+            ]
+            glow = Color(red: 1.00, green: 0.48, blue: 0.18)
+        } else if normalizedTitle.contains("omarchy") {
+            platform = "Omarchy"
+            detail = "Arch Linux desktop"
+            smallSymbol = "sparkles"
+            largeSymbol = "terminal.fill"
+            palette = [
+                Color(red: 0.025, green: 0.035, blue: 0.055),
+                Color(red: 0.045, green: 0.12, blue: 0.11),
+                Color(red: 0.10, green: 0.20, blue: 0.13),
+            ]
+            glow = Color(red: 0.55, green: 0.96, blue: 0.42)
+        } else {
+            platform = "Linux"
+            detail = "ARM64 virtual machine"
+            smallSymbol = "terminal"
+            largeSymbol = "pc"
+            palette = [
+                Color(red: 0.06, green: 0.10, blue: 0.18),
+                Color(red: 0.10, green: 0.25, blue: 0.32),
+                Color(red: 0.08, green: 0.42, blue: 0.44),
+            ]
+            glow = Color(red: 0.20, green: 0.86, blue: 0.82)
+        }
     }
 }
 
