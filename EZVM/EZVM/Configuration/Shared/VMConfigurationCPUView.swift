@@ -1,51 +1,25 @@
-//
-//  VMConfigurationCPUView.swift
-//  EZVM
-//
-//  Created by everettjf on 2022/9/29.
-//
-
 import SwiftUI
 
 #if arch(arm64)
-
 struct VMConfigurationCPUView: View {
-    @Environment(VMConfigurationViewStateObject.self) var configData
-    
+    @Environment(VMConfigurationViewStateObject.self) private var configData
+
     var body: some View {
-        LabeledContent("CPU Count") {
-            VStack (alignment: .trailing) {
-                Stepper {
-                    Text("\(configData.cpuCount)")
-                } onIncrement: {
-                    let max = VMModelFieldCPU.maxCount()
-                    var value = configData.cpuCount + 1
-                    if value > max {
-                        value = max
-                    }
-                    configData.cpuCount = value
-                } onDecrement: {
-                    let min = VMModelFieldCPU.minCount()
-                    var value = configData.cpuCount - 1
-                    if value < min {
-                        value = min
-                    }
-                    configData.cpuCount = value
+        LabeledContent("Processors") {
+            VStack(alignment: .trailing, spacing: 7) {
+                HStack(spacing: 12) {
+                    Slider(value: Binding(
+                        get: { Double(configData.cpuCount) },
+                        set: { configData.cpuCount = Int($0.rounded()) }
+                    ), in: Double(VMModelFieldCPU.minCount())...Double(VMModelFieldCPU.maxCount()), step: 1)
+                    .frame(minWidth: 240)
+                    Text("\(configData.cpuCount)").font(.body.monospacedDigit().weight(.semibold)).frame(width: 34)
                 }
-                
-                Text("MAX: \(VMModelFieldCPU.maxCount()) MIN: \(VMModelFieldCPU.minCount())")
+                Text("Host: \(ProcessInfo.processInfo.activeProcessorCount) logical processors")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .contain)
     }
 }
-
-
-struct VMConfigurationCPUView_Previews: PreviewProvider {
-    static var previews: some View {
-        VMConfigurationCPUView()
-            .environment(VMConfigurationViewStateObject())
-    }
-}
-
-
 #endif
