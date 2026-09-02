@@ -95,6 +95,31 @@ final class VMDiskImageManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
     }
 
+    func testLowSpaceConversionFailsBeforeExecutorAndPreservesSource() throws {
+        let source = temporaryRoot.appendingPathComponent("Disk.img")
+        let destination = temporaryRoot.appendingPathComponent("Disk.asif")
+        let sourceData = Data(repeating: 0x5a, count: 2 * 1024 * 1024)
+        try sourceData.write(to: source)
+        var executorWasCalled = false
+
+        let result = VMDiskImageManager.convertRawToASIF(
+            sourceURL: source,
+            destinationURL: destination,
+            availableCapacityBytes: 0
+        ) { _ in
+            executorWasCalled = true
+            return .success
+        }
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected low-space conversion failure")
+        }
+        XCTAssertTrue(message.contains("available"), message)
+        XCTAssertFalse(executorWasCalled)
+        XCTAssertEqual(try Data(contentsOf: source), sourceData)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+
     private func unwrapSuccess(_ result: VMOSResultVoid, file: StaticString = #filePath, line: UInt = #line) throws {
         if case .failure(let message) = result {
             XCTFail(message, file: file, line: line)

@@ -92,6 +92,50 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertEqual(VMSnapshotManager.snapshotCount(vmRootPath: temporaryRoot), 0)
     }
 
+    func testLowSpaceAPFSSnapshotFailsBeforeCreatingSnapshot() throws {
+        try Data(repeating: 0x41, count: 2 * 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("Disk.img"))
+
+        let result = VMSnapshotManager.createSnapshot(
+            vmRootPath: temporaryRoot,
+            name: "No room",
+            availableCapacityBytes: 0
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected low-space snapshot failure")
+        }
+        XCTAssertTrue(message.contains("available"), message)
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
+        XCTAssertEqual(
+            try Data(contentsOf: temporaryRoot.appendingPathComponent("Disk.img")),
+            Data(repeating: 0x41, count: 2 * 1024 * 1024)
+        )
+    }
+
+    func testLowSpaceAPFSRestoreLeavesMachineAndTransactionStateUntouched() throws {
+        try write("snapshot disk", to: "Disk.img")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Target")
+        )
+        try write("current disk", to: "Disk.img")
+
+        let result = VMSnapshotManager.restoreSnapshot(
+            vmRootPath: temporaryRoot,
+            snapshot: snapshot,
+            availableCapacityBytes: 0
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected low-space restore failure")
+        }
+        XCTAssertTrue(message.contains("available"), message)
+        XCTAssertEqual(try read("Disk.img"), "current disk")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-transaction.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-staging").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-backup").path))
+    }
+
     func testListSnapshotsSkipsCorruptMetadata() throws {
         let corruptDirectory = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
             .appendingPathComponent("corrupt", isDirectory: true)
@@ -279,6 +323,68 @@ final class VMSnapshotManagerTests: XCTestCase {
 
         try unwrapSuccess(VMSnapshotManager.restoreSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot))
         XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot), snapshot.id)
+    }
+
+    func testLowSpaceLayeredSnapshotFailsBeforeCreatingFilesOrLayers() throws {
+        let diskURL = temporaryRoot.appendingPathComponent("Disk.asif")
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: diskURL, size: 64 * 1024 * 1024))
+        try write(
+            #"{"storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#,
+            to: "config.json"
+        )
+        try Data(repeating: 0x43, count: 2 * 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("metadata.bin"))
+        _ = try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: temporaryRoot)
+        let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+            .appendingPathComponent("Layers", isDirectory: true)
+        let layersBefore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+
+        let result = VMSnapshotManager.createSnapshot(
+            vmRootPath: temporaryRoot,
+            name: "No room",
+            availableCapacityBytes: 0
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected low-space layered snapshot failure")
+        }
+        XCTAssertTrue(message.contains("available"), message)
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
+        XCTAssertEqual(
+            try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path)),
+            layersBefore
+        )
+    }
+
+    func testLowSpaceLayeredRestoreLeavesCurrentBranchAndLayersUntouched() throws {
+        let root = temporaryRoot.appendingPathComponent("low-space-layered-restore", isDirectory: true)
+        let fixture = try makeLayeredRestoreFixture(at: root)
+        let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: root)
+            .appendingPathComponent("Layers", isDirectory: true)
+        let layersBefore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+
+        let result = VMSnapshotManager.restoreSnapshot(
+            vmRootPath: root,
+            snapshot: fixture.target,
+            availableCapacityBytes: 0
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected low-space layered restore failure")
+        }
+        XCTAssertTrue(message.contains("available"), message)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("config.json"), encoding: .utf8),
+            fixture.currentConfig
+        )
+        XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: root), fixture.current.id)
+        XCTAssertEqual(
+            try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path)),
+            layersBefore
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-transaction.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-staging").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-backup").path))
     }
 
     func testASIFAuditRejectsAReorderedLayerStack() throws {

@@ -164,9 +164,16 @@ unwinding, in-memory cleanup, or the original process surviving. The production
 module exposes only an internal checkpoint observer; process termination lives
 entirely in the test target.
 
-Low-space runs on larger real ASIF images, a full host-restart exercise, and
-representative long-running performance measurements remain promotion gates for
-moving the feature out of Beta.
+Capacity preflight now uses allocated bytes rather than a sparse image's logical
+size and runs before the first mutation in RAW-to-ASIF conversion, snapshot
+creation, and APFS or layered restore. Deterministic zero-capacity tests prove
+that the source disk, active configuration, snapshot head, layer set, and
+transaction directory remain unchanged. Aggregate allocation arithmetic also
+saturates instead of trapping on pathological image collections.
+
+Low-space runs on larger real ASIF images and a genuinely nearly-full volume, a
+full host-restart exercise, and representative long-running performance
+measurements remain promotion gates for moving the feature out of Beta.
 
 Long-chain validation now creates and opens a real 32-layer ASIF history. Audit
 does not stop at file signatures: it asks DiskImageKit to assemble each complete
@@ -188,7 +195,7 @@ exported or retired.
 
 | Area | Required refinement | Acceptance evidence |
 | --- | --- | --- |
-| Capacity | Calculate logical size, allocated size, temporary peak, and safety margin before conversion, snapshot, restore, clone, and export. | Low-space failure occurs before mutation and reports required versus available space. |
+| Capacity | Keep allocated-byte plus safety-margin preflight before conversion, snapshot, and restore; extend the same temporary-peak model across clone and export. Do not reserve a sparse ASIF disk's entire logical size at creation. | Deterministic low-space tests prove failure before mutation and report required versus available space; a nearly-full real volume validates filesystem behavior. |
 | Progress | Expose real byte/phase progress, cancellation boundaries, and “finishing safely” states for long operations. | Closing the UI does not abandon work; cancellation resolves to complete-or-absent output. |
 | Integrity | Record base/layer identity, checksums where appropriate, current head, referenced branches, and saved-state compatibility. | Audit accounts for every layer and refuses missing, reordered, foreign, or corrupted chains. |
 | Recovery | Use journaled transaction stages and startup recovery for every layer mutation. | Process kills at each commit point preserve the old head or atomically install the new one. |

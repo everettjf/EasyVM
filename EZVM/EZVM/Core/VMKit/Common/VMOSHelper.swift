@@ -804,12 +804,17 @@ struct VMDiskImageManager {
         guard !FileManager.default.fileExists(atPath: destinationURL.path(percentEncoded: false)) else {
             return .failure("The destination disk image already exists.")
         }
-        return convertRawToASIF(sourceURL: sourceURL, destinationURL: destinationURL, executor: run)
+        return convertRawToASIF(
+            sourceURL: sourceURL,
+            destinationURL: destinationURL,
+            executor: run
+        )
     }
 
     static func convertRawToASIF(
         sourceURL: URL,
         destinationURL: URL,
+        availableCapacityBytes: Int64? = nil,
         executor: (Command) -> VMOSResultVoid
     ) -> VMOSResultVoid {
         guard FileManager.default.fileExists(atPath: sourceURL.path(percentEncoded: false)) else {
@@ -817,6 +822,17 @@ struct VMDiskImageManager {
         }
         guard !FileManager.default.fileExists(atPath: destinationURL.path(percentEncoded: false)) else {
             return .failure("The destination disk image already exists.")
+        }
+        do {
+            let values = try sourceURL.resourceValues(forKeys: [.totalFileAllocatedSizeKey, .fileSizeKey])
+            let requiredBytes = Int64(max(0, values.totalFileAllocatedSize ?? values.fileSize ?? 0))
+            try VMStorageCapacity.validate(
+                requiredBytes: requiredBytes,
+                at: destinationURL,
+                availableBytesOverride: availableCapacityBytes
+            )
+        } catch {
+            return .failure("Cannot convert the disk to ASIF: \(error.localizedDescription)")
         }
         let result = executor(conversionCommand(sourceURL: sourceURL, destinationURL: destinationURL))
         if case .failure = result {
@@ -1048,11 +1064,18 @@ enum VMStorageCapacity {
             .volumeAvailableCapacityForImportantUsage
     }
 
-    static func validate(requiredBytes: Int64?, at url: URL, reserveBytes: Int64 = 1_073_741_824) throws {
+    static func validate(
+        requiredBytes: Int64?,
+        at url: URL,
+        reserveBytes: Int64 = 1_073_741_824,
+        availableBytesOverride: Int64? = nil
+    ) throws {
         guard let requiredBytes, requiredBytes > 0,
-              let available = availableBytes(at: url),
-              available < requiredBytes + reserveBytes else { return }
-        throw VMDownloadValidationError.insufficientDiskSpace(required: requiredBytes + reserveBytes, available: available)
+              let available = availableBytesOverride ?? availableBytes(at: url) else { return }
+        let (sum, overflow) = requiredBytes.addingReportingOverflow(max(0, reserveBytes))
+        let requiredWithReserve = overflow ? Int64.max : sum
+        guard available < requiredWithReserve else { return }
+        throw VMDownloadValidationError.insufficientDiskSpace(required: requiredWithReserve, available: available)
     }
 }
 

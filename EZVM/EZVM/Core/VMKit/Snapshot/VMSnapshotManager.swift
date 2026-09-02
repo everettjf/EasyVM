@@ -423,16 +423,32 @@ class VMSnapshotManager {
         listSnapshots(vmRootPath: vmRootPath).count
     }
 
-    static func createSnapshot(vmRootPath: URL, name: String) -> VMOSResult<VMSnapshotModel, String> {
+    static func createSnapshot(
+        vmRootPath: URL,
+        name: String,
+        availableCapacityBytes: Int64? = nil
+    ) -> VMOSResult<VMSnapshotModel, String> {
 #if canImport(DiskImageKit)
         if #available(macOS 27.0, *), selectedBackend(vmRootPath: vmRootPath) == .diskImageKitLayered {
-            return createLayeredSnapshot(vmRootPath: vmRootPath, name: name)
+            return createLayeredSnapshot(
+                vmRootPath: vmRootPath,
+                name: name,
+                availableCapacityBytes: availableCapacityBytes
+            )
         }
 #endif
-        return createAPFSCloneSnapshot(vmRootPath: vmRootPath, name: name)
+        return createAPFSCloneSnapshot(
+            vmRootPath: vmRootPath,
+            name: name,
+            availableCapacityBytes: availableCapacityBytes
+        )
     }
 
-    private static func createAPFSCloneSnapshot(vmRootPath: URL, name: String) -> VMOSResult<VMSnapshotModel, String> {
+    private static func createAPFSCloneSnapshot(
+        vmRootPath: URL,
+        name: String,
+        availableCapacityBytes: Int64?
+    ) -> VMOSResult<VMSnapshotModel, String> {
         let snapshotId = UUID().uuidString
         let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshotId)
         let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshotId)
@@ -442,10 +458,14 @@ class VMSnapshotManager {
             if fileNames.isEmpty {
                 return .failure("No machine files found in \(vmRootPath.path(percentEncoded: false))")
             }
-            let requiredBytes = Int64(fileNames.reduce(UInt64(0)) {
-                $0 + directoryAllocatedSize(vmRootPath.appending(path: $1))
-            })
-            try VMStorageCapacity.validate(requiredBytes: requiredBytes, at: vmRootPath)
+            let requiredBytes = allocatedSizeRequired(
+                for: fileNames.map { vmRootPath.appending(path: $0) }
+            )
+            try VMStorageCapacity.validate(
+                requiredBytes: requiredBytes,
+                at: vmRootPath,
+                availableBytesOverride: availableCapacityBytes
+            )
 
             try FileManager.default.createDirectory(at: filesDir, withIntermediateDirectories: true)
 
@@ -483,7 +503,8 @@ class VMSnapshotManager {
         vmRootPath: URL,
         snapshot: VMSnapshotModel,
         faultAt checkpoint: VMSnapshotRestoreCheckpoint? = nil,
-        checkpointObserver: ((VMSnapshotRestoreCheckpoint) throws -> Void)? = nil
+        checkpointObserver: ((VMSnapshotRestoreCheckpoint) throws -> Void)? = nil,
+        availableCapacityBytes: Int64? = nil
     ) -> VMOSResultVoid {
         if case let .failure(error) = recoverInterruptedRestore(vmRootPath: vmRootPath) {
             return .failure(error)
@@ -494,7 +515,8 @@ class VMSnapshotManager {
                 vmRootPath: vmRootPath,
                 snapshot: snapshot,
                 faultAt: checkpoint,
-                checkpointObserver: checkpointObserver
+                checkpointObserver: checkpointObserver,
+                availableCapacityBytes: availableCapacityBytes
             )
         }
 #endif
@@ -507,6 +529,18 @@ class VMSnapshotManager {
 
         guard let snapshotFileNames = try? fm.contentsOfDirectory(atPath: filesDir.path(percentEncoded: false)), !snapshotFileNames.isEmpty else {
             return .failure("Snapshot files are missing : \(filesDir.path(percentEncoded: false))")
+        }
+
+        do {
+            try VMStorageCapacity.validate(
+                requiredBytes: allocatedSizeRequired(
+                    for: snapshotFileNames.map { filesDir.appending(path: $0) }
+                ),
+                at: vmRootPath,
+                availableBytesOverride: availableCapacityBytes
+            )
+        } catch {
+            return .failure("Failed to prepare snapshot files : \(error.localizedDescription)")
         }
 
         let stagingDir = vmRootPath.appending(path: restoreStagingDirectoryName)
@@ -795,7 +829,11 @@ class VMSnapshotManager {
 
 #if canImport(DiskImageKit)
     @available(macOS 27.0, *)
-    private static func createLayeredSnapshot(vmRootPath: URL, name: String) -> VMOSResult<VMSnapshotModel, String> {
+    private static func createLayeredSnapshot(
+        vmRootPath: URL,
+        name: String,
+        availableCapacityBytes: Int64?
+    ) -> VMOSResult<VMSnapshotModel, String> {
         let snapshotID = UUID().uuidString
         let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshotID)
         let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshotID)
@@ -813,9 +851,18 @@ class VMSnapshotManager {
         var createdLayerURLs: [URL] = []
 
         do {
+            let nonDiskFileNames = try listMachineFileNames(vmRootPath: vmRootPath)
+                .filter { !$0.lowercased().hasSuffix(".asif") }
+            let requiredBytes = allocatedSizeRequired(
+                for: nonDiskFileNames.map { vmRootPath.appending(path: $0) }
+            )
+            try VMStorageCapacity.validate(
+                requiredBytes: requiredBytes,
+                at: vmRootPath,
+                availableBytesOverride: availableCapacityBytes
+            )
             try FileManager.default.createDirectory(at: filesDir, withIntermediateDirectories: true)
-            for fileName in try listMachineFileNames(vmRootPath: vmRootPath)
-            where !fileName.lowercased().hasSuffix(".asif") {
+            for fileName in nonDiskFileNames {
                 try FileManager.default.copyItem(
                     at: vmRootPath.appending(path: fileName),
                     to: filesDir.appending(path: fileName)
@@ -857,7 +904,8 @@ class VMSnapshotManager {
         vmRootPath: URL,
         snapshot: VMSnapshotModel,
         faultAt checkpoint: VMSnapshotRestoreCheckpoint?,
-        checkpointObserver: ((VMSnapshotRestoreCheckpoint) throws -> Void)?
+        checkpointObserver: ((VMSnapshotRestoreCheckpoint) throws -> Void)?,
+        availableCapacityBytes: Int64?
     ) -> VMOSResultVoid {
         let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
         guard integrity.isValid else {
@@ -873,6 +921,15 @@ class VMSnapshotManager {
         let backupDir = vmRootPath.appending(path: restoreBackupDirectoryName)
         let transactionURL = vmRootPath.appending(path: restoreTransactionFileName)
         do {
+            let snapshotFileNames = try fm.contentsOfDirectory(atPath: filesDir.path(percentEncoded: false))
+            let requiredBytes = allocatedSizeRequired(
+                for: snapshotFileNames.map { filesDir.appending(path: $0) }
+            )
+            try VMStorageCapacity.validate(
+                requiredBytes: requiredBytes,
+                at: vmRootPath,
+                availableBytesOverride: availableCapacityBytes
+            )
             var transaction = RestoreTransaction(
                 snapshotID: snapshot.id,
                 phase: "preparing",
@@ -898,11 +955,6 @@ class VMSnapshotManager {
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
             try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
-            let snapshotFileNames = try fm.contentsOfDirectory(atPath: filesDir.path(percentEncoded: false))
-            let requiredBytes = Int64(snapshotFileNames.reduce(UInt64(0)) {
-                $0 + directoryAllocatedSize(filesDir.appending(path: $1))
-            })
-            try VMStorageCapacity.validate(requiredBytes: requiredBytes, at: vmRootPath)
             for fileName in snapshotFileNames {
                 try fm.copyItem(at: filesDir.appending(path: fileName), to: stagingDir.appending(path: fileName))
             }
@@ -1102,10 +1154,35 @@ class VMSnapshotManager {
                 continue
             }
             if values.isRegularFile == true {
-                total += UInt64(values.totalFileAllocatedSize ?? values.fileSize ?? 0)
+                let allocated = UInt64(max(0, values.totalFileAllocatedSize ?? values.fileSize ?? 0))
+                let (sum, overflow) = total.addingReportingOverflow(allocated)
+                if overflow { return UInt64.max }
+                total = sum
             }
         }
         return total
+    }
+
+    /// Converts potentially very large aggregate filesystem allocations into
+    /// the signed byte count used by capacity APIs without integer traps.
+    private static func allocatedSizeRequired(for urls: [URL]) -> Int64 {
+        var total: UInt64 = 0
+        for url in urls {
+            let (sum, overflow) = total.addingReportingOverflow(allocatedSize(of: url))
+            if overflow || sum > UInt64(Int64.max) {
+                return Int64.max
+            }
+            total = sum
+        }
+        return Int64(total)
+    }
+
+    private static func allocatedSize(of url: URL) -> UInt64 {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey]
+        if let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true {
+            return UInt64(max(0, values.totalFileAllocatedSize ?? values.fileSize ?? 0))
+        }
+        return directoryAllocatedSize(url)
     }
 
     private static func fileAllocatedSize(_ url: URL) -> UInt64 {
