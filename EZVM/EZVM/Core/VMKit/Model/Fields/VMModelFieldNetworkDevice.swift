@@ -4,9 +4,9 @@ import vmnet
 import Darwin
 
 #if arch(arm64)
-private let ezvmVMNetSuccess = vmnet_return_t(rawValue: 1000)!
-private let ezvmVMNetHostMode = vmnet_mode_t(rawValue: 1000)!
-private let ezvmVMNetSharedMode = vmnet_mode_t(rawValue: 1001)!
+private let ezvmVMNetSuccess = vmnet_return_t.VMNET_SUCCESS
+private let ezvmVMNetHostMode = vmnet_mode_t.VMNET_HOST_MODE
+private let ezvmVMNetSharedMode = vmnet_mode_t.VMNET_SHARED_MODE
 
 private final class VMNetLogicalNetworkRegistry: @unchecked Sendable {
     enum Lookup {

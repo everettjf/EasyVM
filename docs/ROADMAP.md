@@ -82,9 +82,9 @@ notarization success alone is not evidence that an entitlement is usable.
 | Serial port terminal | Planned | Framework support exists; EZVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
 | Host/guest clipboard | In progress | EZVM explicitly enables the SPICE clipboard channel; the Omarchy image restores `spice-vdagent` and its desktop-session integration. | Verify bidirectional Unicode and large-text copy in a built image. |
-| Physical USB passthrough | In progress | The macOS 27 Accessory Access capability is enabled and signed; product integration is underway. | Complete explicit claim, attach/detach, hot-plug, and release behavior. |
-| USB hot-plug management | In progress | Accessory Access entitlement and diagnostics are present. | Complete the same runtime and distribution gates as USB passthrough. |
-| Custom Virtio devices | Experimental | macOS 27 Linux VMs have a real virtio-gpu implementation for VirGL acceleration. The backend is availability-gated, falls back safely, and disables incompatible machine-state restore. | Maintain protocol conformance, fuzz hostile resource requests, and graduate only after wider beta/soak coverage. |
+| Physical USB passthrough | Beta | macOS 27 Accessory Access explicitly registers devices, claims them only after user selection, and supports connect/disconnect without changing default boot. | Complete the signed Omarchy/Ubuntu release-candidate matrix and wider hardware soak. |
+| USB hot-plug management | Beta | Runtime attach/detach, descriptor parsing, shutdown safety, and signed entitlement diagnostics are integrated. | Expand the physical-device compatibility matrix. |
+| Custom Virtio devices | Beta | macOS 27 Linux VMs have a real virtio-gpu implementation for VirGL acceleration. The backend is availability-gated, falls back safely, and disables incompatible machine-state restore. | Maintain protocol conformance, fuzz hostile resource requests, and complete wider distro/GPU soak coverage. |
 
 ### Storage, snapshots, and portability
 
@@ -98,7 +98,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | APFS clone snapshots | Stable | Creates stopped-VM snapshots using APFS clone behavior where available. | Report fallback cost when copy-on-write is unavailable. |
 | Snapshot tree and branches | Stable | Tracks parent/child history, current branch, rename, protection, restore, and manifest-backed integrity audits. | Add orphan cleanup preview. |
 | Restore safety snapshot | Stable | Can preserve the current state before restoring another snapshot. | Add storage estimate before the operation. |
-| ASIF layered snapshots | Experimental | DiskImageKit-backed overlay stacks exist behind an experimental setting. | Validate crash recovery, compaction, and long branch chains. |
+| ASIF layered snapshots | Beta | ASIF disks automatically use DiskImageKit overlay stacks; raw and legacy disks retain the APFS-clone path. Audit and restore validate every layer and ASIF header. | Validate crash recovery, compaction, and long branch chains. |
 | VM clone | Stable | Stopped VMs clone transactionally with a new hardware identity and name; incompatible saved state and source snapshot history are intentionally reset. | Add progress and cancellation UI. |
 | VM export/import | Stable | Native `.ezvmexport` packages use a versioned manifest, streaming SHA-256 checksums, architecture/OS compatibility checks, free-space forecasts, and transactional import. | Add progress and cancellation UI. |
 | OVF/OVA import | Planned | Not implemented. | Treat as a converter project after native bundle import is stable. |
@@ -109,11 +109,11 @@ notarization success alone is not evidence that an entitlement is usable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | Standard NAT | Stable | Production builds use `VZNATNetworkDeviceAttachment`. | Add connectivity diagnostics and tested DNS behavior. |
-| Bridged networking | In progress | The macOS 27 VMNet capability is enabled without the legacy restricted entitlement. | Implement and validate external-interface selection. |
-| Host-only networking | In progress | The macOS 27 VMNet capability is enabled. | Implement logical network configuration and lifecycle. |
-| Custom network topology | In progress | The macOS 27 VMNet capability is enabled. | Productize subnet, DHCP, DNS, NAT, and failure diagnostics. |
+| Bridged networking | Beta | The macOS 27 VMNet capability and external-interface selection are integrated without the legacy restricted entitlement. | Validate more host interface changes and failure recovery. |
+| Host-only networking | Beta | Named logical networks, subnet/mask configuration, and process-lifetime network reuse are integrated. | Add cross-process ownership and recovery. |
+| Custom network topology | Beta | VMNet shared/host modes persist subnet, external interface, MTU, and validated topology settings. | Expand DHCP/DNS policy controls and failure diagnostics. |
 | Shared logical network across processes | Planned | VMNet serialization APIs are available. | Complete the XPC ownership and recovery design. |
-| vmnet port forwarding | In progress | The macOS 27 VMNet capability is enabled. | Add validated TCP/UDP rules and collision handling. |
+| vmnet port forwarding | Beta | Validated TCP/UDP rules and collision checks are integrated with VMNet shared networks. | Add live rule editing and broader reconnect tests. |
 | User-space port forwarding | Planned research | Could avoid vmnet by proxying host sockets to a known guest service. | First solve guest discovery, security, lifecycle, and UDP semantics. |
 | Guest IP discovery | Stable | The authenticated Linux guest agent reports sorted non-loopback addresses over Virtio Socket. | Expand distro and reconnect soak coverage. |
 | One-click SSH | Stable | Capability-gated menu opens validated IPv4/IPv6 `ssh://` URLs without shell interpolation or stored credentials. | Add optional per-VM username preference after credential policy is designed. |
@@ -127,7 +127,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Runtime share updates | Partial | Core framework permits share changes; UX is still restart-oriented in places. | Add explicit live/restart-required state. |
 | Linux Rosetta | Stable | Configures a Rosetta directory share when available. | Add guided guest-side `binfmt_misc` setup. |
 | Rosetta translation cache | Stable | Supports caching options on compatible hosts. | Measure impact and document guest requirements. |
-| macOS guest provisioning | Experimental | Uses macOS 27 guest-provisioning APIs behind an opt-in setting. | Test account creation, secrets, retries, and final-system changes. |
+| macOS guest provisioning | Beta | Uses the macOS 27 per-VM opt-in API. The password enters the Keychain only after installation, is device-only, and is deleted after the first successful start. | Complete the signed macOS release-candidate account-creation and retry matrix. |
 | Linux guest agent | Stable | A versioned, mutually authenticated ARM64 agent and systemd/OpenRC package ship with releases. | Complete longer real-guest soak tests and add more distro packages. |
 | Guest heartbeat and readiness | Partial | Authenticated status, IPs, boot identity, heartbeat, timeout, and reconnect are implemented. | Verify long-running reconnect and suspend/resume behavior in real guests. |
 | Graceful guest operations | Partial | The authenticated agent handles explicit UI shutdown and restart commands. | Add command-result visibility and audit history. |
@@ -143,7 +143,8 @@ notarization success alone is not evidence that an entitlement is usable.
 | --- | --- | --- | --- |
 | Nested virtualization | Stable | Linux VMs have a per-machine option guarded by Apple's runtime capability check; unsupported hosts get an actionable compatibility error and old configs default off. Release automation verifies guest `/dev/kvm` with `KVM_GET_API_VERSION=12`. | Add tested distro guidance and a Docker/KVM guest profile. |
 | Docker/KVM inside a Linux guest | Planned research | Depends on nested virtualization and guest configuration. | Validate only after the base nested-virtualization option is stable. |
-| macOS guest iCloud workflows | Planned research | Not exposed. | Review Apple account, entitlement, and distribution requirements first. |
+| macOS guest iCloud identity | Supported automatically | New VMs created from a supported macOS restore image use the framework-provided Mac hardware identity derived from the host Secure Enclave. EZVM already preserves that hardware model; no additional app entitlement is required. | Document that upgrading an older VM does not retroactively add iCloud identity, and verify sign-in manually in the macOS guest matrix. |
+| macOS guest Metal improvements | Supported automatically | EZVM uses the restore image's supported Mac hardware configuration, so compatible host/guest Metal improvements require no separate application switch or entitlement. | Include a graphics workload in the macOS guest matrix. |
 | x86 guest execution on Apple silicon | Out of scope | Virtualization.framework virtualizes the host architecture. | Use a separate emulator such as QEMU; do not mix it into the native core. |
 | General GPU passthrough | Out of scope | No general PCIe/GPU passthrough API is exposed. | Do not promise it. |
 | General PCIe passthrough | Out of scope | No general device-passthrough API is exposed. | Do not promise it. |

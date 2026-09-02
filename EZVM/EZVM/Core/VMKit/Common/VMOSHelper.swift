@@ -273,6 +273,7 @@ enum VMReleaseSmokeTest {
 enum VirtualizationCapability: String, CaseIterable, Identifiable {
     case savedState, automaticDisplayResize, asifStorage
     case guestProvisioning, diskImageKitSnapshots, customVirtio, efiSecureBoot
+    case macOSGuestICloud, macOSGuestMetal
 
     var id: String { rawValue }
 
@@ -285,6 +286,8 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
         case .diskImageKitSnapshots: "DiskImageKit snapshots"
         case .customVirtio: "Custom Virtio devices"
         case .efiSecureBoot: "EFI Secure Boot management"
+        case .macOSGuestICloud: "macOS guest iCloud identity"
+        case .macOSGuestMetal: "macOS guest Metal improvements"
         }
     }
 
@@ -292,7 +295,9 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
         switch self {
         case .savedState, .automaticDisplayResize: 14
         case .asifStorage: 26
+        case .macOSGuestICloud: 15
         case .guestProvisioning, .diskImageKitSnapshots, .customVirtio, .efiSecureBoot: 27
+        case .macOSGuestMetal: 27
         }
     }
 
@@ -304,7 +309,6 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
 }
 
 enum EZVMExperimentalFeatures {
-    static let efiSecureBootKey = "experimental.efiSecureBoot"
     static let customVirGLGraphicsKey = "experimental.customVirGLGraphics"
 
     static func customVirGLGraphicsEnabled(

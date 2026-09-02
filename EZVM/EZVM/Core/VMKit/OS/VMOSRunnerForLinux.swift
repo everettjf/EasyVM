@@ -202,13 +202,10 @@ class VMOSRunnerForLinux : VMOSRunner {
 
         let variableStore = VZEFIVariableStore(url: model.efiVariableStoreURL)
         if let features = model.config.linuxFeatures {
-            if features.secureBootEnabled,
-               !(VirtualizationCapability.efiSecureBoot.isAvailable
-                 && UserDefaults.standard.bool(forKey: EZVMExperimentalFeatures.efiSecureBootKey)) {
-                return .failure("UEFI Secure Boot requires macOS 27 and the EFI Secure Boot experimental feature in Settings.")
+            if features.secureBootEnabled, !VirtualizationCapability.efiSecureBoot.isAvailable {
+                return .failure("UEFI Secure Boot requires macOS 27.")
             }
             if #available(macOS 27.0, *),
-               UserDefaults.standard.bool(forKey: EZVMExperimentalFeatures.efiSecureBootKey),
                case let .failure(error) = VMEFISecureBootManager.apply(enabled: features.secureBootEnabled, variableStore: variableStore) {
                 return .failure(error)
             }

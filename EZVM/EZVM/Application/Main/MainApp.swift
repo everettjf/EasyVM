@@ -101,14 +101,13 @@ private struct ControlCenterCommands: Commands {
 #if arch(arm64)
 private struct VirtualizationFeaturesSettingsView: View {
     @State private var capabilityRefreshID = UUID()
-    @AppStorage(EZVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
     @AppStorage(EZVMExperimentalFeatures.customVirGLGraphicsKey) private var customVirGLGraphics = true
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedThumbnailStyle = VMGeneratedThumbnailStyle.arcade.rawValue
 
     var body: some View {
         Form {
-            Section("Virtualization capabilities") {
+            Section {
                 ForEach(VirtualizationCapability.allCases) { capability in
                     HStack {
                         Label(capability.title, systemImage: capability.isAvailable ? "checkmark.circle.fill" : "xmark.circle")
@@ -118,6 +117,10 @@ private struct VirtualizationFeaturesSettingsView: View {
                     }
                     .foregroundStyle(capability.isAvailable ? .primary : .secondary)
                 }
+            } header: {
+                Text("Virtualization capabilities")
+            } footer: {
+                Text("macOS guest iCloud identity is automatic for VMs created from a supported macOS restore image; upgrading an older VM does not add that identity. Metal improvements are supplied automatically by the supported host, guest, and Mac hardware model. Neither requires an additional EZVM entitlement.")
             }
 
             Section {
@@ -136,7 +139,7 @@ private struct VirtualizationFeaturesSettingsView: View {
 
             Section {
                 Label("DiskImageKit snapshots for ASIF disks", systemImage: "checkmark.circle.fill")
-                featureToggle("EFI Secure Boot", isOn: $efiSecureBoot, capability: .efiSecureBoot)
+                Label("Per-VM EFI Secure Boot", systemImage: "checkmark.shield.fill")
                 featureToggle(
                     "High-performance VirGL graphics for Linux",
                     isOn: $customVirGLGraphics,

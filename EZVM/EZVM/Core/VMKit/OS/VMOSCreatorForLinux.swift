@@ -92,9 +92,8 @@ final class VMOSCreatorForLinux: VMOSCreator {
                 let bootloader = VZEFIBootLoader()
                 let efiVariableStore = try VZEFIVariableStore(creatingVariableStoreAt: model.efiVariableStoreURL)
                 if model.config.linuxFeatures?.secureBootEnabled == true {
-                    guard #available(macOS 27.0, *),
-                          UserDefaults.standard.bool(forKey: EZVMExperimentalFeatures.efiSecureBootKey) else {
-                        throw VMOSError.regularFailure("UEFI Secure Boot requires macOS 27 and the EFI Secure Boot experimental feature in Settings.")
+                    guard #available(macOS 27.0, *) else {
+                        throw VMOSError.regularFailure("UEFI Secure Boot requires macOS 27.")
                     }
                     if case let .failure(error) = VMEFISecureBootManager.apply(enabled: true, variableStore: efiVariableStore) {
                         throw VMOSError.regularFailure(error)

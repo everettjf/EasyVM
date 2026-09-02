@@ -40,7 +40,6 @@ struct VMCreateConfigurationView: View {
 
 struct VMLinuxFeaturesConfigurationSection: View {
     @Environment(VMConfigurationViewStateObject.self) private var configData
-    @AppStorage(EZVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBootEnabled = false
 
     var body: some View {
         @Bindable var configData = configData
@@ -63,7 +62,7 @@ struct VMLinuxFeaturesConfigurationSection: View {
                         .foregroundStyle(.secondary)
                 }
                 if !secureBootAvailable {
-                    Text("Secure Boot requires macOS 27 and the EFI Secure Boot experimental feature in Settings.")
+                    Text("Secure Boot requires macOS 27.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -77,7 +76,7 @@ struct VMLinuxFeaturesConfigurationSection: View {
     }
 
     private var secureBootAvailable: Bool {
-        VirtualizationCapability.efiSecureBoot.isAvailable && efiSecureBootEnabled
+        VirtualizationCapability.efiSecureBoot.isAvailable
     }
 }
 
