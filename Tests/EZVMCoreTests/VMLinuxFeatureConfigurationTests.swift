@@ -156,4 +156,22 @@ final class VMLinuxFeatureConfigurationTests: XCTestCase {
         }
         XCTAssertFalse(try store.isSecureBootEnabled)
     }
+
+    func testDisabledSecureBootLetsDamagedStoreReachExistingRecoveryPath() throws {
+        guard #available(macOS 27.0, *) else { return }
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appending(path: "NVRAM")
+        try Data().write(to: storeURL)
+        let store = VZEFIVariableStore(url: storeURL)
+
+        guard case .success = VMEFISecureBootManager.prepareForBoot(enabled: false, variableStore: store) else {
+            return XCTFail("A disabled Secure Boot policy must preserve the existing EFI recovery path")
+        }
+        guard case .failure = VMEFISecureBootManager.prepareForBoot(enabled: true, variableStore: store) else {
+            return XCTFail("An enabled Secure Boot policy must reject a damaged variable store")
+        }
+    }
 }

@@ -206,7 +206,10 @@ class VMOSRunnerForLinux : VMOSRunner {
                 return .failure("UEFI Secure Boot requires macOS 27.")
             }
             if #available(macOS 27.0, *),
-               case let .failure(error) = VMEFISecureBootManager.apply(enabled: features.secureBootEnabled, variableStore: variableStore) {
+               case let .failure(error) = VMEFISecureBootManager.prepareForBoot(
+                enabled: features.secureBootEnabled,
+                variableStore: variableStore
+               ) {
                 return .failure(error)
             }
         }

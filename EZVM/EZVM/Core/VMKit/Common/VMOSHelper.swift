@@ -480,6 +480,19 @@ enum VMEFISecureBootManager {
             return .failure("Could not update UEFI Secure Boot: \(error.localizedDescription)")
         }
     }
+
+    /// Applies the requested state before a boot. A damaged store must still
+    /// reach Virtualization.framework when Secure Boot is off so the existing
+    /// one-shot EFI recovery path can replace it and retain the rejected bytes.
+    /// Secure Boot opt-in remains strict because silently booting without the
+    /// requested trust policy would violate the per-VM configuration.
+    static func prepareForBoot(enabled: Bool, variableStore: VZEFIVariableStore) -> VMOSResultVoid {
+        let result = apply(enabled: enabled, variableStore: variableStore)
+        if !enabled, case .failure = result {
+            return .success
+        }
+        return result
+    }
 }
 
 struct VMGuestProvisioningCredential: Codable, Equatable {
