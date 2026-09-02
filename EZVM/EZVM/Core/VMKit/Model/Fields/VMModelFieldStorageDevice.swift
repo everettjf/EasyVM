@@ -107,6 +107,13 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
         
         // create disk
         let fullPath = rootPath.appending(path: imagePath)
+        if format == .asif,
+           case let .failure(error) = VMSnapshotManager.validateExistingASIFBaseDependency(
+               baseURL: fullPath,
+               vmRootPath: rootPath
+           ) {
+            return .failure(error)
+        }
         let createResult = VMDiskImageManager.create(format: format, at: fullPath, size: size)
         if case let .failure(error) = createResult {
             return .failure(error)

@@ -184,6 +184,13 @@ The snapshot UI reports the maximum active/saved depth and turns the depth
 advisory orange at 32 layers. This is an EZVM maintenance threshold, not an
 Apple framework limit.
 
+VM startup now checks an existing layered chain before the normal idempotent disk
+creation path. If the ASIF base is missing or damaged, EZVM refuses to create a
+blank file at the same path and tells the user to restore the original base. A
+valid ASIF from another chain is also rejected by DiskImageKit parent validation,
+as is a missing active overlay. Tests prove all three failures preserve the base
+path, remaining layers, and snapshot metadata for diagnosis and recovery.
+
 The macOS 27 DiskImageKit SDK exposes image creation, opening, stacking, and
 truncation, but no public merge, flatten, or compaction operation. EZVM therefore
 does not present an unsafe in-place Compact action. A future consolidation
@@ -197,7 +204,7 @@ exported or retired.
 | --- | --- | --- |
 | Capacity | Keep allocated-byte plus safety-margin preflight before conversion, snapshot, and restore; extend the same temporary-peak model across clone and export. Do not reserve a sparse ASIF disk's entire logical size at creation. | Deterministic low-space tests prove failure before mutation and report required versus available space; a nearly-full real volume validates filesystem behavior. |
 | Progress | Expose real byte/phase progress, cancellation boundaries, and “finishing safely” states for long operations. | Closing the UI does not abandon work; cancellation resolves to complete-or-absent output. |
-| Integrity | Record base/layer identity, checksums where appropriate, current head, referenced branches, and saved-state compatibility. | Audit accounts for every layer and refuses missing, reordered, foreign, or corrupted chains. |
+| Integrity | Record base/layer identity, checksums where appropriate, current head, referenced branches, and saved-state compatibility. Validate the active chain before disk creation or VM startup. | Audit accounts for every layer and refuses missing, reordered, foreign, or corrupted chains; a missing base is never silently replaced. |
 | Recovery | Use journaled transaction stages and startup recovery for every layer mutation. | Process kills at each commit point preserve the old head or atomically install the new one. |
 | Maintenance | Add dry-run orphan cleanup and a transactional replacement-image consolidation workflow; retain protected snapshots, chain-depth warnings, and explicit export behavior. | Cleanup never removes referenced data; long chains have a measured, reversible maintenance path without claiming unsupported in-place compaction. |
 

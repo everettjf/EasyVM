@@ -387,6 +387,95 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-backup").path))
     }
 
+    func testMissingASIFBaseIsNotSilentlyRecreatedWhenLayersDependOnIt() throws {
+        let diskURL = try prepareLayeredASIFMachine(at: temporaryRoot)
+        _ = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Depends on base")
+        )
+        let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+            .appendingPathComponent("Layers", isDirectory: true)
+        let layersBefore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+        try FileManager.default.removeItem(at: diskURL)
+
+        let result = VMSnapshotManager.validateExistingASIFBaseDependency(
+            baseURL: diskURL,
+            vmRootPath: temporaryRoot
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected a missing dependent ASIF base to block startup")
+        }
+        XCTAssertTrue(message.contains("did not create a replacement"), message)
+        XCTAssertTrue(message.contains("Restore the original base image"), message)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: diskURL.path))
+        XCTAssertEqual(
+            try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path)),
+            layersBefore
+        )
+    }
+
+    func testInvalidASIFBaseIsPreservedForDiagnosisWhenLayersDependOnIt() throws {
+        let diskURL = try prepareLayeredASIFMachine(at: temporaryRoot)
+        let invalidData = Data("not-an-asif-base".utf8)
+        try invalidData.write(to: diskURL)
+
+        let result = VMSnapshotManager.validateExistingASIFBaseDependency(
+            baseURL: diskURL,
+            vmRootPath: temporaryRoot
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected an invalid dependent ASIF base to block startup")
+        }
+        XCTAssertTrue(message.contains("missing or invalid"), message)
+        XCTAssertEqual(try Data(contentsOf: diskURL), invalidData)
+    }
+
+    func testForeignValidASIFBaseCannotOpenExistingLayerStackAndIsPreserved() throws {
+        let diskURL = try prepareLayeredASIFMachine(at: temporaryRoot)
+        let replacementURL = temporaryRoot.appendingPathComponent("Replacement.asif")
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: replacementURL, size: 64 * 1024 * 1024))
+        try FileManager.default.removeItem(at: diskURL)
+        try FileManager.default.moveItem(at: replacementURL, to: diskURL)
+        let replacementSize = try XCTUnwrap(
+            diskURL.resourceValues(forKeys: [.fileSizeKey]).fileSize
+        )
+
+        let result = VMSnapshotManager.validateExistingASIFBaseDependency(
+            baseURL: diskURL,
+            vmRootPath: temporaryRoot
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected a foreign ASIF base to fail its existing parent chain")
+        }
+        XCTAssertTrue(message.contains("does not match its active layer stack"), message)
+        XCTAssertTrue(message.contains("did not modify the disk chain"), message)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: diskURL.path))
+        XCTAssertEqual(try diskURL.resourceValues(forKeys: [.fileSizeKey]).fileSize, replacementSize)
+    }
+
+    func testMissingActiveASIFLayerFailsBeforeStartupWithoutPruningOtherLayers() throws {
+        let diskURL = try prepareLayeredASIFMachine(at: temporaryRoot)
+        let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+            .appendingPathComponent("Layers", isDirectory: true)
+        let layerNames = try FileManager.default.contentsOfDirectory(atPath: layersURL.path)
+        let missingLayer = try XCTUnwrap(layerNames.first)
+        try FileManager.default.removeItem(at: layersURL.appendingPathComponent(missingLayer))
+
+        let result = VMSnapshotManager.validateExistingASIFBaseDependency(
+            baseURL: diskURL,
+            vmRootPath: temporaryRoot
+        )
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected a missing active layer to block startup")
+        }
+        XCTAssertTrue(message.contains("layer is missing or damaged"), message)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: diskURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layersURL.path))
+    }
+
     func testASIFAuditRejectsAReorderedLayerStack() throws {
         let root = temporaryRoot.appendingPathComponent("reordered-stack", isDirectory: true)
         let fixture = try makeLayeredRestoreFixture(at: root)
@@ -717,6 +806,16 @@ final class VMSnapshotManagerTests: XCTestCase {
 
     private func write(_ value: String, to relativePath: String) throws {
         try Data(value.utf8).write(to: temporaryRoot.appendingPathComponent(relativePath))
+    }
+
+    @discardableResult
+    private func prepareLayeredASIFMachine(at root: URL) throws -> URL {
+        let diskURL = root.appendingPathComponent("Disk.asif")
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: diskURL, size: 64 * 1024 * 1024))
+        let config = #"{"storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#
+        try Data(config.utf8).write(to: root.appendingPathComponent("config.json"))
+        _ = try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root)
+        return diskURL
     }
 
     private func makeLayeredRestoreFixture(at root: URL) throws -> (

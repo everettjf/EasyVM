@@ -380,6 +380,49 @@ class VMSnapshotManager {
         return .apfsClone
     }
 
+    /// A missing ASIF base must never be silently recreated when snapshots or
+    /// the active writable stack still depend on its identity. A fresh blank
+    /// image at the same path cannot satisfy those parent relationships and
+    /// would make recovery less obvious to the user.
+    static func validateExistingASIFBaseDependency(baseURL: URL, vmRootPath: URL) -> VMOSResultVoid {
+        let baseName = baseURL.lastPathComponent
+        let activeLayerPaths = readState(vmRootPath: vmRootPath).activeDiskLayers[baseName] ?? []
+        let activeLayerCount = activeLayerPaths.count
+        let savedLayerCount = listSnapshots(vmRootPath: vmRootPath)
+            .flatMap(\.diskLayers)
+            .filter { $0.baseImageName == baseName }
+            .reduce(0) { $0 + $1.layerPaths.count }
+        let dependentLayerCount = activeLayerCount + savedLayerCount
+        guard dependentLayerCount > 0 else { return .success }
+
+        guard sameFileSystemLocation(baseURL.standardizedFileURL.deletingLastPathComponent(), vmRootPath),
+              VMDiskImageManager.existingASIFImageHasValidHeader(url: baseURL) else {
+            return .failure(
+                "The ASIF base image \(baseName) is missing or invalid, and \(dependentLayerCount) " +
+                "active or saved layers depend on it. EZVM did not create a replacement. Restore the " +
+                "original base image from backup, then retry."
+            )
+        }
+#if canImport(DiskImageKit)
+        if #available(macOS 27.0, *), !activeLayerPaths.isEmpty {
+            do {
+                try validateLayerStack(
+                    baseURL: baseURL,
+                    relativeLayerPaths: activeLayerPaths,
+                    vmRootPath: vmRootPath
+                )
+            } catch {
+                return .failure(
+                    "The ASIF base image \(baseName) does not match its active layer stack, or a layer " +
+                    "is missing or damaged. EZVM did not modify the disk chain. Restore the original " +
+                    "base and layer files from backup, then retry. Details: \(error.localizedDescription)"
+                )
+            }
+        }
+#endif
+        return .success
+    }
+
     static func snapshotTree(vmRootPath: URL) -> [VMSnapshotTreeNode] {
         let snapshots = listSnapshots(vmRootPath: vmRootPath)
         let snapshotsByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
