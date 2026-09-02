@@ -103,7 +103,7 @@ private struct VirtualizationFeaturesSettingsView: View {
     @State private var capabilityRefreshID = UUID()
     @AppStorage(EZVMExperimentalFeatures.customVirGLGraphicsKey) private var customVirGLGraphics = true
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
-    @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedThumbnailStyle = VMGeneratedThumbnailStyle.arcade.rawValue
+    @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedThumbnailStyle = VMGeneratedThumbnailStyle.aurora.rawValue
 
     var body: some View {
         Form {
@@ -168,7 +168,7 @@ private struct VirtualizationFeaturesSettingsView: View {
                 GeneratedMachineThumbnailView(
                     title: "Omarchy",
                     type: .linux,
-                    style: VMGeneratedThumbnailStyle(rawValue: generatedThumbnailStyle) ?? .arcade
+                    style: VMGeneratedThumbnailStyle(rawValue: generatedThumbnailStyle) ?? .aurora
                 )
                 .frame(height: 112)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

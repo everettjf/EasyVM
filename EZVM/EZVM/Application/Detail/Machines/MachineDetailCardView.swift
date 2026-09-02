@@ -19,10 +19,7 @@ struct MachineDetailCardAction {
 }
 
 enum VMGeneratedThumbnailStyle: String, CaseIterable, Identifiable {
-    case arcade
-    case rounded
-    case terminal
-    case editorial
+    case aurora, midnight, ocean, sunset, graphite, paper, terminal, editorial, neon, mono
 
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
@@ -37,12 +34,25 @@ struct GeneratedMachineThumbnailView: View {
         ZStack {
             background
             switch style {
-            case .arcade:
-                arcadeTitle
-            case .rounded:
+            case .aurora:
+                titleText(.system(size: 46, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .purple.opacity(0.45), radius: 16)
+            case .midnight:
+                titleText(.system(size: 43, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+            case .ocean:
                 titleText(.system(size: 46, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
                     .shadow(color: .blue.opacity(0.7), radius: 14)
+            case .sunset:
+                titleText(.system(size: 44, weight: .heavy, design: .rounded)).foregroundStyle(.white)
+            case .graphite:
+                titleText(.system(size: 42, weight: .medium, design: .default)).foregroundStyle(.white.opacity(0.92))
+            case .paper:
+                VStack(spacing: 6) {
+                    titleText(.system(size: 44, weight: .bold, design: .serif)).foregroundStyle(Color(red: 0.16, green: 0.15, blue: 0.14))
+                    Rectangle().fill(Color.orange).frame(width: 42, height: 3)
+                }
             case .terminal:
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 5) {
@@ -67,27 +77,41 @@ struct GeneratedMachineThumbnailView: View {
                     titleText(.system(size: 48, weight: .bold, design: .serif))
                         .foregroundStyle(.white)
                 }
+            case .neon:
+                ZStack {
+                    titleText(.system(size: 46, weight: .black, design: .monospaced)).foregroundStyle(.pink).offset(x: 3, y: 2)
+                    titleText(.system(size: 46, weight: .black, design: .monospaced)).foregroundStyle(.cyan).offset(x: -2, y: -1)
+                    titleText(.system(size: 46, weight: .black, design: .monospaced)).foregroundStyle(.white)
+                }
+            case .mono:
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(type == .linux ? "LINUX" : "MACOS").font(.caption.monospaced().weight(.bold)).tracking(3)
+                    titleText(.system(size: 45, weight: .black, design: .default))
+                }.foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
 
     private var background: some View {
         LinearGradient(
-            colors: style == .arcade
-                ? [Color(red: 0.07, green: 0.08, blue: 0.13), Color(red: 0.11, green: 0.12, blue: 0.18)]
-                : (type == .linux ? [Color(red: 0.08, green: 0.12, blue: 0.18), Color(red: 0.12, green: 0.19, blue: 0.25)] : [.indigo, .blue]),
+            colors: palette,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
 
-    private var arcadeTitle: some View {
-        ZStack {
-            titleText(.system(size: 46, weight: .black, design: .monospaced))
-                .foregroundStyle(Color.cyan.opacity(0.9))
-                .offset(x: -3, y: 3)
-            titleText(.system(size: 46, weight: .black, design: .monospaced))
-                .foregroundStyle(Color(red: 0.65, green: 0.86, blue: 0.38))
+    private var palette: [Color] {
+        switch style {
+        case .aurora: [.indigo, .purple, .blue]
+        case .midnight: [Color(red: 0.03, green: 0.05, blue: 0.11), Color(red: 0.10, green: 0.14, blue: 0.24)]
+        case .ocean: [Color(red: 0.02, green: 0.28, blue: 0.48), Color(red: 0.05, green: 0.65, blue: 0.70)]
+        case .sunset: [Color(red: 0.94, green: 0.27, blue: 0.30), Color(red: 0.98, green: 0.60, blue: 0.24)]
+        case .graphite: [Color(red: 0.12, green: 0.13, blue: 0.15), Color(red: 0.34, green: 0.36, blue: 0.40)]
+        case .paper: [Color(red: 0.98, green: 0.95, blue: 0.88), Color(red: 0.91, green: 0.86, blue: 0.76)]
+        case .terminal: [Color(red: 0.02, green: 0.04, blue: 0.04), Color(red: 0.04, green: 0.10, blue: 0.08)]
+        case .editorial: [Color(red: 0.19, green: 0.08, blue: 0.12), Color(red: 0.48, green: 0.17, blue: 0.19)]
+        case .neon: [Color(red: 0.06, green: 0.02, blue: 0.16), Color(red: 0.16, green: 0.03, blue: 0.25)]
+        case .mono: [Color.black, Color(red: 0.18, green: 0.18, blue: 0.18)]
         }
     }
 
@@ -108,7 +132,15 @@ struct GeneratedMachineThumbnailView: View {
 struct MachineThumbnailView: View {
     let model: VMModel
     let runPhase: VMRunPhase?
-    @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedStyleRaw = VMGeneratedThumbnailStyle.arcade.rawValue
+    @AppStorage private var generatedStyleRaw: String
+
+    init(model: VMModel, runPhase: VMRunPhase?) {
+        self.model = model
+        self.runPhase = runPhase
+        let fallback = UserDefaults.standard.string(forKey: VMThumbnailPreferences.generatedStyleKey)
+            ?? VMGeneratedThumbnailStyle.aurora.rawValue
+        _generatedStyleRaw = AppStorage(wrappedValue: fallback, VMThumbnailPreferences.generatedStyleKey(for: model.rootPath))
+    }
 
     var body: some View {
         ZStack {
@@ -124,7 +156,7 @@ struct MachineThumbnailView: View {
                 GeneratedMachineThumbnailView(
                     title: model.config.name,
                     type: model.config.type,
-                    style: VMGeneratedThumbnailStyle(rawValue: generatedStyleRaw) ?? .arcade
+                    style: VMGeneratedThumbnailStyle(rawValue: generatedStyleRaw) ?? .aurora
                 )
             }
         }
@@ -148,6 +180,16 @@ struct MachineThumbnailView: View {
                 .padding(6)
             }
         }
+        .contextMenu {
+            Menu("Cover Style", systemImage: "paintpalette") {
+                Picker("Cover Style", selection: $generatedStyleRaw) {
+                    ForEach(VMGeneratedThumbnailStyle.allCases) { style in
+                        Text(style.title).tag(style.rawValue)
+                    }
+                }
+            }
+        }
+        .help("Right-click to choose this virtual machine’s cover style")
     }
 }
 

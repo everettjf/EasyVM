@@ -924,6 +924,10 @@ enum VMThumbnailValidator {
 enum VMThumbnailPreferences {
     static let screenCaptureEnabledKey = "thumbnail.screen-capture-enabled"
     static let generatedStyleKey = "thumbnail.generated-style"
+
+    static func generatedStyleKey(for rootPath: URL) -> String {
+        "\(generatedStyleKey).vm.\(rootPath.standardizedFileURL.path(percentEncoded: true))"
+    }
 }
 
 #endif
