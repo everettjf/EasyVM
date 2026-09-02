@@ -14,11 +14,27 @@ struct VMModelFieldAudioDevice: Decodable, Encodable, CustomStringConvertible {
     enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
         case InputOutputStream, InputStream, OutputStream
         var id: Self { self }
+
+        var displayName: String {
+            switch self {
+            case .InputOutputStream: "Microphone & Speakers"
+            case .InputStream: "Microphone"
+            case .OutputStream: "Speakers"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .InputOutputStream: "waveform"
+            case .InputStream: "mic"
+            case .OutputStream: "speaker.wave.2"
+            }
+        }
     }
     let type: DeviceType
     
     var description: String {
-        return "\(type)"
+        return type.displayName
     }
     
     static func `default`() -> VMModelFieldAudioDevice {

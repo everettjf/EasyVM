@@ -20,24 +20,13 @@ struct VMConfigurationNetworkDevicesView: View {
     }
     var content: some View {
         
-        LabeledContent("Network Devices") {
-            VStack(alignment: .trailing) {
-                List(configData.networkDevices) { item in
-                    HStack {
-                        Spacer()
-                        Text("\(String(describing: item.data))")
-                    }
+        LabeledContent("Network") {
+            VStack(alignment: .trailing, spacing: 10) {
+                ForEach(configData.networkDevices) { item in
+                    Label(item.data.description, systemImage: "network")
                 }
-                .frame(width:400)
-                
-                VStack {
-                    Spacer()
-                    Button {
-                        showingEditView.toggle()
-                    } label: {
-                        Image(systemName: "slider.vertical.3")
-                    }
-                }
+                Button("Manage Network…", systemImage: "slider.horizontal.3") { showingEditView = true }
+                    .accessibilityHint("Choose NAT or VMNet networking")
             }
         }
         

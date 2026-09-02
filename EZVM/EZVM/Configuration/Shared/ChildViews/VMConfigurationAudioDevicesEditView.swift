@@ -11,67 +11,48 @@ import SwiftUI
 struct VMConfigurationAudioDevicesEditView: View {
     @Environment(VMConfigurationViewStateObject.self) var configData
     
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     
     @State private var inputType: VMModelFieldAudioDevice.DeviceType = .InputStream
     
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 0) {
             Form {
-                Section("Add Audio Device") {
-                    Picker("Type", selection: $inputType) {
+                Section("New Audio Device") {
+                    Picker("Access", selection: $inputType) {
                         ForEach(VMModelFieldAudioDevice.DeviceType.allCases) { item in
-                            Text(item.rawValue)
+                            Label(item.displayName, systemImage: item.systemImage).tag(item)
                         }
                     }
-                    
-                    HStack {
-                        Spacer()
-                        
-                        Button {
-                            addDevice()
-                        } label: {
-                            Image(systemName: "plus.app")
-                            Text("Add")
-                        }
-                    }
+                    Text("Microphone access still requires permission in System Settings. Speakers do not require additional permission.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Add Audio Device", systemImage: "plus") { addDevice() }
                 }
                 Section("Current Devices") {
-                    List (configData.audioDevices) { item in
+                    ForEach(configData.audioDevices) { item in
                         HStack {
-                            Text("\(String(describing: item.data))")
+                            Label(item.data.description, systemImage: item.data.type.systemImage)
                             Spacer()
-                            Button {
-                                // remove
-                                if let found = configData.audioDevices.firstIndex(where: {$0.id == item.id}) {
-                                    configData.audioDevices.remove(at: found)
-                                }
-                                
-                            } label: {
-                                Image(systemName: "delete.left")
-                            }
+                            Button(role: .destructive) { configData.audioDevices.removeAll { $0.id == item.id } } label: { Image(systemName: "trash") }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Remove \(item.data.description)")
                         }
                     }
-                    .frame(minHeight: 100)
                 }
             }
             .formStyle(.grouped)
-            
-            
             HStack {
                 Spacer()
-                Button {
-                    presentationMode.wrappedValue.dismiss()
-                } label: {
-                    Text("Close")
-                }
+                Button("Done") { dismiss() }
             }
             .padding()
         }
+        .frame(minWidth: 500, minHeight: 380)
     }
     
     
-    func addDevice() {
+    private func addDevice() {
         let device = VMModelFieldAudioDevice(type: inputType)
         configData.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: device))
     }

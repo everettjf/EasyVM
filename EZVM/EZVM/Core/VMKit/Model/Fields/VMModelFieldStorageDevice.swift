@@ -16,6 +16,13 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
         case Block, USB
         var id: Self { self }
+
+        var displayName: String {
+            switch self {
+            case .Block: "Virtual Disk"
+            case .USB: "Installation Media"
+            }
+        }
     }
     
     let type: DeviceType
@@ -50,18 +57,18 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     
     var description: String {
         if type == .Block {
-            return "\(type) \(format.rawValue.uppercased()) \(size / 1024 / 1024 / 1024)GB"
+            return "\(type.displayName) · \(format.rawValue.uppercased()) · \(size / 1024 / 1024 / 1024) GB"
         } else {
-            return "\(type) \(imagePath)"
+            return "\(type.displayName) · \(URL(fileURLWithPath: imagePath).lastPathComponent)"
         }
     }
     
     
     var shortDescription: String {
         if type == .Block {
-            return "\(type) \(format.rawValue.uppercased()) \(size / 1024 / 1024 / 1024)GB"
+            return "\(type.displayName) · \(format.rawValue.uppercased()) · \(size / 1024 / 1024 / 1024) GB"
         } else {
-            return "\(type)"
+            return type.displayName
         }
     }
     

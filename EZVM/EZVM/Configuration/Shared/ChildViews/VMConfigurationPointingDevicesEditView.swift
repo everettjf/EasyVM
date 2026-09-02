@@ -13,71 +13,54 @@ struct VMConfigurationPointingDevicesEditView: View {
     
     @Environment(VMConfigurationViewStateObject.self) var configData
     
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     
     @State private var inputType: VMModelFieldPointingDevice.DeviceType = .USBScreenCoordinatePointing
 
     
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 0) {
             Form {
-                Section("Add Pointing Device") {
-                    Picker("Type", selection: $inputType) {
+                Section("New Pointing Device") {
+                    Picker("Device", selection: $inputType) {
                         ForEach(VMModelFieldPointingDevice.DeviceType.allCases) { item in
-                            Text(item.rawValue)
+                            Text(item.displayName).tag(item)
                         }
                     }
-                    
-                    HStack {
-                        Spacer()
-                        
-                        Button {
-                            addDevice()
-                        } label: {
-                            Image(systemName: "plus.app")
-                            Text("Add")
-                        }
-                    }
+                    Text(inputType.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Add Pointing Device", systemImage: "plus") { addDevice() }
                 }
                 Section("Current Devices") {
-                    List (configData.pointingDevices) { item in
+                    ForEach(configData.pointingDevices) { item in
                         HStack {
-                            Text("\(String(describing: item.data))")
-                            Spacer()
-                            Button {
-                                // remove
-                                if configData.pointingDevices.count == 1 {
-                                    return
-                                }
-                                if let found = configData.pointingDevices.firstIndex(where: {$0.id == item.id}) {
-                                    configData.pointingDevices.remove(at: found)
-                                }
-                                
-                            } label: {
-                                Image(systemName: "delete.left")
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.data.description)
+                                Text(item.data.type.detail).font(.caption).foregroundStyle(.secondary)
                             }
+                            Spacer()
+                            Button(role: .destructive) { configData.pointingDevices.removeAll { $0.id == item.id } } label: { Image(systemName: "trash") }
+                                .buttonStyle(.borderless)
+                                .disabled(configData.pointingDevices.count == 1)
+                                .accessibilityLabel("Remove \(item.data.description)")
                         }
                     }
-                    .frame(minHeight: 100)
                 }
             }
             .formStyle(.grouped)
-            
-            
             HStack {
+                Text("At least one pointing device is required.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button {
-                    presentationMode.wrappedValue.dismiss()
-                } label: {
-                    Text("Close")
-                }
+                Button("Done") { dismiss() }
             }
             .padding()
         }
+        .frame(minWidth: 500, minHeight: 380)
     }
     
     
-    func addDevice() {
+    private func addDevice() {
         let device = VMModelFieldPointingDevice(type: inputType)
         configData.pointingDevices.append(VMModelFieldPointingDeviceItemModel(data: device))
     }

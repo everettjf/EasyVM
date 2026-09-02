@@ -20,24 +20,13 @@ struct VMConfigurationPointingDevicesView: View {
     }
     var content: some View {
         
-        LabeledContent("Pointing Devices") {
-            VStack(alignment: .trailing) {
-                List(configData.pointingDevices) { item in
-                    HStack {
-                        Spacer()
-                        Text("\(String(describing: item.data))")
-                    }
+        LabeledContent("Pointer") {
+            VStack(alignment: .trailing, spacing: 10) {
+                ForEach(configData.pointingDevices) { item in
+                    Label(item.data.description, systemImage: "cursorarrow.motionlines")
                 }
-                .frame(width:400)
-                
-                VStack {
-                    Spacer()
-                    Button {
-                        showingEditView.toggle()
-                    } label: {
-                        Image(systemName: "slider.vertical.3")
-                    }
-                }
+                Button("Manage Pointer…", systemImage: "slider.horizontal.3") { showingEditView = true }
+                    .accessibilityHint("Configure the guest pointing device")
             }
         }
     }

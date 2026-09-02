@@ -20,24 +20,13 @@ struct VMConfigurationAudioDevicesView: View {
     }
     var content: some View {
         
-        LabeledContent("Audio Devices") {
-            VStack(alignment: .trailing) {
-                List(configData.audioDevices) { item in
-                    HStack {
-                        Spacer()
-                        Text("\(String(describing: item.data))")
-                    }
+        LabeledContent("Audio") {
+            VStack(alignment: .trailing, spacing: 10) {
+                ForEach(configData.audioDevices) { item in
+                    Label(item.data.description, systemImage: item.data.type.systemImage)
                 }
-                .frame(width:400)
-                
-                VStack {
-                    Spacer()
-                    Button {
-                        showingEditView.toggle()
-                    } label: {
-                        Image(systemName: "slider.vertical.3")
-                    }
-                }
+                Button("Manage Audio…", systemImage: "slider.horizontal.3") { showingEditView = true }
+                    .accessibilityHint("Configure guest microphone and speaker access")
             }
         }
     }

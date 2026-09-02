@@ -21,25 +21,15 @@ struct VMConfigurationStorageDevicesView: View {
     }
     
     var content: some View {
-        LabeledContent("Storage Devices") {
-            VStack(alignment: .trailing) {
-                List(configData.storageDevices) { item in
-                    HStack {
-                        Spacer()
-                        Text("\(String(describing: item.data))")
-                    }
+        LabeledContent("Storage") {
+            VStack(alignment: .trailing, spacing: 10) {
+                ForEach(configData.storageDevices) { item in
+                    Label(item.data.description, systemImage: item.data.type == .Block ? "internaldrive" : "opticaldiscdrive")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
-                .frame(width:400)
-                
-                HStack {
-                    Spacer()
-                    Button {
-                        showingEditView.toggle()
-                    } label: {
-                        Image(systemName: "slider.vertical.3")
-                    }
-                    
-                }
+                Button("Manage Storage…", systemImage: "slider.horizontal.3") { showingEditView = true }
+                    .accessibilityHint("Add or remove virtual disks and installation media")
             }
         }
     }
