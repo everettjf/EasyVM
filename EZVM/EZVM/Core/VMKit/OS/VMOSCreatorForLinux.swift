@@ -145,6 +145,8 @@ final class VMOSCreatorForLinux: VMOSCreator {
 
             // keyboards
             virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
+
+            VMUSBControllerSupport.addEmptyXHCIController(to: virtualMachineConfiguration)
             
             // consoleDevices
             virtualMachineConfiguration.consoleDevices = [createSpiceAgentConsoleDeviceConfiguration()]

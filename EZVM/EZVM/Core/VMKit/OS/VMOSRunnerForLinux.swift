@@ -83,6 +83,10 @@ class VMOSRunnerForLinux : VMOSRunner {
         // keyboards
         virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
 
+        // Keep passthrough opt-in and hot-pluggable. An empty XHCI controller
+        // does not capture a host device or change the guest boot dependency.
+        VMUSBControllerSupport.addEmptyXHCIController(to: virtualMachineConfiguration)
+
         // consoleDevices
         virtualMachineConfiguration.consoleDevices = [createSpiceAgentConsoleDeviceConfiguration()]
         

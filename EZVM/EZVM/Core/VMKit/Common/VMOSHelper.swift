@@ -54,6 +54,43 @@ enum VMHostCapability: String, CaseIterable, Identifiable {
     }
 }
 
+struct VMUSBDeviceDescriptorSummary: Equatable, Identifiable {
+    let registryID: UInt64
+    let vendorID: UInt16
+    let productID: UInt16
+
+    var id: UInt64 { registryID }
+
+    var title: String {
+        String(format: "USB %04X:%04X", vendorID, productID)
+    }
+
+    static func parse(registryID: UInt64, descriptor: Data) -> VMUSBDeviceDescriptorSummary? {
+        guard descriptor.count >= 12, descriptor[0] >= 12, descriptor[1] == 1 else { return nil }
+        let vendorID = UInt16(descriptor[8]) | (UInt16(descriptor[9]) << 8)
+        let productID = UInt16(descriptor[10]) | (UInt16(descriptor[11]) << 8)
+        return VMUSBDeviceDescriptorSummary(
+            registryID: registryID,
+            vendorID: vendorID,
+            productID: productID
+        )
+    }
+}
+
+enum VMUSBControllerSupport {
+    static func canSaveMachineState(
+        backendSupportsSaveRestore: Bool,
+        attachedAccessoryCount: Int
+    ) -> Bool {
+        backendSupportsSaveRestore && attachedAccessoryCount == 0
+    }
+
+    static func addEmptyXHCIController(to configuration: VZVirtualMachineConfiguration) {
+        guard configuration.usbControllers.isEmpty else { return }
+        configuration.usbControllers = [VZXHCIControllerConfiguration()]
+    }
+}
+
 
 #if arch(arm64)
 enum VMPreinstalledSparseStreamDecoder {
@@ -267,8 +304,6 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
 }
 
 enum EZVMExperimentalFeatures {
-    static let guestProvisioningKey = "experimental.guestProvisioning"
-    static let diskImageKitSnapshotsKey = "experimental.diskImageKitSnapshots"
     static let efiSecureBootKey = "experimental.efiSecureBoot"
     static let customVirGLGraphicsKey = "experimental.customVirGLGraphics"
 

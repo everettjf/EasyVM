@@ -280,7 +280,6 @@ class VMSnapshotManager {
     static func selectedBackend(vmRootPath: URL) -> VMSnapshotBackend {
 #if canImport(DiskImageKit)
         if #available(macOS 27.0, *),
-           UserDefaults.standard.bool(forKey: EZVMExperimentalFeatures.diskImageKitSnapshotsKey),
            configuredASIFBaseImageURLs(vmRootPath: vmRootPath) != nil {
             return .diskImageKitLayered
         }
@@ -499,6 +498,30 @@ class VMSnapshotManager {
             if stored.id != snapshot.id { errors.append("The metadata identifier does not match its directory.") }
         } else {
             errors.append("The snapshot metadata is missing or unreadable.")
+        }
+
+        if snapshot.backend == .diskImageKitLayered {
+            let layersRoot = snapshotsRootURL(vmRootPath: vmRootPath)
+                .appending(path: "Layers")
+                .standardizedFileURL
+            for disk in snapshot.diskLayers {
+                let baseURL = vmRootPath.appending(path: disk.baseImageName).standardizedFileURL
+                guard baseURL.deletingLastPathComponent() == vmRootPath.standardizedFileURL,
+                      VMDiskImageManager.existingASIFImageHasValidHeader(url: baseURL) else {
+                    errors.append("The ASIF base image is missing or invalid: \(disk.baseImageName)")
+                    continue
+                }
+                for layerPath in disk.layerPaths {
+                    let layerURL = vmRootPath.appending(path: layerPath).standardizedFileURL
+                    guard layerURL.deletingLastPathComponent() == layersRoot else {
+                        errors.append("The ASIF layer escapes the snapshot layer store: \(layerPath)")
+                        continue
+                    }
+                    if !VMDiskImageManager.existingASIFImageHasValidHeader(url: layerURL) {
+                        errors.append("The ASIF snapshot layer is missing or invalid: \(layerPath)")
+                    }
+                }
+            }
         }
 
         guard FileManager.default.fileExists(atPath: filesURL.path(percentEncoded: false)) else {

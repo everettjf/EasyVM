@@ -234,19 +234,35 @@ final class VMSnapshotManagerTests: XCTestCase {
     }
 
     func testRawMachineAlwaysUsesAPFSCloneBackend() throws {
-        let oldValue = UserDefaults.standard.object(forKey: EZVMExperimentalFeatures.diskImageKitSnapshotsKey)
-        defer {
-            if let oldValue {
-                UserDefaults.standard.set(oldValue, forKey: EZVMExperimentalFeatures.diskImageKitSnapshotsKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: EZVMExperimentalFeatures.diskImageKitSnapshotsKey)
-            }
-        }
-        UserDefaults.standard.set(true, forKey: EZVMExperimentalFeatures.diskImageKitSnapshotsKey)
         try write("raw", to: "Disk.img")
         try write(#"{"storageDevices":[{"type":"Block","size":1024,"imagePath":"Disk.img","format":"raw"}]}"#, to: "config.json")
 
         XCTAssertEqual(VMSnapshotManager.selectedBackend(vmRootPath: temporaryRoot), .apfsClone)
+    }
+
+    func testASIFMachineAutomaticallyUsesDiskImageKitLayeredSnapshots() throws {
+        let diskURL = temporaryRoot.appendingPathComponent("Disk.asif")
+        try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: diskURL, size: 64 * 1024 * 1024))
+        try write(
+            #"{"storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#,
+            to: "config.json"
+        )
+
+        XCTAssertEqual(VMSnapshotManager.selectedBackend(vmRootPath: temporaryRoot), .diskImageKitLayered)
+        let image = try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: temporaryRoot)
+        XCTAssertNotNil(image)
+
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Layered")
+        )
+        XCTAssertEqual(snapshot.backend, .diskImageKitLayered)
+        XCTAssertEqual(snapshot.diskLayers.count, 1)
+        XCTAssertEqual(snapshot.diskLayers[0].baseImageName, "Disk.asif")
+        XCTAssertEqual(snapshot.diskLayers[0].layerPaths.count, 1)
+        XCTAssertTrue(VMSnapshotManager.auditSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot).isValid)
+
+        try unwrapSuccess(VMSnapshotManager.restoreSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot))
+        XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: temporaryRoot), snapshot.id)
     }
 
     func testInterruptedRestoreRollsBackOriginalBundleAndIsIdempotent() throws {

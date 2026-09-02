@@ -116,6 +116,11 @@ struct VMOSMainVirtualMachineView: View {
                               : "Apple Virtio graphics is active"))
                 }
 
+                Menu("USB", systemImage: "cable.connector") {
+                    usbPassthroughContent
+                }
+                .help("Choose USB accessories to attach directly to this virtual machine")
+
                 if let target = runtimeState.balloonMemoryTarget,
                    let maximum = runtimeState.balloonMemoryMaximum {
                     Menu("Memory", systemImage: "memorychip") {
@@ -191,7 +196,7 @@ struct VMOSMainVirtualMachineView: View {
                 }
 
                 Menu("Power", systemImage: "power") {
-                    if runtimeState.supportsMachineSaveRestore {
+                    if runtimeState.canPersistMachineState {
                         Button("Save State and Stop", systemImage: "square.and.arrow.down") {
                             runtimeState.saveAndStop()
                         }
@@ -260,16 +265,18 @@ struct VMOSMainVirtualMachineView: View {
             }
         }
         .alert(
-            runtimeState.supportsMachineSaveRestore ? "Save State and Close?" : "Shut Down and Close?",
+            runtimeState.canPersistMachineState ? "Save State and Close?" : "Shut Down and Close?",
             isPresented: $isShowingCloseConfirmation
         ) {
             Button("Cancel", role: .cancel) {}
-            Button(runtimeState.supportsMachineSaveRestore ? "Save State and Close" : "Shut Down and Close") {
+            Button(runtimeState.canPersistMachineState ? "Save State and Close" : "Shut Down and Close") {
                 runtimeState.saveAndStopForWindowClose()
             }
         } message: {
-            if runtimeState.supportsMachineSaveRestore {
+            if runtimeState.canPersistMachineState {
                 Text("EZVM will save the virtual machine’s current state, stop it, and then close this window. You can resume from the same state next time.")
+            } else if runtimeState.hasAttachedUSBAccessories {
+                Text("A USB accessory is connected. EZVM will shut down the guest instead of saving machine state so the accessory is released safely.")
             } else {
                 Text("Custom VirGL state cannot be saved. EZVM will ask the guest to shut down, force stop only if it does not respond, and then close this window.")
             }
@@ -322,6 +329,40 @@ struct VMOSMainVirtualMachineView: View {
         case .authenticating: "Authenticating Guest Agent"
         case .ready(let status): "Guest Agent \(status.agentVersion) is ready"
         case .disconnected(let reason): "Guest Agent disconnected: \(reason)"
+        }
+    }
+
+    @ViewBuilder
+    private var usbPassthroughContent: some View {
+        switch runtimeState.usbPassthroughState {
+        case .idle:
+            Text("No USB accessories requested")
+            Button("Choose USB Accessories…", systemImage: "plus") {
+                runtimeState.discoverUSBAccessories()
+            }
+        case .discovering:
+            Text("Waiting for Accessory Access…")
+        case .failed(let message):
+            Text(message)
+            Button("Try Again", systemImage: "arrow.clockwise") {
+                runtimeState.discoverUSBAccessories()
+            }
+        case .ready(let devices, let attachedRegistryIDs):
+            if devices.isEmpty {
+                Text("No approved USB accessories are connected")
+            } else {
+                ForEach(devices) { device in
+                    if attachedRegistryIDs.contains(device.registryID) {
+                        Button("Disconnect \(device.title)", systemImage: "eject") {
+                            runtimeState.detachUSBAccessory(registryID: device.registryID)
+                        }
+                    } else {
+                        Button("Connect \(device.title)", systemImage: "cable.connector.horizontal") {
+                            runtimeState.attachUSBAccessory(registryID: device.registryID)
+                        }
+                    }
+                }
+            }
         }
     }
 

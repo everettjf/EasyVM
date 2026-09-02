@@ -30,6 +30,13 @@ enum VMGuestAgentTransferState: Equatable {
     }
 }
 
+enum VMUSBPassthroughState: Equatable {
+    case idle
+    case discovering
+    case ready(devices: [VMUSBDeviceDescriptorSummary], attachedRegistryIDs: Set<UInt64>)
+    case failed(String)
+}
+
 @MainActor
 @Observable
 final class VMRuntimeState {
@@ -41,6 +48,7 @@ final class VMRuntimeState {
     private(set) var balloonMemoryMaximum: UInt64?
     private(set) var guestAgentState: VMGuestAgentConnectionState = .unavailable
     private(set) var guestAgentTransferState: VMGuestAgentTransferState = .idle
+    private(set) var usbPassthroughState: VMUSBPassthroughState = .idle
     private(set) var graphicsBackendKind: VMGraphicsBackendKind?
     private(set) var graphicsBackendDetail: String?
     private(set) var supportsMachineSaveRestore = true
@@ -56,7 +64,17 @@ final class VMRuntimeState {
     var canResume: Bool { phase == .paused }
     var canRequestStop: Bool { phase == .running || phase == .paused }
     var canSave: Bool {
-        phase.canSaveMachineState(backendSupportsSaveRestore: supportsMachineSaveRestore)
+        phase.canSaveMachineState(backendSupportsSaveRestore: canPersistMachineState)
+    }
+    var hasAttachedUSBAccessories: Bool {
+        guard case let .ready(_, attachedRegistryIDs) = usbPassthroughState else { return false }
+        return !attachedRegistryIDs.isEmpty
+    }
+    var canPersistMachineState: Bool {
+        VMUSBControllerSupport.canSaveMachineState(
+            backendSupportsSaveRestore: supportsMachineSaveRestore,
+            attachedAccessoryCount: hasAttachedUSBAccessories ? 1 : 0
+        )
     }
     var canForceStop: Bool {
         switch phase {
@@ -98,6 +116,10 @@ final class VMRuntimeState {
         guestAgentTransferState = state
     }
 
+    func updateUSBPassthrough(_ state: VMUSBPassthroughState) {
+        usbPassthroughState = state
+    }
+
     func updateGraphicsBackend(
         kind: VMGraphicsBackendKind,
         detail: String?,
@@ -125,6 +147,9 @@ final class VMRuntimeState {
         controller?.downloadFromGuest(sourcePath: sourcePath, destinationURL: destinationURL)
     }
     func cancelGuestAgentTransfer() { controller?.cancelGuestAgentTransfer() }
+    func discoverUSBAccessories() { controller?.discoverUSBAccessories() }
+    func attachUSBAccessory(registryID: UInt64) { controller?.attachUSBAccessory(registryID: registryID) }
+    func detachUSBAccessory(registryID: UInt64) { controller?.detachUSBAccessory(registryID: registryID) }
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {

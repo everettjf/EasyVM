@@ -101,8 +101,6 @@ private struct ControlCenterCommands: Commands {
 #if arch(arm64)
 private struct VirtualizationFeaturesSettingsView: View {
     @State private var capabilityRefreshID = UUID()
-    @AppStorage(EZVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioning = false
-    @AppStorage(EZVMExperimentalFeatures.diskImageKitSnapshotsKey) private var diskImageKitSnapshots = false
     @AppStorage(EZVMExperimentalFeatures.efiSecureBootKey) private var efiSecureBoot = false
     @AppStorage(EZVMExperimentalFeatures.customVirGLGraphicsKey) private var customVirGLGraphics = true
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
@@ -137,8 +135,7 @@ private struct VirtualizationFeaturesSettingsView: View {
             }
 
             Section {
-                featureToggle("macOS guest provisioning", isOn: $guestProvisioning, capability: .guestProvisioning)
-                featureToggle("DiskImageKit snapshots", isOn: $diskImageKitSnapshots, capability: .diskImageKitSnapshots)
+                Label("DiskImageKit snapshots for ASIF disks", systemImage: "checkmark.circle.fill")
                 featureToggle("EFI Secure Boot", isOn: $efiSecureBoot, capability: .efiSecureBoot)
                 featureToggle(
                     "High-performance VirGL graphics for Linux",
@@ -146,9 +143,9 @@ private struct VirtualizationFeaturesSettingsView: View {
                     capability: .customVirtio
                 )
             } header: {
-                Text("Experimental macOS 27 features")
+                Text("macOS 27 features")
             } footer: {
-                Text("On macOS 27 or later, Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack. These features use beta system APIs.")
+                Text("ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack.")
             }
 
             Section {

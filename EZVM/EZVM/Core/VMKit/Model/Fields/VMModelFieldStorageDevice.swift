@@ -105,8 +105,8 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
             return .failure(error)
         }
         
-        // DiskImageKit overlay stacks are opt-in on macOS 27. The URL-based
-        // attachment remains the default and the macOS 26 compatibility path.
+        // ASIF disks automatically use DiskImageKit overlay stacks. Existing
+        // raw-image machines stay on their original URL attachment path.
         let diskImageAttachment: VZDiskImageStorageDeviceAttachment
 #if canImport(DiskImageKit)
         if #available(macOS 27.0, *), format == .asif {

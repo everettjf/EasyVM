@@ -6,6 +6,7 @@
 //
 
 import Cocoa
+import AccessoryAccess
 import Foundation
 import ScreenCaptureKit
 import Virtualization
@@ -29,6 +30,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var screenshotTimer: Timer?
     private var screenshotCaptureInProgress = false
     private var guestAgentClient: VMGuestAgentHostClient?
+    private var usbAccessoryCoordinator: VMUSBAccessoryCoordinator?
     private var runLease: VMRunLease?
     private var releaseSmokeTimer: Timer?
     private var releaseSmokeStage = 0
@@ -674,6 +676,33 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         runtimeState?.updateBalloonMemory(target: device.targetVirtualMachineMemorySize, maximum: maximum)
     }
 
+    func discoverUSBAccessories() {
+        guard VMHostCapability.accessoryAccess.isGranted else {
+            runtimeState?.updateUSBPassthrough(.failed("This build is missing the Accessory Access entitlement."))
+            return
+        }
+        guard virtualMachine != nil, !virtualMachine.usbControllers.isEmpty else {
+            runtimeState?.updateUSBPassthrough(.failed("The virtual machine has no USB controller."))
+            return
+        }
+        if usbAccessoryCoordinator == nil {
+            usbAccessoryCoordinator = VMUSBAccessoryCoordinator(
+                virtualMachine: virtualMachine,
+                update: { [weak self] state in self?.runtimeState?.updateUSBPassthrough(state) }
+            )
+        }
+        runtimeState?.updateUSBPassthrough(.discovering)
+        usbAccessoryCoordinator?.start()
+    }
+
+    func attachUSBAccessory(registryID: UInt64) {
+        usbAccessoryCoordinator?.attach(registryID: registryID)
+    }
+
+    func detachUSBAccessory(registryID: UInt64) {
+        usbAccessoryCoordinator?.detach(registryID: registryID)
+    }
+
     private func updateBalloonMemoryState() {
         guard let device = virtualMachine?.memoryBalloonDevices.first as? VZVirtioTraditionalMemoryBalloonDevice else {
             runtimeState?.updateBalloonMemory(target: nil, maximum: nil)
@@ -741,7 +770,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func saveAndStopMachine() {
-        guard graphicsBackend?.supportsMachineSaveRestore != false else {
+        guard graphicsBackend?.supportsMachineSaveRestore != false,
+              usbAccessoryCoordinator?.hasAttachedDevices != true else {
             // Retain the controller until the guest acknowledges shutdown and
             // the VM delegate releases the Custom Virtio renderer.
             shutdownRetainer = self
@@ -828,6 +858,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func releaseVirtualMachineAfterStop() {
         cancelShutdownFallback()
+        usbAccessoryCoordinator?.stop()
+        usbAccessoryCoordinator = nil
+        runtimeState?.updateUSBPassthrough(.idle)
         stopGuestAgent()
         screenshotTimer?.invalidate()
         screenshotTimer = nil
@@ -1137,6 +1170,128 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
     public func virtualMachine(_ virtualMachine: VZVirtualMachine, networkDevice: VZNetworkDevice, attachmentWasDisconnectedWithError error: Error) {
         
         EZVMLog.error("Network device disconnected: \(error.localizedDescription)", logger: EZVMLog.network)
+    }
+}
+
+@available(macOS 27.0, *)
+@MainActor
+private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener, VZUSBController.Delegate {
+    private weak var virtualMachine: VZVirtualMachine?
+    private let update: (VMUSBPassthroughState) -> Void
+    private var accessories: [UInt64: AAUSBAccessory] = [:]
+    private var attachedDevices: [UInt64: VZUSBPassthroughDevice] = [:]
+    private var isRegistered = false
+
+    var hasAttachedDevices: Bool { !attachedDevices.isEmpty }
+
+    init(virtualMachine: VZVirtualMachine, update: @escaping (VMUSBPassthroughState) -> Void) {
+        self.virtualMachine = virtualMachine
+        self.update = update
+    }
+
+    func start() {
+        guard !isRegistered else {
+            publish()
+            return
+        }
+        AAUSBAccessoryManager.shared.registerListener(self, matchingCriteria: []) { [weak self] accessories, error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let error {
+                    self.update(.failed("Accessory Access failed: \(error.localizedDescription)"))
+                    return
+                }
+                self.isRegistered = true
+                for accessory in accessories {
+                    self.accessories[accessory.registryID] = accessory
+                }
+                self.virtualMachine?.usbControllers.first?.delegate = self
+                self.publish()
+            }
+        }
+    }
+
+    func stop() {
+        guard isRegistered else { return }
+        isRegistered = false
+        AAUSBAccessoryManager.shared.unregisterListener(self) {}
+        accessories.removeAll()
+        attachedDevices.removeAll()
+    }
+
+    func attach(registryID: UInt64) {
+        guard attachedDevices[registryID] == nil,
+              let accessory = accessories[registryID],
+              let controller = virtualMachine?.usbControllers.first else { return }
+        do {
+            let configuration = VZUSBPassthroughDeviceConfiguration(device: accessory)
+            let device = try VZUSBPassthroughDevice(configuration: configuration)
+            controller.attach(device: device) { [weak self] error in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let error {
+                        self.update(.failed("Could not attach the USB accessory: \(error.localizedDescription)"))
+                    } else {
+                        self.attachedDevices[registryID] = device
+                        self.publish()
+                    }
+                }
+            }
+        } catch {
+            update(.failed("Could not prepare the USB accessory: \(error.localizedDescription)"))
+        }
+    }
+
+    func detach(registryID: UInt64) {
+        guard let device = attachedDevices[registryID],
+              let controller = virtualMachine?.usbControllers.first else { return }
+        controller.detach(device: device) { [weak self] error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let error {
+                    self.update(.failed("Could not detach the USB accessory: \(error.localizedDescription)"))
+                } else {
+                    self.attachedDevices.removeValue(forKey: registryID)
+                    self.publish()
+                }
+            }
+        }
+    }
+
+    nonisolated func usbAccessoryDidConnect(_ usbAccessory: AAUSBAccessory) {
+        Task { @MainActor [weak self] in
+            self?.accessories[usbAccessory.registryID] = usbAccessory
+            self?.publish()
+        }
+    }
+
+    nonisolated func usbAccessoryDidDisconnect(_ usbAccessory: AAUSBAccessory) {
+        Task { @MainActor [weak self] in
+            self?.accessories.removeValue(forKey: usbAccessory.registryID)
+            self?.attachedDevices.removeValue(forKey: usbAccessory.registryID)
+            self?.publish()
+        }
+    }
+
+    nonisolated func usbController(
+        _ usbController: VZUSBController,
+        usbPassthroughDeviceDidDisconnect device: VZUSBPassthroughDevice
+    ) {
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let registryID = self.attachedDevices.first(where: { $0.value === device })?.key else { return }
+            self.attachedDevices.removeValue(forKey: registryID)
+            self.publish()
+        }
+    }
+
+    private func publish() {
+        let devices = accessories.values.compactMap {
+            VMUSBDeviceDescriptorSummary.parse(registryID: $0.registryID, descriptor: $0.deviceDescriptorData)
+        }.sorted {
+            ($0.vendorID, $0.productID, $0.registryID) < ($1.vendorID, $1.productID, $1.registryID)
+        }
+        update(.ready(devices: devices, attachedRegistryIDs: Set(attachedDevices.keys)))
     }
 }
 

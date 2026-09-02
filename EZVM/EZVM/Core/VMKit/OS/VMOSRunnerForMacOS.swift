@@ -68,6 +68,8 @@ class VMOSRunnerForMacOS : VMOSRunner {
         // keyboards
         virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
 
+        VMUSBControllerSupport.addEmptyXHCIController(to: virtualMachineConfiguration)
+
         // directorySharingDevices
         virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
         

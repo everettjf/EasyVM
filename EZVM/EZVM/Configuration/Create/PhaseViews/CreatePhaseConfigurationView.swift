@@ -17,9 +17,8 @@ class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
         guard context.configData.osType == .macOS else {
             return .failure("Guest provisioning is available only for macOS virtual machines.")
         }
-        guard #available(macOS 27.0, *),
-              UserDefaults.standard.bool(forKey: EZVMExperimentalFeatures.guestProvisioningKey) else {
-            return .failure("Enable macOS guest provisioning in EZVM Settings on a macOS 27 host.")
+        guard #available(macOS 27.0, *) else {
+            return .failure("macOS guest provisioning requires a macOS 27 host.")
         }
         guard context.formData.provisioningPassword == context.formData.provisioningPasswordConfirmation else {
             return .failure("The guest account passwords do not match.")
@@ -46,7 +45,6 @@ class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
 struct CreatePhaseConfigurationView: View {
     @Environment(VMCreateViewStateObject.self) private var formData
     @Environment(VMConfigurationViewStateObject.self) private var configData
-    @AppStorage(EZVMExperimentalFeatures.guestProvisioningKey) private var guestProvisioningEnabled = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -61,7 +59,7 @@ struct CreatePhaseConfigurationView: View {
     }
 
     private var guestProvisioningAvailable: Bool {
-        VirtualizationCapability.guestProvisioning.isAvailable && guestProvisioningEnabled
+        VirtualizationCapability.guestProvisioning.isAvailable
     }
 
     private var guestProvisioningSection: some View {
@@ -72,7 +70,7 @@ struct CreatePhaseConfigurationView: View {
                     .disabled(!guestProvisioningAvailable)
 
                 if !guestProvisioningAvailable {
-                    Text("Requires a macOS 27 host and the Guest Provisioning experimental feature in Settings. macOS 26 remains unaffected.")
+                    Text("Requires a macOS 27 host.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
