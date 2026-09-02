@@ -148,10 +148,18 @@ the overlays created by the interrupted operation. Recovery also recognizes
 older unjournaled layered-restore backups so upgrading does not expose an
 existing VM to the generic whole-directory rollback path.
 
-This closes the deterministic transaction and rollback gap. Process-level
-fault injection at every phase, low-space runs on real ASIF images, long layer
-chains, compaction, and host-restart testing remain promotion gates for moving
-the feature out of Beta.
+The restore path has deterministic injection coverage at eight durable
+boundaries: journal creation, overlay recording, staging completion, backup
+completion, install-journal persistence, file installation, state persistence,
+and commit persistence. The matrix proves that every pre-commit interruption
+restores the exact prior configuration, snapshot head, base image, and layer
+set, while an interruption after the durable commit preserves the complete new
+state and overlay. It also prevents post-commit cleanup failures from deleting
+an overlay that the committed state already references.
+
+Process-level termination at those boundaries, low-space runs on real ASIF
+images, long layer chains, compaction, and host-restart testing remain promotion
+gates for moving the feature out of Beta.
 
 ### Work plan
 

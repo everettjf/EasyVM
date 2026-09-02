@@ -164,6 +164,17 @@ private struct VMSnapshotVMConfiguration: Decodable {
     let storageDevices: [StorageDevice]
 }
 
+enum VMSnapshotRestoreCheckpoint: CaseIterable {
+    case journalPrepared
+    case overlayRecorded
+    case stagingPrepared
+    case backupMoved
+    case journalInstalling
+    case filesInstalled
+    case stateWritten
+    case journalCommitted
+}
+
 
 class VMSnapshotManager {
 
@@ -456,13 +467,17 @@ class VMSnapshotManager {
         }
     }
 
-    static func restoreSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
+    static func restoreSnapshot(
+        vmRootPath: URL,
+        snapshot: VMSnapshotModel,
+        faultAt checkpoint: VMSnapshotRestoreCheckpoint? = nil
+    ) -> VMOSResultVoid {
         if case let .failure(error) = recoverInterruptedRestore(vmRootPath: vmRootPath) {
             return .failure(error)
         }
 #if canImport(DiskImageKit)
         if #available(macOS 27.0, *), snapshot.backend == .diskImageKitLayered {
-            return restoreLayeredSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
+            return restoreLayeredSnapshot(vmRootPath: vmRootPath, snapshot: snapshot, faultAt: checkpoint)
         }
 #endif
         let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
@@ -786,7 +801,11 @@ class VMSnapshotManager {
     }
 
     @available(macOS 27.0, *)
-    private static func restoreLayeredSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
+    private static func restoreLayeredSnapshot(
+        vmRootPath: URL,
+        snapshot: VMSnapshotModel,
+        faultAt checkpoint: VMSnapshotRestoreCheckpoint?
+    ) -> VMOSResultVoid {
         let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
         guard integrity.isValid else {
             return .failure("Snapshot integrity check failed: \(integrity.errors.joined(separator: "; "))")
@@ -808,6 +827,7 @@ class VMSnapshotManager {
                 previousState: previousState
             )
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+            try injectRestoreFault(checkpoint, at: .journalPrepared)
 
             for disk in snapshot.diskLayers {
                 let baseURL = vmRootPath.appending(path: disk.baseImageName)
@@ -819,6 +839,7 @@ class VMSnapshotManager {
                 state.activeDiskLayers[disk.baseImageName] = disk.layerPaths + [relativePath(layerURL, under: vmRootPath)]
                 transaction.createdLayerPaths = createdLayerURLs.map { relativePath($0, under: vmRootPath) }
                 try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+                try injectRestoreFault(checkpoint, at: .overlayRecorded)
             }
 
             try? fm.removeItem(at: stagingDir)
@@ -832,6 +853,7 @@ class VMSnapshotManager {
             for fileName in snapshotFileNames {
                 try fm.copyItem(at: filesDir.appending(path: fileName), to: stagingDir.appending(path: fileName))
             }
+            try injectRestoreFault(checkpoint, at: .stagingPrepared)
 
             try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
             let currentNonDiskFiles = try listMachineFileNames(vmRootPath: vmRootPath)
@@ -839,23 +861,41 @@ class VMSnapshotManager {
             for fileName in currentNonDiskFiles {
                 try fm.moveItem(at: vmRootPath.appending(path: fileName), to: backupDir.appending(path: fileName))
             }
+            try injectRestoreFault(checkpoint, at: .backupMoved)
             transaction.phase = "installing"
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+            try injectRestoreFault(checkpoint, at: .journalInstalling)
             for fileName in snapshotFileNames {
                 try fm.moveItem(at: stagingDir.appending(path: fileName), to: vmRootPath.appending(path: fileName))
             }
+            try injectRestoreFault(checkpoint, at: .filesInstalled)
 
             state.currentSnapshotID = snapshot.id
             try writeState(state, vmRootPath: vmRootPath)
+            try injectRestoreFault(checkpoint, at: .stateWritten)
             transaction.phase = "committed"
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+            try injectRestoreFault(checkpoint, at: .journalCommitted)
             pruneUnreferencedLayers(vmRootPath: vmRootPath)
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
             try? fm.removeItem(at: transactionURL)
             return .success
         } catch {
-            for url in createdLayerURLs { try? FileManager.default.removeItem(at: url) }
+            if error is VMSnapshotInjectedInterruption {
+                return .failure(error.localizedDescription)
+            }
+            let transactionCommitted = (try? Data(contentsOf: transactionURL))
+                .flatMap { try? jsonDecoder().decode(RestoreTransaction.self, from: $0) }
+                .map { $0.phase == "committed" } ?? false
+            if !transactionCommitted {
+                // A layer may exist before its path can be durably added to the
+                // journal. Remove the local list as well as letting recovery
+                // remove every successfully journaled layer.
+                for url in createdLayerURLs {
+                    try? fm.removeItem(at: url)
+                }
+            }
             switch recoverInterruptedRestore(vmRootPath: vmRootPath) {
             case .success:
                 return .failure("Failed to restore the DiskImageKit snapshot; the previous machine state was restored: \(error.localizedDescription)")
@@ -863,6 +903,14 @@ class VMSnapshotManager {
                 return .failure("Failed to restore the DiskImageKit snapshot, and automatic recovery needs attention: \(recoveryError)")
             }
         }
+    }
+
+    private static func injectRestoreFault(
+        _ requested: VMSnapshotRestoreCheckpoint?,
+        at checkpoint: VMSnapshotRestoreCheckpoint
+    ) throws {
+        guard requested == checkpoint else { return }
+        throw VMSnapshotInjectedInterruption(checkpoint: checkpoint)
     }
 
     @available(macOS 27.0, *)
@@ -1016,5 +1064,13 @@ private enum VMSnapshotError: LocalizedError {
         switch self {
         case .message(let message): message
         }
+    }
+}
+
+private struct VMSnapshotInjectedInterruption: LocalizedError {
+    let checkpoint: VMSnapshotRestoreCheckpoint
+
+    var errorDescription: String? {
+        "Injected layered restore interruption at \(checkpoint)."
     }
 }

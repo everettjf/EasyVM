@@ -349,6 +349,66 @@ final class VMSnapshotManagerTests: XCTestCase {
         ))
     }
 
+    func testLayeredRestoreRecoversAtEveryTransactionCheckpoint() throws {
+        for checkpoint in VMSnapshotRestoreCheckpoint.allCases {
+            let root = temporaryRoot.appendingPathComponent(String(describing: checkpoint), isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            let diskURL = root.appendingPathComponent("Disk.asif")
+            try unwrapSuccess(VMDiskImageManager.create(format: .asif, at: diskURL, size: 64 * 1024 * 1024))
+
+            let targetConfig = #"{"marker":"target","storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#
+            let currentConfig = #"{"marker":"current","storageDevices":[{"type":"Block","size":67108864,"imagePath":"Disk.asif","format":"asif"}]}"#
+            try Data(targetConfig.utf8).write(to: root.appendingPathComponent("config.json"))
+            _ = try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root)
+            let target = try unwrapSuccess(
+                VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Target")
+            )
+            try Data(currentConfig.utf8).write(to: root.appendingPathComponent("config.json"))
+            let current = try unwrapSuccess(
+                VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Current")
+            )
+            let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: root)
+                .appendingPathComponent("Layers", isDirectory: true)
+            let layersBeforeRestore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+
+            if case .success = VMSnapshotManager.restoreSnapshot(
+                vmRootPath: root,
+                snapshot: target,
+                faultAt: checkpoint
+            ) {
+                XCTFail("Expected injected interruption at \(checkpoint)")
+            }
+            XCTAssertTrue(FileManager.default.fileExists(
+                atPath: root.appendingPathComponent(".restore-transaction.json").path
+            ))
+
+            try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: root))
+
+            let committed = checkpoint == .journalCommitted
+            let restoredConfig = try String(
+                contentsOf: root.appendingPathComponent("config.json"),
+                encoding: .utf8
+            )
+            XCTAssertEqual(restoredConfig, committed ? targetConfig : currentConfig, "Checkpoint: \(checkpoint)")
+            XCTAssertEqual(
+                VMSnapshotManager.currentSnapshotID(vmRootPath: root),
+                committed ? target.id : current.id,
+                "Checkpoint: \(checkpoint)"
+            )
+            XCTAssertTrue(FileManager.default.fileExists(atPath: diskURL.path), "Checkpoint: \(checkpoint)")
+            let layersAfterRecovery = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+            if committed {
+                XCTAssertEqual(layersAfterRecovery.count, layersBeforeRestore.count + 1, "Checkpoint: \(checkpoint)")
+                XCTAssertTrue(layersBeforeRestore.isSubset(of: layersAfterRecovery), "Checkpoint: \(checkpoint)")
+            } else {
+                XCTAssertEqual(layersAfterRecovery, layersBeforeRestore, "Checkpoint: \(checkpoint)")
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-staging").path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-backup").path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-transaction.json").path))
+        }
+    }
+
     func testProtectedSnapshotCannotBeDeletedUntilUnprotected() throws {
         try write("disk", to: "Disk.img")
         let snapshot = try unwrapSuccess(
