@@ -1247,9 +1247,12 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     }
 
     func stop() {
-        guard isRegistered else { return }
+        virtualMachine?.usbControllers.first?.delegate = nil
+        let shouldUnregister = isRegistered
         isRegistered = false
-        AAUSBAccessoryManager.shared.unregisterListener(self) {}
+        if shouldUnregister {
+            AAUSBAccessoryManager.shared.unregisterListener(self) {}
+        }
         accessories.removeAll()
         attachedDevices.removeAll()
     }
@@ -1314,7 +1317,14 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     ) {
         Task { @MainActor [weak self] in
             guard let self,
-                  let registryID = self.attachedDevices.first(where: { $0.value === device })?.key else { return }
+                  let registryID = VMUSBControllerSupport.registryID(
+                    forDisconnected: device,
+                    in: self.attachedDevices
+                  ) else { return }
+            EZVMLog.info(
+                "USB passthrough device disconnected unexpectedly (registry ID: \(registryID)).",
+                logger: EZVMLog.lifecycle
+            )
             self.attachedDevices.removeValue(forKey: registryID)
             self.publish()
         }

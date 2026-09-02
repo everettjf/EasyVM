@@ -63,6 +63,7 @@ final class VMOSCreatorForLinux: VMOSCreator {
     private func setupVirtualMachine(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
         return try await withCheckedThrowingContinuation({ continuation in
             let virtualMachineConfiguration = VZVirtualMachineConfiguration()
+            VMConfigurationIdentity.apply(machineName: model.config.name, to: virtualMachineConfiguration)
 
             // platform (DIFF)
             do {

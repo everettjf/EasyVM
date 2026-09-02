@@ -18,6 +18,7 @@ class VMOSRunnerForLinux : VMOSRunner {
     ) -> VMOSResult<VZVirtualMachineConfiguration, String> {
         
         let virtualMachineConfiguration = VZVirtualMachineConfiguration()
+        VMConfigurationIdentity.apply(machineName: model.config.name, to: virtualMachineConfiguration)
 
         // platform
         let platformResult = createLinuxPlatformConfiguration(model: model)

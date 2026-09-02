@@ -8,6 +8,11 @@ uses evidence-based promotion rules: compiling against an API is not enough;
 a feature becomes stable only after the final signed Homebrew artifact passes
 the relevant real-VM scenario.
 
+The product-quality gates for the five macOS 27 core journeys are maintained
+separately in the [macOS 27 productization plan](MACOS_27_PRODUCTIZATION_PLAN.md).
+That document takes precedence when API-coverage work competes with making an
+existing journey reliable, understandable, recoverable, or polished.
+
 ## 1.0.4 baseline
 
 The next cycle starts with these foundations already delivered:

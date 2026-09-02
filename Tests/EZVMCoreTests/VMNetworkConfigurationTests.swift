@@ -44,6 +44,39 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertTrue(configuration.usbControllers[0].usbDevices.isEmpty)
     }
 
+    func testUSBControllerDisconnectMatchesTheExactAttachedDevice() {
+        final class Device {}
+        let disconnected = Device()
+        let other = Device()
+        let devices: [UInt64: Device] = [17: disconnected, 42: other]
+
+        XCTAssertEqual(
+            VMUSBControllerSupport.registryID(forDisconnected: disconnected, in: devices),
+            17
+        )
+        XCTAssertNil(
+            VMUSBControllerSupport.registryID(forDisconnected: Device(), in: devices)
+        )
+    }
+
+    func testVirtualMachineLabelTrimsWhitespaceAndAppliesToConfiguration() {
+        let configuration = VZVirtualMachineConfiguration()
+        VMConfigurationIdentity.apply(machineName: "  Development VM\n", to: configuration)
+
+        XCTAssertEqual(configuration.label, "Development VM")
+    }
+
+    func testVirtualMachineLabelRejectsBlankNames() {
+        XCTAssertNil(VMConfigurationIdentity.label(for: " \n\t "))
+    }
+
+    func testVirtualMachineLabelIsLimitedToSixtyFourCharacters() {
+        let label = VMConfigurationIdentity.label(for: String(repeating: "虚", count: 80))
+
+        XCTAssertEqual(label?.count, VMConfigurationIdentity.maximumLabelLength)
+        XCTAssertEqual(label, String(repeating: "虚", count: 64))
+    }
+
     func testHostCapabilitiesRecognizeExpectedEntitlements() {
         XCTAssertEqual(
             VMHostCapability.virtualization.grantedEntitlementKey { $0 == "com.apple.security.virtualization" },

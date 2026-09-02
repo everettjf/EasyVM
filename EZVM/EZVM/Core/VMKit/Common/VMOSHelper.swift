@@ -87,6 +87,27 @@ enum VMUSBControllerSupport {
         guard configuration.usbControllers.isEmpty else { return }
         configuration.usbControllers = [VZXHCIControllerConfiguration()]
     }
+
+    static func registryID<Device: AnyObject>(
+        forDisconnected device: Device,
+        in attachedDevices: [UInt64: Device]
+    ) -> UInt64? {
+        attachedDevices.first(where: { $0.value === device })?.key
+    }
+}
+
+enum VMConfigurationIdentity {
+    static let maximumLabelLength = 64
+
+    static func label(for machineName: String) -> String? {
+        let trimmed = machineName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maximumLabelLength))
+    }
+
+    static func apply(machineName: String, to configuration: VZVirtualMachineConfiguration) {
+        configuration.label = label(for: machineName)
+    }
 }
 
 /// Tracks whether a VM bundle belongs to the current creation attempt so a
