@@ -3,42 +3,54 @@ import Observation
 
 #if arch(arm64)
 
-private struct VMCreateGuideStepRow: View {
-    let systemImage: String
-    let name: String
-    let subtitle: String
-    let index: Int
-    let currentIndex: Int
-
-    private var isCurrent: Bool { index == currentIndex }
-    private var isComplete: Bool { index < currentIndex }
+private struct VMCreateGuideProgressView: View {
+    let steps: [VMCreateStepperGuideItem]
+    let currentStepID: UUID?
+    let completedStepIDs: Set<UUID>
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle().fill(circleColor).frame(width: 30, height: 30)
-                Image(systemName: isComplete ? "checkmark" : systemImage)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(isCurrent || isComplete ? Color.white : Color.secondary)
+        HStack(spacing: 0) {
+            ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                if index > 0 {
+                    Rectangle()
+                        .fill(completedStepIDs.contains(step.id) ? Color.green : Color.secondary.opacity(0.22))
+                        .frame(height: 1)
+                        .accessibilityHidden(true)
+                }
+
+                VStack(spacing: 5) {
+                    ZStack {
+                        Circle()
+                            .fill(circleColor(for: step.id))
+                            .frame(width: 14, height: 14)
+                        if completedStepIDs.contains(step.id) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    Text(step.name)
+                        .font(.caption2)
+                        .foregroundStyle(step.id == currentStepID ? .primary : .secondary)
+                        .lineLimit(1)
+                }
+                .frame(minWidth: 70)
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(accessibilityValue(for: step.id))
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(name)
-                    .font(.callout.weight(isCurrent ? .semibold : .medium))
-                    .foregroundStyle(isCurrent ? .primary : .secondary)
-                Text(subtitle).font(.caption).foregroundStyle(.tertiary).lineLimit(2)
-            }
-            Spacer(minLength: 0)
         }
-        .padding(12)
-        .background(isCurrent ? Color.accentColor.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(isCurrent ? "Current step" : (isComplete ? "Completed" : "Not started"))
     }
 
-    private var circleColor: Color {
-        if isCurrent { return .accentColor }
-        if isComplete { return .green }
-        return .secondary.opacity(0.12)
+    private func circleColor(for id: UUID) -> Color {
+        if completedStepIDs.contains(id) { return .green }
+        if id == currentStepID { return .accentColor }
+        return .secondary.opacity(0.20)
+    }
+
+    private func accessibilityValue(for id: UUID) -> String {
+        if completedStepIDs.contains(id) { return "Completed" }
+        if id == currentStepID { return "Current step" }
+        return "Not started"
     }
 }
 
@@ -68,6 +80,7 @@ struct VMCreateStepperGuideItem: Identifiable {
     let handler: any VMCreateStepperGuidePhaseHandler
     var nextTitle: String? = nil
     var autoAdvanceOnSuccess = false
+    var participatesInSetupProgress = true
 }
 
 @MainActor
@@ -112,8 +125,8 @@ struct VMCreateStepperGuideView: View {
             VMCreateStepperGuideItem(systemImage: "desktopcomputer", name: "System", subtitle: "Choose OS and image", content: AnyView(CreatePhaseSystemView()), handler: CreatePhaseSystemViewHandler()),
             VMCreateStepperGuideItem(systemImage: "tag", name: "Name & Location", subtitle: "Name and save location", content: AnyView(CreatePhaseNameLocationView()), handler: CreatePhaseNameLocationViewHandler()),
             VMCreateStepperGuideItem(systemImage: "slider.horizontal.3", name: "Configuration", subtitle: "Hardware and devices", content: AnyView(CreatePhaseConfigurationView()), handler: CreatePhaseConfigurationViewHandler(), nextTitle: "Create"),
-            VMCreateStepperGuideItem(systemImage: "arrow.down.circle", name: "Creating", subtitle: "Download and install once", content: AnyView(CreatePhaseCreatingView()), handler: CreatePhaseCreatingViewHandler(), autoAdvanceOnSuccess: true),
-            VMCreateStepperGuideItem(systemImage: "checkmark.seal", name: "Completion", subtitle: "Ready to run", content: AnyView(CreatePhaseCompleteView()), handler: CreatePhaseCompleteViewHandler()),
+            VMCreateStepperGuideItem(systemImage: "arrow.down.circle", name: "Creating", subtitle: "Download and install once", content: AnyView(CreatePhaseCreatingView()), handler: CreatePhaseCreatingViewHandler(), autoAdvanceOnSuccess: true, participatesInSetupProgress: false),
+            VMCreateStepperGuideItem(systemImage: "checkmark.seal", name: "Completion", subtitle: "Ready to run", content: AnyView(CreatePhaseCompleteView()), handler: CreatePhaseCompleteViewHandler(), participatesInSetupProgress: false),
         ]
         self.steps = steps
         _stepperState = State(initialValue: VMCreateStepperGuideStateObject(stepCount: steps.count))
@@ -122,13 +135,10 @@ struct VMCreateStepperGuideView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            mainContent
-        }
+        mainContent
         .environment(formData)
         .environment(configData)
-        .frame(minWidth: 860, idealWidth: 960, minHeight: 600, idealHeight: 660)
+        .frame(minWidth: 760, idealWidth: 900, minHeight: 620, idealHeight: 680)
         .alert("Unable to Continue", isPresented: $showingAlert) {
             Button("OK") {}
         } message: {
@@ -148,76 +158,78 @@ struct VMCreateStepperGuideView: View {
         }
     }
 
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 5) {
-                Image(systemName: "shippingbox.fill").font(.title2).foregroundStyle(Color.accentColor)
-                Text("New Virtual Machine").font(.title3.weight(.semibold))
-                Text("Guided setup for macOS and Linux").font(.caption).foregroundStyle(.secondary)
-            }
-            .padding(.bottom, 22)
-
-            ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
-                VMCreateGuideStepRow(systemImage: step.systemImage, name: step.name, subtitle: step.subtitle, index: index, currentIndex: stepperState.current)
-            }
-            Spacer(minLength: 12)
-            Button { closeGuide() } label: {
-                Label(closeButtonTitle, systemImage: formData.canCancelCreation ? "stop.fill" : "xmark")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(!canCloseGuide)
-            .accessibilityIdentifier("create-guide-sidebar-close")
-        }
-        .frame(width: 220)
-        .padding(20)
-        .background(.regularMaterial)
-    }
-
     private var mainContent: some View {
         VStack(spacing: 0) {
             steps[stepperState.current].content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(28)
+                .padding(.horizontal, 42)
+                .padding(.vertical, 28)
             Divider()
             footer
         }
     }
 
     private var footer: some View {
-        HStack(spacing: 12) {
-            Text(stepStatusMessage)
-                .font(.caption)
-                .foregroundStyle(stepFailed ? Color.red : Color.secondary)
-                .lineLimit(2)
-            Spacer()
-            if stepperState.canMovePrevious {
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                Text(stepStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(stepFailed ? Color.red : Color.secondary)
+                    .lineLimit(2)
+                Spacer()
+                if stepperState.canMovePrevious && isSetupStep {
+                    Button {
+                        stepperState.movePreviousStep()
+                        disableNext = false
+                        stepFailed = false
+                        stepStatusMessage = ""
+                    } label: {
+                        Label("Previous", systemImage: "chevron.left")
+                    }
+                    .disabled(isStepInitializing || formData.disablePreviousButton)
+                }
                 Button {
-                    stepperState.movePreviousStep()
-                    disableNext = false
-                    stepFailed = false
-                    stepStatusMessage = ""
+                    if stepFailed { retryCurrentStep() } else { tryMoveNextStep() }
                 } label: {
-                    Label("Previous", systemImage: "chevron.left")
+                    HStack {
+                        Text(nextButtonText)
+                        Image(systemName: stepFailed ? "arrow.clockwise" : "chevron.right")
+                    }
+                    .frame(minWidth: 90)
                 }
-                .disabled(isStepInitializing || formData.disablePreviousButton)
+                .disabled(isStepInitializing || disableNext)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("create-guide-next")
             }
-            Button {
-                if stepFailed { retryCurrentStep() } else { tryMoveNextStep() }
-            } label: {
-                HStack {
-                    Text(nextButtonText)
-                    Image(systemName: stepFailed ? "arrow.clockwise" : "chevron.right")
-                }
-                .frame(minWidth: 90)
+
+            if isSetupStep {
+                VMCreateGuideProgressView(
+                    steps: setupSteps,
+                    currentStepID: steps[stepperState.current].id,
+                    completedStepIDs: completedSetupStepIDs
+                )
+                .frame(maxWidth: 560)
+            } else {
+                Text(steps[stepperState.current].subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .disabled(isStepInitializing || disableNext)
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
-            .accessibilityIdentifier("create-guide-next")
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var setupSteps: [VMCreateStepperGuideItem] {
+        steps.filter(\.participatesInSetupProgress)
+    }
+
+    private var isSetupStep: Bool {
+        steps[stepperState.current].participatesInSetupProgress
+    }
+
+    private var completedSetupStepIDs: Set<UUID> {
+        Set(steps.prefix(stepperState.current).filter(\.participatesInSetupProgress).map(\.id))
     }
 
     private var nextButtonText: String {
