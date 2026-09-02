@@ -88,6 +88,12 @@ struct VMOSMainVirtualMachineView: View {
                 .padding(28)
                 .background(.regularMaterial, in: .rect(cornerRadius: 16))
             }
+
+            if runtimeState.guestAgentTransferState.isActive {
+                guestTransferOverlay
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(18)
+            }
         }
         .overlay {
             if isSharedFolderDropTargeted {
@@ -414,6 +420,42 @@ struct VMOSMainVirtualMachineView: View {
         let completedText = ByteCountFormatter.string(fromByteCount: Int64(completed), countStyle: .file)
         let totalText = ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file)
         return "\(completedText) of \(totalText)"
+    }
+
+    @ViewBuilder
+    private var guestTransferOverlay: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(guestTransferOverlayTitle).font(.headline)
+            }
+            if case let .transferring(_, _, completed, total) = runtimeState.guestAgentTransferState,
+               total > 0 {
+                ProgressView(value: Double(completed), total: Double(total))
+                    .frame(width: 280)
+                Text(transferProgress(completed, total))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Button("Cancel Transfer", role: .destructive) {
+                runtimeState.cancelGuestAgentTransfer()
+            }
+            .controlSize(.small)
+        }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 13))
+        .shadow(radius: 12, y: 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("guest-agent-transfer-progress")
+    }
+
+    private var guestTransferOverlayTitle: String {
+        switch runtimeState.guestAgentTransferState {
+        case .preparing(let name): "Preparing \(name)"
+        case .transferring(let direction, let name, _, _):
+            "\(direction == .upload ? "Uploading" : "Downloading") \(name)"
+        default: "File Transfer"
+        }
     }
 
     private func openSSH(address: String) {

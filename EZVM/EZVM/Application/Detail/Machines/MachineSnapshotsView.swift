@@ -368,10 +368,14 @@ struct MachineSnapshotsView: View {
     var body: some View {
         @Bindable var state = state
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(spacing: 10) {
                 Image(systemName: "camera.on.rectangle")
-                Text("Snapshots - \(machineName)")
-                    .fontWeight(.bold)
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Snapshots").font(.title2.weight(.semibold))
+                    Text(machineName).font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
             }
 
@@ -400,7 +404,7 @@ struct MachineSnapshotsView: View {
             }
 
             HStack {
-                TextField(VMSnapshotManager.defaultSnapshotName(), text: $state.newSnapshotName)
+                TextField("Snapshot name", text: $state.newSnapshotName, prompt: Text(VMSnapshotManager.defaultSnapshotName()))
                     .textFieldStyle(.roundedBorder)
                     .onSubmit {
                         if !state.isWorking && !isMachineRunning {
@@ -409,17 +413,12 @@ struct MachineSnapshotsView: View {
                     }
                 Button {
                     state.createSnapshot()
-                } label: {
-                    Image(systemName: "plus.circle")
-                    Text("Create Snapshot")
-                }
+                } label: { Label("Create Snapshot", systemImage: "plus.circle") }
+                .buttonStyle(.borderedProminent)
                 .disabled(state.isWorking || isMachineRunning)
                 Button {
                     state.auditSnapshots()
-                } label: {
-                    Image(systemName: "checkmark.shield")
-                    Text("Audit")
-                }
+                } label: { Label("Audit", systemImage: "checkmark.shield") }
                 .disabled(state.isWorking || state.snapshots.isEmpty)
             }
 
@@ -491,9 +490,12 @@ struct MachineSnapshotsView: View {
                     ProgressView()
                         .controlSize(.small)
                 }
-                Text(state.message)
-                    .font(.caption)
-                    .lineLimit(2)
+                if !state.message.isEmpty {
+                    Label(state.message, systemImage: state.isWorking ? "clock" : "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
                 Spacer()
                 Button {
                     dismiss()
@@ -503,7 +505,7 @@ struct MachineSnapshotsView: View {
             }
         }
         .padding()
-        .frame(width: 600, height: 460)
+        .frame(minWidth: 680, idealWidth: 760, minHeight: 520, idealHeight: 600)
         .confirmationDialog(
             "Restore snapshot \"\(restoringSnapshot?.name ?? "")\" ?",
             isPresented: Binding(get: { restoringSnapshot != nil }, set: { if !$0 { restoringSnapshot = nil } })
