@@ -138,7 +138,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             guard let target = VMImageStore.preparePath(fileName: "macOS-Latest.ipsw") else {
                 return .failure("Unable to prepare the system image cache")
             }
-            if cachedImageIsValid(target, expectedExtension: "ipsw", context: context) {
+            if await cachedImageIsValid(target, expectedExtension: "ipsw", context: context) {
                 context.formData.creationStage = "Using cached macOS image"
                 context.formData.changeProgress(0.35)
                 return .success(target)
@@ -151,17 +151,26 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             guard let target = VMImageStore.preparePath(fileName: "\(item.id).\(ext)") else {
                 return .failure("Unable to prepare the system image cache")
             }
-            if cachedImageIsValid(
+            if await cachedImageIsValid(
                 target,
                 expectedExtension: ext,
                 expectedSize: item.fileSize,
+                expectedSHA256: item.sha256,
                 context: context
             ) {
                 context.formData.creationStage = "Using cached system image"
                 context.formData.changeProgress(0.35)
                 return .success(target)
             }
-            return await downloadImage(osType: item.osType, target: target, remoteURL: item.url, context: context)
+            return await downloadImage(
+                osType: item.osType,
+                target: target,
+                remoteURL: item.url,
+                expectedExtension: ext,
+                expectedSize: item.fileSize,
+                expectedSHA256: item.sha256,
+                context: context
+            )
 
         case .preinstalled:
             return .failure("Preinstalled images use the verified import workflow.")
@@ -172,7 +181,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             guard let target = VMImageStore.preparePath(fileName: fileName) else {
                 return .failure("Unable to prepare the system image cache")
             }
-            if cachedImageIsValid(target, expectedExtension: fallbackExtension, context: context) {
+            if await cachedImageIsValid(target, expectedExtension: fallbackExtension, context: context) {
                 context.formData.creationStage = "Using cached system image"
                 context.formData.changeProgress(0.35)
                 return .success(target)
@@ -185,13 +194,15 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         _ target: URL,
         expectedExtension: String,
         expectedSize: Int64? = nil,
+        expectedSHA256: String? = nil,
         context: VMCreateStepperGuidePhaseContext
-    ) -> Bool {
+    ) async -> Bool {
         guard FileManager.default.fileExists(atPath: target.path(percentEncoded: false)) else { return false }
-        guard let error = VMSystemImageFileValidator.validate(
+        guard let error = await systemImageValidationError(
             target,
             expectedExtension: expectedExtension,
-            expectedSize: expectedSize
+            expectedSize: expectedSize,
+            expectedSHA256: expectedSHA256
         ) else { return true }
         context.formData.addLog("Discarding invalid cached image: \(error)")
         do {
@@ -259,6 +270,9 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         osType: VMOSType,
         target: URL,
         remoteURL: URL?,
+        expectedExtension: String? = nil,
+        expectedSize: Int64? = nil,
+        expectedSHA256: String? = nil,
         context: VMCreateStepperGuidePhaseContext
     ) async -> VMOSResult<URL, String> {
         context.formData.creationStage = "Downloading system image"
@@ -297,11 +311,41 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
 
         switch result {
         case .success:
+            let fallbackExtension = osType == .macOS ? "ipsw" : "iso"
+            if let error = await systemImageValidationError(
+                target,
+                expectedExtension: expectedExtension ?? fallbackExtension,
+                expectedSize: expectedSize,
+                expectedSHA256: expectedSHA256
+            ) {
+                try? FileManager.default.removeItem(at: target)
+                context.formData.addLog("❌ Downloaded image validation failed: \(error)")
+                return .failure("Downloaded system image is invalid: \(error)")
+            }
             context.formData.changeProgress(0.35)
             return .success(target)
         case .failure(let error):
             return .failure(error)
         }
+    }
+
+    private func systemImageValidationError(
+        _ url: URL,
+        expectedExtension: String,
+        expectedSize: Int64?,
+        expectedSHA256: String?
+    ) async -> String? {
+        if let error = VMSystemImageFileValidator.validate(
+            url,
+            expectedExtension: expectedExtension,
+            expectedSize: expectedSize
+        ) {
+            return error
+        }
+        guard let expectedSHA256 else { return nil }
+        return await Task.detached(priority: .utility) {
+            VMSystemImageFileValidator.validateSHA256(url, expectedSHA256: expectedSHA256)
+        }.value
     }
 
     private func attachLinuxInstaller(imagePath: String, context: VMCreateStepperGuidePhaseContext) {

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 import Security
 import Virtualization
 
@@ -1029,6 +1030,27 @@ enum VMSystemImageFileValidator {
             return "The cached system image has the wrong size and must be downloaded again."
         }
         return nil
+    }
+
+    static func validateSHA256(_ url: URL, expectedSHA256: String) -> String? {
+        guard expectedSHA256.count == 64, expectedSHA256.allSatisfy(\.isHexDigit) else {
+            return "The catalog contains an invalid SHA-256 value."
+        }
+        do {
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            var hasher = SHA256()
+            while let data = try handle.read(upToCount: 4 * 1024 * 1024), !data.isEmpty {
+                hasher.update(data: data)
+            }
+            let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+            guard actual == expectedSHA256.lowercased() else {
+                return "The system image SHA-256 does not match the vendor catalog."
+            }
+            return nil
+        } catch {
+            return "The system image could not be hashed: \(error.localizedDescription)"
+        }
     }
 }
 

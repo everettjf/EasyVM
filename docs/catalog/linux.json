@@ -6,7 +6,8 @@
       "detail": "arm64, live server installer",
       "url": "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-live-server-arm64.iso",
       "version": "24.04.4",
-      "fileSize": null
+      "fileSize": 3059724288,
+      "sha256": "9a6ce6d7e66c8abed24d24944570a495caca80b3b0007df02818e13829f27f32"
     },
     {
       "id": "ubuntu-24.04-desktop",
@@ -14,7 +15,8 @@
       "detail": "arm64, graphical desktop installer",
       "url": "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-desktop-arm64.iso",
       "version": "24.04.4",
-      "fileSize": null
+      "fileSize": 3540299776,
+      "sha256": "c2610520bf582976839a1724c669e1cfed0547427be5a0ad12d457b92b46ffbe"
     },
     {
       "id": "debian-13-netinst",

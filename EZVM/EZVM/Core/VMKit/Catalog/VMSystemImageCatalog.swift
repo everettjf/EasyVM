@@ -28,6 +28,7 @@ struct VMSystemImageCatalogItem: Identifiable, Hashable {
     let version: String?
     let build: String?
     let fileSize: Int64?
+    let sha256: String?
 
     init(
         id: String,
@@ -37,7 +38,8 @@ struct VMSystemImageCatalogItem: Identifiable, Hashable {
         urlString: String,
         version: String? = nil,
         build: String? = nil,
-        fileSize: Int64? = nil
+        fileSize: Int64? = nil,
+        sha256: String? = nil
     ) {
         self.id = id
         self.osType = osType
@@ -47,6 +49,7 @@ struct VMSystemImageCatalogItem: Identifiable, Hashable {
         self.version = version
         self.build = build
         self.fileSize = fileSize
+        self.sha256 = sha256
     }
 }
 
@@ -190,6 +193,7 @@ private struct VMLinuxCatalogPayload: Codable {
         let url: URL
         let version: String?
         let fileSize: Int64?
+        let sha256: String?
     }
     let images: [Image]
 }
@@ -242,7 +246,8 @@ final class VMLinuxImageCatalogService {
               let host = image.url.host?.lowercased(),
               allowedDownloadHosts.contains(host),
               image.url.pathExtension.lowercased() == "iso",
-              !image.id.isEmpty, !image.name.isEmpty else { return nil }
+              !image.id.isEmpty, !image.name.isEmpty,
+              image.sha256 == nil || (image.sha256?.count == 64 && image.sha256?.allSatisfy(\.isHexDigit) == true) else { return nil }
         return VMSystemImageCatalogItem(
             id: image.id,
             osType: .linux,
@@ -250,7 +255,8 @@ final class VMLinuxImageCatalogService {
             detail: image.detail,
             urlString: image.url.absoluteString,
             version: image.version,
-            fileSize: image.fileSize
+            fileSize: image.fileSize,
+            sha256: image.sha256?.lowercased()
         )
     }
 
@@ -311,14 +317,18 @@ struct VMSystemImageCatalog {
             osType: .linux,
             name: "Ubuntu Server 24.04 LTS",
             detail: "arm64, live server installer",
-            urlString: "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-live-server-arm64.iso"
+            urlString: "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-live-server-arm64.iso",
+            fileSize: 3_059_724_288,
+            sha256: "9a6ce6d7e66c8abed24d24944570a495caca80b3b0007df02818e13829f27f32"
         ),
         VMSystemImageCatalogItem(
             id: "ubuntu-24.04-desktop",
             osType: .linux,
             name: "Ubuntu Desktop 24.04 LTS",
             detail: "arm64, desktop installer",
-            urlString: "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-desktop-arm64.iso"
+            urlString: "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-desktop-arm64.iso",
+            fileSize: 3_540_299_776,
+            sha256: "c2610520bf582976839a1724c669e1cfed0547427be5a0ad12d457b92b46ffbe"
         ),
         VMSystemImageCatalogItem(
             id: "debian-13-netinst",

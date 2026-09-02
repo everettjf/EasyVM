@@ -8,6 +8,8 @@ expected_version="${2:-}"
 macos_vm="${EZVM_MATRIX_MACOS_VM:-}"
 omarchy_vm="${EZVM_MATRIX_OMARCHY_VM:-}"
 ubuntu_vm="${EZVM_MATRIX_UBUNTU_VM:-}"
+omarchy_enrollment="${EZVM_MATRIX_OMARCHY_ENROLLMENT:-}"
+ubuntu_enrollment="${EZVM_MATRIX_UBUNTU_ENROLLMENT:-}"
 
 fail() {
   echo "verify-macos27-guest-matrix: $*" >&2
@@ -55,11 +57,11 @@ run_linux_guest_gate() {
     "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
 }
 
-run_linux_guest_gate "$omarchy_vm" "${EZVM_MATRIX_OMARCHY_ENROLLMENT:-}"
-run_linux_guest_gate "$ubuntu_vm" "${EZVM_MATRIX_UBUNTU_ENROLLMENT:-}"
+run_linux_guest_gate "$omarchy_vm" "$omarchy_enrollment"
+run_linux_guest_gate "$ubuntu_vm" "$ubuntu_enrollment"
 
 if [[ "${EZVM_MATRIX_REQUIRE_NESTED:-0}" == "1" ]]; then
-  EZVM_RELEASE_ENABLE_NESTED=1 EZVM_RELEASE_REQUIRE_KVM=1 \
+  EZVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
     "$project_root/scripts/verify-release-nested-virtualization.sh" "$app_path" "$omarchy_vm"
 fi
 
