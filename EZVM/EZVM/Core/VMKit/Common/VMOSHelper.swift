@@ -605,6 +605,22 @@ struct VMGuestProvisioningCredential: Codable, Equatable {
     let enablesRemoteLogin: Bool
 }
 
+enum VMGuestProvisioningCredentialPolicy {
+    enum Event {
+        case virtualMachineStarted
+        case userConfirmedSetupCompleted
+    }
+
+    static func shouldDeleteCredential(after event: Event) -> Bool {
+        switch event {
+        case .virtualMachineStarted:
+            false
+        case .userConfirmedSetupCompleted:
+            true
+        }
+    }
+}
+
 enum VMGuestProvisioningCredentialStore {
     private static let service = "com.everettjf.ezvm.guest-provisioning"
 
@@ -643,8 +659,11 @@ enum VMGuestProvisioningCredentialStore {
         }
     }
 
-    static func delete(vmRootPath: URL) {
-        SecItemDelete(baseQuery(vmRootPath: vmRootPath) as CFDictionary)
+    static func delete(vmRootPath: URL) -> VMOSResultVoid {
+        let status = SecItemDelete(baseQuery(vmRootPath: vmRootPath) as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
+            ? .success
+            : .failure(message(for: status))
     }
 
     private static func baseQuery(vmRootPath: URL) -> [String: Any] {

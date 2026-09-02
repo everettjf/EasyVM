@@ -29,6 +29,15 @@ Every core journey must meet the same release bar:
 
 ## 1. macOS guest provisioning
 
+**Current implementation:** EZVM now retains the ThisDeviceOnly Keychain
+credential after `VZVirtualMachine.start` succeeds because the framework does
+not expose a guest-provisioning completion callback. The VM window reports
+that setup is being applied and asks the user to confirm only after they can
+sign in; credential deletion is explicit, fallible, and reflected in runtime
+state. Automated policy tests prevent a future regression to deleting on VM
+start. The signed macOS 27 first-boot, interruption, and recovery matrix below
+is still required before this capability leaves Beta.
+
 ### Product outcome
 
 A user can create a macOS 27 VM, choose whether to automate the initial account

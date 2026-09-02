@@ -380,10 +380,12 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
            model.config.type == .macOS {
             switch VMGuestProvisioningCredentialStore.load(vmRootPath: rootPath) {
             case .failure(let error):
+                runtimeState?.updateMacGuestProvisioning(.failed(error))
                 fail(error)
                 return
             case .success(let credential?):
                 do {
+                    runtimeState?.updateMacGuestProvisioning(.applying(username: credential.username))
                     let provisioning = VZMacGuestProvisioningOptions()
                     provisioning.fullName = credential.fullName
                     provisioning.username = credential.username
@@ -396,11 +398,18 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         Task { @MainActor in
                             guard let self else { return }
                             if let error {
+                                self.runtimeState?.updateMacGuestProvisioning(.failed(error.localizedDescription))
                                 if !self.recoverInvalidEFIBootIfPossible(error: error, rootPath: rootPath, model: model) {
                                     self.fail("Could not start the provisioned virtual machine: \(error.localizedDescription)")
                                 }
                             } else {
-                                VMGuestProvisioningCredentialStore.delete(vmRootPath: rootPath)
+                                // Starting the VM only proves that the options were accepted.
+                                // Virtualization.framework does not publish a callback that
+                                // confirms the guest account has been created, so retain the
+                                // retry credential until the user verifies setup in the guest.
+                                self.runtimeState?.updateMacGuestProvisioning(
+                                    .awaitingConfirmation(username: credential.username)
+                                )
                                 self.didStart(rootPath: rootPath, model: model)
                             }
                         }
@@ -427,6 +436,24 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     }
                 }
             }
+        }
+    }
+
+    func confirmMacGuestProvisioningCompleted() {
+        guard VMGuestProvisioningCredentialPolicy.shouldDeleteCredential(
+            after: .userConfirmedSetupCompleted
+        ), let rootPath else { return }
+
+        switch VMGuestProvisioningCredentialStore.delete(vmRootPath: rootPath) {
+        case .success:
+            runtimeState?.updateMacGuestProvisioning(.completed)
+            EZVMLog.info(
+                "Removed the temporary macOS guest provisioning credential after user confirmation.",
+                logger: EZVMLog.lifecycle
+            )
+        case .failure(let error):
+            runtimeState?.updateMacGuestProvisioning(.failed(error))
+            EZVMLog.error(error, logger: EZVMLog.lifecycle)
         }
     }
 

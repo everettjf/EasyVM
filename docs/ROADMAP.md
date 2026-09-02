@@ -127,7 +127,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Runtime share updates | Partial | Core framework permits share changes; UX is still restart-oriented in places. | Add explicit live/restart-required state. |
 | Linux Rosetta | Stable | Configures a Rosetta directory share when available. | Add guided guest-side `binfmt_misc` setup. |
 | Rosetta translation cache | Stable | Supports caching options on compatible hosts. | Measure impact and document guest requirements. |
-| macOS guest provisioning | Beta | Uses the macOS 27 per-VM opt-in API. The password enters the Keychain only after installation, is device-only, and is deleted after the first successful start. | Complete the signed macOS release-candidate account-creation and retry matrix. |
+| macOS guest provisioning | Beta | Uses the macOS 27 per-VM opt-in API. The password enters the Keychain only after installation, is device-only, and remains available for recovery until the user confirms that guest setup completed. | Complete the signed macOS release-candidate account-creation, interruption, confirmation, and retry matrix. |
 | Linux guest agent | Stable | A versioned, mutually authenticated ARM64 agent and systemd/OpenRC package ship with releases. | Complete longer real-guest soak tests and add more distro packages. |
 | Guest heartbeat and readiness | Partial | Authenticated status, IPs, boot identity, heartbeat, timeout, and reconnect are implemented. | Verify long-running reconnect and suspend/resume behavior in real guests. |
 | Graceful guest operations | Partial | The authenticated agent handles explicit UI shutdown and restart commands. | Add command-result visibility and audit history. |

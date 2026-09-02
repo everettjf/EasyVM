@@ -94,6 +94,11 @@ struct VMOSMainVirtualMachineView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                     .padding(18)
             }
+
+            macGuestProvisioningOverlay
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 16)
+                .padding(.horizontal, 18)
         }
         .overlay {
             if isSharedFolderDropTargeted {
@@ -334,6 +339,68 @@ struct VMOSMainVirtualMachineView: View {
 
     private func memoryDescription(_ bytes: UInt64) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
+    }
+
+    @ViewBuilder
+    private var macGuestProvisioningOverlay: some View {
+        switch runtimeState.macGuestProvisioningState {
+        case .unavailable:
+            EmptyView()
+        case .applying(let username):
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Preparing the macOS account")
+                        .font(.headline)
+                    Text("macOS is applying the first-boot settings for “\(username)”.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: .rect(cornerRadius: 12))
+        case .awaitingConfirmation(let username):
+            HStack(spacing: 12) {
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Confirm macOS setup")
+                        .font(.headline)
+                    Text("After you can sign in as “\(username)”, confirm to remove the temporary password from this Mac’s Keychain.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
+                Button("Setup Complete") {
+                    runtimeState.confirmMacGuestProvisioningCompleted()
+                }
+                .buttonStyle(.borderedProminent)
+                .help("Remove the temporary provisioning credential after verifying the account in the guest")
+            }
+            .frame(maxWidth: 720)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: .rect(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+        case .completed:
+            Label("macOS setup confirmed — temporary password removed", systemImage: "checkmark.circle.fill")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.green)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.regularMaterial, in: Capsule())
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+                .foregroundStyle(.orange)
+                .textSelection(.enabled)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(.regularMaterial, in: .rect(cornerRadius: 12))
+        }
     }
 
     private var guestAgentSymbol: String {

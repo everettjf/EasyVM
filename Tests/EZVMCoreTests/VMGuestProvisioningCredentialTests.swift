@@ -30,4 +30,20 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
 
         XCTAssertEqual(decoded, credential)
     }
+
+    func testCredentialIsRetainedWhenVirtualMachineStarts() {
+        XCTAssertFalse(
+            VMGuestProvisioningCredentialPolicy.shouldDeleteCredential(
+                after: .virtualMachineStarted
+            )
+        )
+    }
+
+    func testCredentialIsDeletedOnlyAfterUserConfirmsSetup() {
+        XCTAssertTrue(
+            VMGuestProvisioningCredentialPolicy.shouldDeleteCredential(
+                after: .userConfirmedSetupCompleted
+            )
+        )
+    }
 }

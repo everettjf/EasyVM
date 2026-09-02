@@ -37,6 +37,14 @@ enum VMUSBPassthroughState: Equatable {
     case failed(String)
 }
 
+enum VMMacGuestProvisioningState: Equatable {
+    case unavailable
+    case applying(username: String)
+    case awaitingConfirmation(username: String)
+    case completed
+    case failed(String)
+}
+
 @MainActor
 @Observable
 final class VMRuntimeState {
@@ -49,6 +57,7 @@ final class VMRuntimeState {
     private(set) var guestAgentState: VMGuestAgentConnectionState = .unavailable
     private(set) var guestAgentTransferState: VMGuestAgentTransferState = .idle
     private(set) var usbPassthroughState: VMUSBPassthroughState = .idle
+    private(set) var macGuestProvisioningState: VMMacGuestProvisioningState = .unavailable
     private(set) var graphicsBackendKind: VMGraphicsBackendKind?
     private(set) var graphicsBackendDetail: String?
     private(set) var supportsMachineSaveRestore = true
@@ -120,6 +129,10 @@ final class VMRuntimeState {
         usbPassthroughState = state
     }
 
+    func updateMacGuestProvisioning(_ state: VMMacGuestProvisioningState) {
+        macGuestProvisioningState = state
+    }
+
     func updateGraphicsBackend(
         kind: VMGraphicsBackendKind,
         detail: String?,
@@ -150,6 +163,7 @@ final class VMRuntimeState {
     func discoverUSBAccessories() { controller?.discoverUSBAccessories() }
     func attachUSBAccessory(registryID: UInt64) { controller?.attachUSBAccessory(registryID: registryID) }
     func detachUSBAccessory(registryID: UInt64) { controller?.detachUSBAccessory(registryID: registryID) }
+    func confirmMacGuestProvisioningCompleted() { controller?.confirmMacGuestProvisioningCompleted() }
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {
