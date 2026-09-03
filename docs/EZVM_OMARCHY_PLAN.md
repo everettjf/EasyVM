@@ -661,7 +661,7 @@ release branch/tag and creates the GitHub release. Omarchy Edition tags use the
 separate `ezvm-omarchy-v<version>` namespace.
 
 Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
-schema-2 `Diagnostics/integration-readiness.json` observation after the authenticated
+schema-3 `Diagnostics/integration-readiness.json` observation after the authenticated
 Guest Agent reports an active desktop, completed provisioning, and every
 profile-required capability. Capability booleans explicitly mean “advertised,”
 not “round trip proven.” The observation binds those live facts to the App
@@ -669,12 +669,16 @@ source revision, factory-image version, Omarchy revision, and Guest Agent
 version. In acceptance mode the Host also writes a random marker through
 VirtioFS, downloads it through the authenticated Agent, uploads a different
 random marker through the Agent, and verifies it on the Host. The report records
-both content digests only after this bidirectional round trip passes.
+both content digests only after this bidirectional round trip passes. It then
+opens a Guest terminal through the authenticated uinput device and runs an
+isolated shared-folder script that proves UTF-8 text and PNG in both directions
+through the actual `NSPasteboard`/SPICE/Wayland clipboard path. Four additional
+content digests are recorded only after those transfers match byte-for-byte.
 `scripts/verify-omarchy-integration-observation.sh` rejects stale,
 version-mismatched, incomplete, or internally inconsistent observations; its
 positive and tamper-rejection cases run in CI. This is machine evidence for the
-integration-ready checkpoint only. It deliberately does not claim that input,
-clipboard, shared-folder, sleep/wake, rollback, or 24-hour scenarios completed;
+integration-ready checkpoint only. It deliberately does not claim that focused
+Command capture, dynamic display, sleep/wake, rollback, or 24-hour scenarios completed;
 those remain separate real actions in the release evidence record.
 
 ### 11.1 Shared-folder real-guest checkpoint (2026-09-03)
@@ -702,6 +706,34 @@ Hyprland startup. Its live schema-2 observation passed the strict validator with
 This closes only the shared-folder integration checkpoint. Clipboard payloads,
 keyboard capture, display resizing, lifecycle recovery, and soak scenarios still
 require their own real-guest evidence.
+
+### 11.2 Clipboard real-guest checkpoint (2026-09-03)
+
+The exact `.6` workspace was retested with App source revision
+`f8cc79444b70a0914272b0a81703a78be3bcbe58`. The first attempts exposed three
+real automation defects that capability-only tests could not see: a literal
+`(nonce)` path caused by missing Swift interpolation, a locked desktop being
+reported as active, and libinput dropping an unrealistically fast burst of
+batched character transitions. The acceptance path now uses a random directory,
+an explicit test-only unlock input when requested, complete per-character evdev
+reports with pacing, and a bounded SPICE propagation window.
+
+The final schema-3 observation passed the strict validator and recorded:
+
+- Host-to-Guest UTF-8 text SHA-256
+  `56576eff2eff7567b83ad5360b9811bcb897c6df6d4a1a9210bf0860d343eb8c`;
+- Guest-to-Host UTF-8 text SHA-256
+  `4a714354ce6888ce0bf26e5a0456294adea3dbcbc6c19c687b5aadc198221630`;
+- matching Host-to-Guest and Guest-to-Host PNG SHA-256
+  `535f3019bc845f4ad326f1e4ada85c78ea641fb8832c2420ad5cf29956012aab`;
+- `clipboardRoundTripPassed=true`, alongside the already proven writable
+  shared-folder round trip.
+
+The probe restored the prior macOS pasteboard and removed all Guest/Host marker
+files after completion. This closes the bidirectional text/PNG clipboard
+checkpoint. The locked-session readiness signal remains tracked for correction
+in the lifecycle/recovery phase rather than being treated as a successful
+interactive desktop.
 
 ## 12. Test and measurement strategy
 
