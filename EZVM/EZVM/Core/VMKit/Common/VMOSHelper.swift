@@ -783,6 +783,7 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let requireVirtioSocket: Bool
     let requireASIFStorage: Bool
     let requireVMNet: Bool
+    let requireConfigurationLabel: Bool
     let requireGuestIPv4: Bool
     let requireMachineStateSupport: Bool
     let saveMachineState: Bool
@@ -807,6 +808,7 @@ enum VMReleaseSmokeTest {
     static let requireVirtioSocketEnvironmentKey = "EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET"
     static let requireASIFStorageEnvironmentKey = "EZVM_RELEASE_REQUIRE_ASIF_STORAGE"
     static let requireVMNetEnvironmentKey = "EZVM_RELEASE_REQUIRE_VMNET"
+    static let requireConfigurationLabelEnvironmentKey = "EZVM_RELEASE_REQUIRE_CONFIGURATION_LABEL"
     static let requireGuestIPv4EnvironmentKey = "EZVM_RELEASE_REQUIRE_GUEST_IPV4"
     static let requireMachineStateSupportEnvironmentKey = "EZVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT"
     static let saveMachineStateEnvironmentKey = "EZVM_RELEASE_SAVE_MACHINE_STATE"
@@ -847,6 +849,7 @@ enum VMReleaseSmokeTest {
             requireVirtioSocket: environment[requireVirtioSocketEnvironmentKey] == "1",
             requireASIFStorage: environment[requireASIFStorageEnvironmentKey] == "1",
             requireVMNet: environment[requireVMNetEnvironmentKey] == "1",
+            requireConfigurationLabel: environment[requireConfigurationLabelEnvironmentKey] == "1",
             requireGuestIPv4: environment[requireGuestIPv4EnvironmentKey] == "1",
             requireMachineStateSupport: environment[requireMachineStateSupportEnvironmentKey] == "1",
             saveMachineState: environment[saveMachineStateEnvironmentKey] == "1",

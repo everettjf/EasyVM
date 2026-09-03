@@ -775,6 +775,12 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
            }) != true {
             return "Release test requires a VMNet network attachment."
         }
+        if smoke.requireConfigurationLabel {
+            let expectedLabel = VMConfigurationIdentity.label(for: model.config.name)
+            guard virtualMachineConfiguration?.label == expectedLabel, expectedLabel != nil else {
+                return "Release test requires the normalized virtual machine label."
+            }
+        }
         if smoke.requireMachineStateSupport,
            let reason = runtimeState?.machineStateUnavailabilityReason {
             return "Release test requires machine-state save and restore support: \(reason)"

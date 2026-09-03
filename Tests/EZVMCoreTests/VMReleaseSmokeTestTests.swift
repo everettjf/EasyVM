@@ -91,6 +91,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertFalse(configuration.requireVirtioSocket)
         XCTAssertFalse(configuration.requireASIFStorage)
         XCTAssertFalse(configuration.requireVMNet)
+        XCTAssertFalse(configuration.requireConfigurationLabel)
         XCTAssertFalse(configuration.requireGuestIPv4)
         XCTAssertFalse(configuration.requireMachineStateSupport)
         XCTAssertFalse(configuration.saveMachineState)
@@ -115,6 +116,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.requireVirtioSocketEnvironmentKey: "1",
             VMReleaseSmokeTest.requireASIFStorageEnvironmentKey: "1",
             VMReleaseSmokeTest.requireVMNetEnvironmentKey: "1",
+            VMReleaseSmokeTest.requireConfigurationLabelEnvironmentKey: "1",
             VMReleaseSmokeTest.requireGuestIPv4EnvironmentKey: "1",
             VMReleaseSmokeTest.requireMachineStateSupportEnvironmentKey: "1",
             VMReleaseSmokeTest.saveMachineStateEnvironmentKey: "1",
@@ -134,6 +136,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertTrue(configuration.requireVirtioSocket)
         XCTAssertTrue(configuration.requireASIFStorage)
         XCTAssertTrue(configuration.requireVMNet)
+        XCTAssertTrue(configuration.requireConfigurationLabel)
         XCTAssertTrue(configuration.requireGuestIPv4)
         XCTAssertTrue(configuration.requireMachineStateSupport)
         XCTAssertTrue(configuration.saveMachineState)
