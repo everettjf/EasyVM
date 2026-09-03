@@ -1452,29 +1452,34 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         do {
             let configuration = VZUSBPassthroughDeviceConfiguration(device: accessory)
             let device = try VZUSBPassthroughDevice(configuration: configuration)
-            controller.attach(device: device) { [weak self] error in
-                Task { @MainActor in
-                    guard let self else { return }
+            Task { @MainActor [weak self] in
+                do {
+                    try await controller.attach(device: device)
+                    guard let self else {
+                        try? await controller.detach(device: device)
+                        return
+                    }
                     guard self.operationTokens[registryID] == operationToken else {
-                        if error == nil {
-                            controller.detach(device: device) { _ in }
-                        }
+                        try? await controller.detach(device: device)
                         return
                     }
                     self.operations.removeValue(forKey: registryID)
                     self.operationTokens.removeValue(forKey: registryID)
-                    if let error {
-                        self.notice = .attachFailed(
-                            deviceTitle: self.title(for: registryID),
-                            detail: VMUSBFailureGuidance.message(
-                                for: Self.failureKind(error),
-                                fallback: error.localizedDescription
-                            )
+                    self.attachedDevices[registryID] = device
+                    self.publish()
+                } catch {
+                    guard let self,
+                          self.operationTokens[registryID] == operationToken else { return }
+                    self.operations.removeValue(forKey: registryID)
+                    self.operationTokens.removeValue(forKey: registryID)
+                    self.notice = .attachFailed(
+                        deviceTitle: self.title(for: registryID),
+                        detail: VMUSBFailureGuidance.message(
+                            for: Self.failureKind(error),
+                            fallback: error.localizedDescription
                         )
-                        EZVMLog.error("USB attach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
-                    } else {
-                        self.attachedDevices[registryID] = device
-                    }
+                    )
+                    EZVMLog.error("USB attach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
                     self.publish()
                 }
             }
@@ -1502,30 +1507,34 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         operationTokens[registryID] = operationToken
         notice = nil
         publish()
-        controller.detach(device: device) { [weak self] error in
-                Task { @MainActor in
-                    guard let self else { return }
-                    guard self.operationTokens[registryID] == operationToken else { return }
-                    self.operations.removeValue(forKey: registryID)
-                    self.operationTokens.removeValue(forKey: registryID)
-                if let error {
-                    let failureKind = Self.failureKind(error)
-                    if VMUSBFailureGuidance.confirmsDeviceIsDisconnected(failureKind) {
-                        self.attachedDevices.removeValue(forKey: registryID)
-                        self.notice = .unexpectedDisconnect(deviceTitle: self.title(for: registryID))
-                    } else {
-                        self.notice = .detachFailed(
-                            deviceTitle: self.title(for: registryID),
-                            detail: VMUSBFailureGuidance.message(
-                                for: failureKind,
-                                fallback: error.localizedDescription
-                            )
-                        )
-                    }
-                    EZVMLog.error("USB detach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
-                } else {
+        Task { @MainActor [weak self] in
+            do {
+                try await controller.detach(device: device)
+                guard let self,
+                      self.operationTokens[registryID] == operationToken else { return }
+                self.operations.removeValue(forKey: registryID)
+                self.operationTokens.removeValue(forKey: registryID)
+                self.attachedDevices.removeValue(forKey: registryID)
+                self.publish()
+            } catch {
+                guard let self,
+                      self.operationTokens[registryID] == operationToken else { return }
+                self.operations.removeValue(forKey: registryID)
+                self.operationTokens.removeValue(forKey: registryID)
+                let failureKind = Self.failureKind(error)
+                if VMUSBFailureGuidance.confirmsDeviceIsDisconnected(failureKind) {
                     self.attachedDevices.removeValue(forKey: registryID)
+                    self.notice = .unexpectedDisconnect(deviceTitle: self.title(for: registryID))
+                } else {
+                    self.notice = .detachFailed(
+                        deviceTitle: self.title(for: registryID),
+                        detail: VMUSBFailureGuidance.message(
+                            for: failureKind,
+                            fallback: error.localizedDescription
+                        )
+                    )
                 }
+                EZVMLog.error("USB detach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
                 self.publish()
             }
         }
