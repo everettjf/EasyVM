@@ -38,12 +38,13 @@ require_number() {
 minimum_windows="${EZVM_VIRGL_MIN_WINDOWS:-4}"
 maximum_misses="${EZVM_VIRGL_MAX_DRAWABLE_MISSES:-2}"
 maximum_average_present="${EZVM_VIRGL_MAX_AVERAGE_PRESENT_MS:-2.0}"
-maximum_present="${EZVM_VIRGL_MAX_PRESENT_MS:-8.0}"
+maximum_p95_present="${EZVM_VIRGL_MAX_P95_PRESENT_MS:-8.0}"
+maximum_present="${EZVM_VIRGL_MAX_PRESENT_MS:-50.0}"
 maximum_cpu_delta="${EZVM_VIRGL_MAX_CPU_DELTA_PERCENT:-25.0}"
 maximum_rss_delta="${EZVM_VIRGL_MAX_RSS_DELTA_MIB:-512.0}"
 
 [[ "$minimum_windows" =~ ^[0-9]+$ ]] || fail "minimum window budget must be an integer"
-for budget in "$maximum_misses" "$maximum_average_present" "$maximum_present" "$maximum_cpu_delta" "$maximum_rss_delta"; do
+for budget in "$maximum_misses" "$maximum_average_present" "$maximum_p95_present" "$maximum_present" "$maximum_cpu_delta" "$maximum_rss_delta"; do
     require_number "$budget" "performance budget"
 done
 
@@ -51,6 +52,7 @@ windows="$(metric "$candidate" VirGL-Window-Count)"
 failures="$(metric "$candidate" VirGL-Presentation-Failures)"
 misses="$(metric "$candidate" VirGL-Drawable-Misses)"
 average_present="$(metric "$candidate" VirGL-Average-Present-Ms)"
+p95_present="$(metric "$candidate" VirGL-Maximum-Window-P95-Present-Ms)"
 peak_present="$(metric "$candidate" VirGL-Maximum-Present-Ms)"
 
 [[ "$windows" =~ ^[0-9]+$ ]] || fail "candidate has no valid VirGL window count"
@@ -61,8 +63,10 @@ number_ge "$windows" "$minimum_windows" || fail "only $windows VirGL windows wer
 number_le "$misses" "$maximum_misses" || fail "$misses drawable misses exceed the budget of $maximum_misses"
 [[ "$average_present" != "unavailable" ]] || fail "average presentation latency is unavailable"
 require_number "$average_present" "average presentation latency"
+require_number "$p95_present" "maximum window P95 presentation latency"
 require_number "$peak_present" "peak presentation latency"
 number_le "$average_present" "$maximum_average_present" || fail "average presentation latency ${average_present}ms exceeds ${maximum_average_present}ms"
+number_le "$p95_present" "$maximum_p95_present" || fail "maximum window P95 presentation latency ${p95_present}ms exceeds ${maximum_p95_present}ms"
 number_le "$peak_present" "$maximum_present" || fail "peak presentation latency ${peak_present}ms exceeds ${maximum_present}ms"
 
 if [[ -n "$baseline" ]]; then
@@ -90,4 +94,4 @@ if [[ -n "$baseline" ]]; then
     number_le "$rss_delta" "$maximum_rss_delta" || fail "average host RSS regression ${rss_delta} MiB exceeds ${maximum_rss_delta} MiB"
 fi
 
-echo "VirGL performance gate passed: windows=$windows failures=$failures misses=$misses average=${average_present}ms peak=${peak_present}ms"
+echo "VirGL performance gate passed: windows=$windows failures=$failures misses=$misses average=${average_present}ms p95=${p95_present}ms peak=${peak_present}ms"

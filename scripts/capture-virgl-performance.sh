@@ -81,8 +81,8 @@ percentile() {
             { values[NR] = $1 }
             END {
                 if (NR == 0) exit 1
-                index = int((NR - 1) * percentile) + 1
-                printf "%.1f", values[index]
+                slot = int((NR - 1) * percentile) + 1
+                printf "%.1f", values[slot]
             }
         '
 }
@@ -90,8 +90,8 @@ percentile() {
 virgl_summary() {
     awk '
         /VirGL performance: fps=/ {
-            for (index = 1; index <= NF; index++) {
-                field = $index
+            for (field_index = 1; field_index <= NF; field_index++) {
+                field = $field_index
                 gsub(/,$/, "", field)
                 split(field, pair, "=")
                 if (pair[1] == "fps") { fps += pair[2]; if (windows == 0 || pair[2] < min_fps) min_fps = pair[2] }
@@ -100,6 +100,7 @@ virgl_summary() {
                 if (pair[1] == "drawableMisses") misses += pair[2]
                 if (pair[1] == "failures") failures += pair[2]
                 if (pair[1] == "avgPresentMs") average_present += pair[2]
+                if (pair[1] == "p95PresentMs" && pair[2] > maximum_p95_present) maximum_p95_present = pair[2]
                 if (pair[1] == "maxPresentMs" && pair[2] > maximum_present) maximum_present = pair[2]
             }
             windows++
@@ -114,6 +115,7 @@ virgl_summary() {
                 print "VirGL-Drawable-Misses: 0"
                 print "VirGL-Presentation-Failures: 0"
                 print "VirGL-Average-Present-Ms: unavailable"
+                print "VirGL-Maximum-Window-P95-Present-Ms: unavailable"
                 print "VirGL-Maximum-Present-Ms: unavailable"
             } else {
                 printf "VirGL-Average-FPS: %.1f\n", fps / windows
@@ -123,6 +125,7 @@ virgl_summary() {
                 printf "VirGL-Drawable-Misses: %.0f\n", misses
                 printf "VirGL-Presentation-Failures: %.0f\n", failures
                 printf "VirGL-Average-Present-Ms: %.2f\n", average_present / windows
+                printf "VirGL-Maximum-Window-P95-Present-Ms: %.2f\n", maximum_p95_present
                 printf "VirGL-Maximum-Present-Ms: %.2f\n", maximum_present
             }
         }
@@ -151,8 +154,8 @@ virgl_summary() {
     ' "$samples"
     echo "Host-P50-CPU-Percent: $(percentile 1 0.50)"
     echo "Host-P95-CPU-Percent: $(percentile 1 0.95)"
-    echo "Host-P50-RSS-MiB: $(awk '{ print $2 / 1024 }' "$samples" | LC_ALL=C sort -n | awk '{ values[NR] = $1 } END { index = int((NR - 1) * 0.50) + 1; printf "%.1f", values[index] }')"
-    echo "Host-P95-RSS-MiB: $(awk '{ print $2 / 1024 }' "$samples" | LC_ALL=C sort -n | awk '{ values[NR] = $1 } END { index = int((NR - 1) * 0.95) + 1; printf "%.1f", values[index] }')"
+    echo "Host-P50-RSS-MiB: $(awk '{ print $2 / 1024 }' "$samples" | LC_ALL=C sort -n | awk '{ values[NR] = $1 } END { slot = int((NR - 1) * 0.50) + 1; printf "%.1f", values[slot] }')"
+    echo "Host-P95-RSS-MiB: $(awk '{ print $2 / 1024 }' "$samples" | LC_ALL=C sort -n | awk '{ values[NR] = $1 } END { slot = int((NR - 1) * 0.95) + 1; printf "%.1f", values[slot] }')"
     virgl_summary
     echo
     echo "# Per-second samples (%CPU RSS-KiB)"

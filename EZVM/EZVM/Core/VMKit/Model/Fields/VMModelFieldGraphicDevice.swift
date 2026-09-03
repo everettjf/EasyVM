@@ -145,6 +145,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var failuresInWindow: UInt64 = 0
     private var totalPresentationTimeInWindow: TimeInterval = 0
     private var maximumPresentationTimeInWindow: TimeInterval = 0
+    private var presentationDurationsInWindow: [TimeInterval] = []
     private var cursorPosition = CGPoint.zero
     private var cursorHotspot = CGPoint.zero
     private var cursorImageSize = CGSize.zero
@@ -593,6 +594,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
                     let duration = CACurrentMediaTime() - startedAt
                     self.totalPresentationTimeInWindow += duration
                     self.maximumPresentationTimeInWindow = max(self.maximumPresentationTimeInWindow, duration)
+                    self.presentationDurationsInWindow.append(duration)
                     self.presentedFrames &+= 1
                     self.presentedFramesInWindow &+= 1
                     if self.presentedFrames == 1 || self.presentedFrames.isMultiple(of: 600) {
@@ -629,15 +631,24 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         let averageMilliseconds = presentedFramesInWindow == 0
             ? 0
             : totalPresentationTimeInWindow * 1_000 / Double(presentedFramesInWindow)
+        let sortedDurations = presentationDurationsInWindow.sorted()
+        let p95Milliseconds: Double
+        if sortedDurations.isEmpty {
+            p95Milliseconds = 0
+        } else {
+            let percentileIndex = Int(ceil(Double(sortedDurations.count) * 0.95)) - 1
+            p95Milliseconds = sortedDurations[max(0, percentileIndex)] * 1_000
+        }
         let drawable = metalLayer.drawableSize
         let summary = String(
-                format: "VirGL performance: fps=%.1f requested=%llu presented=%llu drawableMisses=%llu failures=%llu avgPresentMs=%.2f maxPresentMs=%.2f drawable=%.0fx%.0f",
+                format: "VirGL performance: fps=%.1f requested=%llu presented=%llu drawableMisses=%llu failures=%llu avgPresentMs=%.2f p95PresentMs=%.2f maxPresentMs=%.2f drawable=%.0fx%.0f",
                 fps,
                 requestedFramesInWindow,
                 presentedFramesInWindow,
                 drawableMissesInWindow,
                 failuresInWindow,
                 averageMilliseconds,
+                p95Milliseconds,
                 maximumPresentationTimeInWindow * 1_000,
                 drawable.width,
                 drawable.height
@@ -655,6 +666,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         failuresInWindow = 0
         totalPresentationTimeInWindow = 0
         maximumPresentationTimeInWindow = 0
+        presentationDurationsInWindow.removeAll(keepingCapacity: true)
     }
 
     private func updateDrawableGeometry() {

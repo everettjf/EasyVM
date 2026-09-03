@@ -57,8 +57,11 @@ Then apply the checked-in health and regression budgets:
 scripts/verify-virgl-performance.sh /tmp/virgl.txt /tmp/apple-virtio.txt
 ```
 
-The gate rejects presentation failures, excessive drawable misses or latency,
-and large host CPU/RSS regressions. It also refuses to compare reports whose
+The gate rejects presentation failures, excessive drawable misses, excessive
+average or per-window P95 latency, and pathological single-frame stalls. P95 is
+the primary smoothness signal; the absolute maximum remains a wider hard-stop
+guard so one scheduler spike does not misclassify an otherwise stable run.
+It also rejects large host CPU/RSS regressions and refuses to compare reports whose
 duration, workload, hardware, or macOS build differ. Thresholds can be tightened
 for a release matrix through the documented `EZVM_VIRGL_MAX_*` environment
 variables in the verifier; loosening them requires recording the reason with
@@ -127,6 +130,27 @@ The final Omarchy/Hyprland validation established a useful local baseline:
   punctuation, obtained a NAT lease and default route, resolved public names,
   completed TLS 1.3/HTTP/2 to `archlinux.org`, and fetched live package update
   metadata through `checkupdates`.
+
+## September 2, 2026 signed idle A/B
+
+The automated COW-clone gate passed with the Developer ID-signed EZVM 2.0.0
+candidate on macOS 27.0 (26A5425a), Mac15,6, using the same Omarchy fixture and
+30-second `hyprland-idle` workload for both backends:
+
+| Metric | Custom VirGL | Apple Virtio |
+| --- | ---: | ---: |
+| Average host CPU | 8.7% | 0.5% |
+| Average host RSS | 180.8 MiB | 153.2 MiB |
+| Average FPS | 60.7 | Not exposed |
+| Minimum five-second FPS | 59.4 | Not exposed |
+| Average presentation | 0.71 ms | Not exposed |
+| Worst-window P95 presentation | 1.15 ms | Not exposed |
+| Absolute peak presentation | 2.80 ms | Not exposed |
+| Drawable misses / presentation failures | 0 / 0 | 0 / 0 |
+
+The 8.2 percentage-point CPU and 27.6 MiB RSS costs are within the checked-in
+idle budgets. This proves a repeatable idle baseline, not interactive browser,
+video, scrolling, or workspace-switching performance.
 
 Do not use a terminal scrollback result as the sole wheel acceptance test.
 Terminal alternate-screen mode, selection state, and application bindings can
