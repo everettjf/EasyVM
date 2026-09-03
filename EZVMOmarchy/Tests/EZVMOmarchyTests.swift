@@ -85,6 +85,38 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(lifecycle.phase, .starting)
     }
 
+    func testPauseAndResumeRequireCompletedMachineTransitions() {
+        var lifecycle = runningLifecycle()
+
+        XCTAssertEqual(lifecycle.handle(.pauseRequested), [.requestPause])
+        XCTAssertEqual(lifecycle.phase, .pausing)
+        XCTAssertEqual(lifecycle.handle(.pauseRequested), [])
+        XCTAssertEqual(lifecycle.handle(.resumeRequested), [])
+
+        XCTAssertEqual(lifecycle.handle(.machinePaused), [])
+        XCTAssertEqual(lifecycle.phase, .paused)
+        XCTAssertEqual(lifecycle.handle(.resumeRequested), [.requestResume])
+        XCTAssertEqual(lifecycle.phase, .resuming)
+        XCTAssertEqual(lifecycle.handle(.resumeRequested), [])
+
+        XCTAssertEqual(lifecycle.handle(.machineStarted), [])
+        XCTAssertEqual(lifecycle.phase, .running)
+    }
+
+    func testPausedMachineCanStopOrRestartWithoutResuming() {
+        var stopping = runningLifecycle()
+        _ = stopping.handle(.pauseRequested)
+        _ = stopping.handle(.machinePaused)
+        XCTAssertEqual(stopping.handle(.stopRequested), [.requestStop, .scheduleForceStop])
+        XCTAssertEqual(stopping.phase, .stopping)
+
+        var restarting = runningLifecycle()
+        _ = restarting.handle(.pauseRequested)
+        _ = restarting.handle(.machinePaused)
+        XCTAssertEqual(restarting.handle(.restartRequested), [.requestStop, .scheduleForceStop])
+        XCTAssertTrue(restarting.restartAfterStop)
+    }
+
     func testFailureCancelsPendingRestartAndCanBeRetried() {
         var lifecycle = runningLifecycle()
         _ = lifecycle.handle(.restartRequested)
