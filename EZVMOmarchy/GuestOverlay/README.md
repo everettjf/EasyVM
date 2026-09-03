@@ -18,3 +18,8 @@ user service. It runs the same signed Agent binary without root privileges and
 registers only currently verified desktop capabilities over a local Unix
 socket. The system Agent authenticates the peer UID with `SO_PEERCRED`, expires
 registrations after 15 seconds, and never exposes a general command channel.
+
+`scripts/build-omarchy-guest-overlay.sh` packages these units into a bounded,
+versioned archive with a machine-readable manifest and per-file SHA-256 values.
+The image pipeline must verify the archive checksum and manifest before copying
+the files into a factory image, then enable both units explicitly.
