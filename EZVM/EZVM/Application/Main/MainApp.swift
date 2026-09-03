@@ -186,7 +186,7 @@ private struct VirtualizationFeaturesSettingsView: View {
     }
 
     @ViewBuilder
-    private func featureToggle(_ title: String, isOn: Binding<Bool>, capability: VirtualizationCapability) -> some View {
+    private func featureToggle(_ title: LocalizedStringKey, isOn: Binding<Bool>, capability: VirtualizationCapability) -> some View {
         Toggle(title, isOn: isOn)
             .disabled(!capability.isAvailable)
     }

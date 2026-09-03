@@ -597,6 +597,21 @@
     "Storage" : {
       "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "存储空间" } } }
     },
+    "High-performance VirGL graphics for Linux" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Linux 高性能 VirGL 图形" } } }
+    },
+    "DiskImageKit snapshots for ASIF disks" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用于 ASIF 磁盘的 DiskImageKit 快照" } } }
+    },
+    "Per-VM EFI Secure Boot" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "每台虚拟机独立的 EFI 安全启动" } } }
+    },
+    "macOS 27 features" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "macOS 27 功能" } } }
+    },
+    "ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack." : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "ASIF 虚拟机会自动使用 DiskImageKit 分层快照。Linux 虚拟机默认使用自定义 Virtio GPU；关闭此选项即可回退到 Apple 图形。macOS 虚拟机始终使用 Apple 图形栈。" } } }
+    },
     "Preparing the macOS account" : {
       "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备 macOS 账户" } } }
     },
