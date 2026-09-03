@@ -5,6 +5,7 @@
 //  Created by everettjf on 2022/10/6.
 //
 
+import AppKit
 import SwiftUI
 
 #if arch(arm64)
@@ -13,7 +14,11 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isDropTargeted = false
     @State private var dropFeedback: String?
+    @State private var copiedMountCommand = false
     let appliesSharedFoldersImmediately: Bool
+
+    private static let linuxMountCommand =
+        "sudo mkdir -p /mnt/ezvm && sudo mount -t virtiofs ezvm_shared /mnt/ezvm"
 
     init(appliesSharedFoldersImmediately: Bool = false) {
         self.appliesSharedFoldersImmediately = appliesSharedFoldersImmediately
@@ -79,6 +84,32 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                         Text(configData.osType == .macOS
                              ? "Choose OK in Settings to share these folders at the next start. macOS mounts them automatically."
                              : "Choose OK in Settings to make these folders available through VirtioFS at the next start.")
+                    }
+                }
+
+                if configData.osType == .linux {
+                    Section {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            Text(Self.linuxMountCommand)
+                                .font(.system(.callout, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Button(copiedMountCommand ? "Copied" : "Copy", systemImage: copiedMountCommand ? "checkmark" : "doc.on.doc") {
+                                let pasteboard = NSPasteboard.general
+                                pasteboard.clearContents()
+                                pasteboard.setString(Self.linuxMountCommand, forType: .string)
+                                copiedMountCommand = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    copiedMountCommand = false
+                                }
+                            }
+                            .controlSize(.small)
+                            .accessibilityHint("Copies the Linux VirtioFS mount command")
+                        }
+                    } header: {
+                        Text("Mount in Linux")
+                    } footer: {
+                        Text("Run once after the guest starts. With one shared folder, its contents appear directly at /mnt/ezvm; with several, each appears as a named folder.")
                     }
                 }
             }
