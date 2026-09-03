@@ -10,6 +10,63 @@ import CryptoKit
 import Security
 import Virtualization
 
+enum VMDiagnosticSanitizer {
+    private static let removedKeys: Set<String> = [
+        "id", "imagepath", "name", "path", "remark"
+    ]
+    private static let secretKeyFragments = [
+        "credential", "password", "secret", "serial", "token"
+    ]
+
+    static func sanitizedConfiguration(data: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: data),
+              JSONSerialization.isValidJSONObject(object),
+              let output = try? JSONSerialization.data(
+                withJSONObject: sanitize(object),
+                options: [.prettyPrinted, .sortedKeys]
+              ) else { return nil }
+        return String(data: output, encoding: .utf8)
+    }
+
+    static func sanitizedLogMessage(
+        _ message: String,
+        homeDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path,
+        machinePaths: [String]
+    ) -> String {
+        ([homeDirectory] + machinePaths)
+            .filter { !$0.isEmpty }
+            .sorted { $0.count > $1.count }
+            .reduce(message) { result, path in
+                result.replacingOccurrences(
+                    of: path,
+                    with: path == homeDirectory ? "<home>" : "<vm-bundle>"
+                )
+            }
+    }
+
+    private static func sanitize(_ value: Any) -> Any {
+        if let dictionary = value as? [String: Any] {
+            return dictionary.reduce(into: [String: Any]()) { result, entry in
+                let normalizedKey = entry.key.lowercased()
+                if removedKeys.contains(normalizedKey) { return }
+                if secretKeyFragments.contains(where: normalizedKey.contains) {
+                    result[entry.key] = "<redacted>"
+                } else if normalizedKey == "networkidentifier" {
+                    result[entry.key] = "<configured>"
+                } else {
+                    result[entry.key] = sanitize(entry.value)
+                }
+            }
+        }
+        if let array = value as? [Any] { return array.map(sanitize) }
+        if let string = value as? String,
+           string.hasPrefix("/") || string.lowercased().hasPrefix("file:") {
+            return "<redacted-path>"
+        }
+        return value
+    }
+}
+
 enum VMHostCapability: String, CaseIterable, Identifiable {
     case virtualization
     case vmnet

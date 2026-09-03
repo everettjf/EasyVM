@@ -179,6 +179,14 @@ then appends at most 160 sanitized characters of framework detail. Full raw
 errors remain in the network log for support without allowing control characters
 or oversized text to dominate the VM window.
 
+Diagnostic export now transforms each machine configuration into a sanitized
+summary instead of copying `config.json`. It removes machine and shared-folder
+names, remarks, UUIDs, image and host paths, secret-like future fields, and
+logical-network names while retaining VMNet mode, interface, subnet, MTU, and
+port rules. Recent logs replace the home directory and registered VM bundle
+paths before export, so a support file remains useful without disclosing the
+user's filesystem layout.
+
 ### Product outcome
 
 The default remains simple NAT. Advanced users can deliberately choose bridged,

@@ -49,12 +49,13 @@ enum EZVMDiagnostics {
             "",
             "# Registered virtual machines"
         ]
-        for path in sharedAppConfigManager.appConfig.rootPaths {
+        let machinePaths = sharedAppConfigManager.appConfig.rootPaths
+        for (index, path) in machinePaths.enumerated() {
             let url = URL(fileURLWithPath: path)
             let config = url.appending(path: "config.json")
-            sections.append("\n## \(url.lastPathComponent)\nPath: \(path)")
+            sections.append("\n## Virtual machine \(index + 1)")
             if let data = try? Data(contentsOf: config),
-               let value = String(data: data, encoding: .utf8) {
+               let value = VMDiagnosticSanitizer.sanitizedConfiguration(data: data) {
                 sections.append(value)
             } else {
                 sections.append("Configuration unavailable")
@@ -65,7 +66,11 @@ enum EZVMDiagnostics {
             let position = store.position(date: Date().addingTimeInterval(-3600))
             if let entries = try? store.getEntries(at: position) {
                 for case let entry as OSLogEntryLog in entries where entry.subsystem == "com.everettjf.ezvm" {
-                    sections.append("\(entry.date.formatted(.iso8601)) [\(entry.category)] \(entry.composedMessage)")
+                    let message = VMDiagnosticSanitizer.sanitizedLogMessage(
+                        entry.composedMessage,
+                        machinePaths: machinePaths
+                    )
+                    sections.append("\(entry.date.formatted(.iso8601)) [\(entry.category)] \(message)")
                 }
             }
         }
