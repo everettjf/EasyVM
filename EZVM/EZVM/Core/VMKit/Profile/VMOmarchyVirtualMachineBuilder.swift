@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Virtualization
 
@@ -73,8 +74,9 @@ public enum VMOmarchyVirtualMachineBuilder {
         }
         configuration.bootLoader = bootLoader
 
+        let machineIdentifierData = try Data(contentsOf: layout.machineIdentifier)
         guard let machineIdentifier = VZGenericMachineIdentifier(
-            dataRepresentation: try Data(contentsOf: layout.machineIdentifier)
+            dataRepresentation: machineIdentifierData
         ) else {
             throw VMOmarchyVirtualMachineBuilderError.invalidMachineIdentifier
         }
@@ -121,7 +123,7 @@ public enum VMOmarchyVirtualMachineBuilder {
 
         let network = VZVirtioNetworkDeviceConfiguration()
         network.attachment = VZNATNetworkDeviceAttachment()
-        network.macAddress = VZMACAddress.randomLocallyAdministered()
+        network.macAddress = try persistentMACAddress(machineIdentifierData: machineIdentifierData)
         configuration.networkDevices = [network]
 
         let audio = VZVirtioSoundDeviceConfiguration()
@@ -132,6 +134,22 @@ public enum VMOmarchyVirtualMachineBuilder {
 
         if validatesConfiguration { try configuration.validate() }
         return configuration
+    }
+
+    /// Derives a stable, locally administered unicast address from the VM's
+    /// durable machine identity. This avoids a second mutable identity file and
+    /// keeps DHCP/device identity stable across launches and restored backups.
+    static func persistentMACAddress(machineIdentifierData: Data) throws -> VZMACAddress {
+        guard !machineIdentifierData.isEmpty else {
+            throw VMOmarchyVirtualMachineBuilderError.invalidMachineIdentifier
+        }
+        var bytes = Array(SHA256.hash(data: Data("ezvm-omarchy-network-v1".utf8) + machineIdentifierData).prefix(6))
+        bytes[0] = (bytes[0] | 0x02) & 0xfe
+        let value = bytes.map { String(format: "%02x", $0) }.joined(separator: ":")
+        guard let address = VZMACAddress(string: value) else {
+            throw VMOmarchyVirtualMachineBuilderError.invalidMachineIdentifier
+        }
+        return address
     }
 }
 

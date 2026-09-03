@@ -64,5 +64,35 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertTrue(clipboard.sharesClipboard)
         XCTAssertEqual(configuration.audioDevices.count, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.efiVariableStore.path))
+
+        let identifierData = try Data(contentsOf: layout.machineIdentifier)
+        let expectedMAC = try VMOmarchyVirtualMachineBuilder.persistentMACAddress(
+            machineIdentifierData: identifierData
+        )
+        let network = try XCTUnwrap(configuration.networkDevices.first as? VZVirtioNetworkDeviceConfiguration)
+        XCTAssertEqual(network.macAddress.string, expectedMAC.string)
+    }
+
+    func testNetworkIdentityIsStableLocalAndUnicast() throws {
+        let identity = Data("durable machine identity".utf8)
+        let first = try VMOmarchyVirtualMachineBuilder.persistentMACAddress(machineIdentifierData: identity)
+        let second = try VMOmarchyVirtualMachineBuilder.persistentMACAddress(machineIdentifierData: identity)
+        let different = try VMOmarchyVirtualMachineBuilder.persistentMACAddress(
+            machineIdentifierData: Data("another machine identity".utf8)
+        )
+
+        XCTAssertEqual(first.string, second.string)
+        XCTAssertNotEqual(first.string, different.string)
+        let firstOctet = try XCTUnwrap(UInt8(first.string.prefix(2), radix: 16))
+        XCTAssertEqual(firstOctet & 0x01, 0, "address must be unicast")
+        XCTAssertEqual(firstOctet & 0x02, 0x02, "address must be locally administered")
+    }
+
+    func testNetworkIdentityRejectsMissingMachineIdentity() {
+        XCTAssertThrowsError(
+            try VMOmarchyVirtualMachineBuilder.persistentMACAddress(machineIdentifierData: Data())
+        ) { error in
+            XCTAssertEqual(error as? VMOmarchyVirtualMachineBuilderError, .invalidMachineIdentifier)
+        }
     }
 }
