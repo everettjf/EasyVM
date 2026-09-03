@@ -363,6 +363,24 @@ enum VMUSBControllerSupport {
         configuration.usbControllers = [VZXHCIControllerConfiguration()]
     }
 
+    /// Invalidating operation tokens is the cancellation boundary available
+    /// for asynchronous USB controller operations. A late attach completion
+    /// observes the missing token and immediately detaches its device instead
+    /// of promoting it into the VM while shutdown is already underway.
+    static func fenceOperationsForMachineStop(
+        operationTokens: inout [UInt64: UUID]
+    ) {
+        operationTokens.removeAll()
+    }
+
+    static func operationIsCurrent(
+        registryID: UInt64,
+        token: UUID,
+        operationTokens: [UInt64: UUID]
+    ) -> Bool {
+        operationTokens[registryID] == token
+    }
+
     static func registryID<Device: AnyObject>(
         forDisconnected device: Device,
         in attachedDevices: [UInt64: Device]

@@ -186,6 +186,12 @@ machine-state saving is unblocked, and the user sees that connection was
 interrupted rather than a false Attached state. The later Accessory Access
 signal or attach continuation is idempotent and cannot overwrite that result.
 
+VM shutdown, force-stop, and saved-state entry now install a USB stop fence
+before starting their framework operation. The fence rejects new user actions
+and invalidates every in-flight operation token. If an asynchronous attach
+still completes after that boundary, its continuation immediately detaches the
+device instead of publishing a late Attached state into a stopping VM.
+
 ### Product outcome
 
 USB passthrough feels like connecting a device to a physical computer: devices

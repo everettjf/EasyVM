@@ -1228,6 +1228,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     func requestStopMachine() {
         guard virtualMachine != nil else { return }
+        usbAccessoryCoordinator?.prepareForMachineStop()
         runtimeState?.update(.stopping)
         markMachineStopping()
         if runtimeState?.guestAgentState.isReady == true {
@@ -1254,6 +1255,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     func forceStopMachine() {
         cancelShutdownFallback()
         lifecycleGeneration += 1
+        usbAccessoryCoordinator?.prepareForMachineStop()
         if let rootPath {
             let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
             VMSavedStateStore.discardCommitted(stateURL: stateURL)
@@ -1292,6 +1294,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             requestStopMachine()
             return
         }
+        usbAccessoryCoordinator?.prepareForMachineStop()
         markMachineStopping()
         shutdownRetainer = self
         saveMachineStateAndStop(rootPath: rootPath)
@@ -1727,6 +1730,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     private var notice: VMUSBPassthroughNotice?
     private var listenerLifecycle = VMUSBListenerLifecycle()
     private var selectionGeneration: UUID?
+    private var isPreparingForMachineStop = false
 
     var hasAttachedDevices: Bool { !attachedDevices.isEmpty }
 
@@ -1736,6 +1740,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     }
 
     func start() {
+        guard !isPreparingForMachineStop else { return }
         guard !listenerLifecycle.isRegistered else {
             publish()
             return
@@ -1771,6 +1776,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     }
 
     func chooseAccessories() {
+        guard !isPreparingForMachineStop else { return }
         guard !listenerLifecycle.isRegistering else { return }
         guard listenerLifecycle.isRegistered else {
             start()
@@ -1796,6 +1802,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     }
 
     func stop() {
+        isPreparingForMachineStop = true
         selectionGeneration = nil
         virtualMachine?.usbControllers.first?.delegate = nil
         let shouldUnregister = listenerLifecycle.stop()
@@ -1812,8 +1819,18 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         notice = nil
     }
 
+    func prepareForMachineStop() {
+        guard !isPreparingForMachineStop else { return }
+        isPreparingForMachineStop = true
+        selectionGeneration = nil
+        VMUSBControllerSupport.fenceOperationsForMachineStop(
+            operationTokens: &operationTokens
+        )
+    }
+
     func attach(registryID: UInt64) {
-        guard operations[registryID] == nil,
+        guard !isPreparingForMachineStop,
+              operations[registryID] == nil,
               attachedDevices[registryID] == nil,
               let accessory = accessories[registryID],
               let controller = virtualMachine?.usbControllers.first else { return }
@@ -1833,7 +1850,11 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                         try? await controller.detach(device: device)
                         return
                     }
-                    guard self.operationTokens[registryID] == operationToken else {
+                    guard VMUSBControllerSupport.operationIsCurrent(
+                        registryID: registryID,
+                        token: operationToken,
+                        operationTokens: self.operationTokens
+                    ) else {
                         if self.pendingDevices[registryID] === device {
                             self.pendingDevices.removeValue(forKey: registryID)
                         }
@@ -1847,7 +1868,11 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     self.publish()
                 } catch {
                     guard let self,
-                          self.operationTokens[registryID] == operationToken else { return }
+                          VMUSBControllerSupport.operationIsCurrent(
+                            registryID: registryID,
+                            token: operationToken,
+                            operationTokens: self.operationTokens
+                          ) else { return }
                     if self.pendingDevices[registryID] === device {
                         self.pendingDevices.removeValue(forKey: registryID)
                     }
@@ -1886,7 +1911,8 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     }
 
     func detach(registryID: UInt64) {
-        guard operations[registryID] == nil,
+        guard !isPreparingForMachineStop,
+              operations[registryID] == nil,
               let device = attachedDevices[registryID],
               let controller = virtualMachine?.usbControllers.first else { return }
         operations[registryID] = .detaching
@@ -1898,14 +1924,22 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             do {
                 try await controller.detach(device: device)
                 guard let self,
-                      self.operationTokens[registryID] == operationToken else { return }
+                      VMUSBControllerSupport.operationIsCurrent(
+                        registryID: registryID,
+                        token: operationToken,
+                        operationTokens: self.operationTokens
+                      ) else { return }
                 self.operations.removeValue(forKey: registryID)
                 self.operationTokens.removeValue(forKey: registryID)
                 self.attachedDevices.removeValue(forKey: registryID)
                 self.publish()
             } catch {
                 guard let self,
-                      self.operationTokens[registryID] == operationToken else { return }
+                      VMUSBControllerSupport.operationIsCurrent(
+                        registryID: registryID,
+                        token: operationToken,
+                        operationTokens: self.operationTokens
+                      ) else { return }
                 self.operations.removeValue(forKey: registryID)
                 self.operationTokens.removeValue(forKey: registryID)
                 let failureKind = Self.failureKind(error)
@@ -1937,7 +1971,9 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
 
     nonisolated func usbAccessoryDidConnect(_ usbAccessory: AAUSBAccessory) {
         Task { @MainActor [weak self] in
-            guard let self, self.listenerLifecycle.acceptsAccessoryCallbacks else { return }
+            guard let self,
+                  !self.isPreparingForMachineStop,
+                  self.listenerLifecycle.acceptsAccessoryCallbacks else { return }
             self.accessories[usbAccessory.registryID] = usbAccessory
             self.publish()
         }

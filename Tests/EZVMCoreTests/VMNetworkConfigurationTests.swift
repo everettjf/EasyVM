@@ -770,6 +770,31 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertEqual(snapshot.operations[7], .detaching)
     }
 
+    func testUSBMachineStopFenceInvalidatesEveryInFlightOperationToken() {
+        let firstToken = UUID()
+        var tokens = [
+            UInt64(7): firstToken,
+            UInt64(42): UUID(),
+        ]
+
+        XCTAssertTrue(VMUSBControllerSupport.operationIsCurrent(
+            registryID: 7,
+            token: firstToken,
+            operationTokens: tokens
+        ))
+
+        VMUSBControllerSupport.fenceOperationsForMachineStop(
+            operationTokens: &tokens
+        )
+
+        XCTAssertTrue(tokens.isEmpty)
+        XCTAssertFalse(VMUSBControllerSupport.operationIsCurrent(
+            registryID: 7,
+            token: firstToken,
+            operationTokens: tokens
+        ))
+    }
+
     func testUnexpectedUSBDisconnectNoticeNamesDevice() {
         let notice = VMUSBPassthroughNotice.unexpectedDisconnect(
             deviceTitle: "USB 1234:ABCD"
