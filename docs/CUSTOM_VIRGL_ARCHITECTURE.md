@@ -142,6 +142,17 @@ to a degraded state and place actionable guidance in the VM window's Graphics
 menu. The VM remains running so the guest is not corrupted or abruptly stopped;
 a successful frame clears the degradation automatically.
 
+### Reset and stop have distinct ownership boundaries
+
+Both transitions cancel scheduled frames and fences, invalidate the scanout,
+destroy renderer contexts, detach guest mappings, and release all resources.
+Reset additionally clears the previous scanout rectangle, cursor position, and
+unacknowledged display event before the same device negotiates again. Stop is
+terminal: it also drops the `VZCustomVirtioDevice` reference so a late dynamic
+resolution request cannot update an object Virtualization.framework is already
+stopping. Pending fenced queue elements still receive a failed completion and
+return to their queue.
+
 ## Failure modes and lessons
 
 ### Typed characters appear only after mouse movement

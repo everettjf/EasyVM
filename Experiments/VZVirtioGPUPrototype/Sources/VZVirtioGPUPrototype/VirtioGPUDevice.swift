@@ -249,6 +249,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
     func customVirtioDeviceWillStop(_ device: VZCustomVirtioDevice) {
         releaseDeviceState(reason: "stop")
+        // A late display-size request must not call update(_:) on a device
+        // after Virtualization.framework has begun stopping it. Reset keeps
+        // the same device object, but stop is a terminal ownership boundary.
+        self.device = nil
     }
 
     func customVirtioDeviceWillPause(_ device: VZCustomVirtioDevice) {
@@ -293,10 +297,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         contexts.removeAll()
         contextResources.removeAll()
         scanoutResourceID = nil
+        scanoutRect = nil
         lastPublishedScanoutResourceID = nil
         lastLoggedScanoutSize = nil
         cursorResourceID = nil
+        cursorPosition = VirtioGPU.CursorPosition(scanoutID: 0, x: 0, y: 0)
         borrowedScanoutResources.removeAll()
+        assertedDisplayEventGeneration = nil
         publishCursor(image: nil, hotX: 0, hotY: 0)
         print("[stage6] released custom Virtio GPU state for \(reason)")
     }

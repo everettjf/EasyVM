@@ -297,6 +297,12 @@ failures. Three consecutive renderer failures mark Custom VirGL as degraded in
 the Graphics menu with recovery guidance; the next successful frame clears the
 condition automatically while the VM continues running.
 
+Custom GPU reset now clears all guest-visible display state, including the
+scanout rectangle, cursor position, and pending display event. Terminal stop
+also releases the framework device reference, preventing late resize work from
+crossing the device ownership boundary while preserving failed completion of
+outstanding fenced queue elements.
+
 ## Shared UX work
 
 The five journeys should feel like one product rather than five framework
