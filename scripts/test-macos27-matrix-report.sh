@@ -26,6 +26,7 @@ ruby -rjson -e '
   abort "missing VMNet IPv4 check" unless report["checks"].include?("vmnet_guest_ipv4")
   abort "missing ASIF portability check" unless report["checks"].include?("asif_export_validate_import_boot")
   abort "missing real low-space check" unless report["checks"].include?("asif_real_low_space_preflight")
+  abort "missing large ASIF check" unless report["checks"].include?("asif_large_sparse_snapshot_restore")
   abort "missing nested check" unless report["checks"].include?("nested_virtualization")
 ' "$report"
 

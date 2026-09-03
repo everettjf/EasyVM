@@ -337,6 +337,13 @@ The snapshot UI reports the maximum active/saved depth and turns the depth
 advisory orange at 32 layers. This is an EZVM maintenance threshold, not an
 Apple framework limit.
 
+A separate 64 GiB sparse-ASIF gate opens the production writable stack, creates
+and audits a layered snapshot, restores changed non-disk state, reopens the
+restored stack, and verifies DiskImageKit still reports the exact 64 GiB logical
+capacity. This exercises large-capacity arithmetic and stack metadata without
+allocating 64 GiB of host storage; guest-written data pressure remains part of
+the signed Ubuntu fixture rather than being inferred from sparse metadata.
+
 VM startup now checks an existing layered chain before the normal idempotent disk
 creation path. If the ASIF base is missing or damaged, EZVM refuses to create a
 blank file at the same path and tells the user to restore the original base. A

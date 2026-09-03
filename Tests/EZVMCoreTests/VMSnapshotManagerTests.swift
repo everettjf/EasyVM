@@ -564,6 +564,55 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertNotNil(try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root))
     }
 
+    func testLargeSparseASIFSnapshotRestorePreservesLogicalCapacity() throws {
+        let root = temporaryRoot.appendingPathComponent("large-sparse", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let diskURL = root.appendingPathComponent("Disk.asif")
+        let logicalSize: UInt64 = 64 * 1024 * 1024 * 1024
+        try unwrapSuccess(VMDiskImageManager.create(
+            format: .asif,
+            at: diskURL,
+            size: logicalSize
+        ))
+        let originalConfig = #"{"marker":"before","storageDevices":[{"type":"Block","size":68719476736,"imagePath":"Disk.asif","format":"asif"}]}"#
+        try Data(originalConfig.utf8).write(to: root.appendingPathComponent("config.json"))
+
+        let initial = try XCTUnwrap(VMSnapshotManager.layeredDiskImage(
+            baseURL: diskURL,
+            vmRootPath: root
+        ))
+        XCTAssertEqual(initial.size, Int(logicalSize))
+        let snapshot = try unwrapSuccess(VMSnapshotManager.createSnapshot(
+            vmRootPath: root,
+            name: "64 GiB"
+        ))
+        XCTAssertTrue(VMSnapshotManager.auditSnapshot(
+            vmRootPath: root,
+            snapshot: snapshot
+        ).isValid)
+
+        let changedConfig = originalConfig.replacingOccurrences(of: "before", with: "after")
+        try Data(changedConfig.utf8).write(to: root.appendingPathComponent("config.json"))
+        try unwrapSuccess(VMSnapshotManager.restoreSnapshot(
+            vmRootPath: root,
+            snapshot: snapshot
+        ))
+
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("config.json"), encoding: .utf8),
+            originalConfig
+        )
+        let restored = try XCTUnwrap(VMSnapshotManager.layeredDiskImage(
+            baseURL: diskURL,
+            vmRootPath: root
+        ))
+        XCTAssertEqual(restored.size, Int(logicalSize))
+        XCTAssertTrue(VMSnapshotManager.auditSnapshot(
+            vmRootPath: root,
+            snapshot: snapshot
+        ).isValid)
+    }
+
     func testASIFBranchRestoreAndLeafDeletionPruneOnlyUnreferencedLayers() throws {
         let root = temporaryRoot.appendingPathComponent("branch-pruning", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

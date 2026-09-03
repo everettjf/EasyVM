@@ -37,6 +37,7 @@ ruby -rjson -e '
     omarchy_virgl ubuntu_guest_agent ubuntu_virgl ubuntu_asif vmnet_shared
     vmnet_guest_ipv4 vmnet_fresh_process_reacquisition asif_snapshot_cross_process_restore
     asif_real_low_space_preflight
+    asif_large_sparse_snapshot_restore
     asif_export_validate_import_boot
   ]
   checks << "nested_virtualization" if ARGV.fetch(5) == "1"
