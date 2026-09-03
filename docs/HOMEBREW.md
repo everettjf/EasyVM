@@ -84,7 +84,10 @@ EZVM_MATRIX_UBUNTU_ENROLLMENT="$HOME/EZVM Test Fixtures/ubuntu-enrollment.json" 
 scripts/verify-macos27-guest-matrix.sh /path/to/EZVM.app 2.0.0
 ```
 
-The script rejects mislabeled fixtures, verifies the app signature,
+The script rejects mislabeled fixtures and, before launching anything, verifies
+that each Linux enrollment is a non-symlink mode-`0600` file bound to that
+fixture's `MachineIdentifier`. It never prints the enrollment token. It then
+verifies the app signature,
 Gatekeeper, entitlements, GUI readiness, and then exercises CLI lifecycle,
 concurrent ownership, forced-exit recovery, saved-state recovery, Linux EFI
 recovery, Guest Agent authentication, byte-exact transfer, ASIF attachment,

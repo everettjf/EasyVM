@@ -5,6 +5,8 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/readonly-fixture-guard.sh
 source "$project_root/scripts/lib/readonly-fixture-guard.sh"
+# shellcheck source=scripts/lib/release-enrollment-guard.sh
+source "$project_root/scripts/lib/release-enrollment-guard.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
 timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
@@ -18,9 +20,9 @@ fail() {
 [[ -d "$vm_path" ]] || fail "virtual machine not found: $vm_path"
 [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "EZVM_VM_SMOKE_TIMEOUT must be a positive integer"
 enrollment_file="${EZVM_RELEASE_SMOKE_ENROLLMENT:-}"
-[[ -n "$enrollment_file" && -f "$enrollment_file" ]] || fail "EZVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
-permissions="$(stat -f '%Lp' "$enrollment_file")"
-[[ "$permissions" == "600" ]] || fail "fixture enrollment must have mode 600 (found $permissions)"
+[[ -n "$enrollment_file" ]] || fail "EZVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
+validate_release_enrollment "$vm_path" "$enrollment_file" \
+  || fail "EZVM_RELEASE_SMOKE_ENROLLMENT is not valid for this fixture"
 
 executable="$app_path/Contents/MacOS/EZVM"
 [[ -x "$executable" ]] || fail "application executable not found: $executable"

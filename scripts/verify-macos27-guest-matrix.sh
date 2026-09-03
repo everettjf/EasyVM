@@ -5,6 +5,8 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/readonly-fixture-guard.sh
 source "$project_root/scripts/lib/readonly-fixture-guard.sh"
+# shellcheck source=scripts/lib/release-enrollment-guard.sh
+source "$project_root/scripts/lib/release-enrollment-guard.sh"
 app_path="${1:-}"
 expected_version="${2:-}"
 macos_vm="${EZVM_MATRIX_MACOS_VM:-}"
@@ -67,6 +69,15 @@ validate_fixture() {
 validate_fixture "$macos_vm" macOS ""
 validate_fixture "$omarchy_vm" linux omarchy
 validate_fixture "$ubuntu_vm" linux ubuntu
+
+[[ -n "$omarchy_enrollment" ]] || fail "EZVM_MATRIX_OMARCHY_ENROLLMENT is required"
+[[ -n "$ubuntu_enrollment" ]] || fail "EZVM_MATRIX_UBUNTU_ENROLLMENT is required"
+[[ "$omarchy_enrollment" != "$ubuntu_enrollment" ]] \
+  || fail "Omarchy and Ubuntu must use different enrollment files"
+validate_release_enrollment "$omarchy_vm" "$omarchy_enrollment" \
+  || fail "Omarchy enrollment preflight failed"
+validate_release_enrollment "$ubuntu_vm" "$ubuntu_enrollment" \
+  || fail "Ubuntu enrollment preflight failed"
 
 "$project_root/scripts/verify-release-app.sh" "$app_path" "$expected_version"
 "$project_root/scripts/verify-real-low-space-snapshot.sh"

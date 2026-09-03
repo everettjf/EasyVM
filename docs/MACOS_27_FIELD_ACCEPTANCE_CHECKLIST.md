@@ -21,6 +21,9 @@ Record this once for every complete run:
 - [ ] Notarization and stapling status are stated explicitly
 - [ ] Guest fixture names and immutable fixture checksums are recorded outside
       the report; enrollment tokens and personal filesystem paths are not
+- [ ] Linux enrollment preflight confirms separate mode-`0600`, non-symlink
+      files whose machine identities match the Omarchy and Ubuntu fixtures
+      before any VM is launched
 - [ ] The matrix read-only guard records metadata fingerprints for all three
       source fixtures and confirms they are unchanged even when a gate fails;
       every boot, mutation, snapshot, and fault injection runs on a COW clone
