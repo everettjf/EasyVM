@@ -10,6 +10,14 @@ import Observation
 
 #if arch(arm64)
 
+enum MachineSnapshotMessageTone: Equatable {
+    case neutral
+    case working
+    case success
+    case warning
+    case failure
+}
+
 @MainActor
 @Observable
 class MachineSnapshotsViewStateObject {
@@ -24,6 +32,7 @@ class MachineSnapshotsViewStateObject {
     var snapshotBeforeRestore = true
     var isWorking = false
     var message: String = ""
+    var messageTone: MachineSnapshotMessageTone = .neutral
     var searchText: String = ""
 
     var filteredTree: [VMSnapshotTreeNode] {
@@ -68,20 +77,18 @@ class MachineSnapshotsViewStateObject {
             name = VMSnapshotManager.defaultSnapshotName()
         }
 
-        isWorking = true
-        message = "Creating snapshot ..."
+        begin("Creating snapshot…")
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.createSnapshot(vmRootPath: rootPath, name: name)
             await MainActor.run {
-                self.isWorking = false
                 switch result {
                 case .success(let model):
-                    self.message = "Snapshot \"\(model.name)\" created"
+                    self.succeed("Snapshot \"\(model.name)\" created")
                     self.newSnapshotName = ""
                     self.notifySnapshotsChanged()
                 case .failure(let error):
-                    self.message = error
+                    self.fail(error)
                 }
                 self.reload()
             }
@@ -89,8 +96,7 @@ class MachineSnapshotsViewStateObject {
     }
 
     func restoreSnapshot(_ snapshot: VMSnapshotModel) {
-        isWorking = true
-        message = "Restoring snapshot \"\(snapshot.name)\" ..."
+        begin("Restoring snapshot \"\(snapshot.name)\"…")
         let rootPath = self.rootPath
         let keepCurrentState = snapshotBeforeRestore
         Task.detached {
@@ -101,8 +107,7 @@ class MachineSnapshotsViewStateObject {
                 let safetyResult = VMSnapshotManager.createSnapshot(vmRootPath: rootPath, name: safetyName)
                 if case let .failure(error) = safetyResult {
                     await MainActor.run {
-                        self.isWorking = false
-                        self.message = "Restore cancelled, could not snapshot the current state : \(error)"
+                        self.fail("Restore cancelled because EZVM could not snapshot the current state: \(error)")
                         self.reload()
                     }
                     return
@@ -111,13 +116,12 @@ class MachineSnapshotsViewStateObject {
 
             let result = VMSnapshotManager.restoreSnapshot(vmRootPath: rootPath, snapshot: snapshot)
             await MainActor.run {
-                self.isWorking = false
                 switch result {
                 case .success:
-                    self.message = "Snapshot \"\(snapshot.name)\" restored"
+                    self.succeed("Snapshot \"\(snapshot.name)\" restored")
                     self.notifySnapshotsChanged()
                 case .failure(let error):
-                    self.message = error
+                    self.fail(error)
                 }
                 self.reload()
             }
@@ -129,12 +133,17 @@ class MachineSnapshotsViewStateObject {
         if name.isEmpty || name == snapshot.name {
             return
         }
+        begin("Renaming snapshot \"\(snapshot.name)\"…")
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.renameSnapshot(vmRootPath: rootPath, snapshot: snapshot, newName: name)
             await MainActor.run {
-                if case let .failure(error) = result {
-                    self.message = error
+                switch result {
+                case .success:
+                    self.succeed("Snapshot renamed to \"\(name)\"")
+                    self.notifySnapshotsChanged()
+                case .failure(let error):
+                    self.fail(error)
                 }
                 self.reload()
             }
@@ -142,18 +151,17 @@ class MachineSnapshotsViewStateObject {
     }
 
     func deleteSnapshot(_ snapshot: VMSnapshotModel) {
-        isWorking = true
+        begin("Deleting snapshot \"\(snapshot.name)\"…")
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.deleteSnapshot(vmRootPath: rootPath, snapshot: snapshot)
             await MainActor.run {
-                self.isWorking = false
                 switch result {
                 case .success:
-                    self.message = "Snapshot \"\(snapshot.name)\" deleted"
+                    self.succeed("Snapshot \"\(snapshot.name)\" deleted")
                     self.notifySnapshotsChanged()
                 case .failure(let error):
-                    self.message = error
+                    self.fail(error)
                 }
                 self.reload()
             }
@@ -166,13 +174,12 @@ class MachineSnapshotsViewStateObject {
             snapshot: snapshot,
             isProtected: !snapshot.isProtected
         )
-        if case let .failure(error) = result { message = error }
+        if case let .failure(error) = result { fail(error) }
         reload()
     }
 
     func auditSnapshots() {
-        isWorking = true
-        message = "Auditing snapshot integrity ..."
+        begin("Auditing snapshot integrity…")
         let rootPath = self.rootPath
         let snapshots = self.snapshots
         Task.detached {
@@ -180,17 +187,42 @@ class MachineSnapshotsViewStateObject {
             let invalid = reports.filter { !$0.1.isValid }
             let warningCount = reports.reduce(0) { $0 + $1.1.warnings.count }
             await MainActor.run {
-                self.isWorking = false
                 if invalid.isEmpty {
-                    self.message = warningCount == 0
-                        ? "All \(reports.count) snapshots passed integrity checks"
-                        : "All snapshots are structurally valid; \(warningCount) warning(s)"
+                    if warningCount == 0 {
+                        self.succeed("All \(reports.count) snapshots passed integrity checks")
+                    } else {
+                        self.warn("All snapshots are structurally valid; \(warningCount) warning(s)")
+                    }
                 } else {
                     let names = invalid.map { $0.0.name }.joined(separator: ", ")
-                    self.message = "\(invalid.count) snapshot(s) failed integrity checks: \(names)"
+                    self.fail("\(invalid.count) snapshot(s) failed integrity checks: \(names)")
                 }
             }
         }
+    }
+
+    private func begin(_ message: String) {
+        isWorking = true
+        self.message = message
+        messageTone = .working
+    }
+
+    private func succeed(_ message: String) {
+        isWorking = false
+        self.message = message
+        messageTone = .success
+    }
+
+    private func warn(_ message: String) {
+        isWorking = false
+        self.message = message
+        messageTone = .warning
+    }
+
+    private func fail(_ message: String) {
+        isWorking = false
+        self.message = message
+        messageTone = .failure
     }
 }
 
@@ -507,10 +539,11 @@ struct MachineSnapshotsView: View {
                         .controlSize(.small)
                 }
                 if !state.message.isEmpty {
-                    Label(state.message, systemImage: state.isWorking ? "clock" : "info.circle")
+                    Label(state.message, systemImage: messageSymbol(for: state.messageTone))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .foregroundStyle(messageColor(for: state.messageTone))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
                 Spacer()
                 Button {
@@ -561,6 +594,26 @@ struct MachineSnapshotsView: View {
     func renameSnapshot(_ snapshot: VMSnapshotModel) {
         MacKitUtil.inputBox(title: "Rename Snapshot", message: snapshot.name, placeholder: "New name") { inputText in
             state.renameSnapshot(snapshot, newName: inputText)
+        }
+    }
+
+    private func messageSymbol(for tone: MachineSnapshotMessageTone) -> String {
+        switch tone {
+        case .neutral: return "info.circle"
+        case .working: return "clock"
+        case .success: return "checkmark.circle.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        case .failure: return "xmark.octagon.fill"
+        }
+    }
+
+    private func messageColor(for tone: MachineSnapshotMessageTone) -> Color {
+        switch tone {
+        case .neutral: return .secondary
+        case .working: return .secondary
+        case .success: return .green
+        case .warning: return .orange
+        case .failure: return .red
         }
     }
 }

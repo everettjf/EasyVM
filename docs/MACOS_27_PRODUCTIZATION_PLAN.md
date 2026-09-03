@@ -214,6 +214,12 @@ Low-space runs on larger real ASIF images and a genuinely nearly-full volume, a
 full host-restart exercise, and representative long-running performance
 measurements remain promotion gates for moving the feature out of Beta.
 
+The snapshot sheet now distinguishes working, successful, warning, and failed
+outcomes with accessible system symbols and semantic colors. Diagnostic text
+is no longer truncated and remains selectable. Rename now participates in the
+same mutation lock as create, restore, audit, and delete, preventing concurrent
+snapshot-tree changes from the UI.
+
 Long-chain validation now creates and opens a real 32-layer ASIF history. Audit
 does not stop at file signatures: it asks DiskImageKit to assemble each complete
 stack read-only, which rejects reordered layers and broken parent relationships.
