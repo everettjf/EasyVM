@@ -954,21 +954,23 @@ private struct VMNetworkRuntimeMenu: View {
 
     private var summary: String {
         switch state {
-        case .unavailable: "No virtual network adapter"
-        case .preparing(let count): "Preparing \(adapterCount(count))"
-        case .connected(let count): "\(adapterCount(count)) connected"
-        case .hostSleeping(let count): "\(adapterCount(count)) suspended while this Mac sleeps"
-        case .reconnecting(_, _, let deviceIndices): "Recovering \(issueCount(deviceIndices.count))"
-        case .degraded(_, let issues): "\(issueCount(issues.count)) disconnected"
+        case .unavailable: String(localized: "No virtual network adapter")
+        case .preparing(let count): String(localized: "Preparing \(adapterCount(count))")
+        case .connected(let count): String(localized: "\(adapterCount(count)) connected")
+        case .hostSleeping(let count): String(localized: "\(adapterCount(count)) suspended while this Mac sleeps")
+        case .reconnecting(_, _, let deviceIndices): String(localized: "Recovering \(issueCount(deviceIndices.count))")
+        case .degraded(_, let issues): String(localized: "\(issueCount(issues.count)) disconnected")
         }
     }
 
     private func adapterCount(_ count: Int) -> String {
-        "\(count) network adapter\(count == 1 ? "" : "s")"
+        count == 1
+            ? String(localized: "1 network adapter")
+            : String(localized: "\(count) network adapters")
     }
 
     private func issueCount(_ count: Int) -> String {
-        "\(count) network adapter\(count == 1 ? "" : "s")"
+        adapterCount(count)
     }
 }
 
@@ -1033,7 +1035,7 @@ private struct VMNetworkRuntimeBanner: View {
         guard deviceIndices.count == 1,
               let index = deviceIndices.first,
               let issue = issues.first(where: { $0.deviceIndex == index }) else {
-            return "network adapters"
+            return String(localized: "network adapters")
         }
         return issue.title
     }

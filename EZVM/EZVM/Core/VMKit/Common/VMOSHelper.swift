@@ -2102,14 +2102,14 @@ struct VMNetworkDeviceIssue: Equatable, Identifiable {
     let reason: String
 
     var id: Int { deviceIndex }
-    var title: String { "Network Adapter \(deviceIndex + 1)" }
+    var title: String { String(localized: "Network Adapter \(deviceIndex + 1)") }
 }
 
 enum VMNetworkFailureGuidance {
     static let maximumFrameworkDetailCharacters = 160
 
     static func disconnectReason(frameworkDescription: String) -> String {
-        let base = "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect."
+        let base = String(localized: "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect.")
         let visibleScalars = frameworkDescription.unicodeScalars.filter {
             !CharacterSet.controlCharacters.contains($0)
                 || CharacterSet.whitespacesAndNewlines.contains($0)
@@ -2120,7 +2120,7 @@ enum VMNetworkFailureGuidance {
             .joined(separator: " ")
         guard !normalized.isEmpty else { return base }
         let detail = String(normalized.prefix(maximumFrameworkDetailCharacters))
-        return "\(base) Framework detail: \(detail)"
+        return String(localized: "\(base) Framework detail: \(detail)")
     }
 }
 

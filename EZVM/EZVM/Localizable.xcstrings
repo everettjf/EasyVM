@@ -47,8 +47,34 @@
         }
       }
     },
+    "%@ connected" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 已连接" } }
+      }
+    },
+    "%@ disconnected" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 已断开" } }
+      }
+    },
     "%@ EZVM will ask the guest to shut down, force stop only if it does not respond, and then close this window." : {
 
+    },
+    "%@ Framework detail: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Framework detail: %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 框架详情：%2$@"
+          }
+        }
+      }
     },
     "%@ GB" : {
 
@@ -59,9 +85,19 @@
     "%@ settings" : {
 
     },
+    "%@ suspended while this Mac sleeps" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此 Mac 睡眠期间，%@ 已暂停" } }
+      }
+    },
     "%@ was disconnected from the virtual machine." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 已从虚拟机断开。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已从虚拟机断开。"
+          }
+        }
       }
     },
     "%@, %@" : {
@@ -95,12 +131,22 @@
     },
     "%lld accessories available, none connected" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "有 %lld 个配件可用，均未连接" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 个配件可用，均未连接"
+          }
+        }
       }
     },
     "%lld accessories connected" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已连接 %lld 个配件" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已连接 %lld 个配件"
+          }
+        }
       }
     },
     "%lld machine%@ ready on this Mac" : {
@@ -113,6 +159,11 @@
         }
       }
     },
+    "%lld network adapters" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个网络适配器" } }
+      }
+    },
     "%lld network adapters need attention" : {
 
     },
@@ -121,7 +172,12 @@
     },
     "%lld USB accessories are connected to this virtual machine" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已有 %lld 个 USB 配件连接到此虚拟机" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已有 %lld 个 USB 配件连接到此虚拟机"
+          }
+        }
       }
     },
     "%lld%% — %@" : {
@@ -145,17 +201,37 @@
     },
     "1 accessory available, none connected" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "有 1 个配件可用，尚未连接" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 1 个配件可用，尚未连接"
+          }
+        }
       }
     },
     "1 accessory connected" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已连接 1 个配件" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已连接 1 个配件"
+          }
+        }
+      }
+    },
+    "1 network adapter" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1 个网络适配器" } }
       }
     },
     "1 USB accessory is connected to this virtual machine" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已有 1 个 USB 配件连接到此虚拟机" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已有 1 个 USB 配件连接到此虚拟机"
+          }
+        }
       }
     },
     "80" : {
@@ -184,7 +260,12 @@
     },
     "A USB accessory is connected. EZVM will shut down the guest instead of saving machine state so the accessory is released safely." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前有 USB 配件连接。EZVM 将关闭客体系统而不保存虚拟机状态，以便安全释放该配件。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前有 USB 配件连接。EZVM 将关闭客体系统而不保存虚拟机状态，以便安全释放该配件。"
+          }
+        }
       }
     },
     "About" : {
@@ -205,17 +286,32 @@
     },
     "Accessory Access could not complete the operation. Try again; if it repeats, restart EZVM and reconnect the accessory." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "配件访问无法完成操作。请重试；如果问题再次出现，请重新启动 EZVM 并重新连接配件。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配件访问无法完成操作。请重试；如果问题再次出现，请重新启动 EZVM 并重新连接配件。"
+          }
+        }
       }
     },
     "Accessory Access failed: %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "配件访问失败：%@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配件访问失败：%@"
+          }
+        }
       }
     },
     "Accessory Access is already active in another EZVM virtual machine window. Close that virtual machine or release its USB accessories, then try again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "另一台 EZVM 虚拟机正在使用配件访问。请关闭该虚拟机或释放它的 USB 配件，然后重试。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另一台 EZVM 虚拟机正在使用配件访问。请关闭该虚拟机或释放它的 USB 配件，然后重试。"
+          }
+        }
       }
     },
     "Add %@ Adapter" : {
@@ -510,7 +606,12 @@
     },
     "Choose USB accessories to attach directly to this virtual machine" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择要直通连接到此虚拟机的 USB 配件" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择要直通连接到此虚拟机的 USB 配件"
+          }
+        }
       }
     },
     "Choose USB Accessories…" : {
@@ -588,12 +689,22 @@
     },
     "Connect %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接 %@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 %@"
+          }
+        }
       }
     },
     "Connecting %@…" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在连接 %@…" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在连接 %@…"
+          }
+        }
       }
     },
     "Control Center" : {
@@ -748,7 +859,12 @@
     },
     "Disconnect %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "断开 %@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "断开 %@"
+          }
+        }
       }
     },
     "Disconnect USB accessories before choosing others" : {
@@ -763,12 +879,22 @@
     },
     "Disconnect USB accessories before saving machine state." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存虚拟机状态前，请先断开 USB 配件。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存虚拟机状态前，请先断开 USB 配件。"
+          }
+        }
       }
     },
     "Disconnecting %@…" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在断开 %@…" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在断开 %@…"
+          }
+        }
       }
     },
     "Disk Format" : {
@@ -1327,7 +1453,12 @@
     },
     "Needs attention. %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "需要处理：%@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要处理：%@"
+          }
+        }
       }
     },
     "Nested virtualization" : {
@@ -1346,6 +1477,11 @@
         }
       }
     },
+    "Network Adapter %lld" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络适配器 %lld" } }
+      }
+    },
     "Network adapter needs attention" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1354,6 +1490,11 @@
             "value" : "网络适配器需要处理"
           }
         }
+      }
+    },
+    "network adapters" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络适配器" } }
       }
     },
     "Network Adapters" : {
@@ -1376,7 +1517,12 @@
     },
     "No approved accessories connected" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有已获准的配件连接" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有已获准的配件连接"
+          }
+        }
       }
     },
     "No approved USB accessories are connected" : {
@@ -1431,9 +1577,19 @@
     "No virtual machines found" : {
 
     },
+    "No virtual network adapter" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有虚拟网络适配器" } }
+      }
+    },
     "Not configured" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未配置" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未配置"
+          }
+        }
       }
     },
     "Not selected" : {
@@ -1537,6 +1693,11 @@
     "Power" : {
 
     },
+    "Preparing %@" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备 %@" } }
+      }
+    },
     "Preparing %@..." : {
 
     },
@@ -1624,7 +1785,17 @@
     },
     "Reconnect %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新连接 %@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新连接 %@"
+          }
+        }
+      }
+    },
+    "Recovering %@" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在恢复 %@" } }
       }
     },
     "Recovering %@…" : {
@@ -2072,12 +2243,32 @@
     },
     "The accessory disconnected before the connection finished. Reconnect it to the Mac and approve it for EZVM again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "配件在连接完成前已断开。请将它重新连接到 Mac，并再次授权 EZVM 使用。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配件在连接完成前已断开。请将它重新连接到 Mac，并再次授权 EZVM 使用。"
+          }
+        }
       }
     },
     "The guest could not initialize this USB device. Safely reconnect the device and try again; this device class may not support passthrough." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "客体系统无法初始化此 USB 设备。请安全地重新连接设备后重试；此类设备可能不支持直通。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "客体系统无法初始化此 USB 设备。请安全地重新连接设备后重试；此类设备可能不支持直通。"
+          }
+        }
+      }
+    },
+    "The host did not accept the network attachment. Check the selected interface and try again." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主机未接受此网络连接。请检查所选网络接口后重试。" } }
+      }
+    },
+    "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主机断开了此网络适配器。请检查所选网络接口、VPN 和网络访问，然后重新连接。" } }
       }
     },
     "The image will be saved and reused for future virtual machines." : {
@@ -2088,7 +2279,12 @@
     },
     "The running virtual machine no longer has an available USB controller. Restart the virtual machine and try again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在运行的虚拟机不再有可用的 USB 控制器。请重新启动虚拟机后重试。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在运行的虚拟机不再有可用的 USB 控制器。请重新启动虚拟机后重试。"
+          }
+        }
       }
     },
     "The signed-release list updates automatically via IPSW.me. Downloads come directly from Apple; EZVM performs the final host compatibility check before installation." : {
@@ -2106,12 +2302,22 @@
     },
     "The USB device is already attached. Wait for the device list to refresh before trying another action." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此 USB 设备已经连接。请等待设备列表刷新后再进行其他操作。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 USB 设备已经连接。请等待设备列表刷新后再进行其他操作。"
+          }
+        }
       }
     },
     "The USB device is no longer connected to this virtual machine. Reconnect it to the Mac and approve it for EZVM again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此 USB 设备已不再连接到该虚拟机。请将它重新连接到 Mac，并再次授权 EZVM 使用。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 USB 设备已不再连接到该虚拟机。请将它重新连接到 Mac，并再次授权 EZVM 使用。"
+          }
+        }
       }
     },
     "The virtual machine is running. Shut it down before creating or restoring snapshots." : {
@@ -2126,7 +2332,12 @@
     },
     "The virtual USB controller disconnected the accessory before the connection finished. Reconnect it and try again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "虚拟 USB 控制器在连接完成前断开了配件。请重新连接后重试。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "虚拟 USB 控制器在连接完成前断开了配件。请重新连接后重试。"
+          }
+        }
       }
     },
     "These values come from the macOS 27 entitlements in the running EZVM process." : {
@@ -2134,17 +2345,32 @@
     },
     "This accessory is being used by macOS or another app. Release it from the accessory menu, then choose it for EZVM again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此配件正被 macOS 或其他 App 使用。请先在配件菜单中释放它，然后再次选择由 EZVM 使用。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此配件正被 macOS 或其他 App 使用。请先在配件菜单中释放它，然后再次选择由 EZVM 使用。"
+          }
+        }
       }
     },
     "This accessory is no longer in a state that can be attached. Disconnect it from the Mac, reconnect it, and approve it for EZVM again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此配件当前无法连接。请将它从 Mac 拔下后重新连接，并再次授权 EZVM 使用。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此配件当前无法连接。请将它从 Mac 拔下后重新连接，并再次授权 EZVM 使用。"
+          }
+        }
       }
     },
     "This build does not include the Accessory Access entitlement required for USB passthrough." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此构建未包含 USB 直通所需的配件访问权限。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此构建未包含 USB 直通所需的配件访问权限。"
+          }
+        }
       }
     },
     "This leaves little memory for macOS and may cause heavy swapping." : {
@@ -2162,7 +2388,12 @@
     },
     "This virtual machine has no USB controller. Stop it and verify its configuration before trying again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此虚拟机没有 USB 控制器。请先停止虚拟机并检查其配置，然后重试。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此虚拟机没有 USB 控制器。请先停止虚拟机并检查其配置，然后重试。"
+          }
+        }
       }
     },
     "This window will close automatically when it is safe." : {
@@ -2198,7 +2429,12 @@
     },
     "Unavailable. %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "不可用：%@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不可用：%@"
+          }
+        }
       }
     },
     "Unprotect" : {
@@ -2225,12 +2461,22 @@
     },
     "USB" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "USB" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USB"
+          }
+        }
       }
     },
     "USB (%lld)" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "USB（%lld）" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USB（%lld）"
+          }
+        }
       }
     },
     "USB accessories" : {
@@ -2309,7 +2555,12 @@
     },
     "Wait for the USB connection or disconnection to finish before saving machine state." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请等待 USB 连接或断开操作完成后再保存虚拟机状态。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请等待 USB 连接或断开操作完成后再保存虚拟机状态。"
+          }
+        }
       }
     },
     "Wait until the snapshot transaction finishes safely before closing this window." : {
@@ -2317,7 +2568,12 @@
     },
     "Waiting for Accessory Access" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在等待配件访问" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待配件访问"
+          }
+        }
       }
     },
     "Waiting for Accessory Access…" : {

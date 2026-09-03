@@ -32,7 +32,14 @@ ruby -rjson -e '
     "The running virtual machine no longer has an available USB controller. Restart the virtual machine and try again.",
     "%@ was disconnected from the virtual machine.",
     "Could not connect %@. %@",
-    "Could not disconnect %@. It may still be attached, so machine-state saving remains unavailable. %@"
+    "Could not disconnect %@. It may still be attached, so machine-state saving remains unavailable. %@",
+    "Network Adapter %lld",
+    "No virtual network adapter",
+    "Preparing %@",
+    "Recovering %@",
+    "%@ suspended while this Mac sleeps",
+    "The host did not accept the network attachment. Check the selected interface and try again.",
+    "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect."
   ]
 
   required.each do |key|
@@ -42,4 +49,4 @@ ruby -rjson -e '
   end
 ' "$catalog"
 
-echo "Verified String Catalog placeholders and core USB translations."
+echo "Verified String Catalog placeholders and core runtime translations."

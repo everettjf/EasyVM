@@ -1186,7 +1186,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         networkReconnectTokens.removeValue(forKey: deviceIndex)
         networkRuntimeTracker.markDisconnected(
             deviceIndex: deviceIndex,
-            reason: "The host did not accept the network attachment. Check the selected interface and try again."
+            reason: String(localized: "The host did not accept the network attachment. Check the selected interface and try again.")
         )
         runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
         EZVMLog.error(
