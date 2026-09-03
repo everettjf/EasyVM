@@ -676,6 +676,25 @@ struct VMGraphicsPresentationHealthTracker: Equatable {
     }
 }
 
+struct VMGraphicsPresentationLifecycle: Equatable {
+    private(set) var generation: UInt64 = 0
+    private(set) var isStopped = false
+
+    func tokenForPresentation() -> UInt64? {
+        isStopped ? nil : generation
+    }
+
+    func acceptsCompletion(token: UInt64) -> Bool {
+        !isStopped && token == generation
+    }
+
+    mutating func stop() {
+        guard !isStopped else { return }
+        isStopped = true
+        generation &+= 1
+    }
+}
+
 struct VMLinuxFeatureConfiguration: Codable, Equatable {
     var rosettaEnabled: Bool
     var rosettaCachingEnabled: Bool

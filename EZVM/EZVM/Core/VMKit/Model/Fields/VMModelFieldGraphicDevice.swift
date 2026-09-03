@@ -159,6 +159,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var displayRefreshTimer: Timer?
     private var presentationInFlight = false
     private var presentationHealth = VMGraphicsPresentationHealthTracker()
+    private var presentationLifecycle = VMGraphicsPresentationLifecycle()
     // Input falls back to Virtualization.framework until the authenticated
     // guest agent advertises uinput. Custom VirGL has no VZ graphics device,
     // so its reliable desktop input path is the agent once userspace starts.
@@ -218,9 +219,13 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func stopPresentation() {
+        presentationLifecycle.stop()
         displayRefreshTimer?.invalidate()
         displayRefreshTimer = nil
         latestScanout = nil
+        presentationInFlight = false
+        cursorLayer.isHidden = true
+        runtimeIssueHandler?(nil)
         releaseInputCapture()
     }
 
@@ -520,6 +525,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func updateCursor(_ update: EZVMVirGLRuntime.CursorUpdate) {
+        guard presentationLifecycle.tokenForPresentation() != nil else { return }
         cursorPosition = CGPoint(x: Int(update.x), y: Int(update.y))
         if update.replacesImage {
             cursorHotspot = CGPoint(x: Int(update.hotX), y: Int(update.hotY))
@@ -536,12 +542,14 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func present(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
+        guard presentationLifecycle.tokenForPresentation() != nil else { return }
         latestScanout = (resourceID, x, y, width, height)
         ensureDisplayRefreshTimer()
         presentFrame(resourceID: resourceID, x: x, y: y, width: width, height: height)
     }
 
     private func presentFrame(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
+        guard let presentationToken = presentationLifecycle.tokenForPresentation() else { return }
         requestedFramesInWindow &+= 1
         if width > 0, height > 0 {
             guestSize = CGSize(width: width, height: height)
@@ -575,9 +583,10 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             sourceX: x, sourceY: y, sourceWidth: width, sourceHeight: height,
             into: drawable.texture
         ) { [weak self] succeeded in
-            if succeeded { drawable.present() }
             DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
+                guard let self,
+                      self.presentationLifecycle.acceptsCompletion(token: presentationToken) else { return }
+                if succeeded { drawable.present() }
                 self.presentationInFlight = false
                 if succeeded {
                     self.recordPresentationResult(success: true)

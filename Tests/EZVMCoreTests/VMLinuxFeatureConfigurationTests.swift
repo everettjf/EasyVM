@@ -19,6 +19,27 @@ final class VMLinuxFeatureConfigurationTests: XCTestCase {
         XCTAssertEqual(health.consecutiveFailures, 0)
     }
 
+    func testVirGLPresentationLifecycleRejectsLateCompletionAfterStop() {
+        var lifecycle = VMGraphicsPresentationLifecycle()
+        let token = lifecycle.tokenForPresentation()
+
+        XCTAssertNotNil(token)
+        XCTAssertTrue(lifecycle.acceptsCompletion(token: token!))
+        lifecycle.stop()
+        XCTAssertNil(lifecycle.tokenForPresentation())
+        XCTAssertFalse(lifecycle.acceptsCompletion(token: token!))
+    }
+
+    func testVirGLPresentationLifecycleStopIsIdempotent() {
+        var lifecycle = VMGraphicsPresentationLifecycle()
+        lifecycle.stop()
+        let stoppedGeneration = lifecycle.generation
+
+        lifecycle.stop()
+        XCTAssertEqual(lifecycle.generation, stoppedGeneration)
+        XCTAssertTrue(lifecycle.isStopped)
+    }
+
     func testCustomVirGLPreferenceDefaultsOnAndRespectsExplicitOptOut() throws {
         let suiteName = "VMLinuxFeatureConfigurationTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
