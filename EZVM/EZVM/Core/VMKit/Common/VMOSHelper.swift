@@ -889,6 +889,15 @@ enum VMGuestProvisioningValidationGuidance {
     }
 }
 
+enum VMGuestProvisioningStartFailureGuidance {
+    static func message(retryWasPrepared: Bool) -> String {
+        if retryWasPrepared {
+            return "macOS guest provisioning did not start. The temporary credential was retained and a safe retry is ready for the next VM start."
+        }
+        return "macOS guest provisioning did not start, and EZVM could not prepare a safe retry. Close this VM window, reopen it, and review the provisioning status before trying again."
+    }
+}
+
 enum VMGuestProvisioningCredentialStore {
     private static let service = "com.everettjf.ezvm.guest-provisioning"
 

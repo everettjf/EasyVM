@@ -450,13 +450,29 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         Task { @MainActor in
                             guard let self else { return }
                             if let error {
-                                _ = VMGuestProvisioningCredentialStore.save(
+                                let retryResult = VMGuestProvisioningCredentialStore.save(
                                     credential.withAttemptState(.prepared),
                                     vmRootPath: rootPath
                                 )
-                                self.runtimeState?.updateMacGuestProvisioning(.failed(error.localizedDescription))
+                                let retryWasPrepared: Bool
+                                switch retryResult {
+                                case .success:
+                                    retryWasPrepared = true
+                                case .failure(let keychainError):
+                                    retryWasPrepared = false
+                                    EZVMLog.error(keychainError, logger: EZVMLog.lifecycle)
+                                }
+                                let frameworkError = error as NSError
+                                EZVMLog.error(
+                                    "Guest provisioning VM start failed: \(frameworkError.domain) (\(frameworkError.code)); safe retry prepared: \(retryWasPrepared).",
+                                    logger: EZVMLog.lifecycle
+                                )
+                                let guidance = VMGuestProvisioningStartFailureGuidance.message(
+                                    retryWasPrepared: retryWasPrepared
+                                )
+                                self.runtimeState?.updateMacGuestProvisioning(.failed(guidance))
                                 if !self.recoverInvalidEFIBootIfPossible(error: error, rootPath: rootPath, model: model) {
-                                    self.fail("Could not start the provisioned virtual machine: \(error.localizedDescription)")
+                                    self.fail(guidance)
                                 }
                             } else {
                                 // Starting the VM only proves that the options were accepted.

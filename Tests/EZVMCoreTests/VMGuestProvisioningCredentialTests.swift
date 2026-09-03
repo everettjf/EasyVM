@@ -122,4 +122,20 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
         XCTAssertFalse(VMGuestProvisioningValidationGuidance.message(for: knownError).contains(secret))
         XCTAssertFalse(VMGuestProvisioningValidationGuidance.message(for: unknownError).contains(secret))
     }
+
+    func testStartFailureGuidanceExplainsPreparedRetryWithoutFrameworkDetails() {
+        let message = VMGuestProvisioningStartFailureGuidance.message(retryWasPrepared: true)
+
+        XCTAssertTrue(message.contains("safe retry"))
+        XCTAssertTrue(message.contains("next VM start"))
+        XCTAssertFalse(message.contains("localizedDescription"))
+    }
+
+    func testStartFailureGuidanceDoesNotPromiseRetryWhenRollbackFails() {
+        let message = VMGuestProvisioningStartFailureGuidance.message(retryWasPrepared: false)
+
+        XCTAssertTrue(message.contains("could not prepare a safe retry"))
+        XCTAssertTrue(message.contains("review the provisioning status"))
+        XCTAssertFalse(message.contains("try again automatically"))
+    }
 }
