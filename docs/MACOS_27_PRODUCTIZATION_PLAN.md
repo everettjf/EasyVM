@@ -167,6 +167,9 @@ The USB menu distinguishes permanent unavailability from a retryable discovery
 failure. A build without the Accessory Access entitlement or a VM without a USB
 controller explains the missing prerequisite without presenting a no-op “Try
 Again” action; listener-registration failures retain an explicit retry.
+Its toolbar label shows the number of attached accessories, and its icon/help
+reflect discovery, connected, unavailable, and retryable-failure states, so the
+user does not have to open the menu to learn whether USB needs attention.
 
 Machine-state saving is now unavailable for the entire USB transition, not
 only after an attachment has completed. This closes the interval in which an

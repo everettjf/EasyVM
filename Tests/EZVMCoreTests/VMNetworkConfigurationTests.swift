@@ -869,6 +869,32 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertTrue(VMUSBPassthroughState.failed("Registration failed").canRetryDiscovery)
     }
 
+    func testUSBMenuSummarizesConnectionAndFailureStateWithoutOpeningIt() {
+        let oneAttached = VMUSBPassthroughState.ready(VMUSBPassthroughSnapshot(
+            devices: [],
+            attachedRegistryIDs: [7]
+        ))
+        let twoAttached = VMUSBPassthroughState.ready(VMUSBPassthroughSnapshot(
+            devices: [],
+            attachedRegistryIDs: [7, 8]
+        ))
+
+        XCTAssertEqual(oneAttached.menuTitle, "USB (1)")
+        XCTAssertEqual(oneAttached.menuSystemImage, "checkmark.circle")
+        XCTAssertTrue(oneAttached.menuHelp.contains("1 USB accessory is connected"))
+        XCTAssertEqual(twoAttached.menuTitle, "USB (2)")
+        XCTAssertTrue(twoAttached.menuHelp.contains("2 USB accessories are connected"))
+        XCTAssertEqual(VMUSBPassthroughState.discovering.menuSystemImage, "hourglass")
+        XCTAssertEqual(
+            VMUSBPassthroughState.unavailable("Missing entitlement").menuSystemImage,
+            "exclamationmark.lock"
+        )
+        XCTAssertEqual(
+            VMUSBPassthroughState.failed("Registration failed").menuHelp,
+            "Registration failed"
+        )
+    }
+
     func testRuntimePhaseRecoveryUsesAuthoritativeFrameworkState() {
         XCTAssertEqual(
             VMRuntimePhase.recoverablePhase(frameworkState: .running, fallback: .paused),

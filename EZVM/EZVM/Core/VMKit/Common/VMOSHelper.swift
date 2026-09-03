@@ -375,6 +375,38 @@ enum VMUSBPassthroughState: Equatable {
         if case .failed = self { return true }
         return false
     }
+
+    var menuTitle: String {
+        guard case let .ready(snapshot) = self,
+              !snapshot.attachedRegistryIDs.isEmpty else { return "USB" }
+        return "USB (\(snapshot.attachedRegistryIDs.count))"
+    }
+
+    var menuSystemImage: String {
+        switch self {
+        case .idle: "cable.connector"
+        case .discovering: "hourglass"
+        case .ready(let snapshot):
+            snapshot.attachedRegistryIDs.isEmpty ? "cable.connector" : "checkmark.circle"
+        case .unavailable: "exclamationmark.lock"
+        case .failed: "exclamationmark.triangle"
+        }
+    }
+
+    var menuHelp: String {
+        switch self {
+        case .idle: "Choose USB accessories to attach directly to this virtual machine"
+        case .discovering: "Waiting for Accessory Access"
+        case .ready(let snapshot) where !snapshot.attachedRegistryIDs.isEmpty:
+            if snapshot.attachedRegistryIDs.count == 1 {
+                "1 USB accessory is connected to this virtual machine"
+            } else {
+                "\(snapshot.attachedRegistryIDs.count) USB accessories are connected to this virtual machine"
+            }
+        case .ready: "Choose USB accessories to attach directly to this virtual machine"
+        case .unavailable(let message), .failed(let message): message
+        }
+    }
 }
 
 enum VMUSBControllerSupport {
