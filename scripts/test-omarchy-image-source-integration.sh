@@ -6,12 +6,14 @@ project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 fixture=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-image-source.XXXXXX")
 trap 'rm -rf "$fixture"' EXIT
 profile="$fixture/profiles/aarch64-virt"
+agent_ref=$(git -C "$project_root" rev-parse HEAD)
 mkdir -p "$fixture/bin" "$profile/overlay/etc/systemd/system" "$profile/overlay/etc/systemd/user"
 cp "$project_root/EZVMOmarchy/GuestOverlay/systemd/mnt-ezvm-shared.mount" \
   "$profile/overlay/etc/systemd/system/mnt-ezvm-shared.mount"
 cp "$project_root/EZVMOmarchy/GuestOverlay/systemd/ezvm-session-agent.service" \
   "$profile/overlay/etc/systemd/user/ezvm-session-agent.service"
 printf '%s\n' wl-clipboard >"$profile/runtime-packages"
+printf 'EZVM_GUEST_AGENT_REF=%s\n' "$agent_ref" >"$fixture/sources.env"
 cat >"$fixture/bin/build-image" <<'EOF'
 target_chroot systemctl enable mnt-ezvm-shared.mount
 target_chroot systemctl --global enable ezvm-session-agent.service
@@ -35,6 +37,12 @@ cp "$project_root/EZVMOmarchy/GuestOverlay/systemd/ezvm-session-agent.service" \
 sed -i '' '/wl-clipboard/d' "$profile/runtime-packages"
 if "$verify" "$fixture" >/dev/null 2>&1; then
   echo "verifier accepted an image without wl-clipboard" >&2
+  exit 1
+fi
+printf '%s\n' wl-clipboard >"$profile/runtime-packages"
+printf '%040d\n' 0 | sed 's/^/EZVM_GUEST_AGENT_REF=/' >"$fixture/sources.env"
+if "$verify" "$fixture" >/dev/null 2>&1; then
+  echo "verifier accepted a pin without Session Agent implementation" >&2
   exit 1
 fi
 
