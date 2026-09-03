@@ -684,6 +684,20 @@ detach, or revoke a real USB accessory.
 
 ### Latest signed-artifact evidence
 
+On September 3, 2026, commit `0b848f5` was rebuilt as EZVM 2.0.0 through the
+Developer ID archive/export path after the login keychain identity became
+available again. The production entitlement allowlist contained
+Virtualization, VMNet, and Accessory Access; the app, CLI helper, and all four
+bundled VirGL libraries shared TeamIdentifier `YPV49M8592`. The generated ZIP
+passed its SHA-256 check, survived an extract-and-verify round trip, and its
+extracted app passed strict deep-signature verification, Gatekeeper assessment,
+CLI doctor JSON parsing, version validation, entitlement validation, Launch
+Services startup, and the visible/responsive SwiftUI-window readiness gate.
+The candidate does not have a notarization ticket stapled to it, and no local
+macOS 27, Ubuntu, or Omarchy fixture or claimable physical USB accessory was
+present, so this evidence does not replace notarization or the guest/hardware
+matrix.
+
 On September 2, 2026, commit `929dd38` was built as EZVM 2.0.0 through the
 Developer ID archive/export path. The app, CLI helper, and bundled VirGL
 libraries shared TeamIdentifier `YPV49M8592`; Gatekeeper accepted the app and
