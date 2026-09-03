@@ -166,6 +166,59 @@ final class VMPortabilityManagerTests: XCTestCase {
         XCTAssertTrue(estimate.hasEnoughSpace)
     }
 
+    func testPortabilityByteAggregationSaturatesInsteadOfOverflowing() {
+        XCTAssertEqual(VMPortabilityManager.saturatingSum([UInt64.max, 1]), UInt64.max)
+        XCTAssertEqual(VMPortabilityManager.saturatingSum([7, 11, 13]), 31)
+    }
+
+    func testLowSpaceCloneFailsBeforeCreatingDestinationOrStagingDirectory() throws {
+        let source = try makeMachine(name: "Clone Source")
+        let destination = root.appendingPathComponent("Clone Destination.ezvm")
+
+        assertFailureContains(VMPortabilityManager.clone(
+            sourceURL: source,
+            destinationURL: destination,
+            newName: "Clone",
+            machineIdentifierData: Data("new identity".utf8),
+            availableCapacityBytes: 0
+        ), "Required:")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasSuffix(".partial") })
+        XCTAssertEqual(try Data(contentsOf: source.appendingPathComponent("Disk.img")), Data("disk data".utf8))
+    }
+
+    func testLowSpaceExportFailsBeforeCreatingDestinationOrStagingDirectory() throws {
+        let source = try makeMachine(name: "Export Source")
+        let destination = root.appendingPathComponent("Export.ezvmexport")
+
+        assertFailureContains(VMPortabilityManager.exportMachine(
+            sourceURL: source,
+            destinationURL: destination,
+            availableCapacityBytes: 0
+        ), "available:")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasSuffix(".partial") })
+    }
+
+    func testLowSpaceImportFailsBeforeCreatingDestinationOrStagingDirectory() throws {
+        let source = try makeMachine(name: "Import Source")
+        let export = root.appendingPathComponent("Import.ezvmexport")
+        try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+        let destination = root.appendingPathComponent("Imported.ezvm")
+
+        assertFailureContains(VMPortabilityManager.importMachine(
+            exportURL: export,
+            destinationURL: destination,
+            identityMode: .restore,
+            availableCapacityBytes: 0
+        ), "Required:")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: root.path).contains { $0.hasSuffix(".partial") })
+    }
+
     func testValidationDetectsMissingAndUnexpectedFiles() throws {
         let source = try makeMachine(name: "Portable")
         let missingExport = root.appendingPathComponent("Missing.ezvmexport")
@@ -220,6 +273,11 @@ final class VMPortabilityManagerTests: XCTestCase {
     }
 
     private func assertFailureContains<T>(_ result: VMOSResult<T, String>, _ text: String) {
+        guard case .failure(let error) = result else { return XCTFail("Expected failure") }
+        XCTAssertTrue(error.localizedCaseInsensitiveContains(text), error)
+    }
+
+    private func assertFailureContains(_ result: VMOSResultVoid, _ text: String) {
         guard case .failure(let error) = result else { return XCTFail("Expected failure") }
         XCTAssertTrue(error.localizedCaseInsensitiveContains(text), error)
     }

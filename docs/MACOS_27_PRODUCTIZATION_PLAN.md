@@ -242,6 +242,12 @@ that the source disk, active configuration, snapshot head, layer set, and
 transaction directory remain unchanged. Aggregate allocation arithmetic also
 saturates instead of trapping on pathological image collections.
 
+Clone, export, and import now use the same allocated-byte plus safety-margin
+model. Deterministic zero-capacity tests prove that all three fail before a
+destination or partial staging directory is created, while their user-facing
+errors report required and available space. Aggregate logical and allocated
+byte totals saturate rather than overflowing on pathological bundles.
+
 Low-space runs on larger real ASIF images and a genuinely nearly-full volume, a
 full host-restart exercise, and representative long-running performance
 measurements remain promotion gates for moving the feature out of Beta.

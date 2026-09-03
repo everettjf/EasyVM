@@ -57,8 +57,8 @@ enum VMPortabilityManager {
 
     static func estimate(sourceURL: URL, destinationParent: URL, availableBytes override: Int64? = nil) throws -> VMPortabilityEstimate {
         let files = try regularFiles(in: sourceURL)
-        let logical = files.reduce(UInt64(0)) { $0 + $1.size }
-        let allocated = files.reduce(UInt64(0)) { $0 + $1.allocatedSize }
+        let logical = saturatingSum(files.map(\.size))
+        let allocated = saturatingSum(files.map(\.allocatedSize))
         let available = override ?? (try? destinationParent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
             .volumeAvailableCapacityForImportantUsage)
         return VMPortabilityEstimate(logicalBytes: logical, allocatedBytes: allocated, availableBytes: available)
@@ -68,15 +68,21 @@ enum VMPortabilityManager {
         sourceURL: URL,
         destinationURL: URL,
         newName: String,
-        machineIdentifierData: Data
+        machineIdentifierData: Data,
+        availableCapacityBytes: Int64? = nil
     ) -> VMOSResultVoid {
         guard !machineIdentifierData.isEmpty else { return .failure("Could not generate a new machine identifier.") }
         guard !isInside(destinationURL, parent: sourceURL) else {
             return .failure("The clone destination cannot be inside the source machine bundle.")
         }
         do {
-            guard try estimate(sourceURL: sourceURL, destinationParent: destinationURL.deletingLastPathComponent()).hasEnoughSpace else {
-                return .failure("There is not enough free disk space to clone this machine.")
+            let estimate = try estimate(
+                sourceURL: sourceURL,
+                destinationParent: destinationURL.deletingLastPathComponent(),
+                availableBytes: availableCapacityBytes
+            )
+            guard estimate.hasEnoughSpace else {
+                return .failure(insufficientSpaceMessage(operation: "clone", estimate: estimate))
             }
         } catch { return .failure("Could not estimate clone storage: \(error.localizedDescription)") }
         return transactCopy(sourceURL: sourceURL, destinationURL: destinationURL) { staging in
@@ -94,7 +100,11 @@ enum VMPortabilityManager {
         }
     }
 
-    static func exportMachine(sourceURL: URL, destinationURL: URL) -> VMOSResultVoid {
+    static func exportMachine(
+        sourceURL: URL,
+        destinationURL: URL,
+        availableCapacityBytes: Int64? = nil
+    ) -> VMOSResultVoid {
         guard destinationURL.pathExtension == exportExtension else {
             return .failure("The export destination must end in .\(exportExtension).")
         }
@@ -105,8 +115,13 @@ enum VMPortabilityManager {
             return .failure("The source machine has no config.json.")
         }
         do {
-            guard try estimate(sourceURL: sourceURL, destinationParent: destinationURL.deletingLastPathComponent()).hasEnoughSpace else {
-                return .failure("There is not enough free disk space to export this machine.")
+            let estimate = try estimate(
+                sourceURL: sourceURL,
+                destinationParent: destinationURL.deletingLastPathComponent(),
+                availableBytes: availableCapacityBytes
+            )
+            guard estimate.hasEnoughSpace else {
+                return .failure(insufficientSpaceMessage(operation: "export", estimate: estimate))
             }
         } catch { return .failure("Could not estimate export storage: \(error.localizedDescription)") }
         return transactDirectory(destinationURL: destinationURL) { staging in
@@ -162,7 +177,12 @@ enum VMPortabilityManager {
         }
     }
 
-    static func importMachine(exportURL: URL, destinationURL: URL, identityMode: VMImportIdentityMode) -> VMOSResultVoid {
+    static func importMachine(
+        exportURL: URL,
+        destinationURL: URL,
+        identityMode: VMImportIdentityMode,
+        availableCapacityBytes: Int64? = nil
+    ) -> VMOSResultVoid {
         guard !isInside(destinationURL, parent: exportURL) else {
             return .failure("The import destination cannot be inside the export package.")
         }
@@ -172,8 +192,13 @@ enum VMPortabilityManager {
         }
         do {
             let payload = exportURL.appendingPathComponent(payloadDirectoryName, isDirectory: true)
-            guard try estimate(sourceURL: payload, destinationParent: destinationURL.deletingLastPathComponent()).hasEnoughSpace else {
-                return .failure("There is not enough free disk space to import this machine.")
+            let estimate = try estimate(
+                sourceURL: payload,
+                destinationParent: destinationURL.deletingLastPathComponent(),
+                availableBytes: availableCapacityBytes
+            )
+            guard estimate.hasEnoughSpace else {
+                return .failure(insufficientSpaceMessage(operation: "import", estimate: estimate))
             }
         } catch { return .failure("Could not estimate import storage: \(error.localizedDescription)") }
         return transactCopy(
@@ -204,6 +229,24 @@ enum VMPortabilityManager {
                 throw CocoaError(.fileReadNoSuchFile)
             }
         }
+    }
+
+    static func saturatingSum(_ values: [UInt64]) -> UInt64 {
+        values.reduce(0) { total, value in
+            let result = total.addingReportingOverflow(value)
+            return result.overflow ? UInt64.max : result.partialValue
+        }
+    }
+
+    private static func insufficientSpaceMessage(
+        operation: String,
+        estimate: VMPortabilityEstimate
+    ) -> String {
+        let required = ByteCountFormatter.string(fromByteCount: Int64(clamping: estimate.requiredBytes), countStyle: .file)
+        let available = estimate.availableBytes.map {
+            ByteCountFormatter.string(fromByteCount: max(0, $0), countStyle: .file)
+        } ?? "unknown"
+        return "There is not enough free disk space to \(operation) this machine. Required: \(required); available: \(available)."
     }
 
     private static func transactDirectory(

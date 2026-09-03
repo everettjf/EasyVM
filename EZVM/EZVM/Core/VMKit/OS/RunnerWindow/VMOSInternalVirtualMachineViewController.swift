@@ -848,29 +848,37 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         releaseSmokeDeadline = Date().addingTimeInterval(30)
         releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
-            guard let self, let runtimeState = self.runtimeState else { return }
-            if runtimeState.phase == .stopped {
-                timer.invalidate()
-                let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
-                guard FileManager.default.fileExists(atPath: stateURL.path) else {
-                    VMReleaseSmokeTest.report("failed: save completed without a machine-state file", configuration: configuration)
-                    NSApplication.shared.terminate(nil)
-                    return
-                }
-                VMReleaseSmokeTest.report("machine-state-saved", configuration: configuration)
-                NSApplication.shared.terminate(nil)
-            } else if case let .failed(message) = runtimeState.phase {
-                timer.invalidate()
-                VMReleaseSmokeTest.report("failed: \(message)", configuration: configuration)
-                NSApplication.shared.terminate(nil)
-            } else if Date() >= (self.releaseSmokeDeadline ?? .distantPast) {
-                timer.invalidate()
-                VMReleaseSmokeTest.report("failed: timed out saving machine state", configuration: configuration)
-                self.forceStopMachine()
-                NSApplication.shared.terminate(nil)
-            }
+            self?.advanceReleaseMachineStateSave(configuration, rootPath: rootPath, timer: timer)
         }
         saveAndStopMachine()
+    }
+
+    private func advanceReleaseMachineStateSave(
+        _ configuration: VMReleaseSmokeTestConfiguration,
+        rootPath: URL,
+        timer: Timer
+    ) {
+        guard let runtimeState else { return }
+        if runtimeState.phase == .stopped {
+            timer.invalidate()
+            let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
+            guard FileManager.default.fileExists(atPath: stateURL.path) else {
+                VMReleaseSmokeTest.report("failed: save completed without a machine-state file", configuration: configuration)
+                NSApplication.shared.terminate(nil)
+                return
+            }
+            VMReleaseSmokeTest.report("machine-state-saved", configuration: configuration)
+            NSApplication.shared.terminate(nil)
+        } else if case let .failed(message) = runtimeState.phase {
+            timer.invalidate()
+            VMReleaseSmokeTest.report("failed: \(message)", configuration: configuration)
+            NSApplication.shared.terminate(nil)
+        } else if Date() >= (releaseSmokeDeadline ?? .distantPast) {
+            timer.invalidate()
+            VMReleaseSmokeTest.report("failed: timed out saving machine state", configuration: configuration)
+            forceStopMachine()
+            NSApplication.shared.terminate(nil)
+        }
     }
 
     func pauseMachine() {
@@ -1520,7 +1528,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     return
                 }
                 guard self.listenerLifecycle.completeRegistration(token: registrationToken) else {
-                    AAUSBAccessoryManager.shared.unregisterListener(self) {}
+                    await AAUSBAccessoryManager.shared.unregisterListener(self)
                     return
                 }
                 for accessory in accessories {
@@ -1536,7 +1544,9 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         virtualMachine?.usbControllers.first?.delegate = nil
         let shouldUnregister = listenerLifecycle.stop()
         if shouldUnregister {
-            AAUSBAccessoryManager.shared.unregisterListener(self) {}
+            Task { @MainActor [self] in
+                await AAUSBAccessoryManager.shared.unregisterListener(self)
+            }
         }
         accessories.removeAll()
         attachedDevices.removeAll()
