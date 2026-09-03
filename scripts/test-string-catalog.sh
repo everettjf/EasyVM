@@ -39,7 +39,16 @@ ruby -rjson -e '
     "Recovering %@",
     "%@ suspended while this Mac sleeps",
     "The host did not accept the network attachment. Check the selected interface and try again.",
-    "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect."
+    "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect.",
+    "macOS 27 First-Boot Provisioning",
+    "macOS is applying the first-boot settings for “%@”.",
+    "The previous provisioning attempt was interrupted. Sign in as “%@” if the account exists; otherwise choose Retry Next Start. EZVM will not submit it again automatically.",
+    "Provisioning for “%@” is ready to retry once. If this VM is running, shut it down; then close this window and run the VM again.",
+    "Use macOS Setup Assistant Instead?",
+    "Confirm that you can sign in as “%@”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone.",
+    "Could not access guest provisioning credentials in Keychain: %@",
+    "The temporary provisioning credential is no longer available.",
+    "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again."
   ]
 
   required.each do |key|

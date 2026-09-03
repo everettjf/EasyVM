@@ -690,7 +690,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 runtimeState?.updateMacGuestProvisioning(.failed(error))
             }
         case .success(nil):
-            runtimeState?.updateMacGuestProvisioning(.failed("The temporary provisioning credential is no longer available."))
+            runtimeState?.updateMacGuestProvisioning(.failed(
+                String(localized: "The temporary provisioning credential is no longer available.")
+            ))
         case .failure(let error):
             runtimeState?.updateMacGuestProvisioning(.failed(error))
         }

@@ -49,12 +49,22 @@
     },
     "%@ connected" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 已连接" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已连接"
+          }
+        }
       }
     },
     "%@ disconnected" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 已断开" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已断开"
+          }
+        }
       }
     },
     "%@ EZVM will ask the guest to shut down, force stop only if it does not respond, and then close this window." : {
@@ -87,7 +97,12 @@
     },
     "%@ suspended while this Mac sleeps" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此 Mac 睡眠期间，%@ 已暂停" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 Mac 睡眠期间，%@ 已暂停"
+          }
+        }
       }
     },
     "%@ was disconnected from the virtual machine." : {
@@ -161,7 +176,12 @@
     },
     "%lld network adapters" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%lld 个网络适配器" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个网络适配器"
+          }
+        }
       }
     },
     "%lld network adapters need attention" : {
@@ -221,7 +241,12 @@
     },
     "1 network adapter" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "1 个网络适配器" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 个网络适配器"
+          }
+        }
       }
     },
     "1 USB accessory is connected to this virtual machine" : {
@@ -379,6 +404,11 @@
     "Advanced VMNet Settings" : {
 
     },
+    "After you can sign in as “%@”, confirm to remove the temporary password from this Mac’s Keychain." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "确认可以使用“%@”登录后，再确认移除此 Mac 钥匙串中的临时密码。" } }
+      }
+    },
     "All available releases (%lld)" : {
 
     },
@@ -438,8 +468,15 @@
     "Automatic" : {
 
     },
+    "Automatic account creation requires a macOS 27 or later guest. The selected restore image contains macOS %@. Choose a macOS 27 or later IPSW." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自动创建账户要求客体系统为 macOS 27 或更高版本。所选恢复映像包含 macOS %@。请选择 macOS 27 或更高版本的 IPSW。" } }
+      }
+    },
     "Automatic account setup is off. Continue in macOS Setup Assistant, or close and run this VM again if it is not currently running." : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自动账户设置已关闭。请在 macOS 设置助理中继续；如果虚拟机当前未运行，请关闭此窗口后重新运行。" } }
+      }
     },
     "Automatic, or interface such as en0" : {
 
@@ -491,7 +528,6 @@
 
     },
     "Check the macOS account" : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -503,6 +539,11 @@
     },
     "Choose a compatible restore image. Downloading starts only after you click Create." : {
 
+    },
+    "Choose a different password for the macOS account. Virtualization.framework rejected this value." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请为 macOS 账户选择其他密码。Virtualization.framework 拒绝了当前值。" } }
+      }
     },
     "Choose a folder once. EZVM configures the share automatically." : {
       "localizations" : {
@@ -684,8 +725,13 @@
     "Confirm" : {
 
     },
-    "Confirm that you can sign in as “%@”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone." : {
+    "Confirm macOS setup" : {
 
+    },
+    "Confirm that you can sign in as “%@”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请确认可以使用“%@”登录。EZVM 将永久移除此 Mac 钥匙串中的临时预配置密码，此操作无法撤销。" } }
+      }
     },
     "Connect %@" : {
       "localizations" : {
@@ -739,6 +785,11 @@
         }
       }
     },
+    "Could not access guest provisioning credentials in Keychain: %@" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法访问钥匙串中的客体预配置凭据：%@" } }
+      }
+    },
     "Could not connect %@. %@" : {
       "localizations" : {
         "en" : {
@@ -771,6 +822,11 @@
         }
       }
     },
+    "Could not encode guest provisioning credentials: %@" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法编码客体预配置凭据：%@" } }
+      }
+    },
     "Couldn’t export diagnostics" : {
 
     },
@@ -801,7 +857,9 @@
       }
     },
     "Create the first macOS account automatically" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自动创建第一个 macOS 账户" } }
+      }
     },
     "Create Virtual Machine" : {
 
@@ -1033,10 +1091,22 @@
 
     },
     "Enable Remote Login (SSH)" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "启用远程登录（SSH）" } }
+      }
     },
     "Enabled by you. macOS requires Screen & System Audio Recording permission. Turn this off to stop EZVM from capturing VM windows." : {
 
+    },
+    "Enter a different full name for the macOS account. Virtualization.framework rejected this value." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请为 macOS 账户输入其他全名。Virtualization.framework 拒绝了当前值。" } }
+      }
+    },
+    "Enter a different username for the macOS account. Virtualization.framework rejected this value." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请为 macOS 账户输入其他用户名。Virtualization.framework 拒绝了当前值。" } }
+      }
     },
     "Export Diagnostic Report" : {
       "localizations" : {
@@ -1090,7 +1160,9 @@
 
     },
     "EZVM will permanently remove the pending password from this Mac’s Keychain and will not submit automatic account setup again. Continue in Setup Assistant if the VM is running; otherwise close this window and run the VM again." : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "EZVM 将永久移除此 Mac 钥匙串中的待处理密码，并且不再提交自动账户设置。如果虚拟机正在运行，请在设置助理中继续；否则请关闭此窗口后重新运行虚拟机。" } }
+      }
     },
     "EZVM will save the virtual machine’s current state, stop it, and then close this window. You can resume from the same state next time." : {
 
@@ -1164,6 +1236,11 @@
     },
     "Guest port" : {
 
+    },
+    "Guest provisioning credentials are already prepared for this creation attempt." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此次创建操作已经准备好客体预配置凭据。" } }
+      }
     },
     "Guest target: %@ of %@" : {
       "localizations" : {
@@ -1355,16 +1432,32 @@
       }
     },
     "macOS 27 First-Boot Provisioning" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "macOS 27 首次启动预配置" } }
+      }
     },
     "macOS guest iCloud identity is automatic for VMs created from a supported macOS restore image; upgrading an older VM does not add that identity. Metal improvements are supplied automatically by the supported host, guest, and Mac hardware model. Neither requires an additional EZVM entitlement." : {
 
     },
+    "macOS guest provisioning did not start, and EZVM could not prepare a safe retry. Close this VM window, reopen it, and review the provisioning status before trying again." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "macOS 客体预配置未能启动，且 EZVM 无法准备安全重试。请关闭并重新打开此虚拟机窗口，检查预配置状态后再重试。" } }
+      }
+    },
+    "macOS guest provisioning did not start. The temporary credential was retained and a safe retry is ready for the next VM start." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "macOS 客体预配置未能启动。临时凭据已保留，并已为下次启动虚拟机准备好安全重试。" } }
+      }
+    },
     "macOS guest provisioning for %@" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%@ 的 macOS 客体预配置" } }
+      }
     },
     "macOS is applying the first-boot settings for “%@”." : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "macOS 正在应用“%@”的首次启动设置。" } }
+      }
     },
     "macOS setup confirmed — temporary password removed" : {
       "localizations" : {
@@ -1479,7 +1572,12 @@
     },
     "Network Adapter %lld" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络适配器 %lld" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络适配器 %lld"
+          }
+        }
       }
     },
     "Network adapter needs attention" : {
@@ -1494,7 +1592,12 @@
     },
     "network adapters" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络适配器" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络适配器"
+          }
+        }
       }
     },
     "Network Adapters" : {
@@ -1579,7 +1682,12 @@
     },
     "No virtual network adapter" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有虚拟网络适配器" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有虚拟网络适配器"
+          }
+        }
       }
     },
     "Not configured" : {
@@ -1653,7 +1761,9 @@
 
     },
     "Password" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "密码" } }
+      }
     },
     "Pause" : {
       "localizations" : {
@@ -1695,7 +1805,12 @@
     },
     "Preparing %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备 %@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备 %@"
+          }
+        }
       }
     },
     "Preparing %@..." : {
@@ -1750,7 +1865,9 @@
 
     },
     "Provisioning for “%@” is ready to retry once. If this VM is running, shut it down; then close this window and run the VM again." : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "“%@”的预配置已准备好重试一次。如果虚拟机正在运行，请先将其关闭；然后关闭此窗口并重新运行虚拟机。" } }
+      }
     },
     "RAW is broadly compatible but uses more host storage." : {
 
@@ -1795,7 +1912,12 @@
     },
     "Recovering %@" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在恢复 %@" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在恢复 %@"
+          }
+        }
       }
     },
     "Recovering %@…" : {
@@ -1860,7 +1982,9 @@
       }
     },
     "Remove Temporary Password?" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除临时密码？" } }
+      }
     },
     "Remove the pending credential and stop automatic account setup" : {
       "localizations" : {
@@ -1892,7 +2016,9 @@
 
     },
     "Repeat password" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "再次输入密码" } }
+      }
     },
     "Replace the currently selected image" : {
 
@@ -2261,21 +2387,43 @@
         }
       }
     },
+    "The guest provisioning credential in Keychain is invalid: %@" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "钥匙串中的客体预配置凭据无效：%@" } }
+      }
+    },
     "The host did not accept the network attachment. Check the selected interface and try again." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主机未接受此网络连接。请检查所选网络接口后重试。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主机未接受此网络连接。请检查所选网络接口后重试。"
+          }
+        }
       }
     },
     "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect." : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "主机断开了此网络适配器。请检查所选网络接口、VPN 和网络访问，然后重新连接。" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主机断开了此网络适配器。请检查所选网络接口、VPN 和网络访问，然后重新连接。"
+          }
+        }
       }
     },
     "The image will be saved and reused for future virtual machines." : {
 
     },
     "The password stays in this Mac’s Keychain until you confirm that macOS setup completed. It is never stored in the virtual machine bundle." : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在您确认 macOS 设置完成前，密码会保留在此 Mac 的钥匙串中，绝不会存入虚拟机包。" } }
+      }
+    },
+    "The previous provisioning attempt was interrupted. Sign in as “%@” if the account exists; otherwise choose Retry Next Start. EZVM will not submit it again automatically." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "上次预配置操作已中断。如果账户存在，请尝试以“%@”登录；否则请选择“下次启动时重试”。EZVM 不会自动再次提交。" } }
+      }
     },
     "The running virtual machine no longer has an available USB controller. Restart the virtual machine and try again." : {
       "localizations" : {
@@ -2298,6 +2446,11 @@
             "value" : "快照事务正在安全完成，现已无法取消"
           }
         }
+      }
+    },
+    "The temporary provisioning credential is no longer available." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "临时预配置凭据已不可用。" } }
       }
     },
     "The USB device is already attached. Wait for the device list to refresh before trying another action." : {
@@ -2493,7 +2646,9 @@
 
     },
     "Use macOS Setup Assistant Instead?" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "改用 macOS 设置助理？" } }
+      }
     },
     "Use Setup Assistant" : {
       "localizations" : {
@@ -2552,6 +2707,11 @@
     },
     "Virtualization capabilities" : {
 
+    },
+    "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Virtualization.framework 拒绝了客体预配置设置。请检查账户信息后重试。" } }
+      }
     },
     "Wait for the USB connection or disconnection to finish before saving machine state." : {
       "localizations" : {

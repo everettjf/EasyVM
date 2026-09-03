@@ -1426,13 +1426,13 @@ enum VMGuestProvisioningValidationGuidance {
         let error = error as NSError
         switch classify(domain: error.domain, code: error.code) {
         case .invalidFullName:
-            return "Enter a different full name for the macOS account. Virtualization.framework rejected this value."
+            return String(localized: "Enter a different full name for the macOS account. Virtualization.framework rejected this value.")
         case .invalidUsername:
-            return "Enter a different username for the macOS account. Virtualization.framework rejected this value."
+            return String(localized: "Enter a different username for the macOS account. Virtualization.framework rejected this value.")
         case .invalidPassword:
-            return "Choose a different password for the macOS account. Virtualization.framework rejected this value."
+            return String(localized: "Choose a different password for the macOS account. Virtualization.framework rejected this value.")
         case .other:
-            return "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again."
+            return String(localized: "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again.")
         }
     }
 }
@@ -1440,9 +1440,9 @@ enum VMGuestProvisioningValidationGuidance {
 enum VMGuestProvisioningStartFailureGuidance {
     static func message(retryWasPrepared: Bool) -> String {
         if retryWasPrepared {
-            return "macOS guest provisioning did not start. The temporary credential was retained and a safe retry is ready for the next VM start."
+            return String(localized: "macOS guest provisioning did not start. The temporary credential was retained and a safe retry is ready for the next VM start.")
         }
-        return "macOS guest provisioning did not start, and EZVM could not prepare a safe retry. Close this VM window, reopen it, and review the provisioning status before trying again."
+        return String(localized: "macOS guest provisioning did not start, and EZVM could not prepare a safe retry. Close this VM window, reopen it, and review the provisioning status before trying again.")
     }
 }
 
@@ -1469,7 +1469,7 @@ enum VMGuestProvisioningCompatibility {
     }
 
     static func unsupportedGuestMessage(version: String) -> String {
-        "Automatic account creation requires a macOS 27 or later guest. The selected restore image contains macOS \(version). Choose a macOS 27 or later IPSW."
+        String(localized: "Automatic account creation requires a macOS 27 or later guest. The selected restore image contains macOS \(version). Choose a macOS 27 or later IPSW.")
     }
 }
 
@@ -1495,7 +1495,7 @@ enum VMGuestProvisioningCredentialStore {
             deleteLegacyItemIfNeeded(vmRootPath: vmRootPath)
             return .success
         } catch {
-            return .failure("Could not encode guest provisioning credentials: \(error.localizedDescription)")
+            return .failure(String(localized: "Could not encode guest provisioning credentials: \(error.localizedDescription)"))
         }
     }
 
@@ -1514,7 +1514,7 @@ enum VMGuestProvisioningCredentialStore {
         do {
             return .success(try JSONDecoder().decode(VMGuestProvisioningCredential.self, from: data))
         } catch {
-            return .failure("The guest provisioning credential in Keychain is invalid: \(error.localizedDescription)")
+            return .failure(String(localized: "The guest provisioning credential in Keychain is invalid: \(error.localizedDescription)"))
         }
     }
 
@@ -1583,7 +1583,7 @@ enum VMGuestProvisioningCredentialStore {
             }
             return .success(credential)
         } catch {
-            return .failure("The guest provisioning credential in Keychain is invalid: \(error.localizedDescription)")
+            return .failure(String(localized: "The guest provisioning credential in Keychain is invalid: \(error.localizedDescription)"))
         }
     }
 
@@ -1594,7 +1594,7 @@ enum VMGuestProvisioningCredentialStore {
 
     private static func message(for status: OSStatus) -> String {
         let detail = SecCopyErrorMessageString(status, nil) as String? ?? "OSStatus \(status)"
-        return "Could not access guest provisioning credentials in Keychain: \(detail)"
+        return String(localized: "Could not access guest provisioning credentials in Keychain: \(detail)")
     }
 }
 
@@ -1609,7 +1609,7 @@ struct VMGuestProvisioningCreationCredentialTransaction {
         }
     ) -> VMOSResultVoid {
         guard !isPrepared else {
-            return .failure("Guest provisioning credentials are already prepared for this creation attempt.")
+            return .failure(String(localized: "Guest provisioning credentials are already prepared for this creation attempt."))
         }
         let result = save(credential, vmRootPath)
         if case .success = result { isPrepared = true }

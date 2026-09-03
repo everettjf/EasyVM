@@ -506,8 +506,8 @@ struct VMOSMainVirtualMachineView: View {
 
     private func provisioningVerificationCard(
         username: String,
-        title: String,
-        detail: String
+        title: LocalizedStringResource,
+        detail: LocalizedStringResource
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
