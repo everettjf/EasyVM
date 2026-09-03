@@ -14,16 +14,41 @@ machine is running on macOS 27:
 
 ## Capture a repeatable sample
 
-Start the same workload in EZVM, leave it visible, and run:
+Start the same workload in EZVM, leave it visible, and identify the workload in
+the capture so incompatible samples cannot be compared accidentally:
 
 ```sh
-scripts/capture-virgl-performance.sh 30
+EZVM_VIRGL_BACKEND=custom-virgl \
+EZVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
+scripts/capture-virgl-performance.sh 30 /tmp/virgl.txt
 ```
 
 The command prints the path of a text report in `/tmp`. It includes per-second
-host CPU/RSS samples plus the graphics logs for that exact interval. Use the
-same VM CPU, memory, window size, display scaling, workload, and capture length
-when comparing runs.
+host CPU/RSS samples, percentile summaries, aggregated five-second VirGL frame
+windows, and the graphics logs for that exact interval. Use the same VM CPU,
+memory, window size, display scaling, workload, and capture length when
+comparing runs.
+
+Capture the same VM and workload after selecting Apple Virtio graphics:
+
+```sh
+EZVM_VIRGL_BACKEND=apple-virtio \
+EZVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
+scripts/capture-virgl-performance.sh 30 /tmp/apple-virtio.txt
+```
+
+Then apply the checked-in health and regression budgets:
+
+```sh
+scripts/verify-virgl-performance.sh /tmp/virgl.txt /tmp/apple-virtio.txt
+```
+
+The gate rejects presentation failures, excessive drawable misses or latency,
+and large host CPU/RSS regressions. It also refuses to compare reports whose
+duration, workload, hardware, or macOS build differ. Thresholds can be tightened
+for a release matrix through the documented `EZVM_VIRGL_MAX_*` environment
+variables in the verifier; loosening them requires recording the reason with
+the release evidence.
 
 For a useful first comparison, capture separate 30-second samples for:
 
