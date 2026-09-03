@@ -30,13 +30,6 @@ enum VMGuestAgentTransferState: Equatable {
     }
 }
 
-enum VMUSBPassthroughState: Equatable {
-    case idle
-    case discovering
-    case ready(VMUSBPassthroughSnapshot)
-    case failed(String)
-}
-
 enum VMMacGuestProvisioningState: Equatable {
     case unavailable
     case applying(username: String)

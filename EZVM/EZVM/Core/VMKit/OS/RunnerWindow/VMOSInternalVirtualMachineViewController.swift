@@ -1209,11 +1209,15 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     func discoverUSBAccessories() {
         guard VMHostCapability.accessoryAccess.isGranted else {
-            runtimeState?.updateUSBPassthrough(.failed("This build is missing the Accessory Access entitlement."))
+            runtimeState?.updateUSBPassthrough(.unavailable(
+                "This build does not include the Accessory Access entitlement required for USB passthrough."
+            ))
             return
         }
         guard virtualMachine != nil, !virtualMachine.usbControllers.isEmpty else {
-            runtimeState?.updateUSBPassthrough(.failed("The virtual machine has no USB controller."))
+            runtimeState?.updateUSBPassthrough(.unavailable(
+                "This virtual machine has no USB controller. Stop it and verify its configuration before trying again."
+            ))
             return
         }
         if usbAccessoryCoordinator == nil {

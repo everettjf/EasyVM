@@ -364,6 +364,19 @@ struct VMUSBPassthroughSnapshot: Equatable {
     }
 }
 
+enum VMUSBPassthroughState: Equatable {
+    case idle
+    case discovering
+    case ready(VMUSBPassthroughSnapshot)
+    case unavailable(String)
+    case failed(String)
+
+    var canRetryDiscovery: Bool {
+        if case .failed = self { return true }
+        return false
+    }
+}
+
 enum VMUSBControllerSupport {
     enum DisconnectDisposition: Equatable {
         case ignored

@@ -862,6 +862,13 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertTrue(tokens.isEmpty)
     }
 
+    func testUSBDiscoveryDistinguishesUnavailableFromRetryableFailure() {
+        XCTAssertFalse(VMUSBPassthroughState.idle.canRetryDiscovery)
+        XCTAssertFalse(VMUSBPassthroughState.discovering.canRetryDiscovery)
+        XCTAssertFalse(VMUSBPassthroughState.unavailable("Missing entitlement").canRetryDiscovery)
+        XCTAssertTrue(VMUSBPassthroughState.failed("Registration failed").canRetryDiscovery)
+    }
+
     func testRuntimePhaseRecoveryUsesAuthoritativeFrameworkState() {
         XCTAssertEqual(
             VMRuntimePhase.recoverablePhase(frameworkState: .running, fallback: .paused),

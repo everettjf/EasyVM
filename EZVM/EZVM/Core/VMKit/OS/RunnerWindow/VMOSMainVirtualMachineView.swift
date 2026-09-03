@@ -570,8 +570,10 @@ struct VMOSMainVirtualMachineView: View {
             }
         case .discovering:
             Text("Waiting for Accessory Access…")
+        case .unavailable(let message):
+            Label(message, systemImage: "exclamationmark.lock")
         case .failed(let message):
-            Text(message)
+            Label(message, systemImage: "exclamationmark.triangle")
             Button("Try Again", systemImage: "arrow.clockwise") {
                 runtimeState.discoverUSBAccessories()
             }
