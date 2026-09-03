@@ -192,6 +192,20 @@ struct VMGuestAgentInputResult: Codable, Equatable {
 /// authenticated input path exercises the same uinput device as Command/Super
 /// integration without adding a shell-execution operation to the Guest Agent.
 enum VMLinuxKeyboardTextEncoder {
+    enum EncodingError: LocalizedError, Equatable {
+        case unsupportedCharacter(Character)
+
+        var errorDescription: String? {
+            switch self {
+            case .unsupportedCharacter(let character):
+                let scalars = character.unicodeScalars
+                    .map { String(format: "U+%04X", $0.value) }
+                    .joined(separator: " ")
+                return "Cannot type unsupported character '\(character)' (\(scalars)) through the Linux acceptance keyboard."
+            }
+        }
+    }
+
     private static let eventKey: UInt16 = 1
     private static let eventSyn: UInt16 = 0
     private static let keyLeftShift: UInt16 = 42
@@ -233,7 +247,7 @@ enum VMLinuxKeyboardTextEncoder {
            character.isUppercase,
            let code = lowerCodes[lower] { return (code, true) }
         if let stroke = symbolCodes[character] { return stroke }
-        throw CocoaError(.validationMissingMandatoryProperty)
+        throw EncodingError.unsupportedCharacter(character)
     }
 
     private static func key(_ code: UInt16, _ value: Int32) -> VMGuestAgentInputEvent {

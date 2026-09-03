@@ -4,8 +4,9 @@ import XCTest
 
 final class VMGuestAgentProtocolTests: XCTestCase {
     func testLinuxKeyboardTextEncoderProducesBalancedBatches() throws {
+        let nonce = UUID().uuidString.lowercased()
         let batches = try VMLinuxKeyboardTextEncoder.batches(
-            for: "bash /mnt/ezvm-shared/.ezvm-clipboard-probe.sh\n"
+            for: "bash /mnt/ezvm-shared/.ezvm-clipboard-\(nonce)/probe.sh\n"
         )
         XCTAssertFalse(batches.isEmpty)
         XCTAssertTrue(batches.allSatisfy { !$0.events.isEmpty })
@@ -19,7 +20,13 @@ final class VMGuestAgentProtocolTests: XCTestCase {
     }
 
     func testLinuxKeyboardTextEncoderRejectsUnsupportedCharacters() {
-        XCTAssertThrowsError(try VMLinuxKeyboardTextEncoder.batches(for: "é"))
+        XCTAssertThrowsError(try VMLinuxKeyboardTextEncoder.batches(for: "é")) { error in
+            XCTAssertEqual(
+                error as? VMLinuxKeyboardTextEncoder.EncodingError,
+                .unsupportedCharacter("é")
+            )
+            XCTAssertTrue(error.localizedDescription.contains("U+00E9"))
+        }
     }
 
     func testRetryPolicyUsesBoundedExponentialBackoff() {

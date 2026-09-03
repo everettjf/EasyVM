@@ -50,10 +50,13 @@ enum OmarchyClipboardAcceptanceProbe {
 
         // Omarchy's documented Super-Return shortcut opens a terminal. The
         // command itself is typed through the authenticated uinput channel.
+        NSLog("Omarchy clipboard probe opening Guest terminal")
         try await client.injectKeyChord(modifiers: [125], key: 28)
         try await Task.sleep(for: .milliseconds(900))
+        NSLog("Omarchy clipboard probe typing Guest script path %@", guestDirectory)
         try await client.typeUSASCII("bash \(guestDirectory)/probe.sh\n")
 
+        NSLog("Omarchy clipboard probe starting Host-to-Guest text")
         try setText(hostText, on: pasteboard)
         try touch(probeDirectory.appending(path: "host-text-go"))
         let hostTextResult = try await waitForData(
@@ -63,6 +66,7 @@ enum OmarchyClipboardAcceptanceProbe {
             throw ProbeError.mismatch("host-to-guest text")
         }
 
+        NSLog("Omarchy clipboard probe starting Host-to-Guest PNG")
         try setPNG(image, on: pasteboard)
         try touch(probeDirectory.appending(path: "host-image-go"))
         let hostImageResult = try await waitForData(
@@ -72,6 +76,7 @@ enum OmarchyClipboardAcceptanceProbe {
             throw ProbeError.mismatch("host-to-guest PNG")
         }
 
+        NSLog("Omarchy clipboard probe starting Guest-to-Host text")
         try touch(probeDirectory.appending(path: "guest-text-go"))
         try await waitForFile(at: probeDirectory.appending(path: "guest-text-ready"))
         try await waitUntil("guest-to-host text") {
@@ -79,6 +84,7 @@ enum OmarchyClipboardAcceptanceProbe {
         }
         try touch(probeDirectory.appending(path: "guest-text-consumed"))
 
+        NSLog("Omarchy clipboard probe starting Guest-to-Host PNG")
         try await waitForFile(at: probeDirectory.appending(path: "guest-image-ready"))
         try await waitUntil("guest-to-host PNG") {
             pasteboard.data(forType: .png) == image
