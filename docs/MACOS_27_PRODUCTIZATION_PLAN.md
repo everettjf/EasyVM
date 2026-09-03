@@ -172,6 +172,14 @@ reflect discovery, connected, unavailable, and retryable-failure states, so the
 user does not have to open the menu to learn whether USB needs attention.
 VoiceOver receives the same state as an explicit value, including approved
 accessory availability and connected count, without relying on the icon.
+A Developer ID-signed GUI smoke run started the Omarchy fixture, reached an
+authenticated Agent-ready state, exposed the USB control to VoiceOver, and
+successfully invoked Accessory Access without an entitlement or listener-
+registration error. The state moved from `Not configured` to `No approved
+accessories connected`, then the guest shut down normally and the app exited.
+The host returned no claimable accessory, so this proves the signed discovery
+and empty-result path only; it does not satisfy attach, detach, or physical-
+disconnect coverage.
 
 Machine-state saving is now unavailable for the entire USB transition, not
 only after an attachment has completed. This closes the interval in which an
