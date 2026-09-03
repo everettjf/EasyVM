@@ -9,6 +9,7 @@ source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 source "$project_root/scripts/lib/release-enrollment-guard.sh"
 app_path="${1:-}"
 expected_version="${2:-}"
+expected_revision="${EZVM_EXPECTED_SOURCE_REVISION:-$(git -C "$project_root" rev-parse HEAD)}"
 macos_vm="${EZVM_MATRIX_MACOS_VM:-}"
 omarchy_vm="${EZVM_MATRIX_OMARCHY_VM:-}"
 ubuntu_vm="${EZVM_MATRIX_UBUNTU_VM:-}"
@@ -79,7 +80,8 @@ validate_release_enrollment "$omarchy_vm" "$omarchy_enrollment" \
 validate_release_enrollment "$ubuntu_vm" "$ubuntu_enrollment" \
   || fail "Ubuntu enrollment preflight failed"
 
-"$project_root/scripts/verify-release-app.sh" "$app_path" "$expected_version"
+"$project_root/scripts/verify-release-app.sh" \
+  "$app_path" "$expected_version" "$expected_revision"
 "$project_root/scripts/verify-real-low-space-snapshot.sh"
 "$project_root/scripts/verify-large-asif-snapshot.sh"
 

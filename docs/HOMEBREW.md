@@ -100,6 +100,12 @@ restored clone. Neither gate changes the source VM. Set
 gate. Fixtures are cloned before destructive recovery checks; the originals
 remain unchanged.
 
+The matrix also requires the candidate's embedded full Git revision to match
+the current checkout (or `EZVM_EXPECTED_SOURCE_REVISION`) and requires its
+embedded source-tree state to be `clean`. The post-publication Homebrew gate
+receives the same revision explicitly, so a same-version archive built from a
+different commit cannot pass.
+
 The script requires a clean checkout whose `HEAD` matches `origin/main`. It
 calculates the next patch version, updates every Xcode target, runs tests and a
 Release build, commits the version bump when needed, then builds the pinned

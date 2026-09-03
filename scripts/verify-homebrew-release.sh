@@ -5,6 +5,7 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="${1:-}"
 vm_path="${2:-}"
+expected_revision="${3:-${EZVM_EXPECTED_SOURCE_REVISION:-}}"
 cask="${EZVM_HOMEBREW_CASK:-everettjf/tap/ezvm}"
 
 fail() {
@@ -12,7 +13,9 @@ fail() {
   exit 1
 }
 
-[[ -n "$version" ]] || fail "usage: $0 <version> [smoke-vm]"
+[[ -n "$version" ]] || fail "usage: $0 <version> [smoke-vm] [source-revision]"
+[[ -n "$expected_revision" ]] || \
+  fail "expected source revision is required as argument 3 or EZVM_EXPECTED_SOURCE_REVISION"
 [[ -n "$vm_path" || -n ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]] ||
   fail "a standard smoke VM or preinstalled-image fixture is required"
 command -v brew >/dev/null 2>&1 || fail "Homebrew is required"
@@ -34,7 +37,8 @@ installed_version="$(brew list --cask --versions ezvm | awk '{print $2}')"
 [[ "$installed_version" == "$version" ]] || \
   fail "Homebrew installed $installed_version, expected $version"
 
-"$project_root/scripts/verify-release-app.sh" /Applications/EZVM.app "$version"
+"$project_root/scripts/verify-release-app.sh" \
+  /Applications/EZVM.app "$version" "$expected_revision"
 if [[ -n $vm_path ]]; then
   "$project_root/scripts/verify-release-cli.sh" /Applications/EZVM.app "$vm_path"
   "$project_root/scripts/verify-release-nested-virtualization.sh" /Applications/EZVM.app "$vm_path"

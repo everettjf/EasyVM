@@ -113,7 +113,8 @@ xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");EZVMRelease;" "
 codesign --verify --deep --strict --verbose=2 "$install_check_dir/EZVM.app"
 spctl --assess --type execute --verbose=4 "$install_check_dir/EZVM.app"
 EZVM_LAUNCH_TIMEOUT="${EZVM_LAUNCH_TIMEOUT:-10}" \
-  "$project_root/scripts/verify-release-app.sh" "$install_check_dir/EZVM.app" "$version"
+  "$project_root/scripts/verify-release-app.sh" \
+    "$install_check_dir/EZVM.app" "$version" "$source_commit"
 if [[ -n "${EZVM_RELEASE_SMOKE_VM:-}" ]]; then
   EZVM_VM_SMOKE_TIMEOUT="${EZVM_VM_SMOKE_TIMEOUT:-90}" \
   EZVM_RELEASE_SMOKE_ENROLLMENT="${EZVM_RELEASE_SMOKE_ENROLLMENT:-}" \
@@ -176,6 +177,7 @@ git -C "$tap_dir/repository" diff --cached --quiet || \
   git -C "$tap_dir/repository" commit -m "Update EZVM to $version"
 git -C "$tap_dir/repository" push
 
-"$project_root/scripts/verify-homebrew-release.sh" "$version" "${EZVM_RELEASE_SMOKE_VM:-}"
+"$project_root/scripts/verify-homebrew-release.sh" \
+  "$version" "${EZVM_RELEASE_SMOKE_VM:-}" "$source_commit"
 
 echo "Published EZVM $version to GitHub Releases and Homebrew."
