@@ -29,6 +29,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 #if arch(arm64)
+        if let portabilityTest = VMReleasePortabilityTestConfiguration.configuration() {
+            runReleasePortabilityTest(portabilityTest)
+            return
+        }
         if let snapshotTest = VMReleaseSnapshotTestConfiguration.configuration() {
             runReleaseSnapshotTest(snapshotTest)
             return
@@ -125,6 +129,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 #if arch(arm64)
+    private func runReleasePortabilityTest(_ test: VMReleasePortabilityTestConfiguration) {
+        NSApp.setActivationPolicy(.prohibited)
+        for window in NSApp.windows { window.orderOut(nil) }
+
+        let finish: (VMOSResultVoid) -> Never = { result in
+            switch result {
+            case .success:
+                test.report(test.action.successResult)
+                exit(0)
+            case .failure(let message):
+                test.report("failed: \(message)")
+                exit(73)
+            }
+        }
+
+        switch test.action {
+        case .export:
+            guard let output = test.outputURL else { finish(.failure("missing export destination")) }
+            finish(VMPortabilityManager.exportMachine(sourceURL: test.inputURL, destinationURL: output))
+        case .validate:
+            switch VMPortabilityManager.validateExport(at: test.inputURL) {
+            case .success: finish(.success)
+            case .failure(let message): finish(.failure(message))
+            }
+        case .import:
+            guard let output = test.outputURL else { finish(.failure("missing import destination")) }
+            finish(VMPortabilityManager.importMachine(
+                exportURL: test.inputURL,
+                destinationURL: output,
+                identityMode: .restore
+            ))
+        }
+    }
+
     private func runReleaseSnapshotTest(_ test: VMReleaseSnapshotTestConfiguration) {
         NSApp.setActivationPolicy(.prohibited)
         for window in NSApp.windows { window.orderOut(nil) }

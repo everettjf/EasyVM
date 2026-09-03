@@ -132,7 +132,7 @@ enum VMPortabilityManager {
                 schemaVersion: VMExportManifest.currentSchemaVersion,
                 createdAt: Date(),
                 sourceBundleName: sourceURL.lastPathComponent,
-                minimumMacOSMajorVersion: 26,
+                minimumMacOSMajorVersion: 27,
                 architecture: "arm64",
                 files: files
             )

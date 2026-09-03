@@ -72,6 +72,9 @@ EZVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
 EZVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
   "$project_root/scripts/verify-release-asif-snapshot.sh" "$app_path" "$ubuntu_vm"
 
+EZVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
+  "$project_root/scripts/verify-release-asif-portability.sh" "$app_path" "$ubuntu_vm"
+
 if [[ "${EZVM_MATRIX_REQUIRE_NESTED:-0}" == "1" ]]; then
   EZVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
     "$project_root/scripts/verify-release-nested-virtualization.sh" "$app_path" "$omarchy_vm"

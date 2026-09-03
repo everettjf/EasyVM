@@ -78,6 +78,7 @@ final class VMPortabilityManagerTests: XCTestCase {
         try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
         let manifest = try unwrap(VMPortabilityManager.validateExport(at: export))
         XCTAssertEqual(manifest.schemaVersion, 1)
+        XCTAssertEqual(manifest.minimumMacOSMajorVersion, 27)
         XCTAssertEqual(Set(manifest.files.map(\.relativePath)), ["Disk.img", "MachineIdentifier", "config.json"])
 
         let imported = root.appendingPathComponent("Imported.ezvm")

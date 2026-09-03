@@ -716,6 +716,61 @@ struct VMReleaseSnapshotTestConfiguration: Equatable {
     }
 }
 
+enum VMReleasePortabilityAction: String, Equatable {
+    case export, validate, `import`
+
+    var successResult: String {
+        switch self {
+        case .export: "exported"
+        case .validate: "validated"
+        case .import: "imported"
+        }
+    }
+}
+
+struct VMReleasePortabilityTestConfiguration: Equatable {
+    let action: VMReleasePortabilityAction
+    let inputURL: URL
+    let outputURL: URL?
+    let resultURL: URL
+
+    static let actionEnvironmentKey = "EZVM_RELEASE_PORTABILITY_ACTION"
+    static let inputEnvironmentKey = "EZVM_RELEASE_PORTABILITY_INPUT"
+    static let outputEnvironmentKey = "EZVM_RELEASE_PORTABILITY_OUTPUT"
+    static let resultEnvironmentKey = "EZVM_RELEASE_PORTABILITY_RESULT"
+
+    static func configuration(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Self? {
+        guard let actionValue = environment[actionEnvironmentKey],
+              let action = VMReleasePortabilityAction(rawValue: actionValue),
+              let input = environment[inputEnvironmentKey], !input.isEmpty,
+              let result = environment[resultEnvironmentKey], !result.isEmpty else {
+            return nil
+        }
+        let output = environment[outputEnvironmentKey].flatMap { value in
+            value.isEmpty ? nil : URL(filePath: value).standardizedFileURL
+        }
+        guard action == .validate || output != nil else { return nil }
+        return Self(
+            action: action,
+            inputURL: URL(filePath: input).standardizedFileURL,
+            outputURL: output,
+            resultURL: URL(filePath: result).standardizedFileURL
+        )
+    }
+
+    func report(_ value: String) {
+        do {
+            try (value + "\n").write(to: resultURL, atomically: true, encoding: .utf8)
+        } catch {
+            FileHandle.standardError.write(
+                Data("Could not write portability release result: \(error.localizedDescription)\n".utf8)
+            )
+        }
+    }
+}
+
 enum VirtualizationCapability: String, CaseIterable, Identifiable {
     case savedState, automaticDisplayResize, asifStorage
     case guestProvisioning, diskImageKitSnapshots, customVirtio, efiSecureBoot

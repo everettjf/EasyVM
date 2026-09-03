@@ -276,6 +276,13 @@ destination or partial staging directory is created, while their user-facing
 errors report required and available space. Aggregate logical and allocated
 byte totals saturate rather than overflowing on pathological bundles.
 
+The signed-artifact matrix now treats portability as a real product journey,
+not only a unit-test round trip. It exports an APFS-cloned ASIF fixture, starts
+a separate application process to validate the exported manifest and payload,
+restores the machine into a new bundle while preserving its identity, and then
+boots and cleanly stops that imported guest. Temporary source, export, and
+import bundles are removed after the gate, including on failure.
+
 Low-space runs on larger real ASIF images and a genuinely nearly-full volume, a
 full host-restart exercise, and representative long-running performance
 measurements remain promotion gates for moving the feature out of Beta.
@@ -413,6 +420,14 @@ operations, SIGKILL restart and saved-state fallback, EFI recovery, macOS
 cross-process saved-state restore, VirGL and Guest Agent operation on both
 Linux guests, VMNet Shared transfer and fresh-process reacquisition, and ASIF
 snapshot creation, cross-process audit, restore, reboot, and clean stop.
+
+The next signed matrix additionally performs ASIF export, validation in an
+independent app process, restore import with machine-identity preservation, and
+an imported-guest boot and clean stop. This gate is implemented but must be
+rerun once the Developer ID identity is visible in the unlocked login keychain.
+The same path passed on September 2 using a disposable virtualization-only
+ad-hoc test signature, proving the application behavior independently of that
+remaining release-signing gate.
 
 Release runs can set an absolute `EZVM_MATRIX_REPORT` path to atomically retain
 a versioned JSON result containing duration, executable SHA-256, guest set, and

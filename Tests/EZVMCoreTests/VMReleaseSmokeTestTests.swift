@@ -43,6 +43,33 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertEqual(restored.snapshotID, id)
     }
 
+    func testPortabilityConfigurationRequiresOutputExceptForValidation() throws {
+        XCTAssertNil(VMReleasePortabilityTestConfiguration.configuration(environment: [:]))
+        XCTAssertNil(VMReleasePortabilityTestConfiguration.configuration(environment: [
+            VMReleasePortabilityTestConfiguration.actionEnvironmentKey: "export",
+            VMReleasePortabilityTestConfiguration.inputEnvironmentKey: "/tmp/source.ezvm",
+            VMReleasePortabilityTestConfiguration.resultEnvironmentKey: "/tmp/result"
+        ]))
+
+        let validation = try XCTUnwrap(VMReleasePortabilityTestConfiguration.configuration(environment: [
+            VMReleasePortabilityTestConfiguration.actionEnvironmentKey: "validate",
+            VMReleasePortabilityTestConfiguration.inputEnvironmentKey: "/tmp/a/../machine.ezvmexport",
+            VMReleasePortabilityTestConfiguration.resultEnvironmentKey: "/tmp/out/../result"
+        ]))
+        XCTAssertEqual(validation.action, .validate)
+        XCTAssertEqual(validation.inputURL.path, "/tmp/machine.ezvmexport")
+        XCTAssertNil(validation.outputURL)
+        XCTAssertEqual(validation.resultURL.path, "/tmp/result")
+
+        let importing = try XCTUnwrap(VMReleasePortabilityTestConfiguration.configuration(environment: [
+            VMReleasePortabilityTestConfiguration.actionEnvironmentKey: "import",
+            VMReleasePortabilityTestConfiguration.inputEnvironmentKey: "/tmp/machine.ezvmexport",
+            VMReleasePortabilityTestConfiguration.outputEnvironmentKey: "/tmp/restored.ezvm",
+            VMReleasePortabilityTestConfiguration.resultEnvironmentKey: "/tmp/result"
+        ]))
+        XCTAssertEqual(importing.outputURL?.path, "/tmp/restored.ezvm")
+    }
+
     func testConfigurationStandardizesPaths() throws {
         let configuration = try XCTUnwrap(VMReleaseSmokeTest.configuration(environment: [
             VMReleaseSmokeTest.vmPathEnvironmentKey: "/tmp/parent/../smoke.ezvm",
