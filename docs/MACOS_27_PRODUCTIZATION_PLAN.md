@@ -591,6 +591,18 @@ Reservations roll back on renderer rejection and are released by resource
 unreference, reset, and stop. This prevents a guest from exhausting the host by
 creating many resources that are each individually legal.
 
+Guest memory mappings used as resource backing have a separate 4 GiB aggregate
+per-device budget in addition to the 1 GiB per-resource limit. Reservations are
+made before attaching mappings to virglrenderer and are released on detach,
+resource unreference, reset, and stop. Runtime shutdown installs a terminal
+device fence, drains the custom-device delegate queue, and only then releases
+the process-global renderer lease, so a late framework callback cannot enter a
+renderer already reused by another VM. Pause invalidates the current scanout
+and stops the display clock; monotonically sequenced presentation events prevent
+a delayed invalidation from blanking a newer frame. Presentation coordinates
+are converted exactly and rejected before an invalid signed value can trap or
+wrap at the C boundary.
+
 Three-dimensional transfers now retain and validate resource mip metadata at
 the Swift boundary. Empty, overflowing, unavailable-mip, and out-of-mip X/Y
 regions are rejected before entering the C renderer, while Gallium continues to
@@ -619,6 +631,24 @@ demos:
   and Dynamic Type expectations.
 - Use user-facing language for recovery and retain technical details only in a
   copyable diagnostic view.
+
+## Adopted API completion
+
+`VZVirtualMachineConfiguration.label` is applied at all four configuration
+assembly boundaries: macOS creation, macOS run, Linux creation, and Linux run.
+Names are normalized for system services, blank labels are omitted, and the
+result is capped at Apple's 64 UTF-16-code-unit limit without splitting a Swift
+grapheme cluster. Import and portability tests use the same normalization, so a
+moved or imported machine does not silently diverge from a newly created one.
+
+`VZUSBController.Delegate` is installed only after Accessory Access listener
+registration succeeds and is cleared during teardown. Controller disconnects
+are reconciled by object identity against both attached and still-pending
+passthrough devices. Automated coverage exercises explicit detach, unexpected
+disconnect, duplicate Accessory Access/controller callback orderings, disconnect
+during attach, console-logout batches, and the stop fence. Physical-device tests
+remain mandatory because no synthetic unit test can make the framework claim,
+detach, or revoke a real USB accessory.
 
 ## Execution order
 
@@ -660,6 +690,13 @@ named legacy variables do not select the Developer ID archive/export path.
 The build now rejects the obsolete `EASYVM_SIGNING_IDENTITY` spelling before
 creating an output directory, preventing a release operator from silently
 producing an ad-hoc archive.
+
+After that signed matrix, the five core paths received an additional
+code-level lifecycle pass through commit `8bc3ade`. The complete Swift suite,
+the 26-test Custom VirGL package suite, and an unsigned macOS 27 Release build
+pass at that revision. This is regression evidence for transaction, ordering,
+and resource-boundary behavior; it does not replace the real-hardware gates
+listed above.
 
 ### Gate 0 — Establish release evidence
 
