@@ -78,15 +78,12 @@ jobs:
       - name: Test shared core and CLI
         run: |
           # This runner intentionally pairs the macOS 27 SDK with an older
-          # runtime. Keep broad logic coverage here, but do not execute suites
-          # that require runtime-only Virtualization or DiskImageKit symbols.
-          # Those suites run in the signed real-boot acceptance job and on a
-          # native macOS 27 development host.
-          swift test \
-            --skip VMLinuxFeatureConfigurationTests \
-            --skip VMNetworkConfigurationTests \
-            --skip VMOmarchyVirtualMachineBuilderTests \
-            --skip VMPortabilityManagerTests
+          # runtime, whose beta xctest crashes during EZVMCore test teardown
+          # after otherwise successful tests. Compile all shared code here and
+          # run the runtime-independent CLI bundle. Full Core/Virtualization
+          # tests run on the native macOS 27 acceptance host.
+          swift build --build-tests
+          swift test --filter EZVMCLIKitTests
       - name: Test factory signing pipeline
         run: scripts/test-omarchy-factory-tool.sh
       - name: Test sparse raw-to-ASIF factory conversion
