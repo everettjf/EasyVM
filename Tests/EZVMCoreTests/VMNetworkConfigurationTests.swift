@@ -834,6 +834,51 @@ final class VMNetworkConfigurationTests: XCTestCase {
         ))
     }
 
+    func testUSBRecoveryAfterRejectedMachineStopReconcilesControllerTruth() {
+        final class Device {}
+        let retained = Device()
+        let detached = Device()
+        let completedPendingAttach = Device()
+        let incompletePendingAttach = Device()
+        var attached = [UInt64(1): retained, UInt64(2): detached]
+        var pending = [UInt64(3): completedPendingAttach, UInt64(4): incompletePendingAttach]
+        var operations: [UInt64: VMUSBDeviceOperation] = [2: .detaching, 3: .attaching, 4: .attaching]
+        var tokens = [UInt64(2): UUID(), UInt64(3): UUID(), UInt64(4): UUID()]
+
+        VMUSBControllerSupport.reconcileAfterCancelledMachineStop(
+            actualDevices: [retained, completedPendingAttach],
+            attachedDevices: &attached,
+            pendingDevices: &pending,
+            operations: &operations,
+            operationTokens: &tokens
+        )
+
+        XCTAssertTrue(attached[1] === retained)
+        XCTAssertNil(attached[2])
+        XCTAssertTrue(attached[3] === completedPendingAttach)
+        XCTAssertNil(attached[4])
+        XCTAssertTrue(pending.isEmpty)
+        XCTAssertTrue(operations.isEmpty)
+        XCTAssertTrue(tokens.isEmpty)
+    }
+
+    func testRuntimePhaseRecoveryUsesAuthoritativeFrameworkState() {
+        XCTAssertEqual(
+            VMRuntimePhase.recoverablePhase(frameworkState: .running, fallback: .paused),
+            .running
+        )
+        XCTAssertEqual(
+            VMRuntimePhase.recoverablePhase(frameworkState: .paused, fallback: .running),
+            .paused
+        )
+        XCTAssertEqual(
+            VMRuntimePhase.recoverablePhase(frameworkState: .saving, fallback: .running),
+            .paused
+        )
+        XCTAssertNil(VMRuntimePhase.recoverablePhase(frameworkState: .stopped, fallback: .running))
+        XCTAssertNil(VMRuntimePhase.recoverablePhase(frameworkState: .error, fallback: .running))
+    }
+
     func testUnexpectedUSBDisconnectNoticeNamesDevice() {
         let notice = VMUSBPassthroughNotice.unexpectedDisconnect(
             deviceTitle: "USB 1234:ABCD"

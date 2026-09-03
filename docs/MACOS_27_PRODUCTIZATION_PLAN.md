@@ -198,6 +198,16 @@ and invalidates every in-flight operation token. If an asynchronous attach
 still completes after that boundary, its continuation immediately detaches the
 device instead of publishing a late Attached state into a stopping VM.
 
+That fence is also reversible when the framework rejects pause, stop, force
+stop, or saved-state work while the VM remains alive. EZVM no longer releases
+its last `VZVirtualMachine` reference on a recoverable lifecycle error. It maps
+the framework's authoritative state back to Running or Paused, retains the VM
+window and run lease, shows a dismissible failure notice, and reconciles both
+attached and pending devices against `VZUSBController.usbDevices` before
+re-enabling USB actions. A late completion from the cancelled stop boundary is
+therefore either reflected from controller truth or detached, never promoted
+from stale UI state.
+
 ### Product outcome
 
 USB passthrough feels like connecting a device to a physical computer: devices

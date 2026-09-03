@@ -439,6 +439,30 @@ enum VMUSBControllerSupport {
         operationTokens.removeValue(forKey: registryID)
         return disposition
     }
+
+    static func reconcileAfterCancelledMachineStop<Device: AnyObject>(
+        actualDevices: [Device],
+        attachedDevices: inout [UInt64: Device],
+        pendingDevices: inout [UInt64: Device],
+        operations: inout [UInt64: VMUSBDeviceOperation],
+        operationTokens: inout [UInt64: UUID]
+    ) {
+        let isAttached: (Device) -> Bool = { candidate in
+            actualDevices.contains { $0 === candidate }
+        }
+        let detachedRegistryIDs = attachedDevices.compactMap { registryID, device in
+            isAttached(device) ? nil : registryID
+        }
+        for registryID in detachedRegistryIDs {
+            attachedDevices.removeValue(forKey: registryID)
+        }
+        for (registryID, device) in pendingDevices where isAttached(device) {
+            attachedDevices[registryID] = device
+        }
+        pendingDevices.removeAll()
+        operations.removeAll()
+        operationTokens.removeAll()
+    }
 }
 
 enum VMConfigurationIdentity {
@@ -2188,6 +2212,24 @@ enum VMRuntimePhase: Equatable {
     case stopping
     case stopped
     case failed(String)
+
+    static func recoverablePhase(
+        frameworkState: VZVirtualMachine.State,
+        fallback: VMRuntimePhase
+    ) -> VMRuntimePhase? {
+        switch frameworkState {
+        case .running: .running
+        case .paused: .paused
+        case .starting: .starting
+        case .pausing: .pausing
+        case .resuming: .paused
+        case .stopping: .stopping
+        case .saving: .paused
+        case .restoring: .restoring
+        case .stopped, .error: nil
+        @unknown default: fallback
+        }
+    }
 
     var title: String {
         switch self {

@@ -1065,7 +1065,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.guestAgentClient?.virtualMachineDidPause()
                     self.runtimeState?.update(.paused)
-                case .failure(let error): self.fail("Could not pause the virtual machine: \(error.localizedDescription)")
+                case .failure(let error):
+                    self.recoverFromLifecycleOperationFailure(
+                        "Could not pause the virtual machine: \(error.localizedDescription)",
+                        fallback: .running
+                    )
                 }
             }
         }
@@ -1080,7 +1084,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.runtimeState?.update(.running)
                     self.guestAgentClient?.virtualMachineDidResume()
-                case .failure(let error): self.fail("Could not resume the virtual machine: \(error.localizedDescription)")
+                case .failure(let error):
+                    self.recoverFromLifecycleOperationFailure(
+                        "Could not resume the virtual machine: \(error.localizedDescription)",
+                        fallback: .paused
+                    )
                 }
             }
         }
@@ -1243,6 +1251,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     func requestStopMachine() {
         guard virtualMachine != nil else { return }
+        let fallbackPhase = runtimeState?.phase ?? .running
         usbAccessoryCoordinator?.prepareForMachineStop()
         runtimeState?.update(.stopping)
         markMachineStopping()
@@ -1256,20 +1265,27 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             return
         }
         guard virtualMachine.canRequestStop else {
-            fail("The guest cannot accept a shutdown request while the Guest Agent is unavailable.")
+            recoverFromLifecycleOperationFailure(
+                "The guest cannot accept a shutdown request while the Guest Agent is unavailable.",
+                fallback: fallbackPhase
+            )
             return
         }
         do {
             try virtualMachine.requestStop()
             scheduleShutdownFallback()
         } catch {
-            fail("The guest did not accept the shutdown request: \(error.localizedDescription)")
+            recoverFromLifecycleOperationFailure(
+                "The guest did not accept the shutdown request: \(error.localizedDescription)",
+                fallback: fallbackPhase
+            )
         }
     }
 
     func forceStopMachine() {
         cancelShutdownFallback()
         lifecycleGeneration += 1
+        let fallbackPhase = runtimeState?.phase ?? .running
         usbAccessoryCoordinator?.prepareForMachineStop()
         if let rootPath {
             let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
@@ -1287,7 +1303,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             Task { @MainActor in
                 guard let self else { return }
                 if let error {
-                    self.fail("Could not force stop the virtual machine: \(error.localizedDescription)")
+                    self.recoverFromLifecycleOperationFailure(
+                        "Could not force stop the virtual machine: \(error.localizedDescription)",
+                        fallback: fallbackPhase
+                    )
                 } else {
                     self.releaseVirtualMachineAfterStop()
                     self.runtimeState?.update(.stopped)
@@ -1298,6 +1317,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func saveAndStopMachine() {
+        let fallbackPhase = runtimeState?.phase ?? .running
         guard runtimeState?.canPersistMachineState == true else {
             // Retain the controller until the guest acknowledges shutdown and
             // the VM delegate releases the Custom Virtio renderer.
@@ -1312,7 +1332,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         usbAccessoryCoordinator?.prepareForMachineStop()
         markMachineStopping()
         shutdownRetainer = self
-        saveMachineStateAndStop(rootPath: rootPath)
+        saveMachineStateAndStop(rootPath: rootPath, fallbackPhase: fallbackPhase)
     }
 
     func saveAndStopForWindowClose() {
@@ -1323,7 +1343,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     @available(macOS 14.0, *)
-    private func saveMachineStateAndStop(rootPath: URL) {
+    private func saveMachineStateAndStop(rootPath: URL, fallbackPhase: VMRuntimePhase) {
         let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
         lifecycleGeneration += 1
         let operationGeneration = lifecycleGeneration
@@ -1334,8 +1354,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             do {
                 pendingURL = try VMSavedStateStore.prepare(stateURL: stateURL)
             } catch {
-                self.fail("Could not prepare the saved-state transaction: \(error.localizedDescription)")
-                self.shutdownRetainer = nil
+                self.recoverFromLifecycleOperationFailure(
+                    "Could not prepare the saved-state transaction: \(error.localizedDescription)",
+                    fallback: fallbackPhase
+                )
                 return
             }
             self.virtualMachine.saveMachineStateTo(url: pendingURL) { [weak self] error in
@@ -1347,7 +1369,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     }
                     if let error {
                         VMSavedStateStore.discardPending(stateURL: stateURL)
-                        self.fail("Could not save the virtual machine state: \(error.localizedDescription)")
+                        self.recoverFromLifecycleOperationFailure(
+                            "Could not save the virtual machine state: \(error.localizedDescription)",
+                            fallback: .paused
+                        )
                     } else {
                         do {
                             try VMSavedStateStore.commit(
@@ -1360,7 +1385,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                             self.releaseRunLease()
                         } catch {
                             VMSavedStateStore.discardPending(stateURL: stateURL)
-                            self.fail("Could not commit the saved machine state: \(error.localizedDescription)")
+                            self.recoverFromLifecycleOperationFailure(
+                                "Could not commit the saved machine state: \(error.localizedDescription)",
+                                fallback: .paused
+                            )
                         }
                     }
                     self.shutdownRetainer = nil
@@ -1378,8 +1406,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success: save()
                 case .failure(let error):
                     Task { @MainActor in
-                        self.fail("Could not pause before saving: \(error.localizedDescription)")
-                        self.shutdownRetainer = nil
+                        self.recoverFromLifecycleOperationFailure(
+                            "Could not pause before saving: \(error.localizedDescription)",
+                            fallback: fallbackPhase
+                        )
                     }
                 }
             }
@@ -1450,6 +1480,28 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         releaseRunLease()
         if let rootPath, let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
             VMReleaseSmokeTest.report("failed: \(message)", configuration: smokeTest)
+        }
+    }
+
+    private func recoverFromLifecycleOperationFailure(
+        _ message: String,
+        fallback: VMRuntimePhase
+    ) {
+        shutdownRetainer = nil
+        guard let virtualMachine,
+              let recoveredPhase = VMRuntimePhase.recoverablePhase(
+                frameworkState: virtualMachine.state,
+                fallback: fallback
+              ) else {
+            fail(message)
+            return
+        }
+        runtimeState?.update(recoveredPhase)
+        runtimeState?.updateMachineStateNotice(message)
+        if recoveredPhase == .running || recoveredPhase == .paused {
+            cancelShutdownFallback()
+            usbAccessoryCoordinator?.cancelMachineStopPreparation()
+            markMachineRunning()
         }
     }
 
@@ -1844,6 +1896,13 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         )
     }
 
+    func cancelMachineStopPreparation() {
+        guard isPreparingForMachineStop else { return }
+        isPreparingForMachineStop = false
+        reconcileControllerState()
+        publish()
+    }
+
     func attach(registryID: UInt64) {
         guard !isPreparingForMachineStop,
               operations[registryID] == nil,
@@ -1875,6 +1934,10 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                             self.pendingDevices.removeValue(forKey: registryID)
                         }
                         try? await controller.detach(device: device)
+                        if !self.isPreparingForMachineStop {
+                            self.reconcileControllerState()
+                            self.publish()
+                        }
                         return
                     }
                     self.pendingDevices.removeValue(forKey: registryID)
@@ -1944,7 +2007,11 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                         registryID: registryID,
                         token: operationToken,
                         operationTokens: self.operationTokens
-                      ) else { return }
+                      ) else {
+                    self?.reconcileControllerState()
+                    self?.publish()
+                    return
+                }
                 self.operations.removeValue(forKey: registryID)
                 self.operationTokens.removeValue(forKey: registryID)
                 self.attachedDevices.removeValue(forKey: registryID)
@@ -2076,6 +2143,23 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             operations: operations,
             notice: notice
         )))
+    }
+
+    private func reconcileControllerState() {
+        guard let controller = virtualMachine?.usbControllers.first else {
+            operations.removeAll()
+            operationTokens.removeAll()
+            pendingDevices.removeAll()
+            attachedDevices.removeAll()
+            return
+        }
+        VMUSBControllerSupport.reconcileAfterCancelledMachineStop(
+            actualDevices: controller.usbDevices.compactMap { $0 as? VZUSBPassthroughDevice },
+            attachedDevices: &attachedDevices,
+            pendingDevices: &pendingDevices,
+            operations: &operations,
+            operationTokens: &operationTokens
+        )
     }
 
     private static func failureKind(_ error: Error) -> VMUSBFailureKind {
