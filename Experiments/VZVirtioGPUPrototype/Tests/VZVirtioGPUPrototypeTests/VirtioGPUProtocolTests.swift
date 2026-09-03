@@ -291,6 +291,37 @@ import Testing
     ))
 }
 
+@Test func transferRegionsRespectMipEdgesAndCannotOverflow() {
+    #expect(VirtioGPU.transferRegionIsValid(
+        resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,
+        level: 0, x: 0, y: 0, z: 0, width: 1024, height: 512, depth: 1
+    ))
+    #expect(VirtioGPU.transferRegionIsValid(
+        resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,
+        level: 4, x: 0, y: 0, z: 7, width: 64, height: 32, depth: 1
+    ))
+    #expect(!VirtioGPU.transferRegionIsValid(
+        resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,
+        level: 5, x: 0, y: 0, z: 0, width: 1, height: 1, depth: 1
+    ))
+    #expect(!VirtioGPU.transferRegionIsValid(
+        resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,
+        level: 4, x: 63, y: 0, z: 0, width: 2, height: 1, depth: 1
+    ))
+    #expect(!VirtioGPU.transferRegionIsValid(
+        resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,
+        level: 0, x: UInt32.max, y: 0, z: 0, width: 2, height: 1, depth: 1
+    ))
+    #expect(!VirtioGPU.transferRegionIsValid(
+        resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,
+        level: 0, x: 0, y: 0, z: UInt32.max, width: 1, height: 1, depth: 2
+    ))
+    #expect(!VirtioGPU.transferRegionIsValid(
+        resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,
+        level: 0, x: 0, y: 0, z: 0, width: 0, height: 1, depth: 1
+    ))
+}
+
 @Test func latestFrameSchedulerBoundsWorkAndKeepsNewestFrame() {
     var delivered: [Int] = []
     var completions: [() -> Void] = []

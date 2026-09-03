@@ -43,6 +43,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let format: UInt32
         let width: Int
         let height: Int
+        var lastLevel: UInt32 = 0
         var backing: [BackingEntry] = []
         var virglBacking: VirGLBacking?
         var isRendererResource = false
@@ -662,6 +663,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         resources[resourceID] = Resource(
             id: resourceID, format: arguments.format,
             width: Int(width), height: Int(height),
+            lastLevel: lastLevel,
             isRendererResource: true
         )
         diagnosticLog(
@@ -808,10 +810,25 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             h: request.littleEndianUInt32(at: 40),
             d: request.littleEndianUInt32(at: 44)
         )
+        let level = request.littleEndianUInt32(at: 60)
+        guard VirtioGPU.transferRegionIsValid(
+            resourceWidth: UInt32(resource.width),
+            resourceHeight: UInt32(resource.height),
+            resourceLastLevel: resource.lastLevel,
+            level: level,
+            x: box.x, y: box.y, z: box.z,
+            width: box.w, height: box.h, depth: box.d
+        ) else {
+            diagnosticLog(
+                "TRANSFER_3D rejected resource=\(resourceID) level=\(level) "
+                    + "box=\(box.x),\(box.y),\(box.z) \(box.w)x\(box.h)x\(box.d)"
+            )
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+        }
         guard renderer.transfer(
             resourceID: resourceID,
             contextID: header.contextID,
-            level: request.littleEndianUInt32(at: 60),
+            level: level,
             stride: request.littleEndianUInt32(at: 64),
             layerStride: request.littleEndianUInt32(at: 68),
             box: box,

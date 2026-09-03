@@ -144,6 +144,34 @@ enum VirtioGPU {
             && height <= Int(Limits.maxCursorDimension)
     }
 
+    static func transferRegionIsValid(
+        resourceWidth: UInt32,
+        resourceHeight: UInt32,
+        resourceLastLevel: UInt32,
+        level: UInt32,
+        x: UInt32,
+        y: UInt32,
+        z: UInt32,
+        width: UInt32,
+        height: UInt32,
+        depth: UInt32
+    ) -> Bool {
+        guard resourceWidth > 0, resourceHeight > 0,
+              level <= resourceLastLevel,
+              width > 0, height > 0, depth > 0 else { return false }
+
+        // Resource creation already caps lastLevel at 15. Compute mip edges in
+        // UInt64 so guest coordinates can never wrap before comparison.
+        let mipWidth = max(UInt64(1), UInt64(resourceWidth) >> level)
+        let mipHeight = max(UInt64(1), UInt64(resourceHeight) >> level)
+        let right = UInt64(x) + UInt64(width)
+        let bottom = UInt64(y) + UInt64(height)
+        let back = UInt64(z) + UInt64(depth)
+        return right <= mipWidth
+            && bottom <= mipHeight
+            && back <= UInt64(UInt32.max)
+    }
+
     static func valid3DResourceDimensions(
         target: UInt32,
         width: UInt32,

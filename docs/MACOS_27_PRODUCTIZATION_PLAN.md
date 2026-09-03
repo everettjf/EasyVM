@@ -520,6 +520,12 @@ with explicit diagnostics for rejected counts and dimensions. Protocol tests
 cover the full command-size table and both resource ceilings; physical guest
 workload and long-soak validation remain release gates.
 
+Three-dimensional transfers now retain and validate resource mip metadata at
+the Swift boundary. Empty, overflowing, unavailable-mip, and out-of-mip X/Y
+regions are rejected before entering the C renderer, while Gallium continues to
+own target-specific cube/array layer validation. Protocol tests exercise full
+and reduced mip edges plus coordinate-overflow cases.
+
 ## Shared UX work
 
 The five journeys should feel like one product rather than five framework

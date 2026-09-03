@@ -163,6 +163,13 @@ The latter preserves standard 64×64 and HiDPI cursor planes while preventing a
 guest from turning a scanout-sized resource into an unbounded host cursor image.
 Limit rejections record dimensions or active counts, never guest pixels.
 
+`TRANSFER_TO_HOST_3D` and `TRANSFER_FROM_HOST_3D` are screened again before
+crossing into virglrenderer. EZVM retains each resource's last mip level and
+rejects empty regions, unavailable mip levels, X/Y regions outside the selected
+mip, and coordinate additions that exceed the wire integer range. Target-
+specific layer interpretation remains with virglrenderer so this host safety
+gate does not invent stricter cube or array semantics than Gallium.
+
 ### Reset and stop have distinct ownership boundaries
 
 Both transitions cancel scheduled frames and fences, invalidate the scanout,
