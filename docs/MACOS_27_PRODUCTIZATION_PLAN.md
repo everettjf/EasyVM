@@ -145,7 +145,10 @@ longer log-only: EZVM keeps failures independent for multi-adapter VMs, shows
 the affected adapter and framework reason in the VM window, and offers a
 bounded reattach of the original configuration. Reconnect attempts use
 per-adapter operation identities so an old callback cannot clear a newer
-failure, and VM teardown invalidates every pending attempt.
+failure, and VM teardown invalidates every pending attempt. The core tracker
+also rejects a second reconnect for an adapter already in progress, so repeated
+UI, automation, or future CLI events cannot replace the authoritative operation
+identity; a failed attempt returns to a retryable disconnected state.
 
 ### Product outcome
 

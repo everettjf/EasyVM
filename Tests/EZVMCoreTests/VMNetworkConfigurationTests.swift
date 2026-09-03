@@ -29,6 +29,7 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertFalse(tracker.beginReconnect(deviceIndex: 0))
         tracker.markDisconnected(deviceIndex: 0, reason: "Link lost")
         XCTAssertTrue(tracker.beginReconnect(deviceIndex: 0))
+        XCTAssertFalse(tracker.beginReconnect(deviceIndex: 0))
         XCTAssertEqual(
             tracker.state,
             .reconnecting(
@@ -40,6 +41,28 @@ final class VMNetworkConfigurationTests: XCTestCase {
 
         tracker.markConnected(deviceIndex: 0)
         XCTAssertEqual(tracker.state, .connected(deviceCount: 2))
+    }
+
+    func testNetworkRuntimeTrackerAllowsRetryAfterReconnectFails() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 1)
+        tracker.markStarted()
+        tracker.markDisconnected(deviceIndex: 0, reason: "Link lost")
+
+        XCTAssertTrue(tracker.beginReconnect(deviceIndex: 0))
+        tracker.markDisconnected(deviceIndex: 0, reason: "Interface is still unavailable")
+        XCTAssertEqual(
+            tracker.state,
+            .degraded(
+                deviceCount: 1,
+                issues: [
+                    VMNetworkDeviceIssue(
+                        deviceIndex: 0,
+                        reason: "Interface is still unavailable"
+                    )
+                ]
+            )
+        )
+        XCTAssertTrue(tracker.beginReconnect(deviceIndex: 0))
     }
 
     func testNetworkRuntimeTrackerKeepsIndependentAdapterFailures() {

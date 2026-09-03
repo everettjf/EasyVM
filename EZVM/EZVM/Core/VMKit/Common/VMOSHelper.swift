@@ -1307,7 +1307,8 @@ struct VMNetworkRuntimeTracker: Equatable {
     }
 
     mutating func beginReconnect(deviceIndex: Int) -> Bool {
-        guard disconnectedReasons[deviceIndex] != nil else { return false }
+        guard disconnectedReasons[deviceIndex] != nil,
+              !reconnectingIndices.contains(deviceIndex) else { return false }
         reconnectingIndices.insert(deviceIndex)
         return true
     }
