@@ -124,6 +124,96 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         }
     }
 
+    func testProtectedPreUpdatePointRestoresWorkspaceTransactionally() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("original disk".utf8).write(to: factory)
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+        let recovery = VMOmarchyRecoveryManager(workspaceManager: manager)
+
+        let point = try recovery.createProtectedPreUpdatePoint(targetVersion: "2.0")
+
+        XCTAssertTrue(point.isProtected)
+        XCTAssertEqual(point.name, "Before update to 2.0")
+        XCTAssertEqual(recovery.recoveryPoints(), [point])
+        try Data("updated but broken".utf8).write(to: layout.disk)
+
+        try recovery.restore(id: point.id)
+
+        XCTAssertEqual(try Data(contentsOf: layout.disk), Data("original disk".utf8))
+        XCTAssertEqual(manager.inspect(), .ready)
+        XCTAssertTrue(recovery.recoveryPoints().contains(where: { $0.id == point.id && $0.isProtected }))
+    }
+
+    func testPreUpdatePointLowSpaceFailureLeavesNoSnapshot() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory".utf8).write(to: factory)
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+        let recovery = VMOmarchyRecoveryManager(workspaceManager: manager)
+
+        XCTAssertThrowsError(try recovery.createProtectedPreUpdatePoint(
+            targetVersion: "2.0",
+            availableCapacityBytes: 0
+        )) { error in
+            guard case .operationFailed = error as? VMOmarchyRecoveryError else {
+                return XCTFail("Expected a bounded recovery operation failure, got \(error)")
+            }
+        }
+        XCTAssertTrue(recovery.recoveryPoints().isEmpty)
+    }
+
+    func testRestoreRejectsUnknownRecoveryPointWithoutChangingWorkspace() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        let original = Data("factory".utf8)
+        try original.write(to: factory)
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+
+        XCTAssertThrowsError(
+            try VMOmarchyRecoveryManager(workspaceManager: manager).restore(id: UUID().uuidString)
+        ) { error in
+            XCTAssertEqual(error as? VMOmarchyRecoveryError, .recoveryPointNotFound)
+        }
+        XCTAssertEqual(try Data(contentsOf: layout.disk), original)
+    }
+
+    func testInterruptedRecoveryNeverFollowsSymlinkedWorkspace() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let outside = temporaryRoot.appending(path: "outside", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        let marker = outside.appending(path: ".restore-transaction.json")
+        let original = Data("do not touch".utf8)
+        try original.write(to: marker)
+        try FileManager.default.createDirectory(at: layout.applicationSupportRoot, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: layout.workspace, withDestinationURL: outside)
+
+        XCTAssertThrowsError(
+            try VMOmarchyRecoveryManager(
+                workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
+            ).recoverInterruptedOperations()
+        ) { error in
+            XCTAssertEqual(error as? VMOmarchyRecoveryError, .workspaceNotReady)
+        }
+        XCTAssertEqual(try Data(contentsOf: marker), original)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: outside.path), [marker.lastPathComponent])
+    }
+
     func testPrepareReusesExistingOmarchyEnrollment() throws {
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
         let identifier = Data("identifier".utf8)

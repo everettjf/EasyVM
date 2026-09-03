@@ -703,6 +703,7 @@ class VMSnapshotManager {
     static func createSnapshot(
         vmRootPath: URL,
         name: String,
+        isProtected: Bool = false,
         availableCapacityBytes: Int64? = nil,
         operationControl: VMSnapshotOperationControl? = nil,
         progress: ((VMSnapshotOperationProgress) -> Void)? = nil
@@ -711,6 +712,7 @@ class VMSnapshotManager {
             createSnapshotWithoutLease(
                 vmRootPath: vmRootPath,
                 name: name,
+                isProtected: isProtected,
                 availableCapacityBytes: availableCapacityBytes,
                 operationControl: operationControl,
                 progress: progress
@@ -721,6 +723,7 @@ class VMSnapshotManager {
     private static func createSnapshotWithoutLease(
         vmRootPath: URL,
         name: String,
+        isProtected: Bool,
         availableCapacityBytes: Int64?,
         operationControl: VMSnapshotOperationControl?,
         progress: ((VMSnapshotOperationProgress) -> Void)?
@@ -730,6 +733,7 @@ class VMSnapshotManager {
             return createLayeredSnapshot(
                 vmRootPath: vmRootPath,
                 name: name,
+                isProtected: isProtected,
                 availableCapacityBytes: availableCapacityBytes,
                 operationControl: operationControl,
                 progress: progress
@@ -739,6 +743,7 @@ class VMSnapshotManager {
         return createAPFSCloneSnapshot(
             vmRootPath: vmRootPath,
             name: name,
+            isProtected: isProtected,
             availableCapacityBytes: availableCapacityBytes,
             operationControl: operationControl,
             progress: progress
@@ -748,6 +753,7 @@ class VMSnapshotManager {
     private static func createAPFSCloneSnapshot(
         vmRootPath: URL,
         name: String,
+        isProtected: Bool,
         availableCapacityBytes: Int64?,
         operationControl: VMSnapshotOperationControl?,
         progress: ((VMSnapshotOperationProgress) -> Void)?
@@ -815,7 +821,8 @@ class VMSnapshotManager {
                 parentSnapshotID: currentSnapshotID(vmRootPath: vmRootPath),
                 totalSize: directoryAllocatedSize(filesDir),
                 backend: .apfsClone,
-                fileManifest: manifest
+                fileManifest: manifest,
+                isProtected: isProtected
             )
 
             progress?(operationProgress(
@@ -1332,6 +1339,7 @@ class VMSnapshotManager {
     private static func createLayeredSnapshot(
         vmRootPath: URL,
         name: String,
+        isProtected: Bool,
         availableCapacityBytes: Int64?,
         operationControl: VMSnapshotOperationControl?,
         progress: ((VMSnapshotOperationProgress) -> Void)?
@@ -1417,7 +1425,8 @@ class VMSnapshotManager {
                     return total + fileAllocatedSize(vmRootPath.appending(path: lastPath))
                 },
                 backend: .diskImageKitLayered,
-                diskLayers: frozenLayers
+                diskLayers: frozenLayers,
+                isProtected: isProtected
             )
             try jsonEncoder().encode(model).write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: snapshotID), options: .atomic)
             state.currentSnapshotID = snapshotID

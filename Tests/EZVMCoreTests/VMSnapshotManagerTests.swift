@@ -528,9 +528,14 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertNotNil(image)
 
         let snapshot = try unwrapSuccess(
-            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Layered")
+            VMSnapshotManager.createSnapshot(
+                vmRootPath: temporaryRoot,
+                name: "Layered",
+                isProtected: true
+            )
         )
         XCTAssertEqual(snapshot.backend, .diskImageKitLayered)
+        XCTAssertTrue(snapshot.isProtected)
         XCTAssertEqual(snapshot.diskLayers.count, 1)
         XCTAssertEqual(snapshot.diskLayers[0].baseImageName, "Disk.asif")
         XCTAssertEqual(snapshot.diskLayers[0].layerPaths.count, 1)
@@ -1345,13 +1350,13 @@ final class VMSnapshotManagerTests: XCTestCase {
     func testProtectedSnapshotCannotBeDeletedUntilUnprotected() throws {
         try write("disk", to: "Disk.img")
         let snapshot = try unwrapSuccess(
-            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Keep me")
+            VMSnapshotManager.createSnapshot(
+                vmRootPath: temporaryRoot,
+                name: "Keep me",
+                isProtected: true
+            )
         )
-        try unwrapSuccess(VMSnapshotManager.setSnapshotProtected(
-            vmRootPath: temporaryRoot,
-            snapshot: snapshot,
-            isProtected: true
-        ))
+        XCTAssertTrue(snapshot.isProtected)
         let protected = try XCTUnwrap(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).first)
         XCTAssertTrue(protected.isProtected)
         if case let .failure(message) = VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: protected) {

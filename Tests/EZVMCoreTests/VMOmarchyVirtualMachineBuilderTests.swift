@@ -3,6 +3,27 @@ import XCTest
 @testable import EZVMCore
 
 final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
+    func testBuilderRefusesToBootAcrossUnreadableInterruptedRestore() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "VMOmarchyBuilderRecoveryTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
+        try Data("not a recovery journal".utf8).write(
+            to: layout.workspace.appending(path: ".restore-transaction.json")
+        )
+
+        XCTAssertThrowsError(try VMOmarchyVirtualMachineBuilder.makeConfiguration(
+            layout: layout,
+            profile: .production
+        )) { error in
+            guard case .recoveryFailed(let reason) = error as? VMOmarchyVirtualMachineBuilderError else {
+                return XCTFail("Expected recovery to block VM startup, got \(error)")
+            }
+            XCTAssertTrue(reason.contains("recovery"), reason)
+        }
+    }
+
     func testBuilderCreatesValidatedFixedLinuxConfiguration() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "VMOmarchyBuilderTests-\(UUID().uuidString)", directoryHint: .isDirectory)

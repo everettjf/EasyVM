@@ -10,6 +10,9 @@ struct OmarchyVirtualMachineView: View {
     @State private var keyboardIntegration: OmarchyKeyboardIntegrationState = .accessibilityRequired
     @State private var integration: VMOmarchyIntegrationState = .connecting
     @State private var stopTimeoutTask: Task<Void, Never>?
+    @State private var recoveryPoints: [VMOmarchyRecoveryPoint] = []
+    @State private var recoveryOperation: RecoveryOperation = .idle
+    @State private var pendingRestore: VMOmarchyRecoveryPoint?
 
     private var phase: Phase { lifecycle.phase }
 
@@ -32,6 +35,7 @@ struct OmarchyVirtualMachineView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 integrationMenu
+                recoveryMenu
                 Button("Open Shared Folder", systemImage: "folder") {
                     NSWorkspace.shared.open(layout.shared)
                 }
@@ -62,6 +66,24 @@ struct OmarchyVirtualMachineView: View {
         .onDisappear {
             stopTimeoutTask?.cancel()
             stopTimeoutTask = nil
+        }
+        .onAppear { refreshRecoveryPoints() }
+        .confirmationDialog(
+            "Restore \(pendingRestore?.name ?? "this recovery point")?",
+            isPresented: Binding(
+                get: { pendingRestore != nil },
+                set: { if !$0 { pendingRestore = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Restore Omarchy", role: .destructive) {
+                guard let point = pendingRestore else { return }
+                pendingRestore = nil
+                restore(point)
+            }
+            Button("Cancel", role: .cancel) { pendingRestore = nil }
+        } message: {
+            Text("Omarchy must remain stopped. The current workspace will be replaced transactionally; an interrupted restore is rolled back automatically.")
         }
     }
 
@@ -100,6 +122,41 @@ struct OmarchyVirtualMachineView: View {
         .help(integrationReady ? "Omarchy integration is ready" : "Omarchy integration is not ready")
     }
 
+    @ViewBuilder
+    private var recoveryMenu: some View {
+        Menu {
+            switch recoveryOperation {
+            case .idle:
+                if phase == .stopped {
+                    Button("Create Protected Backup", systemImage: "externaldrive.badge.plus") {
+                        createProtectedBackup()
+                    }
+                } else {
+                    Text("Stop Omarchy to create or restore backups")
+                }
+            case .working(let message):
+                Text(message)
+            case .failed(let message):
+                Text(message)
+                Button("Dismiss") { recoveryOperation = .idle }
+            }
+            if !recoveryPoints.isEmpty {
+                Divider()
+                ForEach(recoveryPoints) { point in
+                    Button {
+                        pendingRestore = point
+                    } label: {
+                        Label(point.name, systemImage: point.isProtected ? "lock.shield" : "clock.arrow.circlepath")
+                    }
+                    .disabled(phase != .stopped || recoveryOperation.isWorking)
+                }
+            }
+        } label: {
+            Label("Recovery", systemImage: recoveryOperation.isFailed ? "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90" : "clock.arrow.circlepath")
+        }
+        .help("Create or restore protected Omarchy recovery points")
+    }
+
     private var integrationReady: Bool {
         if case .ready(let status) = integration {
             return VMOmarchyIntegrationAssessment.evaluate(
@@ -136,6 +193,7 @@ struct OmarchyVirtualMachineView: View {
                     handle(.startRequested)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(recoveryOperation.isWorking)
             }
             .padding(26)
             .background(.regularMaterial, in: .rect(cornerRadius: 14))
@@ -153,9 +211,57 @@ struct OmarchyVirtualMachineView: View {
     private func handlePhaseChange(_ phase: Phase) {
         switch phase {
         case .running: handle(.machineStarted)
-        case .stopped: handle(.machineStopped)
+        case .stopped:
+            handle(.machineStopped)
+            refreshRecoveryPoints()
         case .failed(let message): handle(.machineFailed(message))
         case .starting, .stopping: break
+        }
+    }
+
+    private func refreshRecoveryPoints() {
+        recoveryPoints = VMOmarchyRecoveryManager(
+            workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
+        ).recoveryPoints()
+    }
+
+    private func createProtectedBackup() {
+        guard phase == .stopped, !recoveryOperation.isWorking else { return }
+        recoveryOperation = .working("Creating protected backup…")
+        let manager = VMOmarchyRecoveryManager(
+            workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
+        )
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try manager.createProtectedBackup() }
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    recoveryOperation = .idle
+                    refreshRecoveryPoints()
+                case .failure(let error):
+                    recoveryOperation = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func restore(_ point: VMOmarchyRecoveryPoint) {
+        guard phase == .stopped, !recoveryOperation.isWorking else { return }
+        recoveryOperation = .working("Restoring \(point.name)…")
+        let manager = VMOmarchyRecoveryManager(
+            workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
+        )
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try manager.restore(id: point.id) }
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    recoveryOperation = .idle
+                    refreshRecoveryPoints()
+                case .failure(let error):
+                    recoveryOperation = .failed(error.localizedDescription)
+                }
+            }
         }
     }
 
@@ -188,6 +294,22 @@ struct OmarchyVirtualMachineView: View {
         case stopping
         case stopped
         case failed(String)
+    }
+
+    private enum RecoveryOperation: Equatable {
+        case idle
+        case working(String)
+        case failed(String)
+
+        var isWorking: Bool {
+            if case .working = self { return true }
+            return false
+        }
+
+        var isFailed: Bool {
+            if case .failed = self { return true }
+            return false
+        }
     }
 }
 

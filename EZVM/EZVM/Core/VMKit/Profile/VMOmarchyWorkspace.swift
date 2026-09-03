@@ -270,3 +270,154 @@ public struct VMOmarchyWorkspaceManager {
         (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true
     }
 }
+
+public struct VMOmarchyRecoveryPoint: Equatable, Sendable, Identifiable {
+    public let id: String
+    public let name: String
+    public let createdAt: Date
+    public let allocatedSize: UInt64?
+    public let isProtected: Bool
+
+    public init(id: String, name: String, createdAt: Date, allocatedSize: UInt64?, isProtected: Bool) {
+        self.id = id
+        self.name = name
+        self.createdAt = createdAt
+        self.allocatedSize = allocatedSize
+        self.isProtected = isProtected
+    }
+}
+
+public enum VMOmarchyRecoveryError: Error, Equatable, LocalizedError {
+    case workspaceNotReady
+    case operationFailed(String)
+    case recoveryPointNotFound
+    case restoredWorkspaceInvalid(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .workspaceNotReady:
+            "Omarchy must be installed and stopped before changing recovery points."
+        case .operationFailed(let reason):
+            "The Omarchy recovery operation failed: \(reason)"
+        case .recoveryPointNotFound:
+            "That Omarchy recovery point no longer exists."
+        case .restoredWorkspaceInvalid(let reason):
+            "The recovery point was restored, but the workspace is invalid: \(reason)"
+        }
+    }
+}
+
+/// A narrow Omarchy-facing seam over EZVM's shared transactional snapshot
+/// implementation. Callers must keep the virtual machine stopped while an
+/// operation is in progress.
+public struct VMOmarchyRecoveryManager {
+    public let workspaceManager: VMOmarchyWorkspaceManager
+
+    public init(workspaceManager: VMOmarchyWorkspaceManager) {
+        self.workspaceManager = workspaceManager
+    }
+
+    public func recoveryPoints() -> [VMOmarchyRecoveryPoint] {
+        VMSnapshotManager.listSnapshots(vmRootPath: workspaceManager.layout.workspace).map(Self.point)
+    }
+
+    @discardableResult
+    public func createProtectedPreUpdatePoint(
+        targetVersion: String,
+        availableCapacityBytes: Int64? = nil
+    ) throws -> VMOmarchyRecoveryPoint {
+        let version = targetVersion.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !version.isEmpty else {
+            throw VMOmarchyRecoveryError.operationFailed("The target version is empty.")
+        }
+        return try createProtectedPoint(
+            name: "Before update to \(version)",
+            availableCapacityBytes: availableCapacityBytes
+        )
+    }
+
+    @discardableResult
+    public func createProtectedBackup(
+        name: String = "Protected backup",
+        availableCapacityBytes: Int64? = nil
+    ) throws -> VMOmarchyRecoveryPoint {
+        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedName.isEmpty else {
+            throw VMOmarchyRecoveryError.operationFailed("The recovery point name is empty.")
+        }
+        return try createProtectedPoint(name: normalizedName, availableCapacityBytes: availableCapacityBytes)
+    }
+
+    private func createProtectedPoint(
+        name: String,
+        availableCapacityBytes: Int64?
+    ) throws -> VMOmarchyRecoveryPoint {
+        try ensureRecoveredWorkspaceIsReady()
+        switch VMSnapshotManager.createSnapshot(
+            vmRootPath: workspaceManager.layout.workspace,
+            name: name,
+            isProtected: true,
+            availableCapacityBytes: availableCapacityBytes
+        ) {
+        case .success(let snapshot):
+            guard let committed = VMSnapshotManager.listSnapshots(vmRootPath: workspaceManager.layout.workspace)
+                .first(where: { $0.id == snapshot.id }) else {
+                throw VMOmarchyRecoveryError.operationFailed(
+                    "The recovery point was created but its committed metadata could not be read."
+                )
+            }
+            return Self.point(committed)
+        case .failure(let reason): throw VMOmarchyRecoveryError.operationFailed(reason)
+        }
+    }
+
+    public func recoverInterruptedOperations() throws {
+        var isDirectory: ObjCBool = false
+        let workspace = workspaceManager.layout.workspace
+        guard FileManager.default.fileExists(atPath: workspace.path, isDirectory: &isDirectory),
+              isDirectory.boolValue,
+              (try? workspace.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else {
+            throw VMOmarchyRecoveryError.workspaceNotReady
+        }
+        switch VMSnapshotManager.recoverInterruptedRestore(vmRootPath: workspaceManager.layout.workspace) {
+        case .success: return
+        case .failure(let reason): throw VMOmarchyRecoveryError.operationFailed(reason)
+        }
+    }
+
+    public func restore(id: String, availableCapacityBytes: Int64? = nil) throws {
+        try ensureRecoveredWorkspaceIsReady()
+        guard let snapshot = VMSnapshotManager.listSnapshots(vmRootPath: workspaceManager.layout.workspace)
+            .first(where: { $0.id == id }) else {
+            throw VMOmarchyRecoveryError.recoveryPointNotFound
+        }
+        switch VMSnapshotManager.restoreSnapshot(
+            vmRootPath: workspaceManager.layout.workspace,
+            snapshot: snapshot,
+            availableCapacityBytes: availableCapacityBytes
+        ) {
+        case .success: break
+        case .failure(let reason): throw VMOmarchyRecoveryError.operationFailed(reason)
+        }
+        if case .recovering(let reason) = workspaceManager.inspect() {
+            throw VMOmarchyRecoveryError.restoredWorkspaceInvalid(reason)
+        }
+    }
+
+    private static func point(_ snapshot: VMSnapshotModel) -> VMOmarchyRecoveryPoint {
+        VMOmarchyRecoveryPoint(
+            id: snapshot.id,
+            name: snapshot.name,
+            createdAt: snapshot.createdAt,
+            allocatedSize: snapshot.totalSize,
+            isProtected: snapshot.isProtected
+        )
+    }
+
+    private func ensureRecoveredWorkspaceIsReady() throws {
+        try recoverInterruptedOperations()
+        guard workspaceManager.inspect() == .ready else {
+            throw VMOmarchyRecoveryError.workspaceNotReady
+        }
+    }
+}

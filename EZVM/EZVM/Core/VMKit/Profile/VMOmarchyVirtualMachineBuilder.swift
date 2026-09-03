@@ -8,7 +8,14 @@ public enum VMOmarchyVirtualMachineBuilder {
         hostMemoryBytes: UInt64 = ProcessInfo.processInfo.physicalMemory,
         activeProcessorCount: Int = ProcessInfo.processInfo.activeProcessorCount
     ) throws -> VZVirtualMachineConfiguration {
-        try buildConfiguration(
+        do {
+            try VMOmarchyRecoveryManager(
+                workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
+            ).recoverInterruptedOperations()
+        } catch {
+            throw VMOmarchyVirtualMachineBuilderError.recoveryFailed(error.localizedDescription)
+        }
+        return try buildConfiguration(
             layout: layout,
             profile: profile,
             hostMemoryBytes: hostMemoryBytes,
@@ -130,4 +137,16 @@ public enum VMOmarchyVirtualMachineBuilder {
 
 public enum VMOmarchyVirtualMachineBuilderError: Error, Equatable {
     case invalidMachineIdentifier
+    case recoveryFailed(String)
+}
+
+extension VMOmarchyVirtualMachineBuilderError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .invalidMachineIdentifier:
+            "The Omarchy machine identity is invalid."
+        case .recoveryFailed(let reason):
+            "Omarchy cannot start until its interrupted recovery is resolved: \(reason)"
+        }
+    }
 }

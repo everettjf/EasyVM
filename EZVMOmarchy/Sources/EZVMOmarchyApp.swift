@@ -58,6 +58,9 @@ struct OmarchyRootView: View {
                     Text(recoveryError).foregroundStyle(.red).multilineTextAlignment(.center)
                 }
                 HStack {
+                    Button("Repair and Recheck", systemImage: "wrench.and.screwdriver") {
+                        repairInterruptedRecovery()
+                    }
                     Button("Reveal Data", systemImage: "folder") {
                         NSWorkspace.shared.activateFileViewerSelecting([workspaceManager.layout.workspace])
                     }
@@ -84,6 +87,16 @@ struct OmarchyRootView: View {
     private func preserveAndReinstall() {
         do {
             _ = try workspaceManager.quarantineBrokenWorkspace()
+            recoveryError = nil
+            workspaceRevision = UUID()
+        } catch {
+            recoveryError = error.localizedDescription
+        }
+    }
+
+    private func repairInterruptedRecovery() {
+        do {
+            try VMOmarchyRecoveryManager(workspaceManager: workspaceManager).recoverInterruptedOperations()
             recoveryError = nil
             workspaceRevision = UUID()
         } catch {
