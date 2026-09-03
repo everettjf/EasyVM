@@ -21,6 +21,9 @@ Record this once for every complete run:
 - [ ] Notarization and stapling status are stated explicitly
 - [ ] Guest fixture names and immutable fixture checksums are recorded outside
       the report; enrollment tokens and personal filesystem paths are not
+- [ ] The matrix read-only guard records metadata fingerprints for all three
+      source fixtures and confirms they are unchanged even when a gate fails;
+      every boot, mutation, snapshot, and fault injection runs on a COW clone
 - [ ] Result report and sanitized diagnostics are retained for every failure
 
 ## 1. Physical USB and `VZUSBController.Delegate`

@@ -3,6 +3,8 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/readonly-fixture-guard.sh
+source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 app_path="${1:-}"
 expected_version="${2:-}"
 macos_vm="${EZVM_MATRIX_MACOS_VM:-}"
@@ -22,6 +24,31 @@ fail() {
 [[ -d "$macos_vm" ]] || fail "EZVM_MATRIX_MACOS_VM must name a macOS fixture"
 [[ -d "$omarchy_vm" ]] || fail "EZVM_MATRIX_OMARCHY_VM must name an Omarchy fixture"
 [[ -d "$ubuntu_vm" ]] || fail "EZVM_MATRIX_UBUNTU_VM must name an Ubuntu fixture"
+
+declare -A fixture_fingerprints
+for fixture in "$macos_vm" "$omarchy_vm" "$ubuntu_vm"; do
+  fixture_fingerprints["$fixture"]="$(fixture_metadata_fingerprint "$fixture")" \
+    || fail "could not fingerprint read-only fixture: $fixture"
+done
+
+verify_fixtures_unchanged() {
+  local fixture
+  local result=0
+  for fixture in "$macos_vm" "$omarchy_vm" "$ubuntu_vm"; do
+    assert_fixture_unchanged "$fixture" "${fixture_fingerprints[$fixture]}" || result=1
+  done
+  return "$result"
+}
+
+finish_matrix() {
+  local matrix_status=$?
+  trap - EXIT
+  if ! verify_fixtures_unchanged; then
+    exit 1
+  fi
+  exit "$matrix_status"
+}
+trap finish_matrix EXIT
 
 validate_fixture() {
   local path="$1"
