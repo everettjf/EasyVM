@@ -34,7 +34,10 @@ credential after `VZVirtualMachine.start` succeeds because the framework does
 not expose a guest-provisioning completion callback. The VM window reports
 that setup is being applied and asks the user to confirm only after they can
 sign in; credential deletion is explicit, fallible, and reflected in runtime
-state. Each Keychain payload now carries a stable attempt identifier and a
+state. The creation review now previews the account identity, automatic login,
+Remote Login, and temporary Keychain lifetime without rendering the password;
+opting out explicitly states that macOS Setup Assistant remains manual. Each
+Keychain payload now carries a stable attempt identifier and a
 persisted `prepared`, `applying`, or `awaitingConfirmation` state. EZVM writes
 `applying` before calling the framework, so a process interruption never causes
 an ambiguous attempt to be submitted again automatically. On the next launch,
@@ -56,7 +59,7 @@ boot is interrupted.
 
 | Area | Required refinement | Acceptance evidence |
 | --- | --- | --- |
-| Wizard | Put provisioning behind an explicit choice; preview account name, computer name, auto-login, SSH, and secret lifetime before Create. | A new user can explain the result from the review page; opting out creates an ordinary Setup Assistant flow. |
+| Wizard | Keep provisioning behind an explicit choice; preview account identity, auto-login, SSH, and secret lifetime before Create. The macOS 27 API has no computer-name field, so EZVM must not imply that it controls one. | A new user can explain the result from the review page; opting out creates an ordinary Setup Assistant flow. |
 | Secrets | Keep passwords in a ThisDeviceOnly Keychain item, never in the VM bundle, model JSON, logs, crash metadata, or export. Delete only after provisioning completion is confirmed—not merely after the VM starts. | Log/export scans contain no secret; interrupted first boot can retry; successful provisioning removes the temporary item. |
 | State model | Persist the attempt identifier and `prepared / applying / awaiting confirmation` alongside the ThisDeviceOnly credential; represent unavailable, retry-prepared, completed, and failed states explicitly in runtime UI. | Only `prepared` is submitted. An interrupted or accepted attempt requires verification or an explicit next-start retry, so EZVM cannot silently report success or create duplicate accounts. |
 | Feedback | Show first-boot status and an actionable failure card; explain when manual Setup Assistant is the safe fallback. | Permission denial, invalid account data, guest rejection, reboot, and timeout each produce a distinct next action. |

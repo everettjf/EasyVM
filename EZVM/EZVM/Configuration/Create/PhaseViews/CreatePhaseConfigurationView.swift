@@ -308,6 +308,32 @@ struct CreatePhaseReviewView: View {
                     reviewRow("Storage", storageSummary)
                     reviewRow("Shared folders", sharingSummary)
                 }
+
+                if configData.osType == .macOS {
+                    reviewSection("First Boot", systemImage: "person.crop.circle.badge.checkmark") {
+                        if formData.provisionsMacGuest {
+                            reviewRow(
+                                "Account",
+                                "\(formData.provisioningFullName) · \(formData.provisioningUsername)"
+                            )
+                            reviewRow(
+                                "Automatic login",
+                                formData.provisioningAutomaticLogin ? "Enabled" : "Off"
+                            )
+                            reviewRow(
+                                "Remote Login",
+                                formData.provisioningRemoteLogin ? "SSH enabled" : "Off"
+                            )
+                            reviewRow(
+                                "Password",
+                                "Stored in this Mac’s Keychain until you confirm setup completed"
+                            )
+                        } else {
+                            reviewRow("Setup", "Complete macOS Setup Assistant manually")
+                            reviewRow("Password", "Not stored by EZVM")
+                        }
+                    }
+                }
             }
             .frame(maxWidth: 720, alignment: .leading)
             .padding(.bottom, 12)
@@ -340,16 +366,15 @@ struct CreatePhaseReviewView: View {
     }
 
     private func reviewRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 18) {
-            Text(label)
-                .fontWeight(.medium)
-                .frame(width: 108, alignment: .leading)
+        LabeledContent {
             Text(value)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.leading)
-                .lineLimit(3)
                 .textSelection(.enabled)
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Text(label)
+                .fontWeight(.medium)
         }
         .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
