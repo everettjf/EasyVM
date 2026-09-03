@@ -706,6 +706,11 @@ candidate still does not have a notarization ticket stapled to it, and no
 claimable physical USB accessory was present. Fresh macOS provisioning,
 physical USB, host sleep/network transitions, and representative VirGL A/B
 workloads therefore remain separate real-environment gates.
+Two additional signed Omarchy idle A/B runs (30 and 60 seconds) passed the
+checked-in VirGL cadence, presentation-latency, CPU-delta, and memory-delta
+budgets with no drawable misses or presentation failures. They establish a
+repeatable idle regression baseline but deliberately do not close the
+interactive-workload gate.
 
 On September 2, 2026, commit `929dd38` was built as EZVM 2.0.0 through the
 Developer ID archive/export path. The app, CLI helper, and bundled VirGL

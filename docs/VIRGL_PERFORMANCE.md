@@ -162,6 +162,25 @@ Treat this as a regression reference, not a universal performance claim. A
 comparison with another VM product is valid only when host, guest image,
 CPU/memory allocation, resolution, scale, workload, and capture duration match.
 
+## September 3, 2026 signed idle A/B
+
+The current EZVM 2.0.0 Developer ID candidate passed two more same-fixture
+`hyprland-idle` comparisons on macOS 27.0 (26A5425a), Mac15,6. The first
+30-second capture reported 15.0% average host CPU and 186.3 MiB average RSS for
+Custom VirGL versus 0.7% and 158.6 MiB for Apple Virtio. Custom VirGL sustained
+60.8 FPS with zero drawable misses or presentation failures; average, worst-
+window P95, and absolute-peak presentation were 1.12 ms, 1.52 ms, and 3.34 ms.
+
+A 60-second repeat reduced the Custom VirGL average to 11.5% CPU while Apple
+Virtio measured 0.5%; average RSS was 190.7 MiB versus 162.6 MiB. Across 12
+VirGL windows it sustained 60.4 FPS, zero misses, and zero failures, with
+0.84 ms average and 1.31 ms worst-window P95 presentation. One 34.58 ms sample
+occurred in the first warm-up window; every later window peaked at or below
+3.32 ms. Both runs passed the checked-in CPU, memory, cadence, and latency
+budgets. The CPU spread between repeated idle captures reinforces that this is
+a regression gate, not a substitute for controlled interactive browser,
+scrolling, video, and workspace-switching workloads.
+
 ## Symptom routing
 
 | Symptom | Inspect first |
