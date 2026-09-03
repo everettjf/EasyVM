@@ -335,6 +335,15 @@ delete. Protection metadata is written away from the main actor and reports a
 clear completion result, preventing both UI stalls and concurrent snapshot-tree
 changes.
 
+Long operations now keep their transaction context visible instead of allowing
+the snapshot sheet to disappear while disk work continues. Creation, safety-
+snapshot, restore-installation, audit, delete, rename, and protection phases use
+truthful primary and secondary status text; restoring advances from preserving
+the current state to installing the verified transaction. The Close action and
+interactive dismissal remain disabled until the operation reaches a safe
+terminal result. Byte-level progress and cooperative cancellation are still
+future work and are not implied by the indeterminate progress indicator.
+
 Long-chain validation now creates and opens a real 32-layer ASIF history. Audit
 does not stop at file signatures: it asks DiskImageKit to assemble each complete
 stack read-only, which rejects reordered layers and broken parent relationships.

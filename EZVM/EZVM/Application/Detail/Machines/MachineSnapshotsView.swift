@@ -32,6 +32,7 @@ class MachineSnapshotsViewStateObject {
     var snapshotBeforeRestore = true
     var isWorking = false
     var message: String = ""
+    var workingDetail: String = ""
     var messageTone: MachineSnapshotMessageTone = .neutral
     var searchText: String = ""
 
@@ -77,7 +78,10 @@ class MachineSnapshotsViewStateObject {
             name = VMSnapshotManager.defaultSnapshotName()
         }
 
-        begin("Creating snapshot…")
+        begin(
+            "Preparing snapshot…",
+            detail: "Checking disk space and preserving the current machine files."
+        )
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.createSnapshot(vmRootPath: rootPath, name: name)
@@ -96,7 +100,12 @@ class MachineSnapshotsViewStateObject {
     }
 
     func restoreSnapshot(_ snapshot: VMSnapshotModel) {
-        begin("Restoring snapshot \"\(snapshot.name)\"…")
+        begin(
+            snapshotBeforeRestore ? "Saving the current state first…" : "Preparing restore…",
+            detail: snapshotBeforeRestore
+                ? "EZVM will keep a recovery point before replacing the machine state."
+                : "Checking snapshot integrity and available disk space."
+        )
         let rootPath = self.rootPath
         let keepCurrentState = snapshotBeforeRestore
         Task.detached {
@@ -112,6 +121,13 @@ class MachineSnapshotsViewStateObject {
                     }
                     return
                 }
+            }
+
+            await MainActor.run {
+                self.updateWorking(
+                    "Restoring snapshot \"\(snapshot.name)\"…",
+                    detail: "Installing the verified snapshot transaction. This window will unlock when the machine is safe to use."
+                )
             }
 
             let result = VMSnapshotManager.restoreSnapshot(vmRootPath: rootPath, snapshot: snapshot)
@@ -133,7 +149,7 @@ class MachineSnapshotsViewStateObject {
         if name.isEmpty || name == snapshot.name {
             return
         }
-        begin("Renaming snapshot \"\(snapshot.name)\"…")
+        begin("Renaming snapshot \"\(snapshot.name)\"…", detail: "Updating snapshot metadata safely.")
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.renameSnapshot(vmRootPath: rootPath, snapshot: snapshot, newName: name)
@@ -151,7 +167,7 @@ class MachineSnapshotsViewStateObject {
     }
 
     func deleteSnapshot(_ snapshot: VMSnapshotModel) {
-        begin("Deleting snapshot \"\(snapshot.name)\"…")
+        begin("Deleting snapshot \"\(snapshot.name)\"…", detail: "Removing only data that is no longer referenced.")
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.deleteSnapshot(vmRootPath: rootPath, snapshot: snapshot)
@@ -170,7 +186,10 @@ class MachineSnapshotsViewStateObject {
 
     func toggleProtection(_ snapshot: VMSnapshotModel) {
         let shouldProtect = !snapshot.isProtected
-        begin("\(shouldProtect ? "Protecting" : "Unprotecting") snapshot \"\(snapshot.name)\"…")
+        begin(
+            "\(shouldProtect ? "Protecting" : "Unprotecting") snapshot \"\(snapshot.name)\"…",
+            detail: "Updating snapshot protection metadata safely."
+        )
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.setSnapshotProtected(
@@ -196,7 +215,10 @@ class MachineSnapshotsViewStateObject {
     }
 
     func auditSnapshots() {
-        begin("Auditing snapshot integrity…")
+        begin(
+            "Auditing snapshot integrity…",
+            detail: "Validating metadata, files, and every ASIF layer stack."
+        )
         let rootPath = self.rootPath
         let snapshots = self.snapshots
         Task.detached {
@@ -218,27 +240,38 @@ class MachineSnapshotsViewStateObject {
         }
     }
 
-    private func begin(_ message: String) {
+    private func begin(_ message: String, detail: String) {
         isWorking = true
         self.message = message
+        workingDetail = detail
+        messageTone = .working
+    }
+
+    private func updateWorking(_ message: String, detail: String) {
+        guard isWorking else { return }
+        self.message = message
+        workingDetail = detail
         messageTone = .working
     }
 
     private func succeed(_ message: String) {
         isWorking = false
         self.message = message
+        workingDetail = ""
         messageTone = .success
     }
 
     private func warn(_ message: String) {
         isWorking = false
         self.message = message
+        workingDetail = ""
         messageTone = .warning
     }
 
     private func fail(_ message: String) {
         isWorking = false
         self.message = message
+        workingDetail = ""
         messageTone = .failure
     }
 }
@@ -552,10 +585,20 @@ struct MachineSnapshotsView: View {
 
             HStack {
                 if state.isWorking {
-                    ProgressView()
-                        .controlSize(.small)
+                    ProgressView {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(state.message)
+                                .font(.caption.weight(.medium))
+                            Text(state.workingDetail)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .controlSize(.small)
+                    .accessibilityLabel(state.message)
+                    .accessibilityValue(state.workingDetail)
                 }
-                if !state.message.isEmpty {
+                if !state.isWorking, !state.message.isEmpty {
                     Label(state.message, systemImage: messageSymbol(for: state.messageTone))
                         .font(.caption)
                         .foregroundStyle(messageColor(for: state.messageTone))
@@ -568,10 +611,17 @@ struct MachineSnapshotsView: View {
                 } label: {
                     Text("Close")
                 }
+                .disabled(state.isWorking)
+                .help(
+                    state.isWorking
+                        ? "Wait until the snapshot transaction finishes safely before closing this window."
+                        : "Close Snapshots"
+                )
             }
         }
         .padding()
         .frame(minWidth: 680, idealWidth: 760, minHeight: 520, idealHeight: 600)
+        .interactiveDismissDisabled(state.isWorking)
         .confirmationDialog(
             "Restore snapshot \"\(restoringSnapshot?.name ?? "")\" ?",
             isPresented: Binding(get: { restoringSnapshot != nil }, set: { if !$0 { restoringSnapshot = nil } })
@@ -593,7 +643,7 @@ struct MachineSnapshotsView: View {
             }
         }
         .confirmationDialog(
-            "Delete snapshot \"\(deletingSnapshot?.name ?? "")\" ? This can not be undone.",
+            "Delete snapshot \"\(deletingSnapshot?.name ?? "")\"? This cannot be undone.",
             isPresented: Binding(get: { deletingSnapshot != nil }, set: { if !$0 { deletingSnapshot = nil } })
         ) {
             Button("Delete", role: .destructive) {
