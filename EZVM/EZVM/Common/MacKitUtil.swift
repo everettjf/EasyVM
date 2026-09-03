@@ -47,6 +47,17 @@ enum EZVMDiagnostics {
             "Physical memory: \(ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory))",
             "Generated: \(Date().formatted(.iso8601))",
             "",
+            "# macOS 27 capabilities",
+            VMHostCapability.diagnosticSummary(
+                entitlementLookup: { capabilityKey in
+                    VMHostCapability.allCases.contains { capability in
+                        capability.entitlementKeys.contains(capabilityKey) && capability.isGranted
+                    }
+                },
+                diskImageKitIncluded: Self.diskImageKitIncluded,
+                customVirGLIncluded: Self.customVirGLIncluded
+            ).joined(separator: "\n"),
+            "",
             "# Registered virtual machines"
         ]
         let machinePaths = sharedAppConfigManager.appConfig.rootPaths
@@ -76,6 +87,22 @@ enum EZVMDiagnostics {
         }
         try sections.joined(separator: "\n").write(to: destination, atomically: true, encoding: .utf8)
         return destination
+    }
+
+    private static var diskImageKitIncluded: Bool {
+        #if canImport(DiskImageKit)
+        true
+        #else
+        false
+        #endif
+    }
+
+    private static var customVirGLIncluded: Bool {
+        #if canImport(EZVMVirGLRuntime)
+        true
+        #else
+        false
+        #endif
     }
 }
 

@@ -67,4 +67,19 @@ final class VMDiagnosticSanitizerTests: XCTestCase {
             "domain=AccessoryError code=42"
         )
     }
+
+    func testCapabilitySummaryDistinguishesEntitlementsFromBundledFeatures() {
+        let summary = VMHostCapability.diagnosticSummary(
+            entitlementLookup: { $0 != "com.apple.developer.networking.vmnet" },
+            diskImageKitIncluded: true,
+            customVirGLIncluded: false
+        )
+
+        XCTAssertEqual(summary.count, 5)
+        XCTAssertTrue(summary.contains("Virtualization: entitlement present"))
+        XCTAssertTrue(summary.contains("VMNet: missing entitlement"))
+        XCTAssertTrue(summary.contains("Accessory Access: entitlement present"))
+        XCTAssertTrue(summary.contains("DiskImageKit / ASIF snapshots: included"))
+        XCTAssertTrue(summary.contains("Custom Virtio GPU / VirGL: unavailable in this build"))
+    }
 }

@@ -112,6 +112,22 @@ enum VMHostCapability: String, CaseIterable, Identifiable {
         guard let task = SecTaskCreateFromSelf(nil) else { return false }
         return SecTaskCopyValueForEntitlement(task, key as CFString, nil) as? Bool == true
     }
+
+    static func diagnosticSummary(
+        entitlementLookup: (String) -> Bool,
+        diskImageKitIncluded: Bool,
+        customVirGLIncluded: Bool
+    ) -> [String] {
+        var lines = allCases.map { capability in
+            let state = capability.grantedEntitlementKey(lookup: entitlementLookup) == nil
+                ? "missing entitlement"
+                : "entitlement present"
+            return "\(capability.title): \(state)"
+        }
+        lines.append("DiskImageKit / ASIF snapshots: \(diskImageKitIncluded ? "included" : "unavailable in this build")")
+        lines.append("Custom Virtio GPU / VirGL: \(customVirGLIncluded ? "included" : "unavailable in this build")")
+        return lines
+    }
 }
 
 struct VMUSBDeviceDescriptorSummary: Equatable, Identifiable {
