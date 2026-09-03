@@ -150,6 +150,12 @@ also rejects a second reconnect for an adapter already in progress, so repeated
 UI, automation, or future CLI events cannot replace the authoritative operation
 identity; a failed attempt returns to a retryable disconnected state.
 
+Disconnect UI no longer displays an unbounded framework string by itself. EZVM
+adds a stable recovery action covering interface changes, VPNs, and host access,
+then appends at most 160 sanitized characters of framework detail. Full raw
+errors remain in the network log for support without allowing control characters
+or oversized text to dominate the VM window.
+
 ### Product outcome
 
 The default remains simple NAT. Advanced users can deliberately choose bridged,

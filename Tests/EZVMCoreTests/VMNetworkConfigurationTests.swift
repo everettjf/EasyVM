@@ -5,6 +5,30 @@ import Darwin
 
 #if arch(arm64)
 final class VMNetworkConfigurationTests: XCTestCase {
+    func testNetworkDisconnectGuidanceIsActionableSanitizedAndBounded() {
+        let unsafeDetail = " bridge0\n\u{1} unavailable "
+            + String(repeating: "x", count: 300)
+        let message = VMNetworkFailureGuidance.disconnectReason(
+            frameworkDescription: unsafeDetail
+        )
+
+        XCTAssertTrue(message.contains("Check the selected interface, VPN, and network access"))
+        XCTAssertTrue(message.contains("Framework detail: bridge0 unavailable"))
+        XCTAssertFalse(message.contains("\n"))
+        XCTAssertFalse(message.contains("\u{1}"))
+        let detail = try? XCTUnwrap(message.components(separatedBy: "Framework detail: ").last)
+        XCTAssertLessThanOrEqual(detail?.count ?? .max, VMNetworkFailureGuidance.maximumFrameworkDetailCharacters)
+    }
+
+    func testNetworkDisconnectGuidanceOmitsEmptyFrameworkDetail() {
+        let message = VMNetworkFailureGuidance.disconnectReason(
+            frameworkDescription: "\n\t\u{0}"
+        )
+
+        XCTAssertFalse(message.contains("Framework detail"))
+        XCTAssertTrue(message.hasSuffix("then reconnect."))
+    }
+
     func testNetworkRuntimeTrackerDistinguishesPreparingConnectedAndDegraded() {
         var tracker = VMNetworkRuntimeTracker(deviceCount: 2)
         XCTAssertEqual(tracker.state, .preparing(deviceCount: 2))

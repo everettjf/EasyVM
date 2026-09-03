@@ -1386,7 +1386,9 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
         networkReconnectTokens.removeValue(forKey: deviceIndex)
         networkRuntimeTracker.markDisconnected(
             deviceIndex: deviceIndex,
-            reason: error.localizedDescription
+            reason: VMNetworkFailureGuidance.disconnectReason(
+                frameworkDescription: error.localizedDescription
+            )
         )
         runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
         EZVMLog.error(

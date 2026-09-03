@@ -1248,6 +1248,25 @@ struct VMNetworkDeviceIssue: Equatable, Identifiable {
     var title: String { "Network Adapter \(deviceIndex + 1)" }
 }
 
+enum VMNetworkFailureGuidance {
+    static let maximumFrameworkDetailCharacters = 160
+
+    static func disconnectReason(frameworkDescription: String) -> String {
+        let base = "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect."
+        let visibleScalars = frameworkDescription.unicodeScalars.filter {
+            !CharacterSet.controlCharacters.contains($0)
+                || CharacterSet.whitespacesAndNewlines.contains($0)
+        }
+        let normalized = String(String.UnicodeScalarView(visibleScalars))
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard !normalized.isEmpty else { return base }
+        let detail = String(normalized.prefix(maximumFrameworkDetailCharacters))
+        return "\(base) Framework detail: \(detail)"
+    }
+}
+
 enum VMNetworkRuntimeState: Equatable {
     case unavailable
     case preparing(deviceCount: Int)
