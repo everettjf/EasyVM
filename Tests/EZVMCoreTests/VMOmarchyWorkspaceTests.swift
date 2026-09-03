@@ -33,8 +33,37 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: layout.disk), Data("factory".utf8))
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.snapshots.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.enrollment.path))
+        let enrollmentURL = layout.enrollment.appending(path: "config.json")
+        let enrollment = try JSONDecoder().decode(
+            VMGuestAgentEnrollment.self,
+            from: Data(contentsOf: enrollmentURL)
+        )
+        XCTAssertEqual(
+            enrollment.machineID,
+            VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: Data("identifier".utf8))
+        )
+        XCTAssertEqual(enrollment.token.count, 32)
+        XCTAssertEqual(
+            try FileManager.default.attributesOfItem(atPath: enrollmentURL.path)[.posixPermissions] as? NSNumber,
+            NSNumber(value: 0o600)
+        )
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: layout.applicationSupportRoot.path)
             .contains(where: { $0.hasPrefix(".Workspace.preparing.") }))
+    }
+
+    func testPrepareReusesExistingOmarchyEnrollment() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let identifier = Data("identifier".utf8)
+        guard case .success(let first) = VMGuestAgentEnrollmentStore.loadOrCreate(
+            machineIdentifierData: identifier,
+            directoryURL: layout.enrollment
+        ) else { return XCTFail("Could not create enrollment") }
+        guard case .success(let second) = VMGuestAgentEnrollmentStore.loadOrCreate(
+            machineIdentifierData: identifier,
+            directoryURL: layout.enrollment
+        ) else { return XCTFail("Could not reload enrollment") }
+
+        XCTAssertEqual(first, second)
     }
 
     func testIncompleteWorkspaceRequiresRecoveryAndIsNeverOverwritten() throws {

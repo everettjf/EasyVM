@@ -10,6 +10,7 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
         try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: layout.boot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: layout.enrollment, withIntermediateDirectories: true)
         XCTAssertTrue(FileManager.default.createFile(atPath: layout.disk.path, contents: Data(count: 1_048_576)))
         try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
 
@@ -26,6 +27,11 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertEqual(configuration.storageDevices.count, 1)
         XCTAssertEqual(configuration.graphicsDevices.count, 1)
         XCTAssertEqual(configuration.socketDevices.count, 1)
+        XCTAssertEqual(configuration.directorySharingDevices.count, 1)
+        XCTAssertEqual(
+            (configuration.directorySharingDevices.first as? VZVirtioFileSystemDeviceConfiguration)?.tag,
+            "ezvm-agent"
+        )
         XCTAssertEqual(configuration.audioDevices.count, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.efiVariableStore.path))
     }

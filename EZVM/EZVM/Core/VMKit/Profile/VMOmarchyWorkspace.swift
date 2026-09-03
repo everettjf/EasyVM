@@ -38,6 +38,7 @@ public enum VMOmarchyWorkspaceError: Error, Equatable {
     case invalidFactoryDisk
     case unsafeWorkspacePath
     case publicationFailed(String)
+    case enrollmentFailed(String)
 }
 
 public struct VMOmarchyWorkspaceManager {
@@ -94,9 +95,19 @@ public struct VMOmarchyWorkspaceManager {
                 withIntermediateDirectories: false
             )
             try createSupportDirectories()
+            switch VMGuestAgentEnrollmentStore.loadOrCreate(
+                machineIdentifierData: machineIdentifier,
+                directoryURL: layout.enrollment
+            ) {
+            case .success: break
+            case .failure(let error): throw VMOmarchyWorkspaceError.enrollmentFailed(error)
+            }
             // Publishing the fully populated directory is the final operation,
             // so observers can only see no workspace or a complete workspace.
             try fileManager.moveItem(at: staging, to: layout.workspace)
+        } catch let error as VMOmarchyWorkspaceError {
+            try? fileManager.removeItem(at: staging)
+            throw error
         } catch {
             try? fileManager.removeItem(at: staging)
             throw VMOmarchyWorkspaceError.publicationFailed(error.localizedDescription)

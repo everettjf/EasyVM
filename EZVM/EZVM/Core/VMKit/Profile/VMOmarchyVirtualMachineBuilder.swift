@@ -92,6 +92,14 @@ public enum VMOmarchyVirtualMachineBuilder {
         configuration.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]
         configuration.socketDevices = [VZVirtioSocketDeviceConfiguration()]
 
+        let enrollmentDirectory = VZSharedDirectory(url: layout.enrollment, readOnly: true)
+        let enrollmentShare = VZSingleDirectoryShare(directory: enrollmentDirectory)
+        let enrollmentDevice = VZVirtioFileSystemDeviceConfiguration(
+            tag: VMGuestAgentEnrollmentStore.sharedDirectoryTag
+        )
+        enrollmentDevice.share = enrollmentShare
+        configuration.directorySharingDevices = [enrollmentDevice]
+
         let network = VZVirtioNetworkDeviceConfiguration()
         network.attachment = VZNATNetworkDeviceAttachment()
         network.macAddress = VZMACAddress.randomLocallyAdministered()

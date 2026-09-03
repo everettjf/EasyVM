@@ -52,6 +52,40 @@ enum VMGuestAgentEnrollmentStore {
         }
     }
 
+    static func loadOrCreate(
+        machineIdentifierData: Data,
+        directoryURL: URL
+    ) -> VMOSResult<VMGuestAgentEnrollment, String> {
+        let machineID = machineID(machineIdentifierData: machineIdentifierData)
+        let configurationURL = directoryURL.appending(
+            path: sharedConfigurationFileName,
+            directoryHint: .notDirectory
+        )
+        do {
+            if FileManager.default.fileExists(atPath: configurationURL.path) {
+                let enrollment = try JSONDecoder().decode(
+                    VMGuestAgentEnrollment.self,
+                    from: Data(contentsOf: configurationURL, options: [.mappedIfSafe])
+                )
+                try enrollment.validate()
+                guard enrollment.machineID == machineID else {
+                    throw VMGuestAgentAuthenticationError.invalidMachine
+                }
+                return .success(enrollment)
+            }
+            let enrollment = VMGuestAgentEnrollment(
+                machineID: machineID,
+                token: VMGuestAgentAuthenticator.generateToken()
+            )
+            switch writeSharedConfiguration(enrollment, directoryURL: directoryURL) {
+            case .success: return .success(enrollment)
+            case .failure(let error): return .failure(error)
+            }
+        } catch {
+            return .failure("The guest-agent enrollment file is invalid: \(error.localizedDescription)")
+        }
+    }
+
     static func load(machineIdentifierData: Data) -> VMOSResult<VMGuestAgentEnrollment?, String> {
         load(machineID: machineID(machineIdentifierData: machineIdentifierData))
     }
