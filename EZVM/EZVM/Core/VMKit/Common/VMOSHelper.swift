@@ -1501,6 +1501,7 @@ enum VMNetworkRuntimeState: Equatable {
     case unavailable
     case preparing(deviceCount: Int)
     case connected(deviceCount: Int)
+    case hostSleeping(deviceCount: Int)
     case reconnecting(deviceCount: Int, issues: [VMNetworkDeviceIssue], deviceIndices: [Int])
     case degraded(deviceCount: Int, issues: [VMNetworkDeviceIssue])
 
@@ -1520,8 +1521,11 @@ enum VMNetworkRuntimeState: Equatable {
 struct VMNetworkRuntimeTracker: Equatable {
     private(set) var deviceCount: Int
     private(set) var isStarted = false
+    private(set) var isHostSleeping = false
     private(set) var disconnectedReasons: [Int: String] = [:]
     private(set) var reconnectingIndices = Set<Int>()
+
+    var disconnectedDeviceIndices: [Int] { disconnectedReasons.keys.sorted() }
 
     init(deviceCount: Int) {
         self.deviceCount = max(deviceCount, 0)
@@ -1533,6 +1537,7 @@ struct VMNetworkRuntimeTracker: Equatable {
             .map { VMNetworkDeviceIssue(deviceIndex: $0.key, reason: $0.value) }
             .sorted { $0.deviceIndex < $1.deviceIndex }
         guard isStarted else { return .preparing(deviceCount: deviceCount) }
+        if isHostSleeping { return .hostSleeping(deviceCount: deviceCount) }
         if !reconnectingIndices.isEmpty {
             return .reconnecting(
                 deviceCount: deviceCount,
@@ -1566,6 +1571,18 @@ struct VMNetworkRuntimeTracker: Equatable {
         guard (0..<deviceCount).contains(deviceIndex) else { return }
         disconnectedReasons.removeValue(forKey: deviceIndex)
         reconnectingIndices.remove(deviceIndex)
+    }
+
+    mutating func markHostSleeping() {
+        guard isStarted else { return }
+        isHostSleeping = true
+        reconnectingIndices.removeAll()
+    }
+
+    @discardableResult
+    mutating func markHostAwake() -> [Int] {
+        isHostSleeping = false
+        return disconnectedDeviceIndices
     }
 }
 

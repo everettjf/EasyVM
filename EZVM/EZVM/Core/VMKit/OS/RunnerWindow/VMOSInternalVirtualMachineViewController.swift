@@ -48,6 +48,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
     private var networkReconnectTokens: [Int: UUID] = [:]
     private var displayRefreshObservers: [NSObjectProtocol] = []
+    private var networkPowerObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
     // Keep the controller alive while a window-close save is still running.
     private var shutdownRetainer: VMOSInternalVirtualMachineViewController?
@@ -72,15 +73,73 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         super.viewDidAppear()
         view.window?.backgroundColor = .black
         installDisplayRefreshObserversIfNeeded()
+        installNetworkPowerObserversIfNeeded()
     }
 
     public override func viewWillDisappear() {
         super.viewWillDisappear()
         removeDisplayRefreshObservers()
+        removeNetworkPowerObservers()
     }
 
     deinit {
         removeDisplayRefreshObservers()
+        removeNetworkPowerObservers()
+    }
+
+    private func installNetworkPowerObserversIfNeeded() {
+        guard networkPowerObservers.isEmpty else { return }
+        let center = NSWorkspace.shared.notificationCenter
+        networkPowerObservers.append(center.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.networkReconnectTokens.removeAll()
+                self.networkRuntimeTracker.markHostSleeping()
+                self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
+                EZVMLog.info("Host sleep suspended network recovery.", logger: EZVMLog.network)
+            }
+        })
+        networkPowerObservers.append(center.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let disconnectedIndices = self.networkRuntimeTracker.markHostAwake()
+                self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
+                if !disconnectedIndices.isEmpty {
+                    EZVMLog.info(
+                        "Host wake will recover \(disconnectedIndices.count) disconnected network adapter(s).",
+                        logger: EZVMLog.network
+                    )
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                    guard let self else { return }
+                    // A Virtualization.framework disconnect callback can arrive
+                    // just after the workspace wake notification. Re-read the
+                    // tracker here so that late but authoritative callbacks are
+                    // included in the same recovery pass.
+                    let recoveryIndices = self.networkRuntimeTracker.disconnectedDeviceIndices
+                    if recoveryIndices.isEmpty {
+                        EZVMLog.info("Host wake preserved all network attachments.", logger: EZVMLog.network)
+                    }
+                    for deviceIndex in recoveryIndices {
+                        self.reconnectNetworkDevice(deviceIndex: deviceIndex)
+                    }
+                }
+            }
+        })
+    }
+
+    private func removeNetworkPowerObservers() {
+        let center = NSWorkspace.shared.notificationCenter
+        networkPowerObservers.forEach(center.removeObserver)
+        networkPowerObservers.removeAll()
     }
 
     private func installDisplayRefreshObserversIfNeeded() {

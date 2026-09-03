@@ -117,6 +117,39 @@ final class VMNetworkConfigurationTests: XCTestCase {
         )
     }
 
+    func testNetworkRuntimeTrackerDoesNotClaimConnectivityDuringHostSleep() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 2)
+        tracker.markStarted()
+        tracker.markHostSleeping()
+
+        XCTAssertEqual(tracker.state, .hostSleeping(deviceCount: 2))
+        XCTAssertEqual(tracker.markHostAwake(), [])
+        XCTAssertEqual(tracker.state, .connected(deviceCount: 2))
+    }
+
+    func testNetworkRuntimeTrackerRecoversOnlyAdaptersDisconnectedDuringSleep() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 3)
+        tracker.markStarted()
+        tracker.markDisconnected(deviceIndex: 0, reason: "Before sleep")
+        XCTAssertTrue(tracker.beginReconnect(deviceIndex: 0))
+
+        tracker.markHostSleeping()
+        tracker.markDisconnected(deviceIndex: 2, reason: "Interface removed during sleep")
+        XCTAssertEqual(tracker.state, .hostSleeping(deviceCount: 3))
+        XCTAssertEqual(tracker.markHostAwake(), [0, 2])
+        XCTAssertEqual(
+            tracker.state,
+            .degraded(
+                deviceCount: 3,
+                issues: [
+                    VMNetworkDeviceIssue(deviceIndex: 0, reason: "Before sleep"),
+                    VMNetworkDeviceIssue(deviceIndex: 2, reason: "Interface removed during sleep"),
+                ]
+            )
+        )
+        XCTAssertTrue(tracker.beginReconnect(deviceIndex: 0))
+    }
+
     func testUSBPassthroughDisablesMachineStateWhileAttached() {
         XCTAssertFalse(VMUSBControllerSupport.canSaveMachineState(
             backendSupportsSaveRestore: true,

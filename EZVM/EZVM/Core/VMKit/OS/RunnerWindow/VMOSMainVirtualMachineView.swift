@@ -828,6 +828,7 @@ private struct VMNetworkRuntimeMenu: View {
         case .unavailable: "network.slash"
         case .preparing: "network"
         case .connected: "network"
+        case .hostSleeping: "moon.zzz"
         case .reconnecting: "arrow.triangle.2.circlepath"
         case .degraded: "network.slash"
         }
@@ -838,6 +839,7 @@ private struct VMNetworkRuntimeMenu: View {
         case .unavailable: "No virtual network adapter"
         case .preparing(let count): "Preparing \(adapterCount(count))"
         case .connected(let count): "\(adapterCount(count)) connected"
+        case .hostSleeping(let count): "\(adapterCount(count)) suspended while this Mac sleeps"
         case .reconnecting(_, _, let deviceIndices): "Reconnecting \(issueCount(deviceIndices.count))"
         case .degraded(_, let issues): "\(issueCount(issues.count)) disconnected"
         }
@@ -889,7 +891,7 @@ private struct VMNetworkRuntimeBanner: View {
                 .accessibilityElement(children: .contain)
                 .networkRuntimeCard()
             }
-        case .unavailable, .preparing, .connected:
+        case .unavailable, .preparing, .connected, .hostSleeping:
             EmptyView()
         }
     }
