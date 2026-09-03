@@ -1069,14 +1069,19 @@ enum VMGuestProvisioningCredentialStore {
             let data = try JSONEncoder().encode(credential)
             let query = baseQuery(vmRootPath: vmRootPath)
             let status = SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary)
-            if status == errSecSuccess { return .success }
+            if status == errSecSuccess {
+                deleteLegacyItemIfNeeded(vmRootPath: vmRootPath)
+                return .success
+            }
             guard status == errSecItemNotFound else { return .failure(message(for: status)) }
 
             var addQuery = query
             addQuery[kSecValueData as String] = data
             addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-            return addStatus == errSecSuccess ? .success : .failure(message(for: addStatus))
+            guard addStatus == errSecSuccess else { return .failure(message(for: addStatus)) }
+            deleteLegacyItemIfNeeded(vmRootPath: vmRootPath)
+            return .success
         } catch {
             return .failure("Could not encode guest provisioning credentials: \(error.localizedDescription)")
         }
@@ -1088,7 +1093,9 @@ enum VMGuestProvisioningCredentialStore {
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { return .success(nil) }
+        if status == errSecItemNotFound {
+            return loadLegacyItemAndMigrate(vmRootPath: vmRootPath)
+        }
         guard status == errSecSuccess, let data = result as? Data else {
             return .failure(message(for: status))
         }
@@ -1101,9 +1108,13 @@ enum VMGuestProvisioningCredentialStore {
 
     static func delete(vmRootPath: URL) -> VMOSResultVoid {
         let status = SecItemDelete(baseQuery(vmRootPath: vmRootPath) as CFDictionary)
-        return status == errSecSuccess || status == errSecItemNotFound
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            return .failure(message(for: status))
+        }
+        let legacyStatus = SecItemDelete(legacyBaseQuery(vmRootPath: vmRootPath) as CFDictionary)
+        return legacyStatus == errSecSuccess || legacyStatus == errSecItemNotFound
             ? .success
-            : .failure(message(for: status))
+            : .failure(message(for: legacyStatus))
     }
 
     private static func baseQuery(vmRootPath: URL) -> [String: Any] {
@@ -1115,11 +1126,58 @@ enum VMGuestProvisioningCredentialStore {
     }
 
     static func accountKey(vmRootPath: URL) -> String {
+        let identifierURL = vmRootPath.appendingPathComponent("MachineIdentifier", isDirectory: false)
+        if let identifier = try? Data(contentsOf: identifierURL), !identifier.isEmpty {
+            return "machine:\(VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: identifier))"
+        }
+        return legacyAccountKey(vmRootPath: vmRootPath)
+    }
+
+    static func legacyAccountKey(vmRootPath: URL) -> String {
         var path = vmRootPath.standardizedFileURL.path(percentEncoded: false)
         while path.count > 1, path.hasSuffix("/") {
             path.removeLast()
         }
         return path
+    }
+
+    private static func legacyBaseQuery(vmRootPath: URL) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: legacyAccountKey(vmRootPath: vmRootPath),
+        ]
+    }
+
+    private static func loadLegacyItemAndMigrate(
+        vmRootPath: URL
+    ) -> VMOSResult<VMGuestProvisioningCredential?, String> {
+        guard accountKey(vmRootPath: vmRootPath) != legacyAccountKey(vmRootPath: vmRootPath) else {
+            return .success(nil)
+        }
+        var query = legacyBaseQuery(vmRootPath: vmRootPath)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return .success(nil) }
+        guard status == errSecSuccess, let data = result as? Data else {
+            return .failure(message(for: status))
+        }
+        do {
+            let credential = try JSONDecoder().decode(VMGuestProvisioningCredential.self, from: data)
+            if case .success = save(credential, vmRootPath: vmRootPath) {
+                deleteLegacyItemIfNeeded(vmRootPath: vmRootPath)
+            }
+            return .success(credential)
+        } catch {
+            return .failure("The guest provisioning credential in Keychain is invalid: \(error.localizedDescription)")
+        }
+    }
+
+    private static func deleteLegacyItemIfNeeded(vmRootPath: URL) {
+        guard accountKey(vmRootPath: vmRootPath) != legacyAccountKey(vmRootPath: vmRootPath) else { return }
+        SecItemDelete(legacyBaseQuery(vmRootPath: vmRootPath) as CFDictionary)
     }
 
     private static func message(for status: OSStatus) -> String {

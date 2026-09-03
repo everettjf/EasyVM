@@ -49,6 +49,13 @@ VM start or replaying an uncertain attempt. The signed macOS 27 first-boot,
 interruption, and recovery matrix below is still required before this capability
 leaves Beta.
 
+Provisioning credentials are now keyed by the SHA-256 identity of the VM's
+`MachineIdentifier`, rather than by its absolute bundle path. Moving or
+renaming a VM before first boot therefore retains its pending credential, while
+a proper clone with a new machine identity cannot inherit the source password.
+Existing path-keyed Keychain items are read, migrated opportunistically, and
+removed by the normal confirmation cleanup path.
+
 Framework validation now maps invalid full-name, username, and password codes
 to field-specific recovery text in both the wizard and startup path. Diagnostic
 logs record only the error domain and numeric code, never the framework's raw

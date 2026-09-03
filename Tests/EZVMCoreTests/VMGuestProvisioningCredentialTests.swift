@@ -17,6 +17,44 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
         )
     }
 
+    func testKeychainAccountFollowsStableMachineIdentityWhenBundleMoves() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let original = root.appendingPathComponent("Original.ezvm", isDirectory: true)
+        let moved = root.appendingPathComponent("Moved.ezvm", isDirectory: true)
+        try FileManager.default.createDirectory(at: original, withIntermediateDirectories: true)
+        let identifier = Data("stable-machine-identity".utf8)
+        try identifier.write(to: original.appendingPathComponent("MachineIdentifier"))
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let originalKey = VMGuestProvisioningCredentialStore.accountKey(vmRootPath: original)
+        try FileManager.default.moveItem(at: original, to: moved)
+        let movedKey = VMGuestProvisioningCredentialStore.accountKey(vmRootPath: moved)
+
+        XCTAssertEqual(originalKey, movedKey)
+        XCTAssertEqual(
+            originalKey,
+            "machine:\(VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: identifier))"
+        )
+    }
+
+    func testKeychainAccountSeparatesClonesWithNewMachineIdentity() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let first = root.appendingPathComponent("First.ezvm", isDirectory: true)
+        let second = root.appendingPathComponent("Second.ezvm", isDirectory: true)
+        try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        try Data("first".utf8).write(to: first.appendingPathComponent("MachineIdentifier"))
+        try Data("second".utf8).write(to: second.appendingPathComponent("MachineIdentifier"))
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        XCTAssertNotEqual(
+            VMGuestProvisioningCredentialStore.accountKey(vmRootPath: first),
+            VMGuestProvisioningCredentialStore.accountKey(vmRootPath: second)
+        )
+    }
+
     func testCredentialRoundTripsWithoutChangingFields() throws {
         let credential = VMGuestProvisioningCredential(
             fullName: "Test User",
