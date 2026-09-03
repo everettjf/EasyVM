@@ -8,7 +8,7 @@
 import Foundation
 import Virtualization
 #if canImport(DiskImageKit)
-import DiskImageKit
+@_weakLinked import DiskImageKit
 #endif
 
 #if arch(arm64)

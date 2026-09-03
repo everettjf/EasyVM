@@ -50,6 +50,12 @@ let package = Package(
                 "Profile/VMOmarchyVirtualMachineBuilder.swift",
                 "Profile/VMOmarchyGuestAgentClient.swift",
                 "Snapshot/VMSnapshotManager.swift",
+            ],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-weak_framework",
+                    "-Xlinker", "DiskImageKit",
+                ], .when(platforms: [.macOS])),
             ]
         ),
         .testTarget(

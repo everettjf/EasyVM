@@ -9,7 +9,7 @@ import Foundation
 import CryptoKit
 import Darwin
 #if canImport(DiskImageKit)
-import DiskImageKit
+@_weakLinked import DiskImageKit
 #endif
 
 enum VMSnapshotBackend: String, Codable, CaseIterable {
