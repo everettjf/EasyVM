@@ -4,6 +4,7 @@ set -euo pipefail
 
 app_path="${1:-}"
 expected_version="${2:-}"
+expected_revision="${3:-${EZVM_EXPECTED_SOURCE_REVISION:-}}"
 launch_timeout="${EZVM_LAUNCH_TIMEOUT:-10}"
 
 fail() {
@@ -28,11 +29,8 @@ cli="$app_path/Contents/Helpers/ezvm"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 spctl --assess --type execute --verbose=4 "$app_path"
 
-if [[ -n "$expected_version" ]]; then
-  actual_version="$(defaults read "$app_path/Contents/Info" CFBundleShortVersionString)"
-  [[ "$actual_version" == "$expected_version" ]] || \
-    fail "version is $actual_version, expected $expected_version"
-fi
+"$(dirname "$0")/verify-release-metadata.sh" \
+  "$app_path" "$expected_version" "$expected_revision" clean
 
 launch_log="$(mktemp "${TMPDIR:-/tmp}/ezvm-launch.XXXXXX")"
 ready_dir="$(mktemp -d "${TMPDIR:-/tmp}/ezvm-gui-ready.XXXXXX")"

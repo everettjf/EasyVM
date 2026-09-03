@@ -7,6 +7,11 @@ version="${1:-}"
 output_dir="${2:-$project_root/dist}"
 derived_data="${EZVM_DERIVED_DATA:-}"
 archive_name="EZVM-${version}.zip"
+source_revision="$(git -C "$project_root" rev-parse HEAD)"
+source_tree_state="clean"
+if [[ -n "$(git -C "$project_root" status --porcelain)" ]]; then
+  source_tree_state="dirty"
+fi
 
 if [[ -n "${EASYVM_SIGNING_IDENTITY:-}" ]]; then
   echo "EASYVM_SIGNING_IDENTITY is obsolete and is not used for signing. Set EZVM_SIGNING_IDENTITY instead." >&2
@@ -64,6 +69,8 @@ if [[ -n "${EZVM_SIGNING_IDENTITY:-}" ]]; then
     -destination 'generic/platform=macOS' \
     -archivePath "$archive_path" \
     -allowProvisioningUpdates \
+    EZVM_SOURCE_REVISION="$source_revision" \
+    EZVM_SOURCE_TREE_STATE="$source_tree_state" \
     MARKETING_VERSION="$version"
   xcodebuild -exportArchive \
     -archivePath "$archive_path" \
@@ -79,6 +86,8 @@ else
     -destination 'platform=macOS,arch=arm64' \
     -derivedDataPath "$derived_data" \
     CODE_SIGNING_ALLOWED=NO \
+    EZVM_SOURCE_REVISION="$source_revision" \
+    EZVM_SOURCE_TREE_STATE="$source_tree_state" \
     MARKETING_VERSION="$version" \
     build
   app_path="$derived_data/Build/Products/Release/EZVM.app"
@@ -133,6 +142,8 @@ done
 codesign "${signing_options[@]}" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 codesign --display --entitlements :- "$app_path"
+"$project_root/scripts/verify-release-metadata.sh" \
+  "$app_path" "$version" "$source_revision" "$source_tree_state"
 
 if [[ "$signing_identity" != "-" ]]; then
   app_team_id="$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^TeamIdentifier=//p')"

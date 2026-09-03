@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>EZVMSourceRevision</key>
+	<string>$(EZVM_SOURCE_REVISION)</string>
+	<key>EZVMSourceTreeState</key>
+	<string>$(EZVM_SOURCE_TREE_STATE)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
