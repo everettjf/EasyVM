@@ -346,6 +346,7 @@ struct VMUSBPassthroughSnapshot: Equatable {
 enum VMUSBControllerSupport {
     enum DisconnectDisposition: Equatable {
         case ignored
+        case attachInterrupted
         case explicitDetach
         case unexpected
     }
@@ -369,6 +370,15 @@ enum VMUSBControllerSupport {
         attachedDevices.first(where: { $0.value === device })?.key
     }
 
+    static func registryID<Device: AnyObject>(
+        forDisconnected device: Device,
+        attachedDevices: [UInt64: Device],
+        pendingDevices: [UInt64: Device]
+    ) -> UInt64? {
+        registryID(forDisconnected: device, in: attachedDevices)
+            ?? registryID(forDisconnected: device, in: pendingDevices)
+    }
+
     /// Reconciles the two independent disconnect signals delivered by
     /// Accessory Access and Virtualization. The first signal owns cleanup and
     /// user feedback; a duplicate or late signal is deliberately a no-op.
@@ -379,9 +389,9 @@ enum VMUSBControllerSupport {
         operationTokens: inout [UInt64: UUID]
     ) -> DisconnectDisposition {
         guard attachedRegistryIDs.remove(registryID) != nil else {
-            operations.removeValue(forKey: registryID)
+            let operation = operations.removeValue(forKey: registryID)
             operationTokens.removeValue(forKey: registryID)
-            return .ignored
+            return operation == .attaching ? .attachInterrupted : .ignored
         }
         let disposition: DisconnectDisposition = operations[registryID] == .detaching
             ? .explicitDetach

@@ -170,6 +170,14 @@ late callbacks clear stale operation tokens without producing a second notice.
 Automated coverage includes explicit detach, physical-removal ordering, and a
 device disappearing while attach is still pending.
 
+The coordinator now retains a separate identity map for passthrough devices
+whose asynchronous controller attach has not completed. A delegate disconnect
+in that narrow window can therefore cancel the exact operation before its
+success continuation runs; the device is never promoted into the attached set,
+machine-state saving is unblocked, and the user sees that connection was
+interrupted rather than a false Attached state. The later Accessory Access
+signal or attach continuation is idempotent and cannot overwrite that result.
+
 ### Product outcome
 
 USB passthrough feels like connecting a device to a physical computer: devices

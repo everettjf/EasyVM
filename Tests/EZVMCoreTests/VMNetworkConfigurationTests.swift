@@ -571,6 +571,29 @@ final class VMNetworkConfigurationTests: XCTestCase {
         )
     }
 
+    func testUSBControllerDisconnectAlsoMatchesADeviceWhoseAttachIsPending() {
+        final class Device {}
+        let pending = Device()
+        let attached = Device()
+
+        XCTAssertEqual(
+            VMUSBControllerSupport.registryID(
+                forDisconnected: pending,
+                attachedDevices: [17: attached],
+                pendingDevices: [42: pending]
+            ),
+            42
+        )
+        XCTAssertEqual(
+            VMUSBControllerSupport.registryID(
+                forDisconnected: attached,
+                attachedDevices: [17: attached],
+                pendingDevices: [42: pending]
+            ),
+            17
+        )
+    }
+
     func testUSBDisconnectReconciliationReportsUnexpectedDisconnectExactlyOnce() {
         var attached: Set<UInt64> = [17]
         var operations: [UInt64: VMUSBDeviceOperation] = [17: .attaching]
@@ -618,11 +641,20 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertTrue(tokens.isEmpty)
     }
 
-    func testLateUSBDisconnectClearsStaleOperationWithoutInventingAttachment() {
+    func testUSBDisconnectDuringAttachIsReportedWithoutInventingAttachment() {
         var attached: Set<UInt64> = []
         var operations: [UInt64: VMUSBDeviceOperation] = [9: .attaching]
         var tokens: [UInt64: UUID] = [9: UUID()]
 
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 9,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .attachInterrupted
+        )
         XCTAssertEqual(
             VMUSBControllerSupport.reconcileDisconnect(
                 registryID: 9,

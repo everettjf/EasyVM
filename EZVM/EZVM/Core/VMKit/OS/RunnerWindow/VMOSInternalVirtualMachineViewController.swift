@@ -1708,6 +1708,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     private let update: (VMUSBPassthroughState) -> Void
     private var accessories: [UInt64: AAUSBAccessory] = [:]
     private var attachedDevices: [UInt64: VZUSBPassthroughDevice] = [:]
+    private var pendingDevices: [UInt64: VZUSBPassthroughDevice] = [:]
     private var operations: [UInt64: VMUSBDeviceOperation] = [:]
     private var operationTokens: [UInt64: UUID] = [:]
     private var notice: VMUSBPassthroughNotice?
@@ -1792,6 +1793,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         }
         accessories.removeAll()
         attachedDevices.removeAll()
+        pendingDevices.removeAll()
         operations.removeAll()
         operationTokens.removeAll()
         notice = nil
@@ -1810,6 +1812,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         do {
             let configuration = VZUSBPassthroughDeviceConfiguration(device: accessory)
             let device = try VZUSBPassthroughDevice(configuration: configuration)
+            pendingDevices[registryID] = device
             Task { @MainActor [weak self] in
                 do {
                     try await controller.attach(device: device)
@@ -1818,9 +1821,13 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                         return
                     }
                     guard self.operationTokens[registryID] == operationToken else {
+                        if self.pendingDevices[registryID] === device {
+                            self.pendingDevices.removeValue(forKey: registryID)
+                        }
                         try? await controller.detach(device: device)
                         return
                     }
+                    self.pendingDevices.removeValue(forKey: registryID)
                     self.operations.removeValue(forKey: registryID)
                     self.operationTokens.removeValue(forKey: registryID)
                     self.attachedDevices[registryID] = device
@@ -1828,6 +1835,9 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                 } catch {
                     guard let self,
                           self.operationTokens[registryID] == operationToken else { return }
+                    if self.pendingDevices[registryID] === device {
+                        self.pendingDevices.removeValue(forKey: registryID)
+                    }
                     self.operations.removeValue(forKey: registryID)
                     self.operationTokens.removeValue(forKey: registryID)
                     self.notice = .attachFailed(
@@ -1933,8 +1943,14 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                 operationTokens: &self.operationTokens
             )
             self.attachedDevices.removeValue(forKey: registryID)
+            self.pendingDevices.removeValue(forKey: registryID)
             self.accessories.removeValue(forKey: registryID)
-            if disposition == .unexpected {
+            if disposition == .attachInterrupted {
+                self.notice = .attachFailed(
+                    deviceTitle: deviceTitle,
+                    detail: "The accessory disconnected before the connection finished. Reconnect it to the Mac and approve it for EZVM again."
+                )
+            } else if disposition == .unexpected {
                 self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
             }
             self.publish()
@@ -1949,7 +1965,8 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             guard let self,
                   let registryID = VMUSBControllerSupport.registryID(
                     forDisconnected: device,
-                    in: self.attachedDevices
+                    attachedDevices: self.attachedDevices,
+                    pendingDevices: self.pendingDevices
                   ) else { return }
             let deviceTitle = self.title(for: registryID)
             var attachedRegistryIDs = Set(self.attachedDevices.keys)
@@ -1960,7 +1977,17 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                 operationTokens: &self.operationTokens
             )
             self.attachedDevices.removeValue(forKey: registryID)
-            if disposition == .unexpected {
+            self.pendingDevices.removeValue(forKey: registryID)
+            if disposition == .attachInterrupted {
+                self.notice = .attachFailed(
+                    deviceTitle: deviceTitle,
+                    detail: "The virtual USB controller disconnected the accessory before the connection finished. Reconnect it and try again."
+                )
+                EZVMLog.info(
+                    "A USB passthrough attachment was interrupted by the virtual controller.",
+                    logger: EZVMLog.lifecycle
+                )
+            } else if disposition == .unexpected {
                 self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
                 EZVMLog.info(
                     "A USB passthrough device disconnected unexpectedly.",
