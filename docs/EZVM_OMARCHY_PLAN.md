@@ -663,7 +663,8 @@ separate `ezvm-omarchy-v<version>` namespace.
 Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
 `Diagnostics/integration-readiness.json` observation after the authenticated
 Guest Agent reports an active desktop, completed provisioning, and every
-profile-required capability. The observation binds those live facts to the App
+profile-required capability. Capability booleans explicitly mean “advertised,”
+not “round trip proven.” The observation binds those live facts to the App
 source revision, factory-image version, Omarchy revision, and Guest Agent
 version. `scripts/verify-omarchy-integration-observation.sh` rejects stale,
 version-mismatched, incomplete, or internally inconsistent observations; its

@@ -22,9 +22,10 @@ write_observation() {
       guestAgentVersion: ARGV.fetch(3), guestHostName: "omarchy",
       guestAddresses: ["192.0.2.2"], guestCapabilities: capabilities,
       requiredCapabilities: capabilities, desktopSessionActive: true,
-      provisioningPending: false, sharedFolderReady: true,
-      clipboardTextReady: true, clipboardImageReady: true,
-      dynamicDisplayReady: true
+      provisioningPending: false, sharedFolderCapabilityAdvertised: true,
+      clipboardTextCapabilityAdvertised: true,
+      clipboardImageCapabilityAdvertised: true,
+      dynamicDisplayCapabilityAdvertised: true
     }
     File.write(ARGV.fetch(4), JSON.pretty_generate(value))
   ' "$observed" "$revision" "$factory_version" "$agent_version" "$work/observation.json"
@@ -44,7 +45,7 @@ expect_rejection() {
 write_observation
 "${verify[@]}" >/dev/null
 
-ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["sharedFolderReady"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["sharedFolderCapabilityAdvertised"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
 expect_rejection "observation without shared-folder readiness was accepted"
 
 write_observation

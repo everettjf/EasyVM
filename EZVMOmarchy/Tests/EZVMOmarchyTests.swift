@@ -189,10 +189,10 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(observation.guestAddresses, ["192.0.2.2", "2001:db8::2"])
         XCTAssertTrue(observation.desktopSessionActive)
         XCTAssertFalse(observation.provisioningPending)
-        XCTAssertTrue(observation.sharedFolderReady)
-        XCTAssertTrue(observation.clipboardTextReady)
-        XCTAssertTrue(observation.clipboardImageReady)
-        XCTAssertTrue(observation.dynamicDisplayReady)
+        XCTAssertTrue(observation.sharedFolderCapabilityAdvertised)
+        XCTAssertTrue(observation.clipboardTextCapabilityAdvertised)
+        XCTAssertTrue(observation.clipboardImageCapabilityAdvertised)
+        XCTAssertTrue(observation.dynamicDisplayCapabilityAdvertised)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         XCTAssertNoThrow(try decoder.decode(

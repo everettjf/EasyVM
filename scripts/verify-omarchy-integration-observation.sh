@@ -39,14 +39,14 @@ ruby -rjson -rtime -e '
   missing = required - capabilities
   abort "required capabilities are missing: #{missing.join(", ")}" unless missing.empty?
 
-  readiness = {
-    "sharedFolderReady" => "shared-folders-v1",
-    "clipboardTextReady" => "clipboard-text-v1",
-    "clipboardImageReady" => "clipboard-image-v1",
-    "dynamicDisplayReady" => "dynamic-display-v1"
+  advertised = {
+    "sharedFolderCapabilityAdvertised" => "shared-folders-v1",
+    "clipboardTextCapabilityAdvertised" => "clipboard-text-v1",
+    "clipboardImageCapabilityAdvertised" => "clipboard-image-v1",
+    "dynamicDisplayCapabilityAdvertised" => "dynamic-display-v1"
   }
-  readiness.each do |field, capability|
-    abort "#{field} was not observed" unless value[field] == true
+  advertised.each do |field, capability|
+    abort "#{field} was not advertised" unless value[field] == true
     abort "#{field} lacks #{capability}" unless capabilities.include?(capability)
   end
 ' "$observation" "$expected_revision" "$expected_factory_version" "$expected_agent_version"

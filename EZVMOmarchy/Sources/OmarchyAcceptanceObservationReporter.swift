@@ -14,10 +14,10 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
     let requiredCapabilities: [String]
     let desktopSessionActive: Bool
     let provisioningPending: Bool
-    let sharedFolderReady: Bool
-    let clipboardTextReady: Bool
-    let clipboardImageReady: Bool
-    let dynamicDisplayReady: Bool
+    let sharedFolderCapabilityAdvertised: Bool
+    let clipboardTextCapabilityAdvertised: Bool
+    let clipboardImageCapabilityAdvertised: Bool
+    let dynamicDisplayCapabilityAdvertised: Bool
 
     func encoded() throws -> Data {
         let encoder = JSONEncoder()
@@ -84,10 +84,10 @@ enum OmarchyAcceptanceObservationReporter {
             requiredCapabilities: requiredCapabilities.sorted(),
             desktopSessionActive: status.desktopSessionActive,
             provisioningPending: status.provisioningPending,
-            sharedFolderReady: capabilities.contains("shared-folders-v1"),
-            clipboardTextReady: capabilities.contains("clipboard-text-v1"),
-            clipboardImageReady: capabilities.contains("clipboard-image-v1"),
-            dynamicDisplayReady: capabilities.contains("dynamic-display-v1")
+            sharedFolderCapabilityAdvertised: capabilities.contains("shared-folders-v1"),
+            clipboardTextCapabilityAdvertised: capabilities.contains("clipboard-text-v1"),
+            clipboardImageCapabilityAdvertised: capabilities.contains("clipboard-image-v1"),
+            dynamicDisplayCapabilityAdvertised: capabilities.contains("dynamic-display-v1")
         )
     }
 }
