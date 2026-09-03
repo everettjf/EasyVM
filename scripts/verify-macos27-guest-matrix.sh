@@ -62,6 +62,9 @@ run_linux_guest_gate() {
 run_linux_guest_gate "$omarchy_vm" "$omarchy_enrollment" 0
 run_linux_guest_gate "$ubuntu_vm" "$ubuntu_enrollment" 1
 
+EZVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
+  "$project_root/scripts/verify-release-vmnet.sh" "$app_path" "$ubuntu_vm"
+
 if [[ "${EZVM_MATRIX_REQUIRE_NESTED:-0}" == "1" ]]; then
   EZVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
     "$project_root/scripts/verify-release-nested-virtualization.sh" "$app_path" "$omarchy_vm"

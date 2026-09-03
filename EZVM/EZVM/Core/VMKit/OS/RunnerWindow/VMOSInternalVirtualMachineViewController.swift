@@ -618,6 +618,12 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
            !model.config.storageDevices.contains(where: { $0.type == .Block && $0.format == .asif }) {
             return "Release test requires an ASIF block-storage device."
         }
+        if smoke.requireVMNet,
+           virtualMachineConfiguration?.networkDevices.contains(where: {
+               $0.attachment is VZVmnetNetworkDeviceAttachment
+           }) != true {
+            return "Release test requires a VMNet network attachment."
+        }
         return nil
     }
 
