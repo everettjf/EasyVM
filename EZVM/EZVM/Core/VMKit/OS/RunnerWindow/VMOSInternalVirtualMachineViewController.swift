@@ -1102,7 +1102,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             )
         }
         runtimeState?.updateUSBPassthrough(.discovering)
-        usbAccessoryCoordinator?.start()
+        usbAccessoryCoordinator?.chooseAccessories()
     }
 
     func attachUSBAccessory(registryID: UInt64) {
@@ -1624,6 +1624,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     private var operationTokens: [UInt64: UUID] = [:]
     private var notice: VMUSBPassthroughNotice?
     private var listenerLifecycle = VMUSBListenerLifecycle()
+    private var selectionGeneration: UUID?
 
     var hasAttachedDevices: Bool { !attachedDevices.isEmpty }
 
@@ -1637,7 +1638,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             publish()
             return
         }
-        let registrationToken = listenerLifecycle.beginRegistration()
+        guard let registrationToken = listenerLifecycle.beginRegistration() else { return }
         AAUSBAccessoryManager.shared.registerListener(self, matchingCriteria: []) { [weak self] accessories, error in
             Task { @MainActor in
                 guard let self else { return }
@@ -1667,7 +1668,33 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
         }
     }
 
+    func chooseAccessories() {
+        guard !listenerLifecycle.isRegistering else { return }
+        guard listenerLifecycle.isRegistered else {
+            start()
+            return
+        }
+        guard attachedDevices.isEmpty, operations.isEmpty else {
+            publish()
+            return
+        }
+
+        let generation = UUID()
+        selectionGeneration = generation
+        _ = listenerLifecycle.stop()
+        update(.discovering)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await AAUSBAccessoryManager.shared.unregisterListener(self)
+            guard self.selectionGeneration == generation else { return }
+            self.selectionGeneration = nil
+            self.accessories.removeAll()
+            self.start()
+        }
+    }
+
     func stop() {
+        selectionGeneration = nil
         virtualMachine?.usbControllers.first?.delegate = nil
         let shouldUnregister = listenerLifecycle.stop()
         if shouldUnregister {

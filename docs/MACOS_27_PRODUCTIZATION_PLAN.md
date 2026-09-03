@@ -120,6 +120,13 @@ specific recovery action. A detach `DeviceNotFound` result now reconciles the
 device as disconnected instead of leaving machine-state saving blocked by a
 stale attachment.
 
+After the initial system selection, users can reopen Accessory Access to choose
+additional devices. Because Apple rejects registering the same listener twice,
+EZVM unregisters and registers it again only when no device is attached and no
+attach/detach operation is active. A generation token prevents an asynchronous
+re-registration from reviving a coordinator after VM teardown; the menu asks
+the user to disconnect attached devices before changing the approved set.
+
 Accessory Access and `VZUSBController.Delegate` disconnect notifications now
 pass through one idempotent reconciliation state machine. Whichever framework
 reports first owns cleanup and any unexpected-disconnect notice; duplicate or

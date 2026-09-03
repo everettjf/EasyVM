@@ -559,6 +559,14 @@ struct VMOSMainVirtualMachineView: View {
                     }
                 }
             }
+            Divider()
+            if snapshot.canChooseMoreAccessories {
+                Button("Choose More USB Accessories…", systemImage: "plus") {
+                    runtimeState.discoverUSBAccessories()
+                }
+            } else {
+                Text("Disconnect USB accessories before choosing others")
+            }
         }
     }
 

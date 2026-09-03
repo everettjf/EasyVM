@@ -220,10 +220,15 @@ struct VMUSBListenerLifecycle {
 
     private var state: State = .idle
 
+    var isRegistering: Bool {
+        if case .registering = state { return true }
+        return false
+    }
     var isRegistered: Bool { state == .registered }
     var acceptsAccessoryCallbacks: Bool { state == .registered }
 
-    mutating func beginRegistration() -> UUID {
+    mutating func beginRegistration() -> UUID? {
+        guard !isRegistering, !isRegistered else { return nil }
         let token = UUID()
         state = .registering(token)
         return token
@@ -333,6 +338,9 @@ struct VMUSBPassthroughSnapshot: Equatable {
     var notice: VMUSBPassthroughNotice?
 
     var hasAttachedDevices: Bool { !attachedRegistryIDs.isEmpty }
+    var canChooseMoreAccessories: Bool {
+        attachedRegistryIDs.isEmpty && operations.isEmpty
+    }
 }
 
 enum VMUSBControllerSupport {

@@ -268,7 +268,7 @@ final class VMNetworkConfigurationTests: XCTestCase {
 
     func testUSBListenerRejectsRegistrationCompletionAfterStop() {
         var lifecycle = VMUSBListenerLifecycle()
-        let token = lifecycle.beginRegistration()
+        let token = try! XCTUnwrap(lifecycle.beginRegistration())
 
         XCTAssertFalse(lifecycle.stop())
         XCTAssertFalse(lifecycle.completeRegistration(token: token))
@@ -278,24 +278,36 @@ final class VMNetworkConfigurationTests: XCTestCase {
 
     func testUSBListenerAcceptsCallbacksOnlyAfterCurrentRegistrationCompletes() {
         var lifecycle = VMUSBListenerLifecycle()
-        let staleToken = lifecycle.beginRegistration()
-        let currentToken = lifecycle.beginRegistration()
-
-        XCTAssertFalse(lifecycle.completeRegistration(token: staleToken))
+        let currentToken = try! XCTUnwrap(lifecycle.beginRegistration())
+        XCTAssertTrue(lifecycle.isRegistering)
+        XCTAssertNil(lifecycle.beginRegistration())
         XCTAssertFalse(lifecycle.acceptsAccessoryCallbacks)
         XCTAssertTrue(lifecycle.completeRegistration(token: currentToken))
+        XCTAssertFalse(lifecycle.isRegistering)
         XCTAssertTrue(lifecycle.isRegistered)
         XCTAssertTrue(lifecycle.acceptsAccessoryCallbacks)
         XCTAssertTrue(lifecycle.stop())
         XCTAssertFalse(lifecycle.acceptsAccessoryCallbacks)
     }
 
+    func testUSBListenerCanRegisterAgainAfterACompletedUnregistration() {
+        var lifecycle = VMUSBListenerLifecycle()
+        let first = try! XCTUnwrap(lifecycle.beginRegistration())
+        XCTAssertTrue(lifecycle.completeRegistration(token: first))
+        XCTAssertNil(lifecycle.beginRegistration())
+        XCTAssertTrue(lifecycle.stop())
+
+        let second = try! XCTUnwrap(lifecycle.beginRegistration())
+        XCTAssertTrue(lifecycle.completeRegistration(token: second))
+        XCTAssertTrue(lifecycle.isRegistered)
+    }
+
     func testUSBListenerCanRetryAfterRegistrationFailure() {
         var lifecycle = VMUSBListenerLifecycle()
-        let failedToken = lifecycle.beginRegistration()
+        let failedToken = try! XCTUnwrap(lifecycle.beginRegistration())
 
         XCTAssertTrue(lifecycle.failRegistration(token: failedToken))
-        let retryToken = lifecycle.beginRegistration()
+        let retryToken = try! XCTUnwrap(lifecycle.beginRegistration())
         XCTAssertTrue(lifecycle.completeRegistration(token: retryToken))
     }
 
@@ -522,7 +534,29 @@ final class VMNetworkConfigurationTests: XCTestCase {
             backendSupportsSaveRestore: true,
             attachedAccessoryCount: snapshot.hasAttachedDevices ? 1 : 0
         ))
+        XCTAssertFalse(snapshot.canChooseMoreAccessories)
         XCTAssertTrue(snapshot.notice?.message.contains("may still be attached") == true)
+    }
+
+    func testUSBSelectionCanRefreshOnlyWithoutAttachmentsOrOperations() {
+        let device = VMUSBDeviceDescriptorSummary(
+            registryID: 7,
+            vendorID: 0x1234,
+            productID: 0x5678
+        )
+        XCTAssertTrue(VMUSBPassthroughSnapshot(
+            devices: [device],
+            attachedRegistryIDs: []
+        ).canChooseMoreAccessories)
+        XCTAssertFalse(VMUSBPassthroughSnapshot(
+            devices: [device],
+            attachedRegistryIDs: [],
+            operations: [device.registryID: .attaching]
+        ).canChooseMoreAccessories)
+        XCTAssertFalse(VMUSBPassthroughSnapshot(
+            devices: [device],
+            attachedRegistryIDs: [device.registryID]
+        ).canChooseMoreAccessories)
     }
 
     func testUSBOperationStateDistinguishesAttachAndDetach() {
