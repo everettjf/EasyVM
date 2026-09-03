@@ -20,7 +20,11 @@ final class VMOSCreatorForLinux: VMOSCreator {
     }
 
     
-    func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {
+    func create(
+        model: VMModel,
+        provisioningCredential: VMGuestProvisioningCredential?,
+        progress: @escaping (VMOSCreatorProgressInfo) -> Void
+    ) async -> VMOSResultVoid {
         let transaction = VMCreationDirectoryTransaction(rootURL: model.getRootPath())
         do {
             try await prepareRosettaIfNeeded(model: model, progress: progress)

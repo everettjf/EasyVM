@@ -20,8 +20,15 @@ final class VMOSCreatorForMacOS: VMOSCreator {
     deinit {
     }
     
-    func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {
+    func create(
+        model: VMModel,
+        provisioningCredential: VMGuestProvisioningCredential?,
+        progress: @escaping (VMOSCreatorProgressInfo) -> Void
+    ) async -> VMOSResultVoid {
         let transaction = VMCreationDirectoryTransaction(rootURL: model.getRootPath())
+        var credentialTransaction = VMGuestProvisioningCreationCredentialTransaction(
+            vmRootPath: model.getRootPath()
+        )
         do {
             // create bundle
             let rootPath = model.getRootPath()
@@ -48,24 +55,41 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             progress(.info("Begin setup virtual machine"))
             try await setupVirtualMachine(model: model, macOSConfigurationRequirements: macOSConfigurationRequirements, progress: progress)
             progress(.info("Succeed setup virtual machine"))
+
+            if let provisioningCredential {
+                progress(.info("Securing guest provisioning credentials before installation"))
+                if case let .failure(error) = credentialTransaction.prepare(provisioningCredential) {
+                    throw VMOSError.regularFailure(error)
+                }
+                progress(.info("Guest provisioning credentials are secured in Keychain"))
+            }
             
             // install
             progress(.info("Begin install"))
             try await startInstallation(restoreImageURL: model.state.imagePath, progress: progress)
             progress(.info("Succeed install"))
+            credentialTransaction.commit()
             
         } catch {
             installationObserver?.invalidate()
             installationObserver = nil
             virtualMachine = nil
+            var reportedError = error.localizedDescription
+            if case let .failure(cleanupError) = credentialTransaction.rollback() {
+                // Keep the identifier-bearing bundle so the failed Keychain
+                // item remains addressable for retry or explicit cleanup.
+                reportedError += " EZVM could not remove the temporary provisioning credential, so the incomplete virtual machine bundle was retained: \(cleanupError)"
+                progress(.error(reportedError))
+                return .failure(reportedError)
+            }
             do {
                 try transaction.rollback()
                 progress(.info("Removed the incomplete virtual machine bundle"))
             } catch {
                 progress(.error("Could not remove the incomplete virtual machine bundle: \(error.localizedDescription)"))
             }
-            progress(.error(error.localizedDescription))
-            return .failure(error.localizedDescription)
+            progress(.error(reportedError))
+            return .failure(reportedError)
         }
         
         progress(.info("Succeed created virtual machine"))

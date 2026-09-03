@@ -98,6 +98,16 @@ its own staging directory only when its contents exactly match the declared
 `Disk.img` whitelist, so the stricter user-destination rule does not weaken the
 verified image workflow.
 
+Automatic-provisioning credentials now join that same creation transaction at
+the correct ownership boundary. EZVM first claims the new bundle and writes its
+stable `MachineIdentifier`, then stores the ThisDeviceOnly Keychain item before
+starting `VZMacOSInstaller`. A Keychain failure therefore aborts before the long
+installation and rolls back only the newly owned bundle. If installation fails,
+the credential is removed before filesystem rollback. If Keychain cleanup itself
+fails, EZVM retains the identifier-bearing incomplete bundle and reports both
+failures, rather than leaving an unreachable secret or presenting an installed
+VM as a failed, unregistered result.
+
 ### Product outcome
 
 A user can create a macOS 27 VM, choose whether to automate the initial account

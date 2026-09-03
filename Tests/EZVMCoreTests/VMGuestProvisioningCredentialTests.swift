@@ -129,6 +129,68 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
         )
     }
 
+    func testCreationCredentialTransactionPreparesBeforeInstallAndRollsBackFailure() {
+        let root = URL(fileURLWithPath: "/tmp/Provisioning-Transaction.ezvm")
+        let credential = VMGuestProvisioningCredential(
+            fullName: "Test User",
+            username: "testuser",
+            password: "secret",
+            logsInAutomatically: false,
+            enablesRemoteLogin: true
+        )
+        var events: [String] = []
+        var transaction = VMGuestProvisioningCreationCredentialTransaction(vmRootPath: root)
+
+        assertSuccess(transaction.prepare(credential) { saved, url in
+            events.append("save")
+            XCTAssertEqual(saved, credential)
+            XCTAssertEqual(url, root)
+            return .success
+        })
+        XCTAssertTrue(transaction.isPrepared)
+        events.append("install")
+        assertSuccess(transaction.rollback { url in
+            events.append("delete")
+            XCTAssertEqual(url, root)
+            return .success
+        })
+        XCTAssertEqual(events, ["save", "install", "delete"])
+        XCTAssertFalse(transaction.isPrepared)
+    }
+
+    func testCreationCredentialTransactionCommitTransfersCleanupToVMLifecycle() {
+        let root = URL(fileURLWithPath: "/tmp/Provisioning-Commit.ezvm")
+        let credential = VMGuestProvisioningCredential(
+            fullName: "Test User", username: "testuser", password: "secret",
+            logsInAutomatically: true, enablesRemoteLogin: true
+        )
+        var deleteCalled = false
+        var transaction = VMGuestProvisioningCreationCredentialTransaction(vmRootPath: root)
+
+        assertSuccess(transaction.prepare(credential) { _, _ in .success })
+        transaction.commit()
+        assertSuccess(transaction.rollback { _ in
+            deleteCalled = true
+            return .success
+        })
+        XCTAssertFalse(deleteCalled)
+    }
+
+    func testCreationCredentialTransactionRetainsCleanupResponsibilityAfterDeleteFailure() {
+        let root = URL(fileURLWithPath: "/tmp/Provisioning-Cleanup.ezvm")
+        let credential = VMGuestProvisioningCredential(
+            fullName: "Test User", username: "testuser", password: "secret",
+            logsInAutomatically: false, enablesRemoteLogin: false
+        )
+        var transaction = VMGuestProvisioningCreationCredentialTransaction(vmRootPath: root)
+
+        assertSuccess(transaction.prepare(credential) { _, _ in .success })
+        guard case .failure = transaction.rollback(delete: { _ in .failure("Keychain unavailable") }) else {
+            return XCTFail("Expected cleanup failure")
+        }
+        XCTAssertTrue(transaction.isPrepared)
+    }
+
     func testProvisioningValidationCodesMapToSpecificFields() {
         XCTAssertEqual(
             VMGuestProvisioningValidationGuidance.classify(domain: VZErrorDomain, code: 40001),
@@ -195,5 +257,15 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
         XCTAssertTrue(message.contains("macOS 27 or later guest"))
         XCTAssertTrue(message.contains("macOS 26.6.2"))
         XCTAssertTrue(message.contains("IPSW"))
+    }
+
+    private func assertSuccess(
+        _ result: VMOSResultVoid,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        if case let .failure(message) = result {
+            XCTFail("Expected success, got: \(message)", file: file, line: line)
+        }
     }
 }

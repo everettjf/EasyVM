@@ -51,7 +51,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | Apple silicon host support | Stable | Production builds target arm64 Macs. | Maintain a tested host/build matrix. |
-| macOS guests | Stable | Creates, installs, and runs macOS from compatible IPSW restore images. The destination is claimed by an atomic creation transaction; an existing or concurrently created path is rejected, and failure removes only the bundle owned by that attempt. | Complete interruption tests around the real `VZMacOSInstaller` boundary with a macOS 27 IPSW. |
+| macOS guests | Stable | Creates, installs, and runs macOS from compatible IPSW restore images. The destination is claimed by an atomic creation transaction; automatic-provisioning credentials are secured only after that claim and before installation, and failure rolls back the Keychain item before the owned bundle. | Complete interruption tests around the real `VZMacOSInstaller` boundary with a macOS 27 IPSW. |
 | ARM64 Linux guests | Stable | Creates and runs Linux VMs using supported ARM64 boot media. | Publish tested distro presets. |
 | macOS restore-image catalog | Stable | Presents signed Apple restore images plus local/custom sources. | Improve cache visibility and retry behavior. |
 | Local macOS IPSW installation | Stable | Validates and installs compatible local restore images. | Explain incompatibility before starting a long install. |

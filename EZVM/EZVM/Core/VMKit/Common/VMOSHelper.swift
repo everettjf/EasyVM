@@ -1409,6 +1409,42 @@ enum VMGuestProvisioningCredentialStore {
     }
 }
 
+struct VMGuestProvisioningCreationCredentialTransaction {
+    let vmRootPath: URL
+    private(set) var isPrepared = false
+
+    mutating func prepare(
+        _ credential: VMGuestProvisioningCredential,
+        save: (VMGuestProvisioningCredential, URL) -> VMOSResultVoid = {
+            VMGuestProvisioningCredentialStore.save($0, vmRootPath: $1)
+        }
+    ) -> VMOSResultVoid {
+        guard !isPrepared else {
+            return .failure("Guest provisioning credentials are already prepared for this creation attempt.")
+        }
+        let result = save(credential, vmRootPath)
+        if case .success = result { isPrepared = true }
+        return result
+    }
+
+    mutating func commit() {
+        // The installed VM now owns the credential until the user confirms
+        // provisioning or explicitly chooses manual Setup Assistant.
+        isPrepared = false
+    }
+
+    mutating func rollback(
+        delete: (URL) -> VMOSResultVoid = {
+            VMGuestProvisioningCredentialStore.delete(vmRootPath: $0)
+        }
+    ) -> VMOSResultVoid {
+        guard isPrepared else { return .success }
+        let result = delete(vmRootPath)
+        if case .success = result { isPrepared = false }
+        return result
+    }
+}
+
 enum VMDiskImageFormat: String, Codable, CaseIterable, Identifiable {
     case raw
     case asif

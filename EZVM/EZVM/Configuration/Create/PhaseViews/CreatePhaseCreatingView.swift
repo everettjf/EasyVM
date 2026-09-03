@@ -79,23 +79,37 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         let configModel = context.configData.getConfigModel()
         let vmModel = VMModel(rootPath: rootPath, state: stateModel, config: configModel)
 
+        let provisioningCredential: VMGuestProvisioningCredential? = context.formData.provisionsMacGuest
+            ? VMGuestProvisioningCredential(
+                fullName: context.formData.provisioningFullName,
+                username: context.formData.provisioningUsername,
+                password: context.formData.provisioningPassword,
+                logsInAutomatically: context.formData.provisioningAutomaticLogin,
+                enablesRemoteLogin: context.formData.provisioningRemoteLogin
+            )
+            : nil
+
         // create vm from vmmodel
         EZVMLog.info("Starting virtual machine creation", logger: EZVMLog.lifecycle)
         context.formData.creationStage = context.configData.osType == .macOS ? "Installing macOS" : "Creating virtual machine"
         context.formData.addLog("System image is ready")
         let creator = VMOSCreateFactory.getCreator(configModel.type)
-        let result = await creator.create(model: vmModel, progress: { progressInfo in
-            switch progressInfo {
-            case .info(let log):
-                EZVMLog.info(log, logger: EZVMLog.lifecycle)
-                context.formData.addLog(log)
-            case .error(let log):
-                EZVMLog.error(log, logger: EZVMLog.lifecycle)
-                context.formData.addLog("❌ ERROR : \(log)")
-            case .progress(let percent):
-                context.formData.changeProgress(0.35 + (percent * 0.65))
+        let result = await creator.create(
+            model: vmModel,
+            provisioningCredential: provisioningCredential,
+            progress: { progressInfo in
+                switch progressInfo {
+                case .info(let log):
+                    EZVMLog.info(log, logger: EZVMLog.lifecycle)
+                    context.formData.addLog(log)
+                case .error(let log):
+                    EZVMLog.error(log, logger: EZVMLog.lifecycle)
+                    context.formData.addLog("❌ ERROR : \(log)")
+                case .progress(let percent):
+                    context.formData.changeProgress(0.35 + (percent * 0.65))
+                }
             }
-        })
+        )
         EZVMLog.info("Virtual machine creation finished", logger: EZVMLog.lifecycle)
         context.formData.isCreating = false
 
@@ -105,21 +119,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             EZVMLog.error("Failed to create VM: \(error)", logger: EZVMLog.lifecycle)
         case .success:
             if context.formData.provisionsMacGuest {
-                let credential = VMGuestProvisioningCredential(
-                    fullName: context.formData.provisioningFullName,
-                    username: context.formData.provisioningUsername,
-                    password: context.formData.provisioningPassword,
-                    logsInAutomatically: context.formData.provisioningAutomaticLogin,
-                    enablesRemoteLogin: context.formData.provisioningRemoteLogin
-                )
-                if case let .failure(error) = VMGuestProvisioningCredentialStore.save(credential, vmRootPath: rootPath) {
-                    context.formData.creationStage = "Provisioning setup failed"
-                    context.formData.addLog("❌ \(error)")
-                    context.formData.provisioningPassword = ""
-                    context.formData.provisioningPasswordConfirmation = ""
-                    return .failure(error)
-                }
-                context.formData.addLog("Guest credentials saved securely in Keychain for first boot")
+                context.formData.addLog("Guest credentials retained securely in Keychain for first boot")
                 context.formData.provisioningPassword = ""
                 context.formData.provisioningPasswordConfirmation = ""
             }

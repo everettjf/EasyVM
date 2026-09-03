@@ -16,7 +16,20 @@ enum VMOSCreatorProgressInfo {
 
 @MainActor
 protocol VMOSCreator {
-    func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid
+    func create(
+        model: VMModel,
+        provisioningCredential: VMGuestProvisioningCredential?,
+        progress: @escaping (VMOSCreatorProgressInfo) -> Void
+    ) async -> VMOSResultVoid
+}
+
+extension VMOSCreator {
+    func create(
+        model: VMModel,
+        progress: @escaping (VMOSCreatorProgressInfo) -> Void
+    ) async -> VMOSResultVoid {
+        await create(model: model, provisioningCredential: nil, progress: progress)
+    }
 }
 
 @MainActor
