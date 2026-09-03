@@ -120,6 +120,16 @@ public enum VMOmarchyFactoryInstallError: Error, Equatable {
     case factoryAlreadyExists
 }
 
+public struct VMOmarchyFactoryInstallResult: Equatable {
+    public let diskURL: URL
+    public let manifest: VMOmarchyFactoryManifest
+
+    public init(diskURL: URL, manifest: VMOmarchyFactoryManifest) {
+        self.diskURL = diskURL
+        self.manifest = manifest
+    }
+}
+
 public struct VMOmarchyFactoryInstaller {
     public let profile: VMOmarchyProfile
     public let cacheDirectory: URL
@@ -138,7 +148,9 @@ public struct VMOmarchyFactoryInstaller {
         self.transport = transport
     }
 
-    public func install(progress: @escaping (Int64, Int64) -> Void = { _, _ in }) async throws -> URL {
+    public func install(
+        progress: @escaping (Int64, Int64) -> Void = { _, _ in }
+    ) async throws -> VMOmarchyFactoryInstallResult {
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
         let manifestData = try await transport.fetchData(from: profile.factoryImage.manifestURL)
         let manifest = try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: manifestData)
@@ -147,7 +159,7 @@ public struct VMOmarchyFactoryInstaller {
         let published = cacheDirectory.appending(path: "Factory-\(manifest.payload.imageVersion).asif")
         guard !FileManager.default.fileExists(atPath: published.path) else {
             try VMOmarchyFactoryValidator.validateImage(at: published, manifest: manifest)
-            return published
+            return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
         }
         let staging = cacheDirectory.appending(path: ".Factory-\(UUID().uuidString).download")
         let resumeData = cacheDirectory.appending(path: "Factory.resume")
@@ -160,7 +172,7 @@ public struct VMOmarchyFactoryInstaller {
             )
             try VMOmarchyFactoryValidator.validateImage(at: staging, manifest: manifest)
             try FileManager.default.moveItem(at: staging, to: published)
-            return published
+            return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
         } catch {
             try? FileManager.default.removeItem(at: staging)
             throw error

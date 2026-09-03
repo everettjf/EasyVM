@@ -180,10 +180,10 @@ private struct OmarchyWelcomeView: View {
                 let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
                     productID: profile.productID,
                     createdAt: Date(),
-                    factoryImageVersion: nil
+                    factoryImageVersion: factory.manifest.payload.imageVersion
                 ))
                 try workspaceManager.prepare(
-                    factoryDisk: factory,
+                    factoryDisk: factory.diskURL,
                     configuration: metadata,
                     machineIdentifier: identifier
                 )

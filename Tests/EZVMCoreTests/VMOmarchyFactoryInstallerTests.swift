@@ -13,7 +13,10 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
             transport: transport
         )
         let installed = try await installer.install()
-        XCTAssertEqual(try Data(contentsOf: installed), fixture.image)
+        XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
+        XCTAssertEqual(installed.manifest.payload.imageVersion, "test")
+        XCTAssertEqual(installed.manifest.payload.omarchyRevision, "revision")
+        XCTAssertEqual(installed.manifest.payload.guestAgentVersion, "1")
         XCTAssertEqual(transport.downloadCount, 1)
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: fixture.cache.path)
             .contains(where: { $0.hasPrefix(".Factory-") }))
