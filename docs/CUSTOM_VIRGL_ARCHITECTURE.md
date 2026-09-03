@@ -134,6 +134,14 @@ device-configuration failure therefore selects Apple Virtio before creating a
 the guest. Once construction succeeds, configuration application is infallible
 and only installs the already validated device objects.
 
+### Runtime presentation health is visible
+
+A single transient drawable or renderer failure remains diagnostic noise.
+Three consecutive renderer presentation failures transition the active backend
+to a degraded state and place actionable guidance in the VM window's Graphics
+menu. The VM remains running so the guest is not corrupted or abruptly stopped;
+a successful frame clears the degradation automatically.
+
 ## Failure modes and lessons
 
 ### Typed characters appear only after mouse movement

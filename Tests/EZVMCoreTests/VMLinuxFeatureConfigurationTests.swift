@@ -4,6 +4,21 @@ import XCTest
 @testable import EZVMCore
 
 final class VMLinuxFeatureConfigurationTests: XCTestCase {
+    func testVirGLPresentationHealthRequiresConsecutiveFailuresAndRecovers() {
+        var health = VMGraphicsPresentationHealthTracker(failureThreshold: 3)
+
+        XCTAssertEqual(health.record(success: false), .none)
+        XCTAssertEqual(health.record(success: true), .none)
+        XCTAssertEqual(health.record(success: false), .none)
+        XCTAssertEqual(health.record(success: false), .none)
+        XCTAssertEqual(health.record(success: false), .degraded)
+        XCTAssertTrue(health.isDegraded)
+        XCTAssertEqual(health.record(success: false), .none)
+        XCTAssertEqual(health.record(success: true), .recovered)
+        XCTAssertFalse(health.isDegraded)
+        XCTAssertEqual(health.consecutiveFailures, 0)
+    }
+
     func testCustomVirGLPreferenceDefaultsOnAndRespectsExplicitOptOut() throws {
         let suiteName = "VMLinuxFeatureConfigurationTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

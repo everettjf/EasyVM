@@ -141,17 +141,29 @@ struct VMOSMainVirtualMachineView: View {
                 .accessibilityHint("Choose a folder to share with this virtual machine")
 
                 if let backend = runtimeState.graphicsBackendKind {
-                    Menu("Graphics", systemImage: "display") {
-                        Text(backend == .customVirGL ? "Custom VirGL active" : "Apple Virtio active")
+                    let graphicsNeedsAttention = backend == .customVirGL
+                        && runtimeState.graphicsBackendDetail != nil
+                    Menu {
+                        Text(graphicsNeedsAttention
+                             ? "Custom VirGL needs attention"
+                             : (backend == .customVirGL ? "Custom VirGL active" : "Apple Virtio active"))
                         if let detail = runtimeState.graphicsBackendDetail {
                             Divider()
                             Text(detail)
                         }
+                    } label: {
+                        Label(
+                            "Graphics",
+                            systemImage: graphicsNeedsAttention
+                                ? "exclamationmark.triangle.fill"
+                                : "display"
+                        )
                     }
                     .help(runtimeState.graphicsBackendDetail
                           ?? (backend == .customVirGL
                               ? "Custom VirGL acceleration is active"
                               : "Apple Virtio graphics is active"))
+                    .accessibilityLabel(graphicsNeedsAttention ? "Graphics needs attention" : "Graphics")
                 }
 
                 if runtimeState.networkRuntimeState != .unavailable {

@@ -204,6 +204,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             detail: graphicsCreation.detail,
             supportsMachineSaveRestore: graphicsBackend.supportsMachineSaveRestore
         )
+        let graphicsKind = graphicsBackend.kind
+        let graphicsSupportsSaveRestore = graphicsBackend.supportsMachineSaveRestore
+        let initialGraphicsDetail = graphicsCreation.detail
+        graphicsBackend.setRuntimeIssueHandler { [weak runtimeState] issue in
+            runtimeState?.updateGraphicsBackend(
+                kind: graphicsKind,
+                detail: issue ?? initialGraphicsDetail,
+                supportsMachineSaveRestore: graphicsSupportsSaveRestore
+            )
+        }
         // Keep the VZ native input fallback until the authenticated guest
         // explicitly advertises uinput. The agent callback switches Custom
         // VirGL to its reliable desktop input path once it is ready.

@@ -81,6 +81,7 @@ protocol VMGraphicsBackend {
     func setDynamicDisplayReady(_ ready: Bool)
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?)
     func setAbsolutePointerEnabled(_ enabled: Bool)
+    func setRuntimeIssueHandler(_ handler: ((String?) -> Void)?)
     func shutdown()
 }
 
@@ -121,6 +122,8 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
 
     func setAbsolutePointerEnabled(_ enabled: Bool) {}
 
+    func setRuntimeIssueHandler(_ handler: ((String?) -> Void)?) {}
+
     func shutdown() {
         virtualMachineView.virtualMachine = nil
     }
@@ -133,6 +136,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private let cursorLayer = CALayer()
     weak var runtime: EZVMVirGLRuntime?
     var guestInputHandler: (([VMGuestAgentInputEvent]) -> Void)?
+    var runtimeIssueHandler: ((String?) -> Void)?
     private var presentedFrames: UInt64 = 0
     private var performanceWindowStartedAt = CACurrentMediaTime()
     private var requestedFramesInWindow: UInt64 = 0
@@ -154,6 +158,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
     private var displayRefreshTimer: Timer?
     private var presentationInFlight = false
+    private var presentationHealth = VMGraphicsPresentationHealthTracker()
     // Input falls back to Virtualization.framework until the authenticated
     // guest agent advertises uinput. Custom VirGL has no VZ graphics device,
     // so its reliable desktop input path is the agent once userspace starts.
@@ -554,6 +559,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         }
         guard let runtime else {
             failuresInWindow &+= 1
+            recordPresentationResult(success: false)
             recordPerformanceIfNeeded()
             return
         }
@@ -574,6 +580,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
                 guard let self else { return }
                 self.presentationInFlight = false
                 if succeeded {
+                    self.recordPresentationResult(success: true)
                     let duration = CACurrentMediaTime() - startedAt
                     self.totalPresentationTimeInWindow += duration
                     self.maximumPresentationTimeInWindow = max(self.maximumPresentationTimeInWindow, duration)
@@ -584,10 +591,24 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
                     }
                 } else {
                     self.failuresInWindow &+= 1
+                    self.recordPresentationResult(success: false)
                     EZVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
                 }
                 self.recordPerformanceIfNeeded()
             }
+        }
+    }
+
+    private func recordPresentationResult(success: Bool) {
+        switch presentationHealth.record(success: success) {
+        case .none:
+            break
+        case .degraded:
+            runtimeIssueHandler?(
+                "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting."
+            )
+        case .recovered:
+            runtimeIssueHandler?(nil)
         }
     }
 
@@ -792,12 +813,17 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         virglView.setAbsolutePointerEnabled(enabled)
     }
 
+    func setRuntimeIssueHandler(_ handler: ((String?) -> Void)?) {
+        virglView.runtimeIssueHandler = handler
+    }
+
     func shutdown() {
         pendingDisplayRequest?.cancel()
         pendingDisplayRequest = nil
         virglView.stopPresentation()
         virglView.virtualMachine = nil
         virglView.guestInputHandler = nil
+        virglView.runtimeIssueHandler = nil
         virglView.runtime = nil
         runtime?.shutdown()
         runtime = nil

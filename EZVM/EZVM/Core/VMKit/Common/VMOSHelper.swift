@@ -608,6 +608,36 @@ struct VMGraphicsBackendSelection: Equatable {
     }
 }
 
+enum VMGraphicsPresentationHealthTransition: Equatable {
+    case none
+    case degraded
+    case recovered
+}
+
+struct VMGraphicsPresentationHealthTracker: Equatable {
+    private(set) var consecutiveFailures = 0
+    private(set) var isDegraded = false
+    let failureThreshold: Int
+
+    init(failureThreshold: Int = 3) {
+        self.failureThreshold = max(1, failureThreshold)
+    }
+
+    mutating func record(success: Bool) -> VMGraphicsPresentationHealthTransition {
+        if success {
+            consecutiveFailures = 0
+            guard isDegraded else { return .none }
+            isDegraded = false
+            return .recovered
+        }
+
+        consecutiveFailures = min(consecutiveFailures + 1, failureThreshold)
+        guard !isDegraded, consecutiveFailures >= failureThreshold else { return .none }
+        isDegraded = true
+        return .degraded
+    }
+}
+
 struct VMLinuxFeatureConfiguration: Codable, Equatable {
     var rosettaEnabled: Bool
     var rosettaCachingEnabled: Bool

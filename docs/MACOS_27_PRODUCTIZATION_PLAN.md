@@ -292,6 +292,11 @@ boundary. Failure to create a `VZCustomVirtioDeviceConfiguration` falls back to
 Apple Virtio before constructing the virtual machine, rather than failing an
 otherwise bootable Linux guest during configuration assembly.
 
+Runtime presentation health is also surfaced without overreacting to transient
+failures. Three consecutive renderer failures mark Custom VirGL as degraded in
+the Graphics menu with recovery guidance; the next successful frame clears the
+condition automatically while the VM continues running.
+
 ## Shared UX work
 
 The five journeys should feel like one product rather than five framework
