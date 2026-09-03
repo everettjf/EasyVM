@@ -584,7 +584,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                                 let guidance = VMGuestProvisioningStartFailureGuidance.message(
                                     retryWasPrepared: retryWasPrepared
                                 )
-                                self.runtimeState?.updateMacGuestProvisioning(.failed(guidance))
+                                self.runtimeState?.updateMacGuestProvisioning(
+                                    retryWasPrepared
+                                        ? .retryPrepared(username: credential.username)
+                                        : .failed(guidance)
+                                )
                                 if !self.recoverInvalidEFIBootIfPossible(error: error, rootPath: rootPath, model: model) {
                                     self.fail(guidance)
                                 }

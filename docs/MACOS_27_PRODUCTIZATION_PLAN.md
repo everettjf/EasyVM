@@ -122,6 +122,12 @@ next start is a safe retry or whether the user must reopen the VM and inspect
 the retained uncertain state, while diagnostic logs contain only error
 identifiers and the recovery outcome.
 
+A framework start failure whose credential was successfully returned to
+`prepared` now enters the visible Retry Prepared state instead of a generic
+failure card. The card gives the exact close-and-run-again sequence. Local
+account-field validation failures remain Needs Attention and offer Setup
+Assistant rather than encouraging an identical invalid submission.
+
 ### Product outcome
 
 A user can create a macOS 27 VM, choose whether to automate the initial account

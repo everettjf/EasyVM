@@ -455,7 +455,7 @@ struct VMOSMainVirtualMachineView: View {
             )
         case .retryPrepared(let username):
             Label(
-                "Provisioning for “\(username)” will be retried the next time this VM starts. Shut down macOS, then run the VM again.",
+                "Provisioning for “\(username)” is ready to retry once. If this VM is running, shut it down; then close this window and run the VM again.",
                 systemImage: "arrow.clockwise.circle.fill"
             )
             .font(.callout)
