@@ -306,6 +306,10 @@ or a new wake cycle renews that budget; sleep, teardown, and reconfiguration
 cancel queued work so stale callbacks cannot overwrite the current state. Once
 the bounded attempts are exhausted, the adapter remains visibly disconnected
 with its sanitized error and explicit retry action instead of looping.
+Sleep/wake recovery is generation-fenced: a second sleep, teardown, or newer
+wake invalidates the previous delayed recovery pass. Sleep that begins while a
+VM is still starting is retained by the tracker, and both manual and automatic
+reconnect entry points refuse work until the host is awake.
 The runtime enters its reconnecting state as soon as a retry is scheduled, so
 the banner never claims the adapter is merely idle during the backoff window.
 

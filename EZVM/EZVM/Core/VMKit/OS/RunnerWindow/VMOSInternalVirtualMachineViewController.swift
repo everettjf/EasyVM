@@ -49,6 +49,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
     private var networkReconnectTokens: [Int: UUID] = [:]
     private var networkAutomaticReconnectTokens: [Int: UUID] = [:]
+    private var networkWakeRecoveryToken: UUID?
     private var displayRefreshObservers: [NSObjectProtocol] = []
     private var networkPowerObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
@@ -101,6 +102,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 guard let self else { return }
                 self.networkReconnectTokens.removeAll()
                 self.networkAutomaticReconnectTokens.removeAll()
+                VMNetworkWakeRecoveryFence.invalidate(
+                    currentToken: &self.networkWakeRecoveryToken
+                )
                 self.networkRuntimeTracker.markHostSleeping()
                 self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
                 EZVMLog.info("Host sleep suspended network recovery.", logger: EZVMLog.network)
@@ -114,6 +118,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 let disconnectedIndices = self.networkRuntimeTracker.markHostAwake()
+                let wakeRecoveryToken = VMNetworkWakeRecoveryFence.begin(
+                    currentToken: &self.networkWakeRecoveryToken
+                )
                 self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
                 if !disconnectedIndices.isEmpty {
                     EZVMLog.info(
@@ -122,7 +129,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     )
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-                    guard let self else { return }
+                    guard let self,
+                          VMNetworkWakeRecoveryFence.shouldRun(
+                            token: wakeRecoveryToken,
+                            currentToken: self.networkWakeRecoveryToken,
+                            isHostSleeping: self.networkRuntimeTracker.isHostSleeping
+                          ) else { return }
+                    self.networkWakeRecoveryToken = nil
                     // A Virtualization.framework disconnect callback can arrive
                     // just after the workspace wake notification. Re-read the
                     // tracker here so that late but authoritative callbacks are
@@ -143,6 +156,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         let center = NSWorkspace.shared.notificationCenter
         networkPowerObservers.forEach(center.removeObserver)
         networkPowerObservers.removeAll()
+        VMNetworkWakeRecoveryFence.invalidate(currentToken: &networkWakeRecoveryToken)
     }
 
     private func installDisplayRefreshObserversIfNeeded() {
@@ -349,6 +363,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         virtualMachine = VZVirtualMachine(configuration: configuration)
         networkReconnectTokens.removeAll()
         networkAutomaticReconnectTokens.removeAll()
+        VMNetworkWakeRecoveryFence.invalidate(currentToken: &networkWakeRecoveryToken)
         networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: configuration.networkDevices.count)
         runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
         // This controller owns the complete runtime lifecycle. Routing delegate
@@ -1377,6 +1392,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         cancelShutdownFallback()
         networkReconnectTokens.removeAll()
         networkAutomaticReconnectTokens.removeAll()
+        VMNetworkWakeRecoveryFence.invalidate(currentToken: &networkWakeRecoveryToken)
         networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
         runtimeState?.updateNetworkRuntime(.unavailable)
         usbAccessoryCoordinator?.stop()

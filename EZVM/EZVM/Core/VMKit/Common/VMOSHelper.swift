@@ -2039,6 +2039,26 @@ enum VMNetworkRuntimeState: Equatable {
     }
 }
 
+enum VMNetworkWakeRecoveryFence {
+    static func begin(currentToken: inout UUID?) -> UUID {
+        let token = UUID()
+        currentToken = token
+        return token
+    }
+
+    static func invalidate(currentToken: inout UUID?) {
+        currentToken = nil
+    }
+
+    static func shouldRun(
+        token: UUID,
+        currentToken: UUID?,
+        isHostSleeping: Bool
+    ) -> Bool {
+        currentToken == token && !isHostSleeping
+    }
+}
+
 struct VMNetworkRuntimeTracker: Equatable {
     static let automaticReconnectDelays: [TimeInterval] = [1, 3]
     static let reconnectAcceptanceDelay: TimeInterval = 0.25
@@ -2090,7 +2110,9 @@ struct VMNetworkRuntimeTracker: Equatable {
     }
 
     mutating func beginReconnect(deviceIndex: Int) -> Bool {
-        guard disconnectedReasons[deviceIndex] != nil,
+        guard isStarted,
+              !isHostSleeping,
+              disconnectedReasons[deviceIndex] != nil,
               !reconnectingIndices.contains(deviceIndex),
               !stabilizingIndices.contains(deviceIndex) else { return false }
         reconnectingIndices.insert(deviceIndex)
@@ -2130,7 +2152,7 @@ struct VMNetworkRuntimeTracker: Equatable {
     }
 
     mutating func markHostSleeping() {
-        guard isStarted else { return }
+        guard deviceCount > 0 else { return }
         isHostSleeping = true
         reconnectingIndices.removeAll()
         stabilizingIndices.removeAll()

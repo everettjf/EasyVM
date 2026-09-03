@@ -272,6 +272,45 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertEqual(tracker.state, .connected(deviceCount: 2))
     }
 
+    func testNetworkRuntimeTrackerRemembersSleepThatBeginsBeforeStartupCompletes() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 1)
+
+        tracker.markHostSleeping()
+        tracker.markStarted()
+
+        XCTAssertEqual(tracker.state, .hostSleeping(deviceCount: 1))
+        XCTAssertFalse(tracker.beginReconnect(deviceIndex: 0))
+    }
+
+    func testNetworkWakeRecoveryFenceRejectsAnOlderWakeAndASleepHost() {
+        var currentToken: UUID?
+        let first = VMNetworkWakeRecoveryFence.begin(currentToken: &currentToken)
+        let second = VMNetworkWakeRecoveryFence.begin(currentToken: &currentToken)
+
+        XCTAssertFalse(VMNetworkWakeRecoveryFence.shouldRun(
+            token: first,
+            currentToken: currentToken,
+            isHostSleeping: false
+        ))
+        XCTAssertFalse(VMNetworkWakeRecoveryFence.shouldRun(
+            token: second,
+            currentToken: currentToken,
+            isHostSleeping: true
+        ))
+        XCTAssertTrue(VMNetworkWakeRecoveryFence.shouldRun(
+            token: second,
+            currentToken: currentToken,
+            isHostSleeping: false
+        ))
+
+        VMNetworkWakeRecoveryFence.invalidate(currentToken: &currentToken)
+        XCTAssertFalse(VMNetworkWakeRecoveryFence.shouldRun(
+            token: second,
+            currentToken: currentToken,
+            isHostSleeping: false
+        ))
+    }
+
     func testNetworkRuntimeTrackerRecoversOnlyAdaptersDisconnectedDuringSleep() {
         var tracker = VMNetworkRuntimeTracker(deviceCount: 3)
         tracker.markStarted()
