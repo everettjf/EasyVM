@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		177F45FA488565203C3F8F88 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */; };
 		20E670A3AF3B256648F15181 /* EZVMOmarchyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */; };
 		4AF317238132CFFC331CA4F3 /* EZVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */; };
 		9B9BBDD231C0C70175C88AB3 /* EZVMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 88A9EBB2192A7177FE428C52 /* EZVMCore */; };
@@ -24,6 +25,7 @@
 
 /* Begin PBXFileReference section */
 		3B328C4BF0A9CFBE6C0F6D36 /* EZVM OmarchyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "EZVM OmarchyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineView.swift; sourceTree = "<group>"; };
 		970A0F8BAF9DF5EC452BC1D0 /* EZVM Omarchy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZVM Omarchy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EZVMOmarchyApp.swift; sourceTree = "<group>"; };
 		C6F28A4F2339E9106ECC8119 /* ezvm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ezvm; path = ..; sourceTree = SOURCE_ROOT; };
@@ -64,6 +66,7 @@
 			isa = PBXGroup;
 			children = (
 				B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */,
+				94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -169,6 +172,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				20E670A3AF3B256648F15181 /* EZVMOmarchyApp.swift in Sources */,
+				177F45FA488565203C3F8F88 /* OmarchyVirtualMachineView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
