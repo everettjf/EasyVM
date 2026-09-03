@@ -82,6 +82,8 @@ protocol VMGraphicsBackend {
     func refreshDisplayConfiguration()
     func setDynamicDisplayReady(_ ready: Bool)
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?)
+    func setKeyboardIntegrationStateHandler(_ handler: ((VMKeyboardIntegrationState) -> Void)?)
+    func requestKeyboardIntegrationPermission()
     func setAbsolutePointerEnabled(_ enabled: Bool)
     func setRuntimeIssueHandler(_ handler: ((String?) -> Void)?)
     func shutdown()
@@ -121,6 +123,12 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
     func setDynamicDisplayReady(_ ready: Bool) {}
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {}
+
+    func setKeyboardIntegrationStateHandler(_ handler: ((VMKeyboardIntegrationState) -> Void)?) {
+        handler?(.unavailable)
+    }
+
+    func requestKeyboardIntegrationPermission() {}
 
     func setAbsolutePointerEnabled(_ enabled: Bool) {}
 
@@ -265,6 +273,8 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var windowObservers: [NSObjectProtocol] = []
     private var commandKeyMonitor: Any?
     private var focusedCommandEventTap: VMFocusedCommandEventTap?
+    private var accessibilityRetryTimer: Timer?
+    private var keyboardIntegrationStateHandler: ((VMKeyboardIntegrationState) -> Void)?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
@@ -326,6 +336,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
 
     deinit {
         focusedCommandEventTap?.stop()
+        accessibilityRetryTimer?.invalidate()
         if let commandKeyMonitor { NSEvent.removeMonitor(commandKeyMonitor) }
         displayRefreshTimer?.invalidate()
         windowObservers.forEach(NotificationCenter.default.removeObserver)
@@ -335,6 +346,8 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     func stopPresentation() {
         focusedCommandEventTap?.stop()
         focusedCommandEventTap = nil
+        accessibilityRetryTimer?.invalidate()
+        accessibilityRetryTimer = nil
         presentationLifecycle.stop()
         displayRefreshTimer?.invalidate()
         displayRefreshTimer = nil
@@ -358,15 +371,70 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         focusedCommandEventTap?.stop()
         focusedCommandEventTap = nil
         guestInputHandler = handler
-        guard let handler else { return }
+        guard handler != nil else {
+            keyboardIntegrationStateHandler?(.waitingForGuest)
+            return
+        }
+        installFocusedCommandEventTap()
+    }
+
+    func setKeyboardIntegrationStateHandler(
+        _ handler: ((VMKeyboardIntegrationState) -> Void)?
+    ) {
+        keyboardIntegrationStateHandler = handler
+        if focusedCommandEventTap != nil {
+            handler?(.enabled)
+        } else if guestInputHandler == nil {
+            handler?(.waitingForGuest)
+        } else {
+            handler?(.accessibilityRequired)
+        }
+    }
+
+    func requestKeyboardIntegrationPermission() {
+        guard guestInputHandler != nil else {
+            keyboardIntegrationStateHandler?(.waitingForGuest)
+            return
+        }
+        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        _ = AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary)
+        accessibilityRetryTimer?.invalidate()
+        var attemptsRemaining = 40
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
+            guard let self, self.guestInputHandler != nil else {
+                timer.invalidate()
+                return
+            }
+            if AXIsProcessTrusted() {
+                timer.invalidate()
+                self.accessibilityRetryTimer = nil
+                self.installFocusedCommandEventTap()
+                return
+            }
+            attemptsRemaining -= 1
+            if attemptsRemaining == 0 {
+                timer.invalidate()
+                self.accessibilityRetryTimer = nil
+                self.keyboardIntegrationStateHandler?(.accessibilityRequired)
+            }
+        }
+        accessibilityRetryTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+        keyboardIntegrationStateHandler?(.accessibilityRequired)
+    }
+
+    private func installFocusedCommandEventTap() {
+        guard focusedCommandEventTap == nil, let handler = guestInputHandler else { return }
         let eventTap = VMFocusedCommandEventTap(
             focusProbe: { [weak self] in self?.shouldCaptureSystemKeys == true },
             eventHandler: handler
         )
         if eventTap.start() {
             focusedCommandEventTap = eventTap
+            keyboardIntegrationStateHandler?(.enabled)
             EZVMLog.info("Focused Command/Super event tap enabled", logger: EZVMLog.input)
         } else {
+            keyboardIntegrationStateHandler?(.accessibilityRequired)
             EZVMLog.error(
                 "Focused Command/Super event tap unavailable; grant Accessibility permission for system shortcuts",
                 logger: EZVMLog.input
@@ -996,6 +1064,16 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         virglView.setGuestInputHandler(handler)
     }
 
+    func setKeyboardIntegrationStateHandler(
+        _ handler: ((VMKeyboardIntegrationState) -> Void)?
+    ) {
+        virglView.setKeyboardIntegrationStateHandler(handler)
+    }
+
+    func requestKeyboardIntegrationPermission() {
+        virglView.requestKeyboardIntegrationPermission()
+    }
+
     func setAbsolutePointerEnabled(_ enabled: Bool) {
         virglView.setAbsolutePointerEnabled(enabled)
     }
@@ -1010,6 +1088,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         virglView.stopPresentation()
         virglView.virtualMachine = nil
         virglView.setGuestInputHandler(nil)
+        virglView.setKeyboardIntegrationStateHandler(nil)
         virglView.runtimeIssueHandler = nil
         virglView.runtime = nil
         runtime?.shutdown()

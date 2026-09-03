@@ -57,6 +57,7 @@ final class VMRuntimeState {
     private(set) var networkRuntimeState: VMNetworkRuntimeState = .unavailable
     private(set) var graphicsBackendKind: VMGraphicsBackendKind?
     private(set) var graphicsBackendDetail: String?
+    private(set) var keyboardIntegrationState: VMKeyboardIntegrationState = .unavailable
     private(set) var supportsMachineSaveRestore = true
     private(set) var machineStateConfigurationFailure: String?
     private(set) var machineStateNotice: String?
@@ -159,6 +160,10 @@ final class VMRuntimeState {
         self.supportsMachineSaveRestore = supportsMachineSaveRestore
     }
 
+    func updateKeyboardIntegration(_ state: VMKeyboardIntegrationState) {
+        keyboardIntegrationState = state
+    }
+
     func updateMachineStateConfigurationFailure(_ failure: String?) {
         machineStateConfigurationFailure = failure
     }
@@ -196,6 +201,9 @@ final class VMRuntimeState {
     func retryMacGuestProvisioningOnNextStart() { controller?.retryMacGuestProvisioningOnNextStart() }
     func useManualMacSetup() { controller?.useManualMacSetup() }
     func reconnectNetworkDevice(deviceIndex: Int) { controller?.reconnectNetworkDevice(deviceIndex: deviceIndex) }
+    func requestKeyboardIntegrationPermission() {
+        controller?.requestKeyboardIntegrationPermission()
+    }
     func updateSharedFolders(_ devices: [VMModelFieldDirectorySharingDevice]) -> String? {
         controller?.updateRuntimeSharedFolders(devices)
     }

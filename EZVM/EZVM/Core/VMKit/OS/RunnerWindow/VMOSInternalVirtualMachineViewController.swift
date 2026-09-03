@@ -292,6 +292,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 supportsMachineSaveRestore: graphicsSupportsSaveRestore
             )
         }
+        graphicsBackend.setKeyboardIntegrationStateHandler { [weak runtimeState] state in
+            runtimeState?.updateKeyboardIntegration(state)
+        }
         // Keep the VZ native input fallback until the authenticated guest
         // explicitly advertises uinput. The agent callback switches Custom
         // VirGL to its reliable desktop input path once it is ready.
@@ -1112,6 +1115,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         let requested = UInt64(Double(maximum) * min(max(fraction, 0), 1))
         device.targetVirtualMachineMemorySize = requested
         runtimeState?.updateBalloonMemory(target: device.targetVirtualMachineMemorySize, maximum: maximum)
+    }
+
+    func requestKeyboardIntegrationPermission() {
+        graphicsBackend?.requestKeyboardIntegrationPermission()
     }
 
     func reconnectNetworkDevice(deviceIndex: Int) {

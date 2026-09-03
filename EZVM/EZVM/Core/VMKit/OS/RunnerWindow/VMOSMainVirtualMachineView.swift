@@ -106,6 +106,12 @@ struct VMOSMainVirtualMachineView: View {
                         VMGraphicsRuntimeBanner(detail: graphicsIssue, openSettings: openSettings)
                     }
 
+                    if runtimeState.keyboardIntegrationState == .accessibilityRequired {
+                        VMKeyboardIntegrationBanner(
+                            requestPermission: runtimeState.requestKeyboardIntegrationPermission
+                        )
+                    }
+
                     VMNetworkRuntimeBanner(
                         state: runtimeState.networkRuntimeState,
                         reconnect: runtimeState.reconnectNetworkDevice
@@ -187,6 +193,13 @@ struct VMOSMainVirtualMachineView: View {
                         graphicsNeedsAttention
                             ? String(localized: "Graphics needs attention")
                             : String(localized: "Graphics")
+                    )
+                }
+
+                if runtimeState.keyboardIntegrationState != .unavailable {
+                    VMKeyboardIntegrationMenu(
+                        state: runtimeState.keyboardIntegrationState,
+                        requestPermission: runtimeState.requestKeyboardIntegrationPermission
                     )
                 }
 
@@ -918,6 +931,77 @@ private struct VMGraphicsRuntimeBanner: View {
         .background(.regularMaterial, in: .rect(cornerRadius: 11))
         .shadow(color: .black.opacity(0.16), radius: 9, y: 3)
         .frame(maxWidth: 520)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct VMKeyboardIntegrationMenu: View {
+    let state: VMKeyboardIntegrationState
+    let requestPermission: () -> Void
+
+    var body: some View {
+        Menu {
+            Text(summary)
+            if state.needsAccessibilityPermission {
+                Divider()
+                Button("Enable Full Keyboard Integration…", systemImage: "hand.raised") {
+                    requestPermission()
+                }
+            }
+        } label: {
+            Label("Keyboard", systemImage: symbol)
+        }
+        .help(summary)
+        .accessibilityLabel("Keyboard integration")
+        .accessibilityValue(summary)
+    }
+
+    private var symbol: String {
+        switch state {
+        case .unavailable: "keyboard"
+        case .waitingForGuest: "keyboard.badge.ellipsis"
+        case .accessibilityRequired: "keyboard.badge.exclamationmark"
+        case .enabled: "keyboard.badge.checkmark"
+        }
+    }
+
+    private var summary: String {
+        switch state {
+        case .unavailable: String(localized: "Keyboard integration is unavailable")
+        case .waitingForGuest: String(localized: "Waiting for Guest Agent desktop input")
+        case .accessibilityRequired: String(localized: "Accessibility permission is required to send Command shortcuts to Linux")
+        case .enabled: String(localized: "Command is sent to Linux as Super while the VM display is focused")
+        }
+    }
+}
+
+private struct VMKeyboardIntegrationBanner: View {
+    let requestPermission: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "keyboard.badge.exclamationmark")
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Full keyboard integration needs permission")
+                    .font(.callout.weight(.semibold))
+                Text("Allow Accessibility access so Command shortcuts, including Command-Space, reach Linux as Super shortcuts while this display is focused.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Enable…", action: requestPermission)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .accessibilityHint("Open the macOS Accessibility permission prompt")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: .rect(cornerRadius: 11))
+        .shadow(color: .black.opacity(0.16), radius: 9, y: 3)
+        .frame(maxWidth: 620)
         .accessibilityElement(children: .contain)
     }
 }

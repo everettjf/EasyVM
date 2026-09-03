@@ -217,6 +217,17 @@ struct VMFocusedCommandOutcome: Equatable {
     var guestEvents: [VMGuestAgentInputEvent] = []
 }
 
+enum VMKeyboardIntegrationState: Equatable {
+    case unavailable
+    case waitingForGuest
+    case accessibilityRequired
+    case enabled
+
+    var needsAccessibilityPermission: Bool {
+        self == .accessibilityRequired
+    }
+}
+
 /// Pure state machine for an Accessibility event tap that gives macOS Command
 /// chords to a focused Linux desktop as Super chords. Keeping this independent
 /// of `CGEventTap` makes focus loss, repeats, left/right Command, and forced
