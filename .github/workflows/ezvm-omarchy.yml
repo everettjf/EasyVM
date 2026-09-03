@@ -1,0 +1,62 @@
+name: EZVM Omarchy
+
+on:
+  push:
+    branches:
+      - main
+      - docs/ezvm-omarchy-plan
+    paths:
+      - "EZVM/EZVM/Core/VMKit/**"
+      - "EZVMOmarchy/**"
+      - "Tests/**"
+      - "Tools/OmarchyFactoryTool/**"
+      - "Package.swift"
+      - "scripts/build-omarchy-factory.sh"
+      - "scripts/test-omarchy-factory-tool.sh"
+      - ".github/workflows/ezvm-omarchy.yml"
+  pull_request:
+    paths:
+      - "EZVM/EZVM/Core/VMKit/**"
+      - "EZVMOmarchy/**"
+      - "Tests/**"
+      - "Tools/OmarchyFactoryTool/**"
+      - "Package.swift"
+      - "scripts/build-omarchy-factory.sh"
+      - "scripts/test-omarchy-factory-tool.sh"
+      - ".github/workflows/ezvm-omarchy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ezvm-omarchy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Test shared core and CLI
+        run: swift test
+      - name: Test factory signing pipeline
+        run: scripts/test-omarchy-factory-tool.sh
+      - name: Regenerate independent project
+        working-directory: EZVMOmarchy
+        run: |
+          xcodegen generate
+          git diff --exit-code -- EZVMOmarchy.xcodeproj
+      - name: Build and test EZVM Omarchy
+        working-directory: EZVMOmarchy
+        run: >-
+          xcodebuild
+          -project EZVMOmarchy.xcodeproj
+          -scheme 'EZVM Omarchy'
+          -configuration Debug
+          -derivedDataPath "$RUNNER_TEMP/ezvm-omarchy-derived"
+          CODE_SIGNING_ALLOWED=NO
+          test
