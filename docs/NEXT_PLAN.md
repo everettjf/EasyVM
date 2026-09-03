@@ -139,7 +139,9 @@ These items are not scheduled in P0–P3:
 - EZVM targets macOS 27 and uses only `com.apple.developer.networking.vmnet`
   for advanced VM networking;
 - physical USB passthrough and hot-plug require the Accessory Access entitlement
-  already carried by the signed Homebrew build;
+  already carried by the signed Homebrew build. The implementation remains in
+  place, but physical-device validation and further USB product work are
+  explicitly deferred until after the current macOS 27 virtualization milestone;
 - x86 guests, general GPU passthrough, and general PCIe passthrough are not
   provided by Virtualization.framework and remain out of scope.
 

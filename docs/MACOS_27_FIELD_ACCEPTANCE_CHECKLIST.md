@@ -31,6 +31,10 @@ Record this once for every complete run:
 
 ## 1. Physical USB and `VZUSBController.Delegate`
 
+**Deferred:** Keep this checklist for a later hardware-validation milestone.
+USB is not a completion gate for the current macOS 27 virtualization goal.
+Do not run these cases until suitable sacrificial devices are available.
+
 Prerequisites:
 
 - [ ] One disposable mass-storage device with nonessential test data
