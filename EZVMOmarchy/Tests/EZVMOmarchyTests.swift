@@ -27,6 +27,10 @@ final class EZVMOmarchyTests: XCTestCase {
             OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
             OmarchyWorkspaceConfiguration.acceptanceRootKey: "/Users/shared/not-temporary",
         ]))
+        XCTAssertEqual(
+            OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey,
+            "EZVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD"
+        )
     }
 
     func testDedicatedAppUsesOmarchyProductIdentity() throws {

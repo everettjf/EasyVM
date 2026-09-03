@@ -25,7 +25,8 @@ enum OmarchyClipboardAcceptanceProbe {
     static func run(
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
-        pasteboard: NSPasteboard = .general
+        pasteboard: NSPasteboard = .general,
+        environment: [String: String] = ProcessInfo.processInfo.environment
     ) async throws -> OmarchyClipboardRoundTrip {
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".ezvm-clipboard-\(nonce)")
@@ -47,6 +48,18 @@ enum OmarchyClipboardAcceptanceProbe {
         try image.write(to: probeDirectory.appending(path: "guest-image-input"))
         let script = probeScript(guestDirectory: guestDirectory)
         try Data(script.utf8).write(to: probeDirectory.appending(path: "probe.sh"))
+
+        // A resumed acceptance image may intentionally start at hyprlock. The
+        // opt-in password exists only in the isolated test process environment
+        // and is never persisted in the workspace or observation.
+        if let password = environment[OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey],
+           !password.isEmpty {
+            NSLog("Omarchy clipboard probe submitting opt-in Guest unlock input")
+            try await client.injectKeyChord(modifiers: [29], key: 22) // Ctrl-U
+            try await client.typeUSASCII(password)
+            try await client.injectKeyChord(modifiers: [], key: 28)
+            try await Task.sleep(for: .seconds(2))
+        }
 
         // Omarchy's documented Super-Return shortcut opens a terminal. The
         // command itself is typed through the authenticated uinput channel.

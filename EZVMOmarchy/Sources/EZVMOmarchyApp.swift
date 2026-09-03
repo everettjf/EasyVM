@@ -40,6 +40,7 @@ struct EZVMOmarchyApp: App {
 enum OmarchyWorkspaceConfiguration {
     static let acceptanceEnabledKey = "EZVM_OMARCHY_ACCEPTANCE"
     static let acceptanceRootKey = "EZVM_OMARCHY_ACCEPTANCE_WORKSPACE_ROOT"
+    static let acceptanceUnlockPasswordKey = "EZVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD"
 
     static func layout(
         environment: [String: String] = ProcessInfo.processInfo.environment,
