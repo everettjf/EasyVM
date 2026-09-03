@@ -149,7 +149,11 @@ public final class VMOmarchyGuestAgentClient {
     /// channel. This is used by isolated end-to-end acceptance runs and does
     /// not expose a Guest shell or command-execution protocol.
     public func typeUSASCII(_ text: String) async throws {
-        guard capabilities.contains("desktop-input-v1") else {
+        // A compositor-owned uinput device can temporarily disappear from the
+        // desktop capability probe while hyprlock has the seat. The generic
+        // input capability still proves that the authenticated Agent owns the
+        // device, and is required so acceptance can submit the unlock secret.
+        guard capabilities.contains("input-uinput-v1") else {
             throw CocoaError(.featureUnsupported)
         }
         // Send complete strokes individually. Some Wayland/libinput stacks
@@ -172,7 +176,7 @@ public final class VMOmarchyGuestAgentClient {
 
     /// Sends one complete Linux key chord with deterministic key-up cleanup.
     public func injectKeyChord(modifiers: [UInt16], key: UInt16) async throws {
-        guard capabilities.contains("desktop-input-v1") else {
+        guard capabilities.contains("input-uinput-v1") else {
             throw CocoaError(.featureUnsupported)
         }
         var events: [VMGuestAgentInputEvent] = []
