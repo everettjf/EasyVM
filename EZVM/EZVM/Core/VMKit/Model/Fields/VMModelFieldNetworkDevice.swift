@@ -205,6 +205,7 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
         var externalEndpointOwners: [String: String] = [:]
         var externalEndpoints: [String: (PortForwardingRule.Transport, UInt16)] = [:]
         var ownersAlreadyActive = Set<String>()
+        var configuredSubnets: [(owner: String, first: UInt32, last: UInt32, description: String)] = []
 
         for (index, model) in models.enumerated() {
             if let error = model.validationError(
@@ -221,10 +222,29 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
                 }
                 networkSignatures[identifier] = model.vmnetConfigurationSignature
             }
-            guard model.type == .VMNetShared else { continue }
+            guard model.type == .VMNetShared || model.type == .VMNetHost else { continue }
             let networkOwner = model.networkIdentifier.map {
                 "named:\($0):\(model.vmnetConfigurationSignature)"
             } ?? "anonymous:\(index)"
+            if let subnetText = model.ipv4Subnet,
+               let maskText = model.ipv4SubnetMask,
+               let subnet = ipv4Value(subnetText),
+               let mask = ipv4Value(maskText) {
+                let first = subnet & mask
+                let last = first | ~mask
+                if let overlap = configuredSubnets.first(where: {
+                    $0.owner != networkOwner && first <= $0.last && $0.first <= last
+                }) {
+                    return "VMNet subnet \(subnetText)/\(maskText) overlaps \(overlap.description). Choose non-overlapping subnets for different logical networks."
+                }
+                configuredSubnets.append((
+                    owner: networkOwner,
+                    first: first,
+                    last: last,
+                    description: "\(subnetText)/\(maskText)"
+                ))
+            }
+            guard model.type == .VMNetShared else { continue }
             if let identifier = model.networkIdentifier,
                case .found = VMNetLogicalNetworkRegistry.shared.lookup(
                    identifier: identifier,

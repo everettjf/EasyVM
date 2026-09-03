@@ -117,7 +117,8 @@ permission problems explain how to recover.
 **Current implementation:** EZVM now preflights the complete network-device
 collection before creating any VMNet object. Validation rejects unavailable
 external interfaces, non-contiguous masks, host addresses used as subnets,
-zero ports, forwarding destinations outside the configured subnet, conflicting
+overlapping explicitly configured logical-network subnets, zero ports,
+forwarding destinations outside the configured subnet, conflicting
 definitions of one logical-network name, and duplicate external endpoints
 across distinct networks. Identical reuse of a named logical network remains
 valid. After structural validation succeeds, EZVM bind-probes each unique TCP

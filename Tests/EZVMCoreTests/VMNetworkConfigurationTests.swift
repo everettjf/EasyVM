@@ -531,6 +531,51 @@ final class VMNetworkConfigurationTests: XCTestCase {
         ))
     }
 
+    func testVMNetCollectionRejectsOverlappingSubnetsAcrossDifferentNetworks() {
+        let shared = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "shared-lab",
+            ipv4Subnet: "192.168.72.0",
+            ipv4SubnetMask: "255.255.254.0"
+        )
+        let hostOnly = VMModelFieldNetworkDevice(
+            type: .VMNetHost,
+            networkIdentifier: "host-lab",
+            ipv4Subnet: "192.168.73.0",
+            ipv4SubnetMask: "255.255.255.0"
+        )
+
+        let error = VMModelFieldNetworkDevice.collectionValidationError(
+            [shared, hostOnly],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: []
+        )
+
+        XCTAssertTrue(error?.contains("overlaps 192.168.72.0/255.255.254.0") == true)
+        XCTAssertTrue(error?.contains("non-overlapping subnets") == true)
+    }
+
+    func testVMNetCollectionAllowsAdjacentNonOverlappingSubnets() {
+        let first = VMModelFieldNetworkDevice(
+            type: .VMNetShared,
+            networkIdentifier: "first",
+            ipv4Subnet: "192.168.72.0",
+            ipv4SubnetMask: "255.255.255.0"
+        )
+        let second = VMModelFieldNetworkDevice(
+            type: .VMNetHost,
+            networkIdentifier: "second",
+            ipv4Subnet: "192.168.73.0",
+            ipv4SubnetMask: "255.255.255.0"
+        )
+
+        XCTAssertNil(VMModelFieldNetworkDevice.collectionValidationError(
+            [first, second],
+            vmnetEntitlementGranted: true,
+            availableInterfaceNames: []
+        ))
+    }
+
     func testVMNetCollectionPreflightReportsOccupiedHostPortBeforeCreation() {
         let rule = VMModelFieldNetworkDevice.PortForwardingRule(
             transport: .tcp,
