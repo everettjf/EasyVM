@@ -4,6 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
+RuntimeDirectory=ezvm-agent
+RuntimeDirectoryMode=0755
 ExecStart=/usr/local/sbin/ezvm-agent --config /etc/ezvm-agent/config.json
 Restart=always
 RestartSec=2

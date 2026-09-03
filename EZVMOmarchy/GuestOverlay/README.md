@@ -12,3 +12,9 @@ active.
 The Host must treat absence of that capability as degraded integration. Merely
 configuring a Virtualization.framework directory-sharing device is not proof
 that the guest can use it.
+
+The image also installs and enables `systemd/ezvm-session-agent.service` as a
+user service. It runs the same signed Agent binary without root privileges and
+registers only currently verified desktop capabilities over a local Unix
+socket. The system Agent authenticates the peer UID with `SO_PEERCRED`, expires
+registrations after 15 seconds, and never exposes a general command channel.

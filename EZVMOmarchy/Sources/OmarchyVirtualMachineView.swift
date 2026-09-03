@@ -138,6 +138,13 @@ struct OmarchyVirtualMachineView: View {
                 } else {
                     Text("Shared folder is not mounted in Omarchy")
                 }
+                if status.capabilities.contains("clipboard-text-v1") {
+                    Text(status.capabilities.contains("clipboard-image-v1")
+                        ? "Text and image clipboard ready"
+                        : "Text clipboard ready")
+                } else {
+                    Text("Clipboard session integration is not ready")
+                }
                 Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
             }
         } label: {

@@ -61,6 +61,14 @@ exactly `/mnt/ezvm-shared`. The existence of the host device or a guest mount
 unit is not sufficient. Hosts should present shared-folder workflows as
 degraded whenever this capability is absent and must not infer readiness from
 the configured VM model alone.
+`clipboard-text-v1` and `clipboard-image-v1` come from an unprivileged desktop
+Session Agent rather than the root system service. The Session Agent requires
+an active Wayland environment, a same-UID `spice-vdagent` process, and an
+enabled SPICE clipboard configuration; PNG additionally requires the declared
+`image/png` derived format. It registers over a local Unix socket, the system
+Agent authenticates its UID with `SO_PEERCRED`, accepts only an allowlist of
+capabilities, and expires the registration after 15 seconds. This channel does
+not accept commands from either side.
 `input-uinput-absolute-v1` is advertised only when the agent also creates a
 separate tablet-style `/dev/uinput` device. A capable host sends
 `EV_ABS/ABS_X` and `EV_ABS/ABS_Y` in the inclusive range `0...32767`, followed

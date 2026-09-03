@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const protocolVersion = 1
@@ -78,7 +79,14 @@ type status struct {
 
 func main() {
 	configPath := flag.String("config", "/etc/ezvm-agent/config.json", "enrollment configuration")
+	sessionMode := flag.Bool("session", false, "report desktop-session capabilities to the system agent")
 	flag.Parse()
+	if *sessionMode {
+		if err := runSessionAgent(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	configuration, err := loadEnrollment(*configPath)
 	if err != nil {
 		log.Fatal(err)
@@ -90,6 +98,9 @@ func main() {
 	defer closeSocket(fd)
 	input := newGuestInput()
 	defer input.Close()
+	if err := startSessionRegistry(); err != nil {
+		log.Printf("desktop session registry unavailable: %v", err)
+	}
 	log.Printf("EZVM guest agent %s listening on AF_VSOCK port %d", version, configuration.Port)
 	for {
 		connection, err := acceptSocket(fd)
@@ -311,6 +322,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	if sharedFolderMounted() {
 		capabilities = append(capabilities, "shared-folders-v1")
 	}
+	capabilities = append(capabilities, activeSessionCapabilities(time.Now())...)
 	if absolutePointerAvailable {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}

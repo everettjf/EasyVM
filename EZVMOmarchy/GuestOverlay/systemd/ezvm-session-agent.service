@@ -1,0 +1,16 @@
+[Unit]
+Description=EZVM Omarchy desktop session integration
+After=graphical-session.target spice-guest-tools-bootstrap.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/ezvm-agent --session
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+
+[Install]
+WantedBy=graphical-session.target

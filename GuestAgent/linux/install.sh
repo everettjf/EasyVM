@@ -28,8 +28,11 @@ if [ "$init_system" = auto ]; then
 fi
 
 if [ "$init_system" = systemd ]; then
-  install -d -m 0755 "$install_root/etc/systemd/system"
+  install -d -m 0755 "$install_root/etc/systemd/system" "$install_root/etc/systemd/user"
   install -m 0644 "$bundle_dir/ezvm-agent.service" "$install_root/etc/systemd/system/ezvm-agent.service"
+  install -m 0644 "$bundle_dir/ezvm-session-agent.service" "$install_root/etc/systemd/user/ezvm-session-agent.service"
+  install -d -m 0755 "$install_root/etc/systemd/user/graphical-session.target.wants"
+  ln -sfn ../ezvm-session-agent.service "$install_root/etc/systemd/user/graphical-session.target.wants/ezvm-session-agent.service"
   if [ -z "$install_root" ]; then
     systemctl daemon-reload
     systemctl enable --now ezvm-agent.service
