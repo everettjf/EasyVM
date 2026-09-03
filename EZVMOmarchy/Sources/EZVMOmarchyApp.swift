@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import EZVMCore
 import Virtualization
 
@@ -32,6 +33,8 @@ struct OmarchyRootView: View {
     let profile: VMOmarchyProfile
     let workspaceManager: VMOmarchyWorkspaceManager
     @State private var workspaceRevision = UUID()
+    @State private var recoveryError: String?
+    @State private var showsRecoveryConfirmation = false
 
     var body: some View {
         switch workspaceManager.inspect() {
@@ -45,11 +48,46 @@ struct OmarchyRootView: View {
         case .ready:
             OmarchyVirtualMachineView(layout: workspaceManager.layout, profile: profile)
         case .recovering(let reason):
-            ContentUnavailableView(
-                "Omarchy needs recovery",
-                systemImage: "externaldrive.badge.exclamationmark",
-                description: Text(reason)
-            )
+            VStack(spacing: 18) {
+                ContentUnavailableView(
+                    "Omarchy needs recovery",
+                    systemImage: "externaldrive.badge.exclamationmark",
+                    description: Text(reason)
+                )
+                if let recoveryError {
+                    Text(recoveryError).foregroundStyle(.red).multilineTextAlignment(.center)
+                }
+                HStack {
+                    Button("Reveal Data", systemImage: "folder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([workspaceManager.layout.workspace])
+                    }
+                    Button("Preserve and Reinstall…", systemImage: "arrow.counterclockwise") {
+                        showsRecoveryConfirmation = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .padding(40)
+            .confirmationDialog(
+                "Preserve the broken workspace and reinstall Omarchy?",
+                isPresented: $showsRecoveryConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Preserve and Reinstall") { preserveAndReinstall() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The existing workspace will be moved into the Recovery folder. It will not be deleted.")
+            }
+        }
+    }
+
+    private func preserveAndReinstall() {
+        do {
+            _ = try workspaceManager.quarantineBrokenWorkspace()
+            recoveryError = nil
+            workspaceRevision = UUID()
+        } catch {
+            recoveryError = error.localizedDescription
         }
     }
 }
@@ -139,10 +177,10 @@ private struct OmarchyWelcomeView: View {
                 }
                 installState = .creatingWorkspace
                 let identifier = VZGenericMachineIdentifier().dataRepresentation
-                let metadata = try JSONEncoder().encode(WorkspaceMetadata(
-                    schemaVersion: 1,
+                let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
                     productID: profile.productID,
-                    createdAt: Date()
+                    createdAt: Date(),
+                    factoryImageVersion: nil
                 ))
                 try workspaceManager.prepare(
                     factoryDisk: factory,
@@ -162,12 +200,6 @@ private struct OmarchyWelcomeView: View {
         case downloading(Double)
         case creatingWorkspace
         case failed(String)
-    }
-
-    private struct WorkspaceMetadata: Codable {
-        let schemaVersion: Int
-        let productID: String
-        let createdAt: Date
     }
 
     private enum OnboardingError: LocalizedError {

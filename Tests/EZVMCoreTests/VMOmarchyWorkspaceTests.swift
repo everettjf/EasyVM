@@ -1,4 +1,5 @@
 import XCTest
+import Virtualization
 @testable import EZVMCore
 
 final class VMOmarchyWorkspaceTests: XCTestCase {
@@ -22,11 +23,12 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         )
         let manager = VMOmarchyWorkspaceManager(layout: layout)
         XCTAssertEqual(manager.inspect(), .notPrepared)
+        let identifier = VZGenericMachineIdentifier().dataRepresentation
 
         try manager.prepare(
             factoryDisk: factory,
-            configuration: Data("configuration".utf8),
-            machineIdentifier: Data("identifier".utf8)
+            configuration: try metadata(),
+            machineIdentifier: identifier
         )
 
         XCTAssertEqual(manager.inspect(), .ready)
@@ -41,7 +43,7 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         )
         XCTAssertEqual(
             enrollment.machineID,
-            VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: Data("identifier".utf8))
+            VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: identifier)
         )
         XCTAssertEqual(enrollment.token.count, 32)
         XCTAssertEqual(
@@ -50,6 +52,76 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         )
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: layout.applicationSupportRoot.path)
             .contains(where: { $0.hasPrefix(".Workspace.preparing.") }))
+    }
+
+    func testInvalidMetadataAndMachineIdentityRequireRecovery() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
+        try Data("disk".utf8).write(to: layout.disk)
+        try Data("not-json".utf8).write(to: layout.configuration)
+        try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+
+        XCTAssertEqual(
+            manager.inspect(),
+            .recovering(reason: "The Omarchy workspace metadata is invalid or unsupported.")
+        )
+        try metadata().write(to: layout.configuration)
+        try Data("invalid-identifier".utf8).write(to: layout.machineIdentifier)
+        XCTAssertEqual(
+            manager.inspect(),
+            .recovering(reason: "The Omarchy machine identity is invalid.")
+        )
+    }
+
+    func testBrokenWorkspaceIsPreservedBeforeReinstall() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
+        let userData = layout.workspace.appending(path: "user-data")
+        try Data("keep me".utf8).write(to: userData)
+        try FileManager.default.createDirectory(at: layout.enrollment, withIntermediateDirectories: true)
+        try Data("old identity".utf8).write(to: layout.enrollment.appending(path: "config.json"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+
+        let preserved = try manager.quarantineBrokenWorkspace(now: Date(timeIntervalSince1970: 0))
+
+        XCTAssertEqual(manager.inspect(), .notPrepared)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: layout.workspace.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: layout.enrollment.path))
+        XCTAssertEqual(
+            try Data(contentsOf: preserved.appending(path: "Workspace/user-data")),
+            Data("keep me".utf8)
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: preserved.appending(path: "Enrollment/config.json")),
+            Data("old identity".utf8)
+        )
+        XCTAssertTrue(preserved.path.hasPrefix(layout.recovery.path + "/Recovery-1970-01-01T00-00-00Z"))
+
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory".utf8).write(to: factory)
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+        XCTAssertEqual(manager.inspect(), .ready)
+    }
+
+    func testReadyWorkspaceCannotBeQuarantined() throws {
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory".utf8).write(to: factory)
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+
+        XCTAssertThrowsError(try manager.quarantineBrokenWorkspace()) { error in
+            XCTAssertEqual(error as? VMOmarchyWorkspaceError, .workspaceNotRecoverable)
+        }
     }
 
     func testPrepareReusesExistingOmarchyEnrollment() throws {
@@ -101,5 +173,13 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         )) { error in
             XCTAssertEqual(error as? VMOmarchyWorkspaceError, .invalidFactoryDisk)
         }
+    }
+
+    private func metadata() throws -> Data {
+        try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
+            productID: VMOmarchyProfile.production.productID,
+            createdAt: Date(timeIntervalSince1970: 0),
+            factoryImageVersion: "test"
+        ))
     }
 }
