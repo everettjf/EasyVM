@@ -32,7 +32,12 @@ class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
             options.enablesRemoteLogin = context.formData.provisioningRemoteLogin
             try options.validate()
         } catch {
-            return .failure("Guest provisioning settings are invalid: \(error.localizedDescription)")
+            let error = error as NSError
+            EZVMLog.error(
+                "Guest provisioning validation failed: \(error.domain) (\(error.code)).",
+                logger: EZVMLog.lifecycle
+            )
+            return .failure(VMGuestProvisioningValidationGuidance.message(for: error))
         }
         return .success
     }

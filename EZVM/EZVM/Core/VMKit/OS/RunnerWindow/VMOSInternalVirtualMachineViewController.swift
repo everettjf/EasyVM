@@ -471,7 +471,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         credential.withAttemptState(.prepared),
                         vmRootPath: rootPath
                     )
-                    fail("Guest provisioning settings were rejected: \(error.localizedDescription)")
+                    let error = error as NSError
+                    EZVMLog.error(
+                        "Guest provisioning validation failed before VM start: \(error.domain) (\(error.code)).",
+                        logger: EZVMLog.lifecycle
+                    )
+                    let guidance = VMGuestProvisioningValidationGuidance.message(for: error)
+                    runtimeState?.updateMacGuestProvisioning(.failed(guidance))
+                    fail(guidance)
                     return
                 }
             case .success(nil):

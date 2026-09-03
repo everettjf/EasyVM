@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import Virtualization
 @testable import EZVMCore
 
 final class VMGuestProvisioningCredentialTests: XCTestCase {
@@ -83,5 +84,42 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
                 after: .userConfirmedSetupCompleted
             )
         )
+    }
+
+    func testProvisioningValidationCodesMapToSpecificFields() {
+        XCTAssertEqual(
+            VMGuestProvisioningValidationGuidance.classify(domain: VZErrorDomain, code: 40001),
+            .invalidFullName
+        )
+        XCTAssertEqual(
+            VMGuestProvisioningValidationGuidance.classify(domain: VZErrorDomain, code: 40002),
+            .invalidUsername
+        )
+        XCTAssertEqual(
+            VMGuestProvisioningValidationGuidance.classify(domain: VZErrorDomain, code: 40003),
+            .invalidPassword
+        )
+        XCTAssertEqual(
+            VMGuestProvisioningValidationGuidance.classify(domain: "Other", code: 40003),
+            .other
+        )
+    }
+
+    func testProvisioningValidationGuidanceDoesNotEchoSensitiveFrameworkDetails() {
+        let secret = "never-echo-this-password"
+        let knownError = NSError(
+            domain: VZErrorDomain,
+            code: 40003,
+            userInfo: [NSLocalizedDescriptionKey: "Invalid password: \(secret)"]
+        )
+        let unknownError = NSError(
+            domain: VZErrorDomain,
+            code: 49999,
+            userInfo: [NSLocalizedDescriptionKey: "Provisioning failed with \(secret)"]
+        )
+
+        XCTAssertTrue(VMGuestProvisioningValidationGuidance.message(for: knownError).contains("password"))
+        XCTAssertFalse(VMGuestProvisioningValidationGuidance.message(for: knownError).contains(secret))
+        XCTAssertFalse(VMGuestProvisioningValidationGuidance.message(for: unknownError).contains(secret))
     }
 }

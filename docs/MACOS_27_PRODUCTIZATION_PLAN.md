@@ -49,6 +49,11 @@ VM start or replaying an uncertain attempt. The signed macOS 27 first-boot,
 interruption, and recovery matrix below is still required before this capability
 leaves Beta.
 
+Framework validation now maps invalid full-name, username, and password codes
+to field-specific recovery text in both the wizard and startup path. Diagnostic
+logs record only the error domain and numeric code, never the framework's raw
+description, so a future beta error cannot accidentally echo credential data.
+
 ### Product outcome
 
 A user can create a macOS 27 VM, choose whether to automate the initial account

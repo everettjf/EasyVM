@@ -826,6 +826,39 @@ enum VMGuestProvisioningCredentialPolicy {
     }
 }
 
+enum VMGuestProvisioningValidationFailure: Equatable {
+    case invalidFullName
+    case invalidUsername
+    case invalidPassword
+    case other
+}
+
+enum VMGuestProvisioningValidationGuidance {
+    static func classify(domain: String, code: Int) -> VMGuestProvisioningValidationFailure {
+        guard domain == VZErrorDomain else { return .other }
+        switch code {
+        case 40001: return .invalidFullName
+        case 40002: return .invalidUsername
+        case 40003: return .invalidPassword
+        default: return .other
+        }
+    }
+
+    static func message(for error: Error) -> String {
+        let error = error as NSError
+        switch classify(domain: error.domain, code: error.code) {
+        case .invalidFullName:
+            return "Enter a different full name for the macOS account. Virtualization.framework rejected this value."
+        case .invalidUsername:
+            return "Enter a different username for the macOS account. Virtualization.framework rejected this value."
+        case .invalidPassword:
+            return "Choose a different password for the macOS account. Virtualization.framework rejected this value."
+        case .other:
+            return "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again."
+        }
+    }
+}
+
 enum VMGuestProvisioningCredentialStore {
     private static let service = "com.everettjf.ezvm.guest-provisioning"
 
