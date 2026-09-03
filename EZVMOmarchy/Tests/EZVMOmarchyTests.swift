@@ -50,6 +50,30 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(lifecycle.phase, .starting)
     }
 
+    func testCommandChordRedirectsOnlyWhileOmarchyIsFocused() {
+        XCTAssertTrue(OmarchyCommandCapturePolicy.shouldRedirect(
+            type: .keyDown, keyCode: 49, flags: [.maskCommand], focused: true, isSynthetic: false
+        ))
+        XCTAssertFalse(OmarchyCommandCapturePolicy.shouldRedirect(
+            type: .keyDown, keyCode: 49, flags: [.maskCommand], focused: false, isSynthetic: false
+        ))
+        XCTAssertFalse(OmarchyCommandCapturePolicy.shouldRedirect(
+            type: .keyDown, keyCode: 49, flags: [], focused: true, isSynthetic: false
+        ))
+    }
+
+    func testSyntheticAndCommandModifierEventsNeverLoopThroughBridge() {
+        XCTAssertFalse(OmarchyCommandCapturePolicy.shouldRedirect(
+            type: .keyDown, keyCode: 49, flags: [.maskCommand], focused: true, isSynthetic: true
+        ))
+        XCTAssertFalse(OmarchyCommandCapturePolicy.shouldRedirect(
+            type: .flagsChanged, keyCode: 55, flags: [.maskCommand], focused: true, isSynthetic: false
+        ))
+        XCTAssertFalse(OmarchyCommandCapturePolicy.shouldRedirect(
+            type: .keyUp, keyCode: 55, flags: [.maskCommand], focused: true, isSynthetic: false
+        ))
+    }
+
     private func runningLifecycle() -> OmarchyMachineLifecycle {
         var lifecycle = OmarchyMachineLifecycle()
         XCTAssertEqual(lifecycle.handle(.machineStarted), [])

@@ -7,6 +7,7 @@ struct OmarchyVirtualMachineView: View {
     let profile: VMOmarchyProfile
     @State private var lifecycle = OmarchyMachineLifecycle()
     @State private var sessionID = UUID()
+    @State private var keyboardIntegration: OmarchyKeyboardIntegrationState = .accessibilityRequired
 
     private var phase: Phase { lifecycle.phase }
 
@@ -16,6 +17,7 @@ struct OmarchyVirtualMachineView: View {
                 layout: layout,
                 profile: profile,
                 sessionID: sessionID,
+                keyboardIntegrationChanged: { keyboardIntegration = $0 },
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
@@ -34,6 +36,20 @@ struct OmarchyVirtualMachineView: View {
                         handle(.stopRequested)
                     }
                 }
+            }
+        }
+        .safeAreaInset(edge: .top) {
+            if keyboardIntegration == .accessibilityRequired {
+                HStack {
+                    Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
+                    Spacer()
+                    Button("Enable") {
+                        NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(.orange.opacity(0.18))
             }
         }
     }
@@ -168,10 +184,15 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
     let sessionID: UUID
+    let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(sessionID: sessionID, phaseChanged: phaseChanged)
+        Coordinator(
+            sessionID: sessionID,
+            keyboardIntegrationChanged: keyboardIntegrationChanged,
+            phaseChanged: phaseChanged
+        )
     }
 
     func makeNSView(context: Context) -> VZVirtualMachineView {
@@ -187,6 +208,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             context.coordinator.machine = machine
             context.coordinator.beginObservingCommands()
             view.virtualMachine = machine
+            context.coordinator.installKeyboardBridge(for: view)
             machine.start { result in
                 DispatchQueue.main.async {
                     switch result {
@@ -213,16 +235,25 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     final class Coordinator: NSObject, VZVirtualMachineDelegate {
         var machine: VZVirtualMachine?
         let sessionID: UUID
+        let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
+        private var keyboardPermissionObserver: NSObjectProtocol?
+        private var keyboardBridge: OmarchyFocusedCommandBridge?
 
-        init(sessionID: UUID, phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void) {
+        init(
+            sessionID: UUID,
+            keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
+            phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
+        ) {
             self.sessionID = sessionID
+            self.keyboardIntegrationChanged = keyboardIntegrationChanged
             self.phaseChanged = phaseChanged
         }
 
         deinit {
             if let stopObserver { NotificationCenter.default.removeObserver(stopObserver) }
+            if let keyboardPermissionObserver { NotificationCenter.default.removeObserver(keyboardPermissionObserver) }
         }
 
         func beginObservingCommands() {
@@ -234,6 +265,29 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 guard let self, notification.object as? UUID == self.sessionID else { return }
                 self.requestStop()
             }
+            keyboardPermissionObserver = NotificationCenter.default.addObserver(
+                forName: .omarchyRequestKeyboardPermission,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let self, notification.object as? UUID == self.sessionID else { return }
+                self.keyboardBridge?.requestPermission()
+            }
+        }
+
+        func installKeyboardBridge(for view: VZVirtualMachineView) {
+            let bridge = OmarchyFocusedCommandBridge(
+                focusProbe: { [weak view] in
+                    guard let view, let window = view.window else { return false }
+                    guard window.isKeyWindow, NSApp.keyWindow === window, NSApp.modalWindow == nil,
+                          window.attachedSheet == nil else { return false }
+                    guard let responder = window.firstResponder as? NSView else { return false }
+                    return responder === view || responder.isDescendant(of: view)
+                },
+                stateChanged: keyboardIntegrationChanged
+            )
+            keyboardBridge = bridge
+            bridge.start()
         }
 
         private func requestStop() {
@@ -250,6 +304,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         func stopImmediately() {
+            keyboardBridge?.stop()
+            keyboardBridge = nil
             guard let machine, machine.canStop else { return }
             machine.stop { _ in }
             self.machine = nil
@@ -268,4 +324,5 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
 private extension Notification.Name {
     static let omarchyRequestStop = Notification.Name("EZVMOmarchy.requestStop")
+    static let omarchyRequestKeyboardPermission = Notification.Name("EZVMOmarchy.requestKeyboardPermission")
 }

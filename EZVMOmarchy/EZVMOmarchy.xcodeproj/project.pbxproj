@@ -11,6 +11,7 @@
 		20E670A3AF3B256648F15181 /* EZVMOmarchyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */; };
 		4AF317238132CFFC331CA4F3 /* EZVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */; };
 		9B9BBDD231C0C70175C88AB3 /* EZVMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 88A9EBB2192A7177FE428C52 /* EZVMCore */; };
+		DABCAAE2A198CD15B90FB292 /* OmarchyFocusedCommandBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -27,6 +28,7 @@
 		3B328C4BF0A9CFBE6C0F6D36 /* EZVM OmarchyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "EZVM OmarchyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineView.swift; sourceTree = "<group>"; };
 		970A0F8BAF9DF5EC452BC1D0 /* EZVM Omarchy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZVM Omarchy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyFocusedCommandBridge.swift; sourceTree = "<group>"; };
 		B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EZVMOmarchyApp.swift; sourceTree = "<group>"; };
 		C6F28A4F2339E9106ECC8119 /* ezvm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ezvm; path = ..; sourceTree = SOURCE_ROOT; };
 		CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EZVMOmarchyTests.swift; sourceTree = "<group>"; };
@@ -66,6 +68,7 @@
 			isa = PBXGroup;
 			children = (
 				B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */,
+				A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */,
 				94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */,
 			);
 			path = Sources;
@@ -172,6 +175,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				20E670A3AF3B256648F15181 /* EZVMOmarchyApp.swift in Sources */,
+				DABCAAE2A198CD15B90FB292 /* OmarchyFocusedCommandBridge.swift in Sources */,
 				177F45FA488565203C3F8F88 /* OmarchyVirtualMachineView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
