@@ -44,6 +44,55 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
 
 enum OmarchyAcceptanceObservationReporter {
     static let fileName = "integration-readiness.json"
+    static let lifecycleFileName = "integration-lifecycle.json"
+
+    private struct LifecycleObservation: Codable {
+        let schemaVersion: Int
+        var firstInactiveObservedAt: Date?
+        var firstActiveObservedAt: Date?
+        var lastObservedAt: Date
+        var lastDesktopSessionActive: Bool
+        var guestAgentVersion: String
+    }
+
+    static func reportLifecycleIfEnabled(
+        status: VMOmarchyGuestStatus,
+        layout: VMOmarchyWorkspaceLayout,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let file = layout.diagnostics.appending(path: lifecycleFileName)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var observation = (try? Data(contentsOf: file)).flatMap {
+            try? decoder.decode(LifecycleObservation.self, from: $0)
+        } ?? LifecycleObservation(
+            schemaVersion: 1,
+            firstInactiveObservedAt: nil,
+            firstActiveObservedAt: nil,
+            lastObservedAt: observedAt,
+            lastDesktopSessionActive: status.desktopSessionActive,
+            guestAgentVersion: status.agentVersion
+        )
+        if status.desktopSessionActive {
+            observation.firstActiveObservedAt = observation.firstActiveObservedAt ?? observedAt
+        } else {
+            observation.firstInactiveObservedAt = observation.firstInactiveObservedAt ?? observedAt
+        }
+        observation.lastObservedAt = observedAt
+        observation.lastDesktopSessionActive = status.desktopSessionActive
+        observation.guestAgentVersion = status.agentVersion
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+            try encoder.encode(observation).write(to: file, options: .atomic)
+        } catch {
+            NSLog("Could not write Omarchy integration lifecycle observation: %@", error.localizedDescription)
+        }
+    }
 
     static func reportIfEnabled(
         status: VMOmarchyGuestStatus,

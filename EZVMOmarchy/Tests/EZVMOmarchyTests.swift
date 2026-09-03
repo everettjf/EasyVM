@@ -237,6 +237,49 @@ final class EZVMOmarchyTests: XCTestCase {
         ))
     }
 
+    func testAcceptanceLifecyclePreservesLockedThenUnlockedEvidence() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-omarchy-lifecycle-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        let environment = [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"]
+        let lockedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let unlockedAt = lockedAt.addingTimeInterval(10)
+        let locked = VMOmarchyGuestStatus(
+            agentVersion: "agent-commit",
+            hostName: "omarchy",
+            addresses: [],
+            capabilities: [],
+            desktopSessionActive: false,
+            provisioningPending: false
+        )
+        let unlocked = VMOmarchyGuestStatus(
+            agentVersion: "agent-commit",
+            hostName: "omarchy",
+            addresses: [],
+            capabilities: [],
+            desktopSessionActive: true,
+            provisioningPending: false
+        )
+
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: locked, layout: layout, environment: environment, observedAt: lockedAt
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: unlocked, layout: layout, environment: environment, observedAt: unlockedAt
+        )
+
+        let data = try Data(contentsOf: layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.lifecycleFileName
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["schemaVersion"] as? Int, 1)
+        XCTAssertNotNil(json["firstInactiveObservedAt"])
+        XCTAssertNotNil(json["firstActiveObservedAt"])
+        XCTAssertEqual(json["lastDesktopSessionActive"] as? Bool, true)
+        XCTAssertEqual(json["guestAgentVersion"] as? String, "agent-commit")
+    }
+
     @MainActor
     func testDynamicDisplayProbeDecodesActiveHyprlandMonitor() throws {
         let data = Data(#"[{"disabled":true,"width":1,"height":1},{"disabled":false,"width":1440,"height":900}]"#.utf8)

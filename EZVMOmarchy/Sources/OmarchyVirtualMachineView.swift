@@ -284,6 +284,10 @@ struct OmarchyVirtualMachineView: View {
     private func handleIntegrationChange(_ state: VMOmarchyIntegrationState) {
         integration = state
         guard case .ready(let status) = state else { return }
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: status,
+            layout: layout
+        )
         OmarchyAcceptanceObservationReporter.reportIfEnabled(
             status: status,
             requiredCapabilities: profile.requiredGuestCapabilities,
