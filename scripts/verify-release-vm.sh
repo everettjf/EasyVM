@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+project_root="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/readonly-fixture-guard.sh
+source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
 timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
@@ -53,7 +56,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cp -cR "$vm_path" "$smoke_vm"
+clone_readonly_fixture "$vm_path" "$smoke_vm"
 rm -f "$smoke_vm/NVRAM" "$smoke_vm/MachineState.vzvmsave"
 
 if [[ "${EZVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then

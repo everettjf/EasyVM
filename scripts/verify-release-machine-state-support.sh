@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+project_root="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/readonly-fixture-guard.sh
+source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
 timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
@@ -31,7 +34,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cp -cR "$vm_path" "$fixture"
+clone_readonly_fixture "$vm_path" "$fixture"
 rm -f "$fixture/MachineState.vzvmsave"
 
 run_action() {
