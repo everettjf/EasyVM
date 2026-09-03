@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EZVMOmarchyFactoryPublicKeyBase64</key>
+	<string>$(EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)</string>
+	<key>EZVMSourceRevision</key>
+	<string>$(EZVM_SOURCE_REVISION)</string>
+	<key>EZVMSourceTreeState</key>
+	<string>$(EZVM_SOURCE_TREE_STATE)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

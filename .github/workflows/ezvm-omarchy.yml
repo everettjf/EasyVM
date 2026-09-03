@@ -17,6 +17,9 @@ on:
       - "scripts/test-omarchy-guest-overlay.sh"
       - "scripts/build-omarchy-guest-overlay.sh"
       - "scripts/test-omarchy-guest-overlay-package.sh"
+      - "scripts/build-omarchy-release.sh"
+      - "scripts/verify-omarchy-release-app.sh"
+      - "scripts/test-omarchy-release-gates.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   pull_request:
     paths:
@@ -31,6 +34,9 @@ on:
       - "scripts/test-omarchy-guest-overlay.sh"
       - "scripts/build-omarchy-guest-overlay.sh"
       - "scripts/test-omarchy-guest-overlay-package.sh"
+      - "scripts/build-omarchy-release.sh"
+      - "scripts/verify-omarchy-release-app.sh"
+      - "scripts/test-omarchy-release-gates.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   workflow_dispatch:
 
@@ -77,3 +83,11 @@ jobs:
           -derivedDataPath "$RUNNER_TEMP/ezvm-omarchy-derived"
           CODE_SIGNING_ALLOWED=NO
           test
+      - name: Build unsigned EZVM Omarchy release candidate
+        env:
+          # RFC 8032 test-vector public key; CI verifies embedding and format,
+          # while production release jobs must supply the real channel key.
+          EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64: 11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=
+        run: scripts/build-omarchy-release.sh 0.1.0-ci "$RUNNER_TEMP/ezvm-omarchy-release"
+      - name: Test EZVM Omarchy release rejection gates
+        run: scripts/test-omarchy-release-gates.sh

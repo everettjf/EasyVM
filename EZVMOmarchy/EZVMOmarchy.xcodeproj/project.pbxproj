@@ -347,8 +347,8 @@
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "EZVM Omarchy";
-				INFOPLIST_KEY_EZVMOmarchyFactoryPublicKeyBase64 = "$(EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -373,8 +373,8 @@
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "EZVM Omarchy";
-				INFOPLIST_KEY_EZVMOmarchyFactoryPublicKeyBase64 = "$(EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

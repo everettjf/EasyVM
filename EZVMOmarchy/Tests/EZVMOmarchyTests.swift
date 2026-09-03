@@ -9,6 +9,22 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(profile.productID, "com.everettjf.ezvm.omarchy")
     }
 
+    func testReleaseInfoTemplateCarriesFactoryTrustAndSourceProvenance() throws {
+        let testFile = URL(fileURLWithPath: #filePath)
+        let template = testFile.deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appending(path: "Resources/Info.plist")
+        let values = try XCTUnwrap(
+            PropertyListSerialization.propertyList(
+                from: Data(contentsOf: template), format: nil
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(values["EZVMOmarchyFactoryPublicKeyBase64"] as? String, "$(EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)")
+        XCTAssertEqual(values["EZVMSourceRevision"] as? String, "$(EZVM_SOURCE_REVISION)")
+        XCTAssertEqual(values["EZVMSourceTreeState"] as? String, "$(EZVM_SOURCE_TREE_STATE)")
+        XCTAssertEqual(values["ITSAppUsesNonExemptEncryption"] as? Bool, false)
+    }
+
     func testStopRequestsGracefulStopAndWaitsForGuest() {
         var lifecycle = runningLifecycle()
 
