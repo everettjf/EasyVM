@@ -175,6 +175,55 @@ enum VMSnapshotRestoreCheckpoint: String, CaseIterable {
     case journalCommitted
 }
 
+enum VMSnapshotProgressUnit: Equatable {
+    case bytes
+    case items
+}
+
+enum VMSnapshotOperationPhase: Equatable {
+    case preparing
+    case copying
+    case verifying
+    case committing
+    case finishing
+}
+
+struct VMSnapshotOperationProgress: Equatable {
+    let phase: VMSnapshotOperationPhase
+    let completedUnitCount: UInt64
+    let totalUnitCount: UInt64
+    let unit: VMSnapshotProgressUnit
+    let canCancel: Bool
+
+    var fractionCompleted: Double? {
+        guard totalUnitCount > 0 else { return nil }
+        return min(1, Double(completedUnitCount) / Double(totalUnitCount))
+    }
+}
+
+final class VMSnapshotOperationControl: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancellationRequested = false
+
+    func cancel() {
+        lock.lock()
+        cancellationRequested = true
+        lock.unlock()
+    }
+
+    var isCancellationRequested: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancellationRequested
+    }
+
+    func checkCancellation() throws {
+        if isCancellationRequested {
+            throw VMSnapshotOperationCancelled()
+        }
+    }
+}
+
 
 class VMSnapshotManager {
 
@@ -469,34 +518,44 @@ class VMSnapshotManager {
     static func createSnapshot(
         vmRootPath: URL,
         name: String,
-        availableCapacityBytes: Int64? = nil
+        availableCapacityBytes: Int64? = nil,
+        operationControl: VMSnapshotOperationControl? = nil,
+        progress: ((VMSnapshotOperationProgress) -> Void)? = nil
     ) -> VMOSResult<VMSnapshotModel, String> {
 #if canImport(DiskImageKit)
         if #available(macOS 27.0, *), selectedBackend(vmRootPath: vmRootPath) == .diskImageKitLayered {
             return createLayeredSnapshot(
                 vmRootPath: vmRootPath,
                 name: name,
-                availableCapacityBytes: availableCapacityBytes
+                availableCapacityBytes: availableCapacityBytes,
+                operationControl: operationControl,
+                progress: progress
             )
         }
 #endif
         return createAPFSCloneSnapshot(
             vmRootPath: vmRootPath,
             name: name,
-            availableCapacityBytes: availableCapacityBytes
+            availableCapacityBytes: availableCapacityBytes,
+            operationControl: operationControl,
+            progress: progress
         )
     }
 
     private static func createAPFSCloneSnapshot(
         vmRootPath: URL,
         name: String,
-        availableCapacityBytes: Int64?
+        availableCapacityBytes: Int64?,
+        operationControl: VMSnapshotOperationControl?,
+        progress: ((VMSnapshotOperationProgress) -> Void)?
     ) -> VMOSResult<VMSnapshotModel, String> {
         let snapshotId = UUID().uuidString
         let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshotId)
         let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshotId)
 
         do {
+            progress?(operationProgress(phase: .preparing, canCancel: true))
+            try operationControl?.checkCancellation()
             let fileNames = try listMachineFileNames(vmRootPath: vmRootPath)
             if fileNames.isEmpty {
                 return .failure("No machine files found in \(vmRootPath.path(percentEncoded: false))")
@@ -510,15 +569,41 @@ class VMSnapshotManager {
                 availableBytesOverride: availableCapacityBytes
             )
 
+            try operationControl?.checkCancellation()
+            let totalBytes = UInt64(max(0, requiredBytes))
+            var completedBytes: UInt64 = 0
+            progress?(operationProgress(
+                phase: .copying,
+                completed: completedBytes,
+                total: totalBytes,
+                canCancel: true
+            ))
+
             try FileManager.default.createDirectory(at: filesDir, withIntermediateDirectories: true)
 
             for fileName in fileNames {
+                try operationControl?.checkCancellation()
                 let sourceURL = vmRootPath.appending(path: fileName)
                 let targetURL = filesDir.appending(path: fileName)
                 try FileManager.default.copyItem(at: sourceURL, to: targetURL)
+                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
+                progress?(operationProgress(
+                    phase: .copying,
+                    completed: completedBytes,
+                    total: totalBytes,
+                    canCancel: true
+                ))
             }
 
+            try operationControl?.checkCancellation()
+            progress?(operationProgress(
+                phase: .verifying,
+                completed: completedBytes,
+                total: totalBytes,
+                canCancel: true
+            ))
             let manifest = try createFileManifest(rootURL: filesDir)
+            try operationControl?.checkCancellation()
 
             let model = VMSnapshotModel(
                 id: snapshotId,
@@ -530,14 +615,29 @@ class VMSnapshotManager {
                 fileManifest: manifest
             )
 
+            progress?(operationProgress(
+                phase: .committing,
+                completed: totalBytes,
+                total: totalBytes,
+                canCancel: false
+            ))
             let data = try Self.jsonEncoder().encode(model)
             try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id), options: .atomic)
             try writeCurrentSnapshotID(model.id, vmRootPath: vmRootPath)
 
+            progress?(operationProgress(
+                phase: .finishing,
+                completed: totalBytes,
+                total: totalBytes,
+                canCancel: false
+            ))
             return .success(model)
         } catch {
             // remove the partial snapshot, keep the machine untouched
             try? FileManager.default.removeItem(at: snapshotDir)
+            if error is VMSnapshotOperationCancelled {
+                return .failure("Snapshot creation cancelled; no snapshot was created.")
+            }
             return .failure("Failed to create snapshot : \(error.localizedDescription)")
         }
     }
@@ -547,7 +647,9 @@ class VMSnapshotManager {
         snapshot: VMSnapshotModel,
         faultAt checkpoint: VMSnapshotRestoreCheckpoint? = nil,
         checkpointObserver: ((VMSnapshotRestoreCheckpoint) throws -> Void)? = nil,
-        availableCapacityBytes: Int64? = nil
+        availableCapacityBytes: Int64? = nil,
+        operationControl: VMSnapshotOperationControl? = nil,
+        progress: ((VMSnapshotOperationProgress) -> Void)? = nil
     ) -> VMOSResultVoid {
         if case let .failure(error) = recoverInterruptedRestore(vmRootPath: vmRootPath) {
             return .failure(error)
@@ -559,11 +661,25 @@ class VMSnapshotManager {
                 snapshot: snapshot,
                 faultAt: checkpoint,
                 checkpointObserver: checkpointObserver,
-                availableCapacityBytes: availableCapacityBytes
+                availableCapacityBytes: availableCapacityBytes,
+                operationControl: operationControl,
+                progress: progress
             )
         }
 #endif
+        progress?(operationProgress(phase: .preparing, canCancel: true))
+        do {
+            try operationControl?.checkCancellation()
+        } catch {
+            return .failure("Snapshot restore cancelled before the machine was changed.")
+        }
+        progress?(operationProgress(phase: .verifying, canCancel: true))
         let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
+        do {
+            try operationControl?.checkCancellation()
+        } catch {
+            return .failure("Snapshot restore cancelled before the machine was changed.")
+        }
         guard integrity.isValid else {
             return .failure("Snapshot integrity check failed: \(integrity.errors.joined(separator: "; "))")
         }
@@ -574,11 +690,12 @@ class VMSnapshotManager {
             return .failure("Snapshot files are missing : \(filesDir.path(percentEncoded: false))")
         }
 
+        let requiredBytes = allocatedSizeRequired(
+            for: snapshotFileNames.map { filesDir.appending(path: $0) }
+        )
         do {
             try VMStorageCapacity.validate(
-                requiredBytes: allocatedSizeRequired(
-                    for: snapshotFileNames.map { filesDir.appending(path: $0) }
-                ),
+                requiredBytes: requiredBytes,
                 at: vmRootPath,
                 availableBytesOverride: availableCapacityBytes
             )
@@ -595,14 +712,37 @@ class VMSnapshotManager {
         // phase 1 : clone the snapshot into staging; the machine is untouched,
         // so a failure here is harmless
         do {
+            try operationControl?.checkCancellation()
             let transaction = RestoreTransaction(snapshotID: snapshot.id, phase: "preparing")
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+            let totalBytes = UInt64(max(0, requiredBytes))
+            var completedBytes: UInt64 = 0
+            progress?(operationProgress(
+                phase: .copying,
+                completed: completedBytes,
+                total: totalBytes,
+                canCancel: true
+            ))
             for fileName in snapshotFileNames {
-                try fm.copyItem(at: filesDir.appending(path: fileName), to: stagingDir.appending(path: fileName))
+                try operationControl?.checkCancellation()
+                let sourceURL = filesDir.appending(path: fileName)
+                try fm.copyItem(at: sourceURL, to: stagingDir.appending(path: fileName))
+                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
+                progress?(operationProgress(
+                    phase: .copying,
+                    completed: completedBytes,
+                    total: totalBytes,
+                    canCancel: true
+                ))
             }
+            try operationControl?.checkCancellation()
         } catch {
             try? fm.removeItem(at: stagingDir)
+            try? fm.removeItem(at: transactionURL)
+            if error is VMSnapshotOperationCancelled {
+                return .failure("Snapshot restore cancelled before the machine was changed.")
+            }
             return .failure("Failed to prepare snapshot files : \(error.localizedDescription)")
         }
 
@@ -611,6 +751,13 @@ class VMSnapshotManager {
         var movedToBackup: [String] = []
         var movedFromStaging: [String] = []
         do {
+            let totalBytes = UInt64(max(0, requiredBytes))
+            progress?(operationProgress(
+                phase: .committing,
+                completed: totalBytes,
+                total: totalBytes,
+                canCancel: false
+            ))
             try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
 
             let currentFileNames = try listMachineFileNames(vmRootPath: vmRootPath)
@@ -656,6 +803,13 @@ class VMSnapshotManager {
         try? fm.removeItem(at: stagingDir)
         try? fm.removeItem(at: backupDir)
         try? fm.removeItem(at: transactionURL)
+        let totalBytes = UInt64(max(0, requiredBytes))
+        progress?(operationProgress(
+            phase: .finishing,
+            completed: totalBytes,
+            total: totalBytes,
+            canCancel: false
+        ))
         return .success
     }
 
@@ -875,7 +1029,9 @@ class VMSnapshotManager {
     private static func createLayeredSnapshot(
         vmRootPath: URL,
         name: String,
-        availableCapacityBytes: Int64?
+        availableCapacityBytes: Int64?,
+        operationControl: VMSnapshotOperationControl?,
+        progress: ((VMSnapshotOperationProgress) -> Void)?
     ) -> VMOSResult<VMSnapshotModel, String> {
         let snapshotID = UUID().uuidString
         let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshotID)
@@ -894,6 +1050,8 @@ class VMSnapshotManager {
         var createdLayerURLs: [URL] = []
 
         do {
+            progress?(operationProgress(phase: .preparing, canCancel: true))
+            try operationControl?.checkCancellation()
             let nonDiskFileNames = try listMachineFileNames(vmRootPath: vmRootPath)
                 .filter { !$0.lowercased().hasSuffix(".asif") }
             let requiredBytes = allocatedSizeRequired(
@@ -904,20 +1062,47 @@ class VMSnapshotManager {
                 at: vmRootPath,
                 availableBytesOverride: availableCapacityBytes
             )
+            try operationControl?.checkCancellation()
+            let totalBytes = UInt64(max(0, requiredBytes))
+            var completedBytes: UInt64 = 0
+            progress?(operationProgress(
+                phase: .copying,
+                completed: completedBytes,
+                total: totalBytes,
+                canCancel: true
+            ))
             try FileManager.default.createDirectory(at: filesDir, withIntermediateDirectories: true)
             for fileName in nonDiskFileNames {
+                try operationControl?.checkCancellation()
+                let sourceURL = vmRootPath.appending(path: fileName)
                 try FileManager.default.copyItem(
-                    at: vmRootPath.appending(path: fileName),
+                    at: sourceURL,
                     to: filesDir.appending(path: fileName)
                 )
+                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
+                progress?(operationProgress(
+                    phase: .copying,
+                    completed: completedBytes,
+                    total: totalBytes,
+                    canCancel: true
+                ))
             }
 
             for base in bases {
+                try operationControl?.checkCancellation()
                 let existing = state.activeDiskLayers[base.lastPathComponent] ?? []
                 let newLayerURL = try appendNewOverlay(baseURL: base, relativeLayerPaths: existing, vmRootPath: vmRootPath)
                 createdLayerURLs.append(newLayerURL)
                 state.activeDiskLayers[base.lastPathComponent] = existing + [relativePath(newLayerURL, under: vmRootPath)]
             }
+
+            try operationControl?.checkCancellation()
+            progress?(operationProgress(
+                phase: .committing,
+                completed: totalBytes,
+                total: totalBytes,
+                canCancel: false
+            ))
 
             let model = VMSnapshotModel(
                 id: snapshotID,
@@ -934,10 +1119,19 @@ class VMSnapshotManager {
             try jsonEncoder().encode(model).write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: snapshotID), options: .atomic)
             state.currentSnapshotID = snapshotID
             try writeState(state, vmRootPath: vmRootPath)
+            progress?(operationProgress(
+                phase: .finishing,
+                completed: totalBytes,
+                total: totalBytes,
+                canCancel: false
+            ))
             return .success(model)
         } catch {
             for url in createdLayerURLs { try? FileManager.default.removeItem(at: url) }
             try? FileManager.default.removeItem(at: snapshotDir)
+            if error is VMSnapshotOperationCancelled {
+                return .failure("Snapshot creation cancelled; no snapshot was created.")
+            }
             return .failure("Failed to create the DiskImageKit snapshot: \(error.localizedDescription)")
         }
     }
@@ -948,9 +1142,23 @@ class VMSnapshotManager {
         snapshot: VMSnapshotModel,
         faultAt checkpoint: VMSnapshotRestoreCheckpoint?,
         checkpointObserver: ((VMSnapshotRestoreCheckpoint) throws -> Void)?,
-        availableCapacityBytes: Int64?
+        availableCapacityBytes: Int64?,
+        operationControl: VMSnapshotOperationControl?,
+        progress: ((VMSnapshotOperationProgress) -> Void)?
     ) -> VMOSResultVoid {
+        progress?(operationProgress(phase: .preparing, canCancel: true))
+        do {
+            try operationControl?.checkCancellation()
+        } catch {
+            return .failure("Snapshot restore cancelled before the machine was changed.")
+        }
+        progress?(operationProgress(phase: .verifying, canCancel: true))
         let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
+        do {
+            try operationControl?.checkCancellation()
+        } catch {
+            return .failure("Snapshot restore cancelled before the machine was changed.")
+        }
         guard integrity.isValid else {
             return .failure("Snapshot integrity check failed: \(integrity.errors.joined(separator: "; "))")
         }
@@ -973,6 +1181,7 @@ class VMSnapshotManager {
                 at: vmRootPath,
                 availableBytesOverride: availableCapacityBytes
             )
+            try operationControl?.checkCancellation()
             var transaction = RestoreTransaction(
                 snapshotID: snapshot.id,
                 phase: "preparing",
@@ -983,6 +1192,7 @@ class VMSnapshotManager {
             try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .journalPrepared)
 
             for disk in snapshot.diskLayers {
+                try operationControl?.checkCancellation()
                 let baseURL = vmRootPath.appending(path: disk.baseImageName)
                 guard FileManager.default.fileExists(atPath: baseURL.path(percentEncoded: false)) else {
                     throw VMSnapshotError.message("The ASIF base image \(disk.baseImageName) is missing.")
@@ -995,14 +1205,38 @@ class VMSnapshotManager {
                 try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .overlayRecorded)
             }
 
+            let totalBytes = UInt64(max(0, requiredBytes))
+            var completedBytes: UInt64 = 0
+            progress?(operationProgress(
+                phase: .copying,
+                completed: completedBytes,
+                total: totalBytes,
+                canCancel: true
+            ))
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
             try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
             for fileName in snapshotFileNames {
-                try fm.copyItem(at: filesDir.appending(path: fileName), to: stagingDir.appending(path: fileName))
+                try operationControl?.checkCancellation()
+                let sourceURL = filesDir.appending(path: fileName)
+                try fm.copyItem(at: sourceURL, to: stagingDir.appending(path: fileName))
+                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
+                progress?(operationProgress(
+                    phase: .copying,
+                    completed: completedBytes,
+                    total: totalBytes,
+                    canCancel: true
+                ))
             }
             try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .stagingPrepared)
+            try operationControl?.checkCancellation()
 
+            progress?(operationProgress(
+                phase: .committing,
+                completed: totalBytes,
+                total: totalBytes,
+                canCancel: false
+            ))
             try fm.createDirectory(at: backupDir, withIntermediateDirectories: true)
             let currentNonDiskFiles = try listMachineFileNames(vmRootPath: vmRootPath)
                 .filter { !$0.lowercased().hasSuffix(".asif") }
@@ -1028,6 +1262,12 @@ class VMSnapshotManager {
             try? fm.removeItem(at: stagingDir)
             try? fm.removeItem(at: backupDir)
             try? fm.removeItem(at: transactionURL)
+            progress?(operationProgress(
+                phase: .finishing,
+                completed: totalBytes,
+                total: totalBytes,
+                canCancel: false
+            ))
             return .success
         } catch {
             if error is VMSnapshotInjectedInterruption {
@@ -1046,6 +1286,9 @@ class VMSnapshotManager {
             }
             switch recoverInterruptedRestore(vmRootPath: vmRootPath) {
             case .success:
+                if error is VMSnapshotOperationCancelled {
+                    return .failure("Snapshot restore cancelled before the machine was changed.")
+                }
                 return .failure("Failed to restore the DiskImageKit snapshot; the previous machine state was restored: \(error.localizedDescription)")
             case .failure(let recoveryError):
                 return .failure("Failed to restore the DiskImageKit snapshot, and automatic recovery needs attention: \(recoveryError)")
@@ -1245,6 +1488,27 @@ class VMSnapshotManager {
         return Int64(total)
     }
 
+    private static func addingWithoutOverflow(_ lhs: UInt64, _ rhs: UInt64) -> UInt64 {
+        let (sum, overflow) = lhs.addingReportingOverflow(rhs)
+        return overflow ? UInt64.max : sum
+    }
+
+    private static func operationProgress(
+        phase: VMSnapshotOperationPhase,
+        completed: UInt64 = 0,
+        total: UInt64 = 0,
+        unit: VMSnapshotProgressUnit = .bytes,
+        canCancel: Bool
+    ) -> VMSnapshotOperationProgress {
+        VMSnapshotOperationProgress(
+            phase: phase,
+            completedUnitCount: completed,
+            totalUnitCount: total,
+            unit: unit,
+            canCancel: canCancel
+        )
+    }
+
     private static func allocatedSize(of url: URL) -> UInt64 {
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileSizeKey]
         if let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true {
@@ -1288,5 +1552,11 @@ private struct VMSnapshotInjectedInterruption: LocalizedError {
 
     var errorDescription: String? {
         "Injected layered restore interruption at \(checkpoint)."
+    }
+}
+
+private struct VMSnapshotOperationCancelled: LocalizedError {
+    var errorDescription: String? {
+        "The snapshot operation was cancelled."
     }
 }

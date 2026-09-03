@@ -33,8 +33,11 @@ class MachineSnapshotsViewStateObject {
     var isWorking = false
     var message: String = ""
     var workingDetail: String = ""
+    var operationProgress: VMSnapshotOperationProgress?
+    var isCancellationRequested = false
     var messageTone: MachineSnapshotMessageTone = .neutral
     var searchText: String = ""
+    @ObservationIgnored private var operationControl: VMSnapshotOperationControl?
 
     var filteredTree: [VMSnapshotTreeNode] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -78,13 +81,19 @@ class MachineSnapshotsViewStateObject {
             name = VMSnapshotManager.defaultSnapshotName()
         }
 
-        begin(
+        let control = begin(
             "Preparing snapshot…",
             detail: "Checking disk space and preserving the current machine files."
         )
         let rootPath = self.rootPath
         Task.detached {
-            let result = VMSnapshotManager.createSnapshot(vmRootPath: rootPath, name: name)
+            let result = VMSnapshotManager.createSnapshot(
+                vmRootPath: rootPath,
+                name: name,
+                operationControl: control
+            ) { update in
+                Task { @MainActor in self.receive(update, from: control) }
+            }
             await MainActor.run {
                 switch result {
                 case .success(let model):
@@ -100,7 +109,7 @@ class MachineSnapshotsViewStateObject {
     }
 
     func restoreSnapshot(_ snapshot: VMSnapshotModel) {
-        begin(
+        let control = begin(
             snapshotBeforeRestore ? "Saving the current state first…" : "Preparing restore…",
             detail: snapshotBeforeRestore
                 ? "EZVM will keep a recovery point before replacing the machine state."
@@ -113,7 +122,13 @@ class MachineSnapshotsViewStateObject {
             // restore is never a one way door
             if keepCurrentState {
                 let safetyName = "Before restoring \"\(snapshot.name)\""
-                let safetyResult = VMSnapshotManager.createSnapshot(vmRootPath: rootPath, name: safetyName)
+                let safetyResult = VMSnapshotManager.createSnapshot(
+                    vmRootPath: rootPath,
+                    name: safetyName,
+                    operationControl: control
+                ) { update in
+                    Task { @MainActor in self.receive(update, from: control) }
+                }
                 if case let .failure(error) = safetyResult {
                     await MainActor.run {
                         self.fail("Restore cancelled because EZVM could not snapshot the current state: \(error)")
@@ -130,7 +145,13 @@ class MachineSnapshotsViewStateObject {
                 )
             }
 
-            let result = VMSnapshotManager.restoreSnapshot(vmRootPath: rootPath, snapshot: snapshot)
+            let result = VMSnapshotManager.restoreSnapshot(
+                vmRootPath: rootPath,
+                snapshot: snapshot,
+                operationControl: control
+            ) { update in
+                Task { @MainActor in self.receive(update, from: control) }
+            }
             await MainActor.run {
                 switch result {
                 case .success:
@@ -215,20 +236,61 @@ class MachineSnapshotsViewStateObject {
     }
 
     func auditSnapshots() {
-        begin(
+        let control = begin(
             "Auditing snapshot integrity…",
             detail: "Validating metadata, files, and every ASIF layer stack."
         )
         let rootPath = self.rootPath
         let snapshots = self.snapshots
         Task.detached {
-            let reports = snapshots.map { ($0, VMSnapshotManager.auditSnapshot(vmRootPath: rootPath, snapshot: $0)) }
+            var reports: [(VMSnapshotModel, VMSnapshotIntegrityReport)] = []
+            let total = UInt64(snapshots.count)
+            for (index, snapshot) in snapshots.enumerated() {
+                if control.isCancellationRequested {
+                    await MainActor.run {
+                        self.cancelled("Snapshot audit cancelled")
+                    }
+                    return
+                }
+                let startingUpdate = VMSnapshotOperationProgress(
+                    phase: .verifying,
+                    completedUnitCount: UInt64(index),
+                    totalUnitCount: total,
+                    unit: .items,
+                    canCancel: true
+                )
+                await MainActor.run { self.receive(startingUpdate, from: control) }
+                reports.append((snapshot, VMSnapshotManager.auditSnapshot(vmRootPath: rootPath, snapshot: snapshot)))
+                if control.isCancellationRequested {
+                    await MainActor.run {
+                        self.cancelled("Snapshot audit cancelled")
+                    }
+                    return
+                }
+                let completedUpdate = VMSnapshotOperationProgress(
+                    phase: .verifying,
+                    completedUnitCount: UInt64(index + 1),
+                    totalUnitCount: total,
+                    unit: .items,
+                    canCancel: true
+                )
+                await MainActor.run { self.receive(completedUpdate, from: control) }
+            }
+            let finishedUpdate = VMSnapshotOperationProgress(
+                phase: .finishing,
+                completedUnitCount: total,
+                totalUnitCount: total,
+                unit: .items,
+                canCancel: false
+            )
+            await MainActor.run { self.receive(finishedUpdate, from: control) }
             let invalid = reports.filter { !$0.1.isValid }
             let warningCount = reports.reduce(0) { $0 + $1.1.warnings.count }
+            let reportCount = reports.count
             await MainActor.run {
                 if invalid.isEmpty {
                     if warningCount == 0 {
-                        self.succeed("All \(reports.count) snapshots passed integrity checks")
+                        self.succeed("All \(reportCount) snapshots passed integrity checks")
                     } else {
                         self.warn("All snapshots are structurally valid; \(warningCount) warning(s)")
                     }
@@ -240,11 +302,17 @@ class MachineSnapshotsViewStateObject {
         }
     }
 
-    private func begin(_ message: String, detail: String) {
+    @discardableResult
+    private func begin(_ message: String, detail: String) -> VMSnapshotOperationControl {
+        let control = VMSnapshotOperationControl()
+        operationControl = control
+        operationProgress = nil
+        isCancellationRequested = false
         isWorking = true
         self.message = message
         workingDetail = detail
         messageTone = .working
+        return control
     }
 
     private func updateWorking(_ message: String, detail: String) {
@@ -256,6 +324,9 @@ class MachineSnapshotsViewStateObject {
 
     private func succeed(_ message: String) {
         isWorking = false
+        operationControl = nil
+        operationProgress = nil
+        isCancellationRequested = false
         self.message = message
         workingDetail = ""
         messageTone = .success
@@ -263,6 +334,9 @@ class MachineSnapshotsViewStateObject {
 
     private func warn(_ message: String) {
         isWorking = false
+        operationControl = nil
+        operationProgress = nil
+        isCancellationRequested = false
         self.message = message
         workingDetail = ""
         messageTone = .warning
@@ -270,9 +344,58 @@ class MachineSnapshotsViewStateObject {
 
     private func fail(_ message: String) {
         isWorking = false
+        operationControl = nil
+        operationProgress = nil
+        isCancellationRequested = false
         self.message = message
         workingDetail = ""
         messageTone = .failure
+    }
+
+    func cancelOperation() {
+        guard isWorking,
+              operationProgress?.canCancel == true,
+              !isCancellationRequested else { return }
+        isCancellationRequested = true
+        operationControl?.cancel()
+        workingDetail = "Cancellation requested. EZVM will stop at the next safe boundary."
+    }
+
+    private func cancelled(_ message: String) {
+        isWorking = false
+        operationControl = nil
+        operationProgress = nil
+        isCancellationRequested = false
+        self.message = message
+        workingDetail = ""
+        messageTone = .neutral
+    }
+
+    private func receive(_ update: VMSnapshotOperationProgress, from control: VMSnapshotOperationControl) {
+        guard isWorking, operationControl === control else { return }
+        operationProgress = update
+        if !isCancellationRequested {
+            workingDetail = progressDescription(update)
+        }
+    }
+
+    private func progressDescription(_ update: VMSnapshotOperationProgress) -> String {
+        let phase: String = switch update.phase {
+        case .preparing: "Preparing and checking available space"
+        case .copying: "Copying machine data"
+        case .verifying: "Verifying snapshot integrity"
+        case .committing: "Installing the verified transaction"
+        case .finishing: "Finishing safely"
+        }
+        guard update.totalUnitCount > 0 else { return phase }
+        switch update.unit {
+        case .bytes:
+            let completed = ByteCountFormatter.string(fromByteCount: Int64(clamping: update.completedUnitCount), countStyle: .file)
+            let total = ByteCountFormatter.string(fromByteCount: Int64(clamping: update.totalUnitCount), countStyle: .file)
+            return "\(phase) · \(completed) of \(total)"
+        case .items:
+            return "\(phase) · \(update.completedUnitCount) of \(update.totalUnitCount) snapshots"
+        }
     }
 }
 
@@ -585,16 +708,20 @@ struct MachineSnapshotsView: View {
 
             HStack {
                 if state.isWorking {
-                    ProgressView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(state.message)
-                                .font(.caption.weight(.medium))
-                            Text(state.workingDetail)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(state.message)
+                            .font(.caption.weight(.medium))
+                        Text(state.workingDetail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        if let fraction = state.operationProgress?.fractionCompleted {
+                            ProgressView(value: fraction)
+                                .frame(maxWidth: 280)
+                        } else {
+                            ProgressView()
+                                .controlSize(.small)
                         }
                     }
-                    .controlSize(.small)
                     .accessibilityLabel(state.message)
                     .accessibilityValue(state.workingDetail)
                 }
@@ -606,6 +733,18 @@ struct MachineSnapshotsView: View {
                         .textSelection(.enabled)
                 }
                 Spacer()
+                if state.isWorking, state.operationProgress?.canCancel == true {
+                    Button(state.isCancellationRequested ? "Cancelling…" : "Cancel") {
+                        state.cancelOperation()
+                    }
+                    .disabled(state.isCancellationRequested)
+                    .help("Stop at the next safe boundary before machine files are replaced.")
+                } else if state.isWorking, state.operationProgress != nil {
+                    Label("Finishing safely", systemImage: "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("The snapshot transaction is finishing and can no longer be cancelled")
+                }
                 Button {
                     dismiss()
                 } label: {

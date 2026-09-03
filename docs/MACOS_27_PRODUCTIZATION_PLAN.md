@@ -341,8 +341,15 @@ snapshot, restore-installation, audit, delete, rename, and protection phases use
 truthful primary and secondary status text; restoring advances from preserving
 the current state to installing the verified transaction. The Close action and
 interactive dismissal remain disabled until the operation reaches a safe
-terminal result. Byte-level progress and cooperative cancellation are still
-future work and are not implied by the indeterminate progress indicator.
+terminal result. Creation and restore now expose real allocated-byte milestones
+after each top-level machine item, while an integrity audit reports completed
+snapshot count. They can be cancelled during preparation, verification, and
+staging: partial output and restore journals are removed, and the running
+machine bundle remains unchanged. Once the verified file swap begins, the UI
+removes Cancel and explicitly reports “Finishing safely”; cancellation is not
+accepted across that atomic commit boundary. Foundation does not expose
+sub-file copy progress here, so a single very large disk can still advance in
+one truthful jump rather than showing a synthetic percentage.
 
 Long-chain validation now creates and opens a real 32-layer ASIF history. Audit
 does not stop at file signatures: it asks DiskImageKit to assemble each complete

@@ -170,6 +170,104 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-backup").path))
     }
 
+    func testCancelledAPFSSnapshotRemovesPartialOutputAndReportsRealProgress() throws {
+        try Data(repeating: 0x41, count: 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("Disk.img"))
+        try Data(repeating: 0x42, count: 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("config.json"))
+        let control = VMSnapshotOperationControl()
+        var updates: [VMSnapshotOperationProgress] = []
+
+        let result = VMSnapshotManager.createSnapshot(
+            vmRootPath: temporaryRoot,
+            name: "Cancelled",
+            operationControl: control
+        ) { update in
+            updates.append(update)
+            if update.phase == .copying, update.completedUnitCount > 0 {
+                control.cancel()
+            }
+        }
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected snapshot creation to be cancelled")
+        }
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("cancelled"), message)
+        XCTAssertTrue(updates.contains { $0.phase == .preparing && $0.canCancel })
+        XCTAssertTrue(updates.contains { $0.phase == .copying && $0.completedUnitCount > 0 })
+        XCTAssertFalse(updates.contains { $0.phase == .committing })
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
+        XCTAssertEqual(try Data(contentsOf: temporaryRoot.appendingPathComponent("Disk.img")), Data(repeating: 0x41, count: 1024 * 1024))
+        XCTAssertEqual(try Data(contentsOf: temporaryRoot.appendingPathComponent("config.json")), Data(repeating: 0x42, count: 1024 * 1024))
+    }
+
+    func testCancelledAPFSRestoreBeforeCommitPreservesMachineAndCleansTransaction() throws {
+        try Data(repeating: 0x31, count: 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("Disk.img"))
+        try Data(repeating: 0x32, count: 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("config.json"))
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Target")
+        )
+        let currentDisk = Data(repeating: 0x51, count: 1024 * 1024)
+        let currentConfiguration = Data(repeating: 0x52, count: 1024 * 1024)
+        try currentDisk.write(to: temporaryRoot.appendingPathComponent("Disk.img"), options: .atomic)
+        try currentConfiguration.write(to: temporaryRoot.appendingPathComponent("config.json"), options: .atomic)
+        let control = VMSnapshotOperationControl()
+        var updates: [VMSnapshotOperationProgress] = []
+
+        let result = VMSnapshotManager.restoreSnapshot(
+            vmRootPath: temporaryRoot,
+            snapshot: snapshot,
+            operationControl: control
+        ) { update in
+            updates.append(update)
+            if update.phase == .copying, update.completedUnitCount > 0 {
+                control.cancel()
+            }
+        }
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected snapshot restore to be cancelled")
+        }
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("cancelled"), message)
+        XCTAssertFalse(updates.contains { $0.phase == .committing })
+        XCTAssertEqual(try Data(contentsOf: temporaryRoot.appendingPathComponent("Disk.img")), currentDisk)
+        XCTAssertEqual(try Data(contentsOf: temporaryRoot.appendingPathComponent("config.json")), currentConfiguration)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-transaction.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-staging").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-backup").path))
+    }
+
+    func testCancellationAfterAPFSRestoreCommitBoundaryDoesNotInterruptTransaction() throws {
+        try write("snapshot disk", to: "Disk.img")
+        try write("snapshot config", to: "config.json")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Target")
+        )
+        try write("current disk", to: "Disk.img")
+        try write("current config", to: "config.json")
+        let control = VMSnapshotOperationControl()
+        var reachedNoncancellableCommit = false
+
+        let result = VMSnapshotManager.restoreSnapshot(
+            vmRootPath: temporaryRoot,
+            snapshot: snapshot,
+            operationControl: control
+        ) { update in
+            if update.phase == .committing {
+                reachedNoncancellableCommit = true
+                XCTAssertFalse(update.canCancel)
+                control.cancel()
+            }
+        }
+
+        try unwrapSuccess(result)
+        XCTAssertTrue(reachedNoncancellableCommit)
+        XCTAssertEqual(try read("Disk.img"), "snapshot disk")
+        XCTAssertEqual(try read("config.json"), "snapshot config")
+    }
+
     func testListSnapshotsSkipsCorruptMetadata() throws {
         let corruptDirectory = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
             .appendingPathComponent("corrupt", isDirectory: true)
@@ -416,6 +514,42 @@ final class VMSnapshotManagerTests: XCTestCase {
             try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path)),
             layersBefore
         )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-transaction.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-staging").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-backup").path))
+    }
+
+    func testCancelledLayeredRestoreRollsBackNewOverlayAndPreservesCurrentBranch() throws {
+        let root = temporaryRoot.appendingPathComponent("cancelled-layered-restore", isDirectory: true)
+        let fixture = try makeLayeredRestoreFixture(at: root)
+        let layersURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: root)
+            .appendingPathComponent("Layers", isDirectory: true)
+        let layersBefore = try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path))
+        let control = VMSnapshotOperationControl()
+        var reachedCopying = false
+
+        let result = VMSnapshotManager.restoreSnapshot(
+            vmRootPath: root,
+            snapshot: fixture.target,
+            operationControl: control
+        ) { update in
+            if update.phase == .copying {
+                reachedCopying = true
+                control.cancel()
+            }
+        }
+
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected layered restore to be cancelled")
+        }
+        XCTAssertTrue(reachedCopying)
+        XCTAssertTrue(message.localizedCaseInsensitiveContains("cancelled"), message)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("config.json"), encoding: .utf8),
+            fixture.currentConfig
+        )
+        XCTAssertEqual(VMSnapshotManager.currentSnapshotID(vmRootPath: root), fixture.current.id)
+        XCTAssertEqual(try Set(FileManager.default.contentsOfDirectory(atPath: layersURL.path)), layersBefore)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-transaction.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-staging").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent(".restore-backup").path))
