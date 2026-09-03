@@ -40,6 +40,7 @@ ruby -rjson -e '
 
 run_vmnet_guest_gate() {
   EZVM_RELEASE_REQUIRE_VMNET=1 \
+  EZVM_RELEASE_REQUIRE_GUEST_IPV4=1 \
     "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
 }
 
@@ -50,4 +51,4 @@ run_vmnet_guest_gate() {
 run_vmnet_guest_gate
 run_vmnet_guest_gate
 
-echo "Verified VMNet Shared attachment, guest connectivity, Agent transfer, clean stop, and fresh-process reacquisition."
+echo "Verified VMNet Shared attachment, guest IPv4 assignment, Agent transfer, clean stop, and fresh-process reacquisition."

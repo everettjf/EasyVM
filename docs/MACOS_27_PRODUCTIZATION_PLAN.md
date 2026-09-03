@@ -182,6 +182,12 @@ processes is deliberately not claimed: the SDK serialization APIs transfer a
 live XPC object, so that behavior would require a dedicated owner process and
 an explicit lifecycle protocol.
 
+The VMNet-only fixture must also report a syntactically valid guest IPv4
+address. This proves that the configured adapter reached guest address
+assignment instead of incorrectly treating VirtioSocket Agent traffic as
+network-success evidence. DNS, TLS, VPN, and physical-interface transitions
+remain separate real-environment gates.
+
 At runtime, every configured adapter now has an explicit preparing, connected,
 reconnecting, or disconnected state. The framework disconnect callback is no
 longer log-only: EZVM keeps failures independent for multi-adapter VMs, shows
@@ -192,6 +198,13 @@ failure, and VM teardown invalidates every pending attempt. The core tracker
 also rejects a second reconnect for an adapter already in progress, so repeated
 UI, automation, or future CLI events cannot replace the authoritative operation
 identity; a failed attempt returns to a retryable disconnected state.
+
+Disconnects while the host is awake now receive two bounded automatic recovery
+attempts after one and three seconds. A successful attachment, a manual retry,
+or a new wake cycle renews that budget; sleep, teardown, and reconfiguration
+cancel queued work so stale callbacks cannot overwrite the current state. Once
+the bounded attempts are exhausted, the adapter remains visibly disconnected
+with its sanitized error and explicit retry action instead of looping.
 
 Disconnect UI no longer displays an unbounded framework string by itself. EZVM
 adds a stable recovery action covering interface changes, VPNs, and host access,

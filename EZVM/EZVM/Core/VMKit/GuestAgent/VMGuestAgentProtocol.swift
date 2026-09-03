@@ -469,6 +469,12 @@ struct VMGuestAgentStatus: Codable, Equatable {
 
     var supportsSSH: Bool { capabilities?.contains("ssh-addresses-v1") == true }
     var supportsFileTransfer: Bool { capabilities?.contains("file-transfer-v1") == true }
+    var hasIPv4Address: Bool {
+        addresses.contains { value in
+            var address = in_addr()
+            return value.withCString { inet_pton(AF_INET, $0, &address) == 1 }
+        }
+    }
     var supportsGuestInput: Bool { capabilities?.contains("input-uinput-v1") == true }
     var supportsDesktopGuestInput: Bool {
         guard supportsGuestInput else { return false }

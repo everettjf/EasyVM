@@ -48,6 +48,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var shutdownFallbackGeneration = 0
     private var networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
     private var networkReconnectTokens: [Int: UUID] = [:]
+    private var networkAutomaticReconnectTokens: [Int: UUID] = [:]
     private var displayRefreshObservers: [NSObjectProtocol] = []
     private var networkPowerObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
@@ -99,6 +100,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.networkReconnectTokens.removeAll()
+                self.networkAutomaticReconnectTokens.removeAll()
                 self.networkRuntimeTracker.markHostSleeping()
                 self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
                 EZVMLog.info("Host sleep suspended network recovery.", logger: EZVMLog.network)
@@ -346,6 +348,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         graphicsBackend?.bind(virtualMachine: nil)
         virtualMachine = VZVirtualMachine(configuration: configuration)
         networkReconnectTokens.removeAll()
+        networkAutomaticReconnectTokens.removeAll()
         networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: configuration.networkDevices.count)
         runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
         // This controller owns the complete runtime lifecycle. Routing delegate
@@ -759,6 +762,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 failReleaseSmokeTest("Guest Agent does not advertise file-transfer-v1", configuration)
                 return
             }
+            if configuration.requireGuestIPv4, !status.hasIPv4Address {
+                failReleaseSmokeTest(
+                    "VMNet guest did not receive an IPv4 address through its configured network adapter",
+                    configuration
+                )
+                return
+            }
             if configuration.requireGuestInput, !status.supportsGuestInput {
                 failReleaseSmokeTest("Guest Agent does not advertise input-uinput-v1", configuration)
                 return
@@ -1004,6 +1014,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func reconnectNetworkDevice(deviceIndex: Int) {
+        networkAutomaticReconnectTokens.removeValue(forKey: deviceIndex)
+        networkRuntimeTracker.resetAutomaticReconnectAttempts(deviceIndex: deviceIndex)
+        performNetworkReconnect(deviceIndex: deviceIndex)
+    }
+
+    private func performNetworkReconnect(deviceIndex: Int) {
+        networkAutomaticReconnectTokens.removeValue(forKey: deviceIndex)
         guard virtualMachine != nil,
               virtualMachine.state == .running || virtualMachine.state == .paused,
               virtualMachine.networkDevices.indices.contains(deviceIndex),
@@ -1044,6 +1061,26 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     logger: EZVMLog.network
                 )
             }
+        }
+    }
+
+    private func scheduleAutomaticNetworkReconnect(deviceIndex: Int) {
+        guard networkAutomaticReconnectTokens[deviceIndex] == nil,
+              let delay = networkRuntimeTracker.nextAutomaticReconnectDelay(
+                deviceIndex: deviceIndex
+              ) else { return }
+
+        let token = UUID()
+        networkAutomaticReconnectTokens[deviceIndex] = token
+        let attempt = networkRuntimeTracker.automaticReconnectAttempts[deviceIndex] ?? 0
+        EZVMLog.info(
+            "Network adapter \(deviceIndex + 1) will automatically reconnect in \(Int(delay)) second(s) (attempt \(attempt)/\(VMNetworkRuntimeTracker.automaticReconnectDelays.count)).",
+            logger: EZVMLog.network
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self,
+                  self.networkAutomaticReconnectTokens[deviceIndex] == token else { return }
+            self.performNetworkReconnect(deviceIndex: deviceIndex)
         }
     }
 
@@ -1233,6 +1270,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private func releaseVirtualMachineAfterStop() {
         cancelShutdownFallback()
         networkReconnectTokens.removeAll()
+        networkAutomaticReconnectTokens.removeAll()
         networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
         runtimeState?.updateNetworkRuntime(.unavailable)
         usbAccessoryCoordinator?.stop()
@@ -1565,6 +1603,7 @@ extension VMOSInternalVirtualMachineViewController: VZVirtualMachineDelegate {
             )
         )
         runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
+        scheduleAutomaticNetworkReconnect(deviceIndex: deviceIndex)
         EZVMLog.error(
             "Network adapter \(deviceIndex + 1) disconnected: \(error.localizedDescription)",
             logger: EZVMLog.network

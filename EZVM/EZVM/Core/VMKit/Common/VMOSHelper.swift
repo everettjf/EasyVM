@@ -575,6 +575,7 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let requireVirtioSocket: Bool
     let requireASIFStorage: Bool
     let requireVMNet: Bool
+    let requireGuestIPv4: Bool
     let requireMachineStateSupport: Bool
     let saveMachineState: Bool
     let forceAppleGraphics: Bool
@@ -598,6 +599,7 @@ enum VMReleaseSmokeTest {
     static let requireVirtioSocketEnvironmentKey = "EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET"
     static let requireASIFStorageEnvironmentKey = "EZVM_RELEASE_REQUIRE_ASIF_STORAGE"
     static let requireVMNetEnvironmentKey = "EZVM_RELEASE_REQUIRE_VMNET"
+    static let requireGuestIPv4EnvironmentKey = "EZVM_RELEASE_REQUIRE_GUEST_IPV4"
     static let requireMachineStateSupportEnvironmentKey = "EZVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT"
     static let saveMachineStateEnvironmentKey = "EZVM_RELEASE_SAVE_MACHINE_STATE"
     static let forceAppleGraphicsEnvironmentKey = "EZVM_RELEASE_FORCE_APPLE_GRAPHICS"
@@ -629,6 +631,7 @@ enum VMReleaseSmokeTest {
             requireVirtioSocket: environment[requireVirtioSocketEnvironmentKey] == "1",
             requireASIFStorage: environment[requireASIFStorageEnvironmentKey] == "1",
             requireVMNet: environment[requireVMNetEnvironmentKey] == "1",
+            requireGuestIPv4: environment[requireGuestIPv4EnvironmentKey] == "1",
             requireMachineStateSupport: environment[requireMachineStateSupportEnvironmentKey] == "1",
             saveMachineState: environment[saveMachineStateEnvironmentKey] == "1",
             forceAppleGraphics: environment[forceAppleGraphicsEnvironmentKey] == "1",
@@ -1680,11 +1683,14 @@ enum VMNetworkRuntimeState: Equatable {
 }
 
 struct VMNetworkRuntimeTracker: Equatable {
+    static let automaticReconnectDelays: [TimeInterval] = [1, 3]
+
     private(set) var deviceCount: Int
     private(set) var isStarted = false
     private(set) var isHostSleeping = false
     private(set) var disconnectedReasons: [Int: String] = [:]
     private(set) var reconnectingIndices = Set<Int>()
+    private(set) var automaticReconnectAttempts: [Int: Int] = [:]
 
     var disconnectedDeviceIndices: [Int] { disconnectedReasons.keys.sorted() }
 
@@ -1732,17 +1738,34 @@ struct VMNetworkRuntimeTracker: Equatable {
         guard (0..<deviceCount).contains(deviceIndex) else { return }
         disconnectedReasons.removeValue(forKey: deviceIndex)
         reconnectingIndices.remove(deviceIndex)
+        automaticReconnectAttempts.removeValue(forKey: deviceIndex)
+    }
+
+    mutating func nextAutomaticReconnectDelay(deviceIndex: Int) -> TimeInterval? {
+        guard isStarted,
+              !isHostSleeping,
+              disconnectedReasons[deviceIndex] != nil else { return nil }
+        let attempt = automaticReconnectAttempts[deviceIndex, default: 0]
+        guard Self.automaticReconnectDelays.indices.contains(attempt) else { return nil }
+        automaticReconnectAttempts[deviceIndex] = attempt + 1
+        return Self.automaticReconnectDelays[attempt]
+    }
+
+    mutating func resetAutomaticReconnectAttempts(deviceIndex: Int) {
+        automaticReconnectAttempts.removeValue(forKey: deviceIndex)
     }
 
     mutating func markHostSleeping() {
         guard isStarted else { return }
         isHostSleeping = true
         reconnectingIndices.removeAll()
+        automaticReconnectAttempts.removeAll()
     }
 
     @discardableResult
     mutating func markHostAwake() -> [Int] {
         isHostSleeping = false
+        automaticReconnectAttempts.removeAll()
         return disconnectedDeviceIndices
     }
 }

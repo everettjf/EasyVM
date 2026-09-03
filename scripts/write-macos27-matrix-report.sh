@@ -35,7 +35,7 @@ ruby -rjson -e '
     gatekeeper signature entitlement_allowlist gui_launch cli_json concurrent_vms
     sigkill_restart efi_recovery macos_saved_state omarchy_guest_agent
     omarchy_virgl ubuntu_guest_agent ubuntu_virgl ubuntu_asif vmnet_shared
-    vmnet_fresh_process_reacquisition asif_snapshot_cross_process_restore
+    vmnet_guest_ipv4 vmnet_fresh_process_reacquisition asif_snapshot_cross_process_restore
     asif_export_validate_import_boot
   ]
   checks << "nested_virtualization" if ARGV.fetch(5) == "1"

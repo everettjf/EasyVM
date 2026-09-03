@@ -23,6 +23,7 @@ ruby -rjson -e '
   abort "wrong duration" unless report["durationSeconds"] == 123
   abort "invalid hash" unless report["executableSHA256"].match?(/\A[0-9a-f]{64}\z/)
   abort "missing guests" unless report["guests"] == ["macOS 27", "Omarchy", "Ubuntu"]
+  abort "missing VMNet IPv4 check" unless report["checks"].include?("vmnet_guest_ipv4")
   abort "missing ASIF portability check" unless report["checks"].include?("asif_export_validate_import_boot")
   abort "missing nested check" unless report["checks"].include?("nested_virtualization")
 ' "$report"

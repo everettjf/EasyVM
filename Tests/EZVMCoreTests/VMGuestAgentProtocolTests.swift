@@ -390,6 +390,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         )
         XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentStatus.self, from: JSONEncoder().encode(status)), status)
         XCTAssertTrue(status.supportsAbsoluteGuestPointer)
+        XCTAssertTrue(status.hasIPv4Address)
         XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [
             .heartbeat, .status, .shutdown, .restart,
             .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,
@@ -403,9 +404,19 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertFalse(legacy.supportsFileTransfer)
         XCTAssertFalse(legacy.supportsGuestInput)
         XCTAssertFalse(legacy.supportsDesktopGuestInput)
+        XCTAssertFalse(legacy.hasIPv4Address)
         XCTAssertTrue(status.supportsSSH)
         XCTAssertTrue(status.supportsFileTransfer)
         XCTAssertTrue(status.supportsGuestInput)
+    }
+
+    func testGuestIPv4EvidenceRejectsIPv6AndMalformedAddresses() {
+        let status = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: ["fd00::15", "not-an-address", "10.0.0.1.example"],
+            bootID: "boot", uptimeSeconds: 1, capabilities: nil
+        )
+        XCTAssertFalse(status.hasIPv4Address)
     }
 
     func testFrameBufferHandlesPartialAndCoalescedReads() throws {
