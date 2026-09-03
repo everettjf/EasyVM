@@ -14,6 +14,8 @@ struct OmarchyVirtualMachineView: View {
     @State private var recoveryOperation: RecoveryOperation = .idle
     @State private var pendingRestore: VMOmarchyRecoveryPoint?
     @State private var factoryChannel: FactoryChannelViewState = .idle
+    @State private var importingFiles = false
+    @State private var importNotice: ImportNotice?
 
     private var phase: Phase { lifecycle.phase }
 
@@ -33,6 +35,10 @@ struct OmarchyVirtualMachineView: View {
             }
         }
         .background(.black)
+        .dropDestination(for: URL.self) { urls, _ in
+            importFiles(urls)
+            return !urls.isEmpty
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 integrationMenu
@@ -41,6 +47,10 @@ struct OmarchyVirtualMachineView: View {
                 Button("Open Shared Folder", systemImage: "folder") {
                     NSWorkspace.shared.open(layout.shared)
                 }
+                Button("Import Files", systemImage: "square.and.arrow.down") {
+                    chooseFilesToImport()
+                }
+                .disabled(importingFiles)
                 if phase == .running {
                     Button("Restart Omarchy", systemImage: "arrow.clockwise") {
                         handle(.restartRequested)
@@ -86,6 +96,13 @@ struct OmarchyVirtualMachineView: View {
             Button("Cancel", role: .cancel) { pendingRestore = nil }
         } message: {
             Text("Omarchy must remain stopped. The current workspace will be replaced transactionally; an interrupted restore is rolled back automatically.")
+        }
+        .alert(item: $importNotice) { notice in
+            Alert(
+                title: Text(notice.isError ? "Import Failed" : "Files Ready in Omarchy"),
+                message: Text(notice.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 
@@ -239,6 +256,40 @@ struct OmarchyVirtualMachineView: View {
                 }
             } catch {
                 factoryChannel = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func chooseFilesToImport() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.prompt = "Import into Omarchy"
+        guard panel.runModal() == .OK else { return }
+        importFiles(panel.urls)
+    }
+
+    private func importFiles(_ urls: [URL]) {
+        guard !urls.isEmpty, !importingFiles else { return }
+        importingFiles = true
+        let importer = VMOmarchySharedFolderImporter(layout: layout)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scoped = urls.filter { $0.startAccessingSecurityScopedResource() }
+            defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
+            let result = Result { try importer.importFiles(urls) }
+            DispatchQueue.main.async {
+                importingFiles = false
+                switch result {
+                case .success(let files):
+                    let names = files.map(\.destinationURL.lastPathComponent).joined(separator: ", ")
+                    importNotice = ImportNotice(
+                        isError: false,
+                        message: "Imported \(files.count) file(s): \(names). Open /mnt/ezvm-shared in Omarchy."
+                    )
+                case .failure(let error):
+                    importNotice = ImportNotice(isError: true, message: error.localizedDescription)
+                }
             }
         }
     }
@@ -402,6 +453,12 @@ struct OmarchyVirtualMachineView: View {
             case .idle, .checking, .current: false
             }
         }
+    }
+
+    private struct ImportNotice: Identifiable {
+        let id = UUID()
+        let isError: Bool
+        let message: String
     }
 }
 
