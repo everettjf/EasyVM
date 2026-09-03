@@ -1,0 +1,47 @@
+name: EZVMOmarchy
+options:
+  bundleIdPrefix: com.everettjf
+  deploymentTarget:
+    macOS: "27.0"
+  createIntermediateGroups: true
+packages:
+  EZVMCore:
+    path: ..
+targets:
+  EZVM Omarchy:
+    type: application
+    platform: macOS
+    sources:
+      - Sources
+    dependencies:
+      - package: EZVMCore
+        product: EZVMCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.everettjf.ezvm.omarchy
+        PRODUCT_NAME: EZVM Omarchy
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: YPV49M8592
+        CODE_SIGN_ENTITLEMENTS: Resources/EZVMOmarchy.entitlements
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: EZVM Omarchy
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        SWIFT_VERSION: 5.0
+        ENABLE_HARDENED_RUNTIME: YES
+    scheme:
+      testTargets:
+        - EZVM OmarchyTests
+  EZVM OmarchyTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests
+    dependencies:
+      - target: EZVM Omarchy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.everettjf.ezvm.omarchy.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.0

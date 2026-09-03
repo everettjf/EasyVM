@@ -2,31 +2,62 @@ import Foundation
 
 /// Versioned product contract shared by EZVM and the dedicated EZVM Omarchy app.
 /// It deliberately contains product policy, not mutable per-workspace state.
-struct VMOmarchyProfile: Codable, Equatable {
-    static let currentSchemaVersion = 1
+public struct VMOmarchyProfile: Codable, Equatable {
+    public static let currentSchemaVersion = 1
 
-    struct ResourceTier: Codable, Equatable {
-        let hostMemoryBytes: UInt64
-        let cpuCount: Int
-        let memoryBytes: UInt64
+    public struct ResourceTier: Codable, Equatable {
+        public let hostMemoryBytes: UInt64
+        public let cpuCount: Int
+        public let memoryBytes: UInt64
+
+        public init(hostMemoryBytes: UInt64, cpuCount: Int, memoryBytes: UInt64) {
+            self.hostMemoryBytes = hostMemoryBytes
+            self.cpuCount = cpuCount
+            self.memoryBytes = memoryBytes
+        }
     }
 
-    struct FactoryImage: Codable, Equatable {
-        let manifestURL: URL
-        let signingKeyID: String
-        let architecture: String
-        let maximumDownloadBytes: UInt64
+    public struct FactoryImage: Codable, Equatable {
+        public let manifestURL: URL
+        public let signingKeyID: String
+        public let architecture: String
+        public let maximumDownloadBytes: UInt64
+
+        public init(manifestURL: URL, signingKeyID: String, architecture: String, maximumDownloadBytes: UInt64) {
+            self.manifestURL = manifestURL
+            self.signingKeyID = signingKeyID
+            self.architecture = architecture
+            self.maximumDownloadBytes = maximumDownloadBytes
+        }
     }
 
-    let schemaVersion: Int
-    let productID: String
-    let minimumHostMajorVersion: Int
-    let diskCapacityBytes: UInt64
-    let resourceTiers: [ResourceTier]
-    let requiredGuestCapabilities: [String]
-    let factoryImage: FactoryImage
+    public let schemaVersion: Int
+    public let productID: String
+    public let minimumHostMajorVersion: Int
+    public let diskCapacityBytes: UInt64
+    public let resourceTiers: [ResourceTier]
+    public let requiredGuestCapabilities: [String]
+    public let factoryImage: FactoryImage
 
-    func validate() throws {
+    public init(
+        schemaVersion: Int,
+        productID: String,
+        minimumHostMajorVersion: Int,
+        diskCapacityBytes: UInt64,
+        resourceTiers: [ResourceTier],
+        requiredGuestCapabilities: [String],
+        factoryImage: FactoryImage
+    ) {
+        self.schemaVersion = schemaVersion
+        self.productID = productID
+        self.minimumHostMajorVersion = minimumHostMajorVersion
+        self.diskCapacityBytes = diskCapacityBytes
+        self.resourceTiers = resourceTiers
+        self.requiredGuestCapabilities = requiredGuestCapabilities
+        self.factoryImage = factoryImage
+    }
+
+    public func validate() throws {
         guard schemaVersion == Self.currentSchemaVersion else {
             throw ValidationError.unsupportedSchema(schemaVersion)
         }
@@ -58,7 +89,7 @@ struct VMOmarchyProfile: Codable, Equatable {
         }
     }
 
-    func resources(forHostMemory hostMemoryBytes: UInt64, activeProcessorCount: Int) -> ResourceTier {
+    public func resources(forHostMemory hostMemoryBytes: UInt64, activeProcessorCount: Int) -> ResourceTier {
         let selected = resourceTiers.last(where: { hostMemoryBytes >= $0.hostMemoryBytes })
             ?? resourceTiers[0]
         return ResourceTier(
@@ -68,7 +99,7 @@ struct VMOmarchyProfile: Codable, Equatable {
         )
     }
 
-    enum ValidationError: Error, Equatable {
+    public enum ValidationError: Error, Equatable {
         case unsupportedSchema(Int)
         case invalidProductID
         case invalidPlatformPolicy
@@ -79,7 +110,7 @@ struct VMOmarchyProfile: Codable, Equatable {
 }
 
 extension VMOmarchyProfile {
-    static let production = VMOmarchyProfile(
+    public static let production = VMOmarchyProfile(
         schemaVersion: currentSchemaVersion,
         productID: "com.everettjf.ezvm.omarchy",
         minimumHostMajorVersion: 27,
