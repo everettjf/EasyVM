@@ -38,7 +38,16 @@ ruby -rjson -e '
   File.write(path, JSON.pretty_generate(config) + "\n")
 ' "$fixture"
 
-EZVM_RELEASE_REQUIRE_VMNET=1 \
-  "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
+run_vmnet_guest_gate() {
+  EZVM_RELEASE_REQUIRE_VMNET=1 \
+    "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
+}
 
-echo "Verified VMNet Shared attachment, guest connectivity, Agent transfer, and clean stop."
+# The first fresh process proves that the signed artifact can reserve and use
+# the configured network. The second proves that process teardown releases the
+# reservation and that an independent process can recreate the same topology;
+# a process-local registry alone cannot make this pass.
+run_vmnet_guest_gate
+run_vmnet_guest_gate
+
+echo "Verified VMNet Shared attachment, guest connectivity, Agent transfer, clean stop, and fresh-process reacquisition."

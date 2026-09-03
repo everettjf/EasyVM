@@ -139,6 +139,15 @@ creation remains authoritative if another process claims the port afterward;
 cross-process ownership and runtime interface/VPN transitions remain in the
 real-system verification backlog below.
 
+The signed release gate now runs the same VMNet Shared Ubuntu fixture through
+two successive, independent EZVM processes. Both runs must authenticate the
+Guest Agent, round-trip file bytes, and stop cleanly. This proves that app
+teardown releases the reservation and a fresh process can recreate the same
+topology without manual cleanup. Simultaneous sharing between independent app
+processes is deliberately not claimed: the SDK serialization APIs transfer a
+live XPC object, so that behavior would require a dedicated owner process and
+an explicit lifecycle protocol.
+
 At runtime, every configured adapter now has an explicit preparing, connected,
 reconnecting, or disconnected state. The framework disconnect callback is no
 longer log-only: EZVM keeps failures independent for multi-adapter VMs, shows
@@ -168,7 +177,7 @@ and failure recovery without learning VMNet implementation details.
 | --- | --- | --- |
 | Presets | Present NAT, Bridged, Host-only, and Shared network as outcome-oriented cards; hide subnet, MTU, interface, and forwarding details until requested. | Default creation needs no networking knowledge; advanced review states host/guest/LAN reachability. |
 | Preflight | Validate entitlement, external interface, subnet overlap, malformed masks, duplicate logical networks, occupied TCP/UDP host endpoints, and conflicting forwarding rules before VM start. | Structural failures perform no host-port probe; each unique valid endpoint is probed once before any VMNet object exists, and known conflicts fail synchronously with the conflicting value and recovery action. |
-| Ownership | Centralize logical-network creation and serialization so GUI, CLI, and multiple EZVM processes recreate the intended topology safely. | Two VMs/processes can join the same logical network without duplicate ownership or stale objects. |
+| Ownership | Reuse one reserved logical network for matching adapters inside the app, release it at process teardown, and verify that a fresh process can recreate the same topology. Treat simultaneous independent-process sharing as a separate XPC-broker feature: VMNet serialization transfers a live XPC object and is not a persistent network identifier. | Multiple VMs in one app reuse a matching network; two successive signed-app processes acquire the same configuration without stale ownership. A simultaneous second process fails clearly unless a future broker explicitly transfers the live network object. |
 | Runtime recovery | Continue hardening Wi-Fi/Ethernet changes, VPN routes, sleep/wake, and interface removal around the implemented per-adapter disconnect/reconnect state. | UI already distinguishes preparing, connected, reconnecting, and failed without stale “Connected” state; signed-fixture runs must now prove recovery and clearly identify cases that require settings changes or restart. |
 | Diagnostics | Provide sanitized topology, interface identity, port rules, and failing VMNet stage without exposing unrelated host network data. | A diagnostic bundle can distinguish entitlement, configuration, port, interface, and runtime failures. |
 
