@@ -1,6 +1,15 @@
 import AppKit
 import Virtualization
 
+protocol OmarchyTerminableMachine: AnyObject {
+    var canRequestStop: Bool { get }
+    var canStop: Bool { get }
+    func requestStop() throws
+    func stop(completionHandler: @escaping (Error?) -> Void)
+}
+
+extension VZVirtualMachine: OmarchyTerminableMachine {}
+
 final class OmarchyApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
@@ -15,24 +24,36 @@ final class OmarchyApplicationDelegate: NSObject, NSApplicationDelegate {
 final class OmarchyApplicationTerminationController {
     static let shared = OmarchyApplicationTerminationController()
 
-    private var machine: VZVirtualMachine?
+    private var machine: OmarchyTerminableMachine?
     private var pending = false
     private var stopping = false
     private var timeout: DispatchWorkItem?
+    private let reply: (Bool) -> Void
+    private let scheduleTimeout: (DispatchWorkItem) -> Void
 
-    func register(_ machine: VZVirtualMachine) {
+    init(
+        reply: @escaping (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) },
+        scheduleTimeout: @escaping (DispatchWorkItem) -> Void = {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: $0)
+        }
+    ) {
+        self.reply = reply
+        self.scheduleTimeout = scheduleTimeout
+    }
+
+    func register(_ machine: OmarchyTerminableMachine) {
         self.machine = machine
         stopping = false
     }
 
-    func unregister(_ machine: VZVirtualMachine) {
+    func unregister(_ machine: OmarchyTerminableMachine) {
         guard self.machine === machine else { return }
         self.machine = nil
         stopping = false
         if pending { finishTermination() }
     }
 
-    func stopForViewTeardown(_ machine: VZVirtualMachine) {
+    func stopForViewTeardown(_ machine: OmarchyTerminableMachine) {
         guard self.machine === machine, !stopping else { return }
         beginStopping(machine)
     }
@@ -45,7 +66,7 @@ final class OmarchyApplicationTerminationController {
         return .terminateLater
     }
 
-    private func beginStopping(_ machine: VZVirtualMachine) {
+    private func beginStopping(_ machine: OmarchyTerminableMachine) {
         stopping = true
         if machine.canRequestStop {
             do {
@@ -65,21 +86,21 @@ final class OmarchyApplicationTerminationController {
         forceStop(machine)
     }
 
-    func machineDidStop(_ machine: VZVirtualMachine) {
+    func machineDidStop(_ machine: OmarchyTerminableMachine) {
         unregister(machine)
     }
 
-    private func scheduleForcedStop(_ machine: VZVirtualMachine) {
+    private func scheduleForcedStop(_ machine: OmarchyTerminableMachine) {
         timeout?.cancel()
         let work = DispatchWorkItem { [weak self, weak machine] in
             guard let self, let machine, self.pending, self.machine === machine else { return }
             self.forceStop(machine)
         }
         timeout = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: work)
+        scheduleTimeout(work)
     }
 
-    private func forceStop(_ machine: VZVirtualMachine) {
+    private func forceStop(_ machine: OmarchyTerminableMachine) {
         timeout?.cancel()
         timeout = nil
         guard machine.canStop else {
@@ -105,6 +126,6 @@ final class OmarchyApplicationTerminationController {
         pending = false
         timeout?.cancel()
         timeout = nil
-        NSApp.reply(toApplicationShouldTerminate: true)
+        reply(true)
     }
 }

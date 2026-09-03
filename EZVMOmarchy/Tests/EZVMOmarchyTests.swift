@@ -138,4 +138,90 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(lifecycle.phase, .running)
         return lifecycle
     }
+
+    @MainActor
+    func testApplicationTerminationWaitsForGracefulGuestStop() {
+        let machine = MockTerminableMachine(canRequestStop: true, canStop: true)
+        var replies: [Bool] = []
+        var timeout: DispatchWorkItem?
+        let controller = OmarchyApplicationTerminationController(
+            reply: { replies.append($0) },
+            scheduleTimeout: { timeout = $0 }
+        )
+        controller.register(machine)
+
+        XCTAssertEqual(controller.requestTermination(), .terminateLater)
+        XCTAssertEqual(machine.requestStopCount, 1)
+        XCTAssertEqual(machine.forceStopCount, 0)
+        XCTAssertTrue(replies.isEmpty)
+        XCTAssertNotNil(timeout)
+
+        controller.machineDidStop(machine)
+        XCTAssertEqual(replies, [true])
+        XCTAssertTrue(timeout?.isCancelled == true)
+    }
+
+    @MainActor
+    func testViewTeardownAndQuitShareOneShutdownTransaction() {
+        let machine = MockTerminableMachine(canRequestStop: true, canStop: true)
+        var replies: [Bool] = []
+        let controller = OmarchyApplicationTerminationController(
+            reply: { replies.append($0) }, scheduleTimeout: { _ in }
+        )
+        controller.register(machine)
+        controller.stopForViewTeardown(machine)
+        XCTAssertEqual(machine.requestStopCount, 1)
+
+        XCTAssertEqual(controller.requestTermination(), .terminateLater)
+        XCTAssertEqual(machine.requestStopCount, 1)
+        XCTAssertTrue(replies.isEmpty)
+        controller.machineDidStop(machine)
+        XCTAssertEqual(replies, [true])
+    }
+
+    @MainActor
+    func testGracefulShutdownTimeoutForcesStopBeforeReplying() async {
+        let machine = MockTerminableMachine(canRequestStop: true, canStop: true)
+        var replies: [Bool] = []
+        var timeout: DispatchWorkItem?
+        let replied = expectation(description: "application termination replied")
+        let controller = OmarchyApplicationTerminationController(
+            reply: { replies.append($0); replied.fulfill() }, scheduleTimeout: { timeout = $0 }
+        )
+        controller.register(machine)
+        XCTAssertEqual(controller.requestTermination(), .terminateLater)
+
+        timeout?.perform()
+        XCTAssertEqual(machine.forceStopCount, 1)
+        XCTAssertTrue(replies.isEmpty)
+        machine.completeForcedStop()
+        await fulfillment(of: [replied], timeout: 1)
+        XCTAssertEqual(replies, [true])
+    }
+}
+
+private final class MockTerminableMachine: OmarchyTerminableMachine {
+    let canRequestStop: Bool
+    let canStop: Bool
+    private(set) var requestStopCount = 0
+    private(set) var forceStopCount = 0
+    private var completion: ((Error?) -> Void)?
+
+    init(canRequestStop: Bool, canStop: Bool) {
+        self.canRequestStop = canRequestStop
+        self.canStop = canStop
+    }
+
+    func requestStop() throws { requestStopCount += 1 }
+
+    func stop(completionHandler: @escaping (Error?) -> Void) {
+        forceStopCount += 1
+        completion = completionHandler
+    }
+
+    func completeForcedStop(error: Error? = nil) {
+        let callback = completion
+        completion = nil
+        callback?(error)
+    }
 }
