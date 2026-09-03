@@ -310,6 +310,71 @@ final class VMNetworkConfigurationTests: XCTestCase {
         )
     }
 
+    func testUSBDisconnectReconciliationReportsUnexpectedDisconnectExactlyOnce() {
+        var attached: Set<UInt64> = [17]
+        var operations: [UInt64: VMUSBDeviceOperation] = [17: .attaching]
+        var tokens: [UInt64: UUID] = [17: UUID()]
+
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 17,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .unexpected
+        )
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 17,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .ignored
+        )
+        XCTAssertTrue(attached.isEmpty)
+        XCTAssertTrue(operations.isEmpty)
+        XCTAssertTrue(tokens.isEmpty)
+    }
+
+    func testUSBDisconnectReconciliationRecognizesExplicitDetach() {
+        var attached: Set<UInt64> = [42]
+        var operations: [UInt64: VMUSBDeviceOperation] = [42: .detaching]
+        var tokens: [UInt64: UUID] = [42: UUID()]
+
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 42,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .explicitDetach
+        )
+        XCTAssertTrue(attached.isEmpty)
+        XCTAssertTrue(operations.isEmpty)
+        XCTAssertTrue(tokens.isEmpty)
+    }
+
+    func testLateUSBDisconnectClearsStaleOperationWithoutInventingAttachment() {
+        var attached: Set<UInt64> = []
+        var operations: [UInt64: VMUSBDeviceOperation] = [9: .attaching]
+        var tokens: [UInt64: UUID] = [9: UUID()]
+
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 9,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .ignored
+        )
+        XCTAssertTrue(operations.isEmpty)
+        XCTAssertTrue(tokens.isEmpty)
+    }
+
     func testUSBFailureSnapshotRetainsAttachedDevicesAndBlocksMachineState() {
         let device = VMUSBDeviceDescriptorSummary(
             registryID: 17,

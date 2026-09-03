@@ -95,6 +95,13 @@ specific recovery action. A detach `DeviceNotFound` result now reconciles the
 device as disconnected instead of leaving machine-state saving blocked by a
 stale attachment.
 
+Accessory Access and `VZUSBController.Delegate` disconnect notifications now
+pass through one idempotent reconciliation state machine. Whichever framework
+reports first owns cleanup and any unexpected-disconnect notice; duplicate or
+late callbacks clear stale operation tokens without producing a second notice.
+Automated coverage includes explicit detach, physical-removal ordering, and a
+device disappearing while attach is still pending.
+
 ### Product outcome
 
 USB passthrough feels like connecting a device to a physical computer: devices

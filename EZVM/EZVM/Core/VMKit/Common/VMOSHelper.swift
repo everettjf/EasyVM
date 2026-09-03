@@ -258,6 +258,12 @@ struct VMUSBPassthroughSnapshot: Equatable {
 }
 
 enum VMUSBControllerSupport {
+    enum DisconnectDisposition: Equatable {
+        case ignored
+        case explicitDetach
+        case unexpected
+    }
+
     static func canSaveMachineState(
         backendSupportsSaveRestore: Bool,
         attachedAccessoryCount: Int
@@ -275,6 +281,28 @@ enum VMUSBControllerSupport {
         in attachedDevices: [UInt64: Device]
     ) -> UInt64? {
         attachedDevices.first(where: { $0.value === device })?.key
+    }
+
+    /// Reconciles the two independent disconnect signals delivered by
+    /// Accessory Access and Virtualization. The first signal owns cleanup and
+    /// user feedback; a duplicate or late signal is deliberately a no-op.
+    static func reconcileDisconnect(
+        registryID: UInt64,
+        attachedRegistryIDs: inout Set<UInt64>,
+        operations: inout [UInt64: VMUSBDeviceOperation],
+        operationTokens: inout [UInt64: UUID]
+    ) -> DisconnectDisposition {
+        guard attachedRegistryIDs.remove(registryID) != nil else {
+            operations.removeValue(forKey: registryID)
+            operationTokens.removeValue(forKey: registryID)
+            return .ignored
+        }
+        let disposition: DisconnectDisposition = operations[registryID] == .detaching
+            ? .explicitDetach
+            : .unexpected
+        operations.removeValue(forKey: registryID)
+        operationTokens.removeValue(forKey: registryID)
+        return disposition
     }
 }
 

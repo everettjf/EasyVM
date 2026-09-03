@@ -1664,11 +1664,16 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             guard let self, self.listenerLifecycle.acceptsAccessoryCallbacks else { return }
             let registryID = usbAccessory.registryID
             let deviceTitle = self.title(for: registryID)
-            let wasAttached = self.attachedDevices.removeValue(forKey: registryID) != nil
+            var attachedRegistryIDs = Set(self.attachedDevices.keys)
+            let disposition = VMUSBControllerSupport.reconcileDisconnect(
+                registryID: registryID,
+                attachedRegistryIDs: &attachedRegistryIDs,
+                operations: &self.operations,
+                operationTokens: &self.operationTokens
+            )
+            self.attachedDevices.removeValue(forKey: registryID)
             self.accessories.removeValue(forKey: registryID)
-            self.operations.removeValue(forKey: registryID)
-            self.operationTokens.removeValue(forKey: registryID)
-            if wasAttached {
+            if disposition == .unexpected {
                 self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
             }
             self.publish()
@@ -1685,12 +1690,16 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     forDisconnected: device,
                     in: self.attachedDevices
                   ) else { return }
-            let wasExplicitDetach = self.operations[registryID] == .detaching
             let deviceTitle = self.title(for: registryID)
+            var attachedRegistryIDs = Set(self.attachedDevices.keys)
+            let disposition = VMUSBControllerSupport.reconcileDisconnect(
+                registryID: registryID,
+                attachedRegistryIDs: &attachedRegistryIDs,
+                operations: &self.operations,
+                operationTokens: &self.operationTokens
+            )
             self.attachedDevices.removeValue(forKey: registryID)
-            self.operations.removeValue(forKey: registryID)
-            self.operationTokens.removeValue(forKey: registryID)
-            if !wasExplicitDetach {
+            if disposition == .unexpected {
                 self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
                 EZVMLog.info(
                     "USB passthrough device disconnected unexpectedly (registry ID: \(registryID)).",
