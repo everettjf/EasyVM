@@ -129,8 +129,8 @@ class MachineSnapshotsViewStateObject {
         restoreReviewRequestID = requestID
         isPreparingRestoreReview = true
         restoreReview = nil
-        message = "Estimating restore storage…"
-        workingDetail = "Inspecting the target snapshot and current machine without changing either one."
+        message = String(localized: "Estimating restore storage…")
+        workingDetail = String(localized: "Inspecting the target snapshot and current machine without changing either one.")
         messageTone = .working
         let rootPath = self.rootPath
         let keepCurrentState = snapshotBeforeRestore
@@ -152,7 +152,7 @@ class MachineSnapshotsViewStateObject {
                         keepCurrentState: keepCurrentState,
                         estimate: estimate
                     )
-                    self.message = "Restore review ready"
+                    self.message = String(localized: "Restore review ready")
                     self.messageTone = estimate.hasEnoughSpace == false ? .warning : .neutral
                 case .failure(let error):
                     self.fail("Restore cannot be prepared: \(error)")
@@ -286,8 +286,11 @@ class MachineSnapshotsViewStateObject {
 
     func toggleProtection(_ snapshot: VMSnapshotModel) {
         let shouldProtect = !snapshot.isProtected
+        let operationTitle: LocalizedStringResource = shouldProtect
+            ? "Protecting snapshot \"\(snapshot.name)\"…"
+            : "Unprotecting snapshot \"\(snapshot.name)\"…"
         guard let control = begin(
-            "\(shouldProtect ? "Protecting" : "Unprotecting") snapshot \"\(snapshot.name)\"…",
+            operationTitle,
             detail: "Updating snapshot protection metadata safely."
         ) else { return }
         let rootPath = self.rootPath
@@ -440,15 +443,18 @@ class MachineSnapshotsViewStateObject {
     }
 
     @discardableResult
-    private func begin(_ message: String, detail: String) -> VMSnapshotOperationControl? {
+    private func begin(
+        _ message: LocalizedStringResource,
+        detail: LocalizedStringResource
+    ) -> VMSnapshotOperationControl? {
         guard !isBusy else { return nil }
         let control = VMSnapshotOperationControl()
         operationControl = control
         operationProgress = nil
         isCancellationRequested = false
         isWorking = true
-        self.message = message
-        workingDetail = detail
+        self.message = String(localized: message)
+        workingDetail = String(localized: detail)
         messageTone = .working
         return control
     }
@@ -457,29 +463,32 @@ class MachineSnapshotsViewStateObject {
         isWorking && operationControl === control
     }
 
-    private func updateWorking(_ message: String, detail: String) {
+    private func updateWorking(
+        _ message: LocalizedStringResource,
+        detail: LocalizedStringResource
+    ) {
         guard isWorking else { return }
-        self.message = message
-        workingDetail = detail
+        self.message = String(localized: message)
+        workingDetail = String(localized: detail)
         messageTone = .working
     }
 
-    private func succeed(_ message: String) {
+    private func succeed(_ message: LocalizedStringResource) {
         isWorking = false
         operationControl = nil
         operationProgress = nil
         isCancellationRequested = false
-        self.message = message
+        self.message = String(localized: message)
         workingDetail = ""
         messageTone = .success
     }
 
-    private func warn(_ message: String) {
+    private func warn(_ message: LocalizedStringResource) {
         isWorking = false
         operationControl = nil
         operationProgress = nil
         isCancellationRequested = false
-        self.message = message
+        self.message = String(localized: message)
         workingDetail = ""
         messageTone = .warning
     }
@@ -500,15 +509,15 @@ class MachineSnapshotsViewStateObject {
               !isCancellationRequested else { return }
         isCancellationRequested = true
         operationControl?.cancel()
-        workingDetail = "Cancellation requested. EZVM will stop at the next safe boundary."
+        workingDetail = String(localized: "Cancellation requested. EZVM will stop at the next safe boundary.")
     }
 
-    private func cancelled(_ message: String) {
+    private func cancelled(_ message: LocalizedStringResource) {
         isWorking = false
         operationControl = nil
         operationProgress = nil
         isCancellationRequested = false
-        self.message = message
+        self.message = String(localized: message)
         workingDetail = ""
         messageTone = .neutral
     }
@@ -523,20 +532,20 @@ class MachineSnapshotsViewStateObject {
 
     private func progressDescription(_ update: VMSnapshotOperationProgress) -> String {
         let phase: String = switch update.phase {
-        case .preparing: "Preparing and checking available space"
-        case .copying: "Copying machine data"
-        case .verifying: "Verifying snapshot integrity"
-        case .committing: "Installing the verified transaction"
-        case .finishing: "Finishing safely"
+        case .preparing: String(localized: "Preparing and checking available space")
+        case .copying: String(localized: "Copying machine data")
+        case .verifying: String(localized: "Verifying snapshot integrity")
+        case .committing: String(localized: "Installing the verified transaction")
+        case .finishing: String(localized: "Finishing safely")
         }
         guard update.totalUnitCount > 0 else { return phase }
         switch update.unit {
         case .bytes:
             let completed = ByteCountFormatter.string(fromByteCount: Int64(clamping: update.completedUnitCount), countStyle: .file)
             let total = ByteCountFormatter.string(fromByteCount: Int64(clamping: update.totalUnitCount), countStyle: .file)
-            return "\(phase) · \(completed) of \(total)"
+            return String(localized: "\(phase) · \(completed) of \(total)")
         case .items:
-            return "\(phase) · \(update.completedUnitCount) of \(update.totalUnitCount) snapshots"
+            return String(localized: "\(phase) · \(update.completedUnitCount) of \(update.totalUnitCount) snapshots")
         }
     }
 

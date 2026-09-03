@@ -48,7 +48,23 @@ ruby -rjson -e '
     "Confirm that you can sign in as “%@”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone.",
     "Could not access guest provisioning credentials in Keychain: %@",
     "The temporary provisioning credential is no longer available.",
-    "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again."
+    "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again.",
+    "Preparing snapshot…",
+    "Estimating restore storage…",
+    "Preparing restore…",
+    "Restoring snapshot \"%@\"…",
+    "Snapshot \"%@\" restored",
+    "Auditing snapshot integrity…",
+    "Snapshot audit cancelled",
+    "Inspecting snapshot storage…",
+    "Cleaning snapshot storage…",
+    "Preparing and checking available space",
+    "Copying machine data",
+    "Verifying snapshot integrity",
+    "Installing the verified transaction",
+    "Cancellation requested. EZVM will stop at the next safe boundary.",
+    "Protecting snapshot \"%@\"…",
+    "Unprotecting snapshot \"%@\"…"
   ]
 
   required.each do |key|
