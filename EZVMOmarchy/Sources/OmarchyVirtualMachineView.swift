@@ -278,6 +278,11 @@ struct OmarchyVirtualMachineView: View {
     private func handleIntegrationChange(_ state: VMOmarchyIntegrationState) {
         integration = state
         guard case .ready(let status) = state else { return }
+        OmarchyAcceptanceObservationReporter.reportIfEnabled(
+            status: status,
+            requiredCapabilities: profile.requiredGuestCapabilities,
+            layout: layout
+        )
         let signature = ([status.omarchyRevision ?? "", status.agentVersion]
             + status.capabilities.sorted()).joined(separator: "\u{1f}")
         guard signature != recordedIntegrationSignature else { return }

@@ -660,6 +660,18 @@ checksum-verified bytes, validates the bound evidence, and only then pushes the
 release branch/tag and creates the GitHub release. Omarchy Edition tags use the
 separate `ezvm-omarchy-v<version>` namespace.
 
+Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
+`Diagnostics/integration-readiness.json` observation after the authenticated
+Guest Agent reports an active desktop, completed provisioning, and every
+profile-required capability. The observation binds those live facts to the App
+source revision, factory-image version, Omarchy revision, and Guest Agent
+version. `scripts/verify-omarchy-integration-observation.sh` rejects stale,
+version-mismatched, incomplete, or internally inconsistent observations; its
+positive and tamper-rejection cases run in CI. This is machine evidence for the
+integration-ready checkpoint only. It deliberately does not claim that input,
+clipboard, shared-folder, sleep/wake, rollback, or 24-hour scenarios completed;
+those remain separate real actions in the release evidence record.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests

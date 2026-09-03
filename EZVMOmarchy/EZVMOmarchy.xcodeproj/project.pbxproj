@@ -13,6 +13,7 @@
 		4AF317238132CFFC331CA4F3 /* EZVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */; };
 		8BC700C151EBE4754A081274 /* OmarchyApplicationTermination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9000919C36387C899ED23370 /* OmarchyApplicationTermination.swift */; };
 		9B9BBDD231C0C70175C88AB3 /* EZVMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 88A9EBB2192A7177FE428C52 /* EZVMCore */; };
+		A0EB879AA8A757D163F06A69 /* OmarchyAcceptanceObservationReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE5B4D3B4A0C6EF54D9E6272 /* OmarchyAcceptanceObservationReporter.swift */; };
 		DABCAAE2A198CD15B90FB292 /* OmarchyFocusedCommandBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */; };
 /* End PBXBuildFile section */
 
@@ -36,6 +37,7 @@
 		B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EZVMOmarchyApp.swift; sourceTree = "<group>"; };
 		C6F28A4F2339E9106ECC8119 /* ezvm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ezvm; path = ..; sourceTree = SOURCE_ROOT; };
 		CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EZVMOmarchyTests.swift; sourceTree = "<group>"; };
+		EE5B4D3B4A0C6EF54D9E6272 /* OmarchyAcceptanceObservationReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyAcceptanceObservationReporter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */,
+				EE5B4D3B4A0C6EF54D9E6272 /* OmarchyAcceptanceObservationReporter.swift */,
 				9000919C36387C899ED23370 /* OmarchyApplicationTermination.swift */,
 				A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */,
 				0265C3DEC883F1B7E77487C9 /* OmarchyReleaseReadinessReporter.swift */,
@@ -181,6 +184,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				20E670A3AF3B256648F15181 /* EZVMOmarchyApp.swift in Sources */,
+				A0EB879AA8A757D163F06A69 /* OmarchyAcceptanceObservationReporter.swift in Sources */,
 				8BC700C151EBE4754A081274 /* OmarchyApplicationTermination.swift in Sources */,
 				DABCAAE2A198CD15B90FB292 /* OmarchyFocusedCommandBridge.swift in Sources */,
 				1715A7B6CD7CC805DF830662 /* OmarchyReleaseReadinessReporter.swift in Sources */,

@@ -158,6 +158,48 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(assessment.missingCapabilities, [required.last!])
     }
 
+    func testAcceptanceObservationRecordsOnlyObservedIntegrationFacts() throws {
+        let observedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let status = VMOmarchyGuestStatus(
+            agentVersion: "agent-commit",
+            omarchyRevision: "omarchy-commit",
+            hostName: "omarchy",
+            addresses: ["2001:db8::2", "192.0.2.2"],
+            capabilities: [
+                "desktop-input-v1", "dynamic-display-v1", "shutdown-v1",
+                "shared-folders-v1", "clipboard-text-v1", "clipboard-image-v1",
+            ],
+            desktopSessionActive: true,
+            provisioningPending: false
+        )
+        let observation = OmarchyAcceptanceObservationReporter.makeObservation(
+            status: status,
+            requiredCapabilities: VMOmarchyProfile.production.requiredGuestCapabilities,
+            factoryImageVersion: "factory-version",
+            sourceRevision: "source-commit",
+            observedAt: observedAt
+        )
+
+        XCTAssertEqual(observation.schemaVersion, 1)
+        XCTAssertEqual(observation.observedAt, observedAt)
+        XCTAssertEqual(observation.sourceRevision, "source-commit")
+        XCTAssertEqual(observation.factoryImageVersion, "factory-version")
+        XCTAssertEqual(observation.guestAgentVersion, "agent-commit")
+        XCTAssertEqual(observation.omarchyRevision, "omarchy-commit")
+        XCTAssertEqual(observation.guestAddresses, ["192.0.2.2", "2001:db8::2"])
+        XCTAssertTrue(observation.desktopSessionActive)
+        XCTAssertFalse(observation.provisioningPending)
+        XCTAssertTrue(observation.sharedFolderReady)
+        XCTAssertTrue(observation.clipboardTextReady)
+        XCTAssertTrue(observation.clipboardImageReady)
+        XCTAssertTrue(observation.dynamicDisplayReady)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        XCTAssertNoThrow(try decoder.decode(
+            OmarchyIntegrationObservation.self, from: observation.encoded()
+        ))
+    }
+
     private func runningLifecycle() -> OmarchyMachineLifecycle {
         var lifecycle = OmarchyMachineLifecycle()
         XCTAssertEqual(lifecycle.handle(.machineStarted), [])

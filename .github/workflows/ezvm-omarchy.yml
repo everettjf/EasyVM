@@ -27,6 +27,8 @@ on:
       - "scripts/test-omarchy-release-gates.sh"
       - "scripts/verify-omarchy-release-evidence.sh"
       - "scripts/test-omarchy-release-evidence.sh"
+      - "scripts/verify-omarchy-integration-observation.sh"
+      - "scripts/test-omarchy-integration-observation.sh"
       - "scripts/publish-omarchy-release.sh"
       - "scripts/test-omarchy-publish-preflight.sh"
       - "scripts/verify-omarchy-image-source-integration.sh"
@@ -55,6 +57,8 @@ on:
       - "scripts/test-omarchy-release-gates.sh"
       - "scripts/verify-omarchy-release-evidence.sh"
       - "scripts/test-omarchy-release-evidence.sh"
+      - "scripts/verify-omarchy-integration-observation.sh"
+      - "scripts/test-omarchy-integration-observation.sh"
       - "scripts/publish-omarchy-release.sh"
       - "scripts/test-omarchy-publish-preflight.sh"
       - "scripts/verify-omarchy-image-source-integration.sh"
@@ -123,6 +127,8 @@ jobs:
         run: scripts/test-omarchy-release-gates.sh
       - name: Test real-guest evidence binding gates
         run: scripts/test-omarchy-release-evidence.sh
+      - name: Test integration observation gates
+        run: scripts/test-omarchy-integration-observation.sh
       - name: Test two-phase publish preflight
         run: scripts/test-omarchy-publish-preflight.sh
       - name: Test image-source integration contract
