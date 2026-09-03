@@ -12,20 +12,20 @@ final class EZVMOmarchyTests: XCTestCase {
     func testStopRequestsGracefulStopAndWaitsForGuest() {
         var lifecycle = runningLifecycle()
 
-        XCTAssertEqual(lifecycle.handle(.stopRequested), [.requestStop])
+        XCTAssertEqual(lifecycle.handle(.stopRequested), [.requestStop, .scheduleForceStop])
         XCTAssertEqual(lifecycle.phase, .stopping)
         XCTAssertFalse(lifecycle.restartAfterStop)
-        XCTAssertEqual(lifecycle.handle(.machineStopped), [])
+        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop])
         XCTAssertEqual(lifecycle.phase, .stopped)
     }
 
     func testRestartStartsNewSessionOnlyAfterGuestStops() {
         var lifecycle = runningLifecycle()
 
-        XCTAssertEqual(lifecycle.handle(.restartRequested), [.requestStop])
+        XCTAssertEqual(lifecycle.handle(.restartRequested), [.requestStop, .scheduleForceStop])
         XCTAssertEqual(lifecycle.phase, .stopping)
         XCTAssertTrue(lifecycle.restartAfterStop)
-        XCTAssertEqual(lifecycle.handle(.machineStopped), [.startNewSession])
+        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop, .startNewSession])
         XCTAssertEqual(lifecycle.phase, .starting)
         XCTAssertFalse(lifecycle.restartAfterStop)
     }
@@ -43,11 +43,21 @@ final class EZVMOmarchyTests: XCTestCase {
         var lifecycle = runningLifecycle()
         _ = lifecycle.handle(.restartRequested)
 
-        XCTAssertEqual(lifecycle.handle(.machineFailed("disk unavailable")), [])
+        XCTAssertEqual(lifecycle.handle(.machineFailed("disk unavailable")), [.cancelForceStop])
         XCTAssertEqual(lifecycle.phase, .failed("disk unavailable"))
         XCTAssertFalse(lifecycle.restartAfterStop)
         XCTAssertEqual(lifecycle.handle(.startRequested), [.startNewSession])
         XCTAssertEqual(lifecycle.phase, .starting)
+    }
+
+    func testGracefulStopTimeoutForcesStopOnlyWhileStopping() {
+        var lifecycle = runningLifecycle()
+        XCTAssertEqual(lifecycle.handle(.stopTimedOut), [])
+        _ = lifecycle.handle(.stopRequested)
+        XCTAssertEqual(lifecycle.handle(.stopTimedOut), [.forceStop])
+        XCTAssertEqual(lifecycle.phase, .stopping)
+        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop])
+        XCTAssertEqual(lifecycle.handle(.stopTimedOut), [])
     }
 
     func testCommandChordRedirectsOnlyWhileOmarchyIsFocused() {

@@ -9,6 +9,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var sessionID = UUID()
     @State private var keyboardIntegration: OmarchyKeyboardIntegrationState = .accessibilityRequired
     @State private var integration: VMOmarchyIntegrationState = .connecting
+    @State private var stopTimeoutTask: Task<Void, Never>?
 
     private var phase: Phase { lifecycle.phase }
 
@@ -57,6 +58,10 @@ struct OmarchyVirtualMachineView: View {
                 .padding(.vertical, 8)
                 .background(.orange.opacity(0.18))
             }
+        }
+        .onDisappear {
+            stopTimeoutTask?.cancel()
+            stopTimeoutTask = nil
         }
     }
 
@@ -161,6 +166,18 @@ struct OmarchyVirtualMachineView: View {
                 NotificationCenter.default.post(name: .omarchyRequestStop, object: sessionID)
             case .startNewSession:
                 sessionID = UUID()
+            case .scheduleForceStop:
+                stopTimeoutTask?.cancel()
+                stopTimeoutTask = Task {
+                    try? await Task.sleep(for: .seconds(15))
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run { handle(.stopTimedOut) }
+                }
+            case .cancelForceStop:
+                stopTimeoutTask?.cancel()
+                stopTimeoutTask = nil
+            case .forceStop:
+                NotificationCenter.default.post(name: .omarchyForceStop, object: sessionID)
             }
         }
     }
@@ -185,11 +202,15 @@ struct OmarchyMachineLifecycle: Equatable {
         case restartRequested
         case machineStopped
         case machineFailed(String)
+        case stopTimedOut
     }
 
     enum Effect: Equatable {
         case requestStop
         case startNewSession
+        case scheduleForceStop
+        case cancelForceStop
+        case forceStop
     }
 
     mutating func handle(_ event: Event) -> [Effect] {
@@ -205,22 +226,27 @@ struct OmarchyMachineLifecycle: Equatable {
             guard phase == .running else { return [] }
             restartAfterStop = false
             phase = .stopping
-            return [.requestStop]
+            return [.requestStop, .scheduleForceStop]
         case .restartRequested:
             guard phase == .running else { return [] }
             restartAfterStop = true
             phase = .stopping
-            return [.requestStop]
+            return [.requestStop, .scheduleForceStop]
         case .machineStopped:
             if restartAfterStop {
                 restartAfterStop = false
                 phase = .starting
-                return [.startNewSession]
+                return [.cancelForceStop, .startNewSession]
             }
             phase = .stopped
+            return [.cancelForceStop]
         case .machineFailed(let message):
             restartAfterStop = false
             phase = .failed(message)
+            return [.cancelForceStop]
+        case .stopTimedOut:
+            guard phase == .stopping else { return [] }
+            return [.forceStop]
         }
         return []
     }
@@ -296,6 +322,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
         private var keyboardPermissionObserver: NSObjectProtocol?
+        private var forceStopObserver: NSObjectProtocol?
         private var keyboardBridge: OmarchyFocusedCommandBridge?
         private var integrationClient: VMOmarchyGuestAgentClient?
 
@@ -314,6 +341,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         deinit {
             if let stopObserver { NotificationCenter.default.removeObserver(stopObserver) }
             if let keyboardPermissionObserver { NotificationCenter.default.removeObserver(keyboardPermissionObserver) }
+            if let forceStopObserver { NotificationCenter.default.removeObserver(forceStopObserver) }
         }
 
         func beginObservingCommands() {
@@ -332,6 +360,14 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             ) { [weak self] notification in
                 guard let self, notification.object as? UUID == self.sessionID else { return }
                 self.keyboardBridge?.requestPermission()
+            }
+            forceStopObserver = NotificationCenter.default.addObserver(
+                forName: .omarchyForceStop,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let self, notification.object as? UUID == self.sessionID else { return }
+                self.forceStop()
             }
         }
 
@@ -384,6 +420,18 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             }
         }
 
+        private func forceStop() {
+            guard let machine, machine.canStop else {
+                phaseChanged(.failed("Omarchy could not be stopped after the graceful shutdown timed out."))
+                return
+            }
+            machine.stop { [weak self] error in
+                if let error {
+                    DispatchQueue.main.async { self?.phaseChanged(.failed(error.localizedDescription)) }
+                }
+            }
+        }
+
         func stopImmediately() {
             keyboardBridge?.stop()
             keyboardBridge = nil
@@ -415,4 +463,5 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 private extension Notification.Name {
     static let omarchyRequestStop = Notification.Name("EZVMOmarchy.requestStop")
     static let omarchyRequestKeyboardPermission = Notification.Name("EZVMOmarchy.requestKeyboardPermission")
+    static let omarchyForceStop = Notification.Name("EZVMOmarchy.forceStop")
 }
