@@ -727,6 +727,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             sessionID: sessionID,
+            layout: layout,
             requiredGuestCapabilities: profile.requiredGuestCapabilities,
             keyboardIntegrationChanged: keyboardIntegrationChanged,
             integrationChanged: integrationChanged,
@@ -782,6 +783,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     final class Coordinator: NSObject, VZVirtualMachineDelegate {
         var machine: VZVirtualMachine?
         let sessionID: UUID
+        let layout: VMOmarchyWorkspaceLayout
         let requiredGuestCapabilities: [String]
         let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
         let integrationChanged: (VMOmarchyIntegrationState) -> Void
@@ -803,9 +805,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         weak var machineView: VZVirtualMachineView?
         private var dynamicDisplayProbeTask: Task<Void, Never>?
         private var dynamicDisplayProbePassed = false
+        private var automaticPauseResumeProbeStarted = false
 
         init(
             sessionID: UUID,
+            layout: VMOmarchyWorkspaceLayout,
             requiredGuestCapabilities: [String],
             keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
             integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
@@ -815,6 +819,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
+            self.layout = layout
             self.requiredGuestCapabilities = requiredGuestCapabilities
             self.keyboardIntegrationChanged = keyboardIntegrationChanged
             self.integrationChanged = integrationChanged
@@ -847,7 +852,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 queue: .main
             ) { [weak self] notification in
                 guard let self, notification.object as? UUID == self.sessionID else { return }
-                self.pause()
+                self.pause(automaticResume: false)
             }
             resumeObserver = NotificationCenter.default.addObserver(
                 forName: .omarchyRequestResume,
@@ -1003,12 +1008,21 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         result.hostViewAfter.width, result.hostViewAfter.height
                     )
                     self.dynamicDisplayProbeChanged(.passed(result))
+                    self.startAutomaticPauseResumeProbeIfNeeded()
                 } catch {
                     NSLog("Omarchy dynamic display round trip failed: %@", error.localizedDescription)
                     self.dynamicDisplayProbeChanged(.failed(error.localizedDescription))
                 }
                 self.dynamicDisplayProbeTask = nil
             }
+        }
+
+        private func startAutomaticPauseResumeProbeIfNeeded() {
+            guard ProcessInfo.processInfo.environment[
+                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+            ] == "1", dynamicDisplayProbePassed, !automaticPauseResumeProbeStarted else { return }
+            automaticPauseResumeProbeStarted = true
+            pause(automaticResume: true)
         }
 
         private func requestStop() {
@@ -1024,20 +1038,34 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             }
         }
 
-        private func pause() {
+        private func pause(automaticResume: Bool) {
             guard let machine, machine.canPause else {
                 phaseChanged(.failed("Omarchy cannot be paused right now."))
                 return
             }
+            OmarchyAcceptanceObservationReporter.reportVirtualMachineEventIfEnabled(
+                .pauseRequested,
+                layout: layout
+            )
             machine.pause { [weak self] result in
                 DispatchQueue.main.async {
                     guard let self else { return }
                     switch result {
                     case .success:
+                        OmarchyAcceptanceObservationReporter.reportVirtualMachineEventIfEnabled(
+                            .paused,
+                            layout: self.layout
+                        )
                         self.keyboardBridge?.stop()
                         self.integrationClient?.virtualMachineDidPause()
                         self.phaseChanged(.paused)
+                        if automaticResume {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                                self?.resume()
+                            }
+                        }
                     case .failure(let error):
+                        self.automaticPauseResumeProbeStarted = false
                         self.phaseChanged(.failed(error.localizedDescription))
                     }
                 }
@@ -1054,10 +1082,15 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     guard let self else { return }
                     switch result {
                     case .success:
+                        OmarchyAcceptanceObservationReporter.reportVirtualMachineEventIfEnabled(
+                            .resumed,
+                            layout: self.layout
+                        )
                         self.integrationClient?.virtualMachineDidResume()
                         self.keyboardBridge?.start()
                         self.phaseChanged(.running)
                     case .failure(let error):
+                        self.automaticPauseResumeProbeStarted = false
                         self.phaseChanged(.failed(error.localizedDescription))
                     }
                 }

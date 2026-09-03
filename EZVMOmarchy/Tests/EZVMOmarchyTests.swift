@@ -278,6 +278,10 @@ final class EZVMOmarchyTests: XCTestCase {
         let provisioningAt = Date(timeIntervalSince1970: 1_699_999_990)
         let lockedAt = Date(timeIntervalSince1970: 1_700_000_000)
         let unlockedAt = lockedAt.addingTimeInterval(10)
+        let pauseRequestedAt = unlockedAt.addingTimeInterval(10)
+        let pausedAt = pauseRequestedAt.addingTimeInterval(1)
+        let resumedAt = pausedAt.addingTimeInterval(2)
+        let recoveredAt = resumedAt.addingTimeInterval(3)
         let provisioning = VMOmarchyGuestStatus(
             agentVersion: "agent-commit",
             hostName: "omarchy",
@@ -315,19 +319,70 @@ final class EZVMOmarchyTests: XCTestCase {
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: unlocked, layout: layout, environment: environment, observedAt: unlockedAt
         )
+        OmarchyAcceptanceObservationReporter.reportVirtualMachineEventIfEnabled(
+            .pauseRequested, layout: layout, environment: environment, observedAt: pauseRequestedAt
+        )
+        OmarchyAcceptanceObservationReporter.reportVirtualMachineEventIfEnabled(
+            .paused, layout: layout, environment: environment, observedAt: pausedAt
+        )
+        OmarchyAcceptanceObservationReporter.reportVirtualMachineEventIfEnabled(
+            .resumed, layout: layout, environment: environment, observedAt: resumedAt
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: unlocked, layout: layout, environment: environment, observedAt: recoveredAt
+        )
 
         let data = try Data(contentsOf: layout.diagnostics.appending(
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 2)
+        XCTAssertEqual(json["schemaVersion"] as? Int, 3)
         XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
         XCTAssertNotNil(json["firstLockedObservedAt"])
         XCTAssertNotNil(json["firstActiveObservedAt"])
         XCTAssertNotNil(json["firstActiveAfterLockedObservedAt"])
+        XCTAssertNotNil(json["firstPauseRequestedAt"])
+        XCTAssertNotNil(json["firstPausedAt"])
+        XCTAssertNotNil(json["firstResumedAt"])
+        XCTAssertNotNil(json["firstActiveAfterResumeObservedAt"])
         XCTAssertEqual(json["lastDesktopSessionActive"] as? Bool, true)
         XCTAssertEqual(json["lastProvisioningPending"] as? Bool, false)
         XCTAssertEqual(json["guestAgentVersion"] as? String, "agent-commit")
+    }
+
+    func testAcceptanceLifecycleReplacesLegacySchemaBeforeRecordingEvents() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-omarchy-lifecycle-migration-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+        try Data(#"{"schemaVersion":2,"guestAgentVersion":"legacy"}"#.utf8).write(
+            to: layout.diagnostics.appending(
+                path: OmarchyAcceptanceObservationReporter.lifecycleFileName
+            )
+        )
+        let status = VMOmarchyGuestStatus(
+            agentVersion: "current",
+            hostName: "omarchy",
+            addresses: [],
+            capabilities: [],
+            desktopSessionActive: false,
+            provisioningPending: true
+        )
+
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: status,
+            layout: layout,
+            environment: [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"]
+        )
+
+        let data = try Data(contentsOf: layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.lifecycleFileName
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["schemaVersion"] as? Int, 3)
+        XCTAssertEqual(json["guestAgentVersion"] as? String, "current")
+        XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
     }
 
     @MainActor

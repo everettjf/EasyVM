@@ -46,12 +46,22 @@ enum OmarchyAcceptanceObservationReporter {
     static let fileName = "integration-readiness.json"
     static let lifecycleFileName = "integration-lifecycle.json"
 
+    enum VirtualMachineEvent {
+        case pauseRequested
+        case paused
+        case resumed
+    }
+
     private struct LifecycleObservation: Codable {
         let schemaVersion: Int
         var firstProvisioningPendingObservedAt: Date?
         var firstLockedObservedAt: Date?
         var firstActiveObservedAt: Date?
         var firstActiveAfterLockedObservedAt: Date?
+        var firstPauseRequestedAt: Date?
+        var firstPausedAt: Date?
+        var firstResumedAt: Date?
+        var firstActiveAfterResumeObservedAt: Date?
         var lastObservedAt: Date
         var lastDesktopSessionActive: Bool
         var lastProvisioningPending: Bool
@@ -70,12 +80,16 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         var observation = (try? Data(contentsOf: file)).flatMap {
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        } ?? LifecycleObservation(
-            schemaVersion: 2,
+        }.flatMap { $0.schemaVersion == 3 ? $0 : nil } ?? LifecycleObservation(
+            schemaVersion: 3,
             firstProvisioningPendingObservedAt: nil,
             firstLockedObservedAt: nil,
             firstActiveObservedAt: nil,
             firstActiveAfterLockedObservedAt: nil,
+            firstPauseRequestedAt: nil,
+            firstPausedAt: nil,
+            firstResumedAt: nil,
+            firstActiveAfterResumeObservedAt: nil,
             lastObservedAt: observedAt,
             lastDesktopSessionActive: status.desktopSessionActive,
             lastProvisioningPending: status.provisioningPending,
@@ -90,6 +104,10 @@ enum OmarchyAcceptanceObservationReporter {
             if observation.firstLockedObservedAt != nil {
                 observation.firstActiveAfterLockedObservedAt =
                     observation.firstActiveAfterLockedObservedAt ?? observedAt
+            }
+            if observation.firstResumedAt != nil {
+                observation.firstActiveAfterResumeObservedAt =
+                    observation.firstActiveAfterResumeObservedAt ?? observedAt
             }
         } else if !status.provisioningPending {
             observation.firstLockedObservedAt = observation.firstLockedObservedAt ?? observedAt
@@ -106,6 +124,41 @@ enum OmarchyAcceptanceObservationReporter {
             try encoder.encode(observation).write(to: file, options: .atomic)
         } catch {
             NSLog("Could not write Omarchy integration lifecycle observation: %@", error.localizedDescription)
+        }
+    }
+
+    static func reportVirtualMachineEventIfEnabled(
+        _ event: VirtualMachineEvent,
+        layout: VMOmarchyWorkspaceLayout,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let file = layout.diagnostics.appending(path: lifecycleFileName)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var observation = (try? Data(contentsOf: file)).flatMap({
+            try? decoder.decode(LifecycleObservation.self, from: $0)
+        }), observation.schemaVersion == 3 else {
+            NSLog("Cannot record Omarchy VM lifecycle event before a Guest Agent status observation.")
+            return
+        }
+        switch event {
+        case .pauseRequested:
+            observation.firstPauseRequestedAt = observation.firstPauseRequestedAt ?? observedAt
+        case .paused:
+            observation.firstPausedAt = observation.firstPausedAt ?? observedAt
+        case .resumed:
+            observation.firstResumedAt = observation.firstResumedAt ?? observedAt
+        }
+        observation.lastObservedAt = observedAt
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try encoder.encode(observation).write(to: file, options: .atomic)
+        } catch {
+            NSLog("Could not write Omarchy VM lifecycle event: %@", error.localizedDescription)
         }
     }
 

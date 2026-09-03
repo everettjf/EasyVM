@@ -12,15 +12,24 @@ fail() { echo "verify-omarchy-lifecycle-observation: $*" >&2; exit 1; }
 
 ruby -rjson -rtime -e '
   value = JSON.parse(File.read(ARGV.fetch(0)))
-  abort "wrong lifecycle schema" unless value["schemaVersion"] == 2
+  abort "wrong lifecycle schema" unless value["schemaVersion"] == 3
   abort "wrong Guest Agent version" unless value["guestAgentVersion"] == ARGV.fetch(1)
 
   locked = Time.iso8601(value.fetch("firstLockedObservedAt"))
   recovered = Time.iso8601(value.fetch("firstActiveAfterLockedObservedAt"))
+  pause_requested = Time.iso8601(value.fetch("firstPauseRequestedAt"))
+  paused = Time.iso8601(value.fetch("firstPausedAt"))
+  resumed = Time.iso8601(value.fetch("firstResumedAt"))
+  active_after_resume = Time.iso8601(value.fetch("firstActiveAfterResumeObservedAt"))
   abort "desktop recovery predates lock observation" unless recovered >= locked
+  abort "pause request predates desktop recovery" unless pause_requested >= recovered
+  abort "pause confirmation predates request" unless paused >= pause_requested
+  abort "resume confirmation predates pause" unless resumed >= paused
+  abort "integration recovery predates resume" unless active_after_resume >= resumed
   abort "lock observation is in the future" if locked > Time.now.utc + 300
   abort "desktop recovery is in the future" if recovered > Time.now.utc + 300
   abort "desktop recovery is older than 24 hours" if Time.now.utc - recovered > 86_400
+  abort "pause/resume recovery is older than 24 hours" if Time.now.utc - active_after_resume > 86_400
   abort "desktop is not active after recovery" unless value["lastDesktopSessionActive"] == true
   abort "owner provisioning is still pending" unless value["lastProvisioningPending"] == false
 ' "$observation" "$expected_agent_version"
