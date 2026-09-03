@@ -39,6 +39,7 @@ let package = Package(
                 "GuestAgent/VMGuestAgentProtocol.swift",
                 "GuestAgent/VMGuestAgentEnrollmentStore.swift",
                 "Model/Fields/VMModelFieldNetworkDevice.swift",
+                "Profile/VMOmarchyProfile.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ]
         ),
