@@ -166,6 +166,38 @@ import Testing
     #expect(!VirtioGPU.command(.moveCursor, isValidOn: 2))
 }
 
+@Test func everyCommandDeclaresItsCompleteFixedWireSize() {
+    let expected: [VirtioGPU.Command: Int] = [
+        .getDisplayInfo: 24,
+        .resourceCreate2D: 40,
+        .resourceUnref: 32,
+        .setScanout: 48,
+        .resourceFlush: 48,
+        .transferToHost2D: 56,
+        .resourceAttachBacking: 32,
+        .resourceDetachBacking: 32,
+        .getCapsetInfo: 32,
+        .getCapset: 32,
+        .getEDID: 32,
+        .contextCreate: 96,
+        .contextDestroy: 24,
+        .contextAttachResource: 32,
+        .contextDetachResource: 32,
+        .resourceCreate3D: 72,
+        .transferToHost3D: 72,
+        .transferFromHost3D: 72,
+        .submit3D: 32,
+        .updateCursor: 56,
+        .moveCursor: 40,
+    ]
+
+    #expect(expected.count == 21)
+    for (command, byteCount) in expected {
+        #expect(VirtioGPU.minimumRequestBytes(for: command) == byteCount)
+        #expect(byteCount >= 24)
+    }
+}
+
 @Test func pixelAllocationUsesCheckedProductionLimits() {
     #expect(VirtioGPU.pixelByteCount(width: 1, height: 1) == 4)
     #expect(VirtioGPU.pixelByteCount(width: 8_192, height: 8_192) == 256 * 1024 * 1024)

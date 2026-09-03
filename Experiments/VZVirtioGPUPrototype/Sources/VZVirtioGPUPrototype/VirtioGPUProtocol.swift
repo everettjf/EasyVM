@@ -97,6 +97,33 @@ enum VirtioGPU {
         }
     }
 
+    /// Fixed portion of each virtio-gpu request. Variable-length payloads are
+    /// validated by their command handlers after this common boundary check.
+    static func minimumRequestBytes(for command: Command) -> Int {
+        switch command {
+        case .getDisplayInfo, .contextDestroy:
+            return 24
+        case .resourceUnref, .resourceAttachBacking, .resourceDetachBacking,
+             .getCapsetInfo, .getCapset, .getEDID, .contextAttachResource,
+             .contextDetachResource, .submit3D:
+            return 32
+        case .resourceCreate2D:
+            return 40
+        case .setScanout, .resourceFlush:
+            return 48
+        case .transferToHost2D, .updateCursor:
+            return 56
+        case .resourceCreate3D, .transferToHost3D, .transferFromHost3D:
+            return 72
+        case .contextCreate:
+            return 96
+        case .moveCursor:
+            // MOVE_CURSOR contains only the 24-byte header and 16-byte
+            // virtio_gpu_cursor_pos; unlike UPDATE_CURSOR it has no resource.
+            return 40
+        }
+    }
+
     static func pixelByteCount(width: UInt32, height: UInt32) -> Int? {
         guard width > 0, height > 0,
               width <= Limits.maxDimension, height <= Limits.maxDimension else { return nil }

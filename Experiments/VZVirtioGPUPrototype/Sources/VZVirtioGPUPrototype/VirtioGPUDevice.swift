@@ -337,6 +337,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
             return true
         }
+        guard request.count >= VirtioGPU.minimumRequestBytes(for: command) else {
+            print("[gpu] short \(command) request: \(request.count) bytes")
+            write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
+            return true
+        }
 
         let response: Data
         switch command {
@@ -920,7 +925,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     private func moveCursor(_ request: Data, header: VirtioGPU.Header) -> Data {
-        guard request.count >= 56, let position = VirtioGPU.CursorPosition(request) else {
+        guard let position = VirtioGPU.CursorPosition(request) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         guard position.scanoutID == 0 else {
