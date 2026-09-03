@@ -102,6 +102,14 @@ struct VMOSMainVirtualMachineView: View {
                 .padding(.top, 16)
                 .padding(.horizontal, 18)
 
+            if runtimeState.graphicsBackendKind == .customVirGL,
+               let graphicsIssue = runtimeState.graphicsBackendDetail {
+                VMGraphicsRuntimeBanner(detail: graphicsIssue, openSettings: openSettings)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.top, 16)
+                    .padding(.leading, 18)
+            }
+
             VMNetworkRuntimeBanner(
                 state: runtimeState.networkRuntimeState,
                 reconnect: runtimeState.reconnectNetworkDevice
@@ -875,6 +883,38 @@ struct VMOSMainVirtualMachineView: View {
         } catch {
             MacKitUtil.alertWarn(title: "Thumbnail not saved", message: error.localizedDescription)
         }
+    }
+}
+
+private struct VMGraphicsRuntimeBanner: View {
+    let detail: String
+    let openSettings: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Graphics needs attention")
+                    .font(.callout.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Settings", action: openSettings)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .accessibilityHint("Open settings to select Apple Virtio graphics for the next start")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: .rect(cornerRadius: 11))
+        .shadow(color: .black.opacity(0.16), radius: 9, y: 3)
+        .frame(maxWidth: 520)
+        .accessibilityElement(children: .contain)
     }
 }
 

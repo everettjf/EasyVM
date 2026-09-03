@@ -614,6 +614,12 @@ failures. Three consecutive renderer failures mark Custom VirGL as degraded in
 the Graphics menu with recovery guidance; the next successful frame clears the
 condition automatically while the VM continues running.
 
+The same sustained failure now presents a non-blocking in-window banner rather
+than relying on a small toolbar symbol. It keeps the guest visible, explains
+that the VM is still running, and opens Settings directly so Apple Virtio can
+be selected for the next start. A successful frame clears both the toolbar
+warning and banner through the same health-state transition.
+
 The legacy prototype scanout-evidence writer has been removed from the linked
 runtime. VirGL diagnostics retain only bounded counters, dimensions, timings,
 errors, and content-change signatures; they never persist guest pixels. The
