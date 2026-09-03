@@ -152,7 +152,12 @@ public final class VMOmarchyGuestAgentClient {
         guard capabilities.contains("desktop-input-v1") else {
             throw CocoaError(.featureUnsupported)
         }
-        for batch in try VMLinuxKeyboardTextEncoder.batches(for: text) {
+        // Send complete strokes individually. Some Wayland/libinput stacks
+        // coalesce a burst containing dozens of transitions into no visible
+        // text even though uinput accepted the write successfully.
+        for character in text {
+            let events = try VMLinuxKeyboardTextEncoder.events(for: String(character))
+            let batch = VMGuestAgentInputBatch(events: events)
             let result: VMGuestAgentInputResult = try await request(.input, payload: batch)
             guard result.success else {
                 throw NSError(
@@ -161,6 +166,7 @@ public final class VMOmarchyGuestAgentClient {
                     userInfo: [NSLocalizedDescriptionKey: result.message]
                 )
             }
+            try await Task.sleep(for: .milliseconds(5))
         }
     }
 

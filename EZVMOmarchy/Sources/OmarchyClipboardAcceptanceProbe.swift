@@ -65,7 +65,7 @@ enum OmarchyClipboardAcceptanceProbe {
         // command itself is typed through the authenticated uinput channel.
         NSLog("Omarchy clipboard probe opening Guest terminal")
         try await client.injectKeyChord(modifiers: [125], key: 28)
-        try await Task.sleep(for: .milliseconds(900))
+        try await Task.sleep(for: .seconds(2))
         NSLog("Omarchy clipboard probe typing Guest script path %@", guestDirectory)
         try await client.typeUSASCII("bash \(guestDirectory)/probe.sh\n")
 
