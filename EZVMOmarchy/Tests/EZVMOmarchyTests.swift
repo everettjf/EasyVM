@@ -3,6 +3,32 @@ import EZVMCore
 @testable import EZVM_Omarchy
 
 final class EZVMOmarchyTests: XCTestCase {
+    func testAcceptanceWorkspaceOverrideRequiresExplicitFlagAndTemporaryRoot() throws {
+        let fallback = try OmarchyWorkspaceConfiguration.layout(environment: [:])
+        XCTAssertTrue(fallback.applicationSupportRoot.path.hasSuffix("/EZVM Omarchy"))
+
+        let temporary = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-omarchy-acceptance-test")
+        let selected = try OmarchyWorkspaceConfiguration.layout(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceRootKey: temporary.path,
+        ])
+        XCTAssertEqual(selected.applicationSupportRoot, temporary.standardizedFileURL)
+
+        let privateTemporary = try OmarchyWorkspaceConfiguration.layout(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceRootKey: "/tmp/ezvm-omarchy-acceptance-test",
+        ])
+        XCTAssertTrue(
+            privateTemporary.applicationSupportRoot.path.hasSuffix("/tmp/ezvm-omarchy-acceptance-test")
+        )
+
+        XCTAssertThrowsError(try OmarchyWorkspaceConfiguration.layout(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceRootKey: "/Users/shared/not-temporary",
+        ]))
+    }
+
     func testDedicatedAppUsesOmarchyProductIdentity() throws {
         let profile = VMOmarchyProfile.production
         try profile.validate()

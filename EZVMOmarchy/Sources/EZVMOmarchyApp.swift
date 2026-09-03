@@ -10,7 +10,9 @@ struct EZVMOmarchyApp: App {
 
     init() {
         do {
-            workspaceManager = VMOmarchyWorkspaceManager(layout: try .userDomain())
+            workspaceManager = VMOmarchyWorkspaceManager(
+                layout: try OmarchyWorkspaceConfiguration.layout()
+            )
         } catch {
             let fallback = FileManager.default.temporaryDirectory
                 .appending(path: "EZVM Omarchy Unavailable", directoryHint: .isDirectory)
@@ -24,10 +26,45 @@ struct EZVMOmarchyApp: App {
         WindowGroup("EZVM Omarchy") {
             OmarchyRootView(profile: .production, workspaceManager: workspaceManager)
                 .frame(minWidth: 820, minHeight: 600)
-                .onAppear { OmarchyReleaseReadinessReporter.reportWhenReady() }
+                .onAppear {
+                    OmarchyReleaseReadinessReporter.reportWhenReady(
+                        workspaceManager: workspaceManager
+                    )
+                }
         }
         .defaultSize(width: 1100, height: 760)
         .windowResizability(.contentMinSize)
+    }
+}
+
+enum OmarchyWorkspaceConfiguration {
+    static let acceptanceEnabledKey = "EZVM_OMARCHY_ACCEPTANCE"
+    static let acceptanceRootKey = "EZVM_OMARCHY_ACCEPTANCE_WORKSPACE_ROOT"
+
+    static func layout(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) throws -> VMOmarchyWorkspaceLayout {
+        guard environment[acceptanceEnabledKey] == "1" else {
+            return try .userDomain(fileManager: fileManager)
+        }
+        guard let path = environment[acceptanceRootKey], path.hasPrefix("/") else {
+            throw ConfigurationError.invalidAcceptanceRoot
+        }
+        let root = URL(filePath: path).standardizedFileURL.resolvingSymlinksInPath()
+        let allowedRoots = [
+            fileManager.temporaryDirectory.standardizedFileURL.resolvingSymlinksInPath(),
+            URL(filePath: "/tmp", directoryHint: .isDirectory).resolvingSymlinksInPath(),
+            URL(filePath: "/private/tmp", directoryHint: .isDirectory).resolvingSymlinksInPath(),
+        ]
+        guard allowedRoots.contains(where: { root.path == $0.path || root.path.hasPrefix($0.path + "/") }) else {
+            throw ConfigurationError.invalidAcceptanceRoot
+        }
+        return .init(applicationSupportRoot: root)
+    }
+
+    enum ConfigurationError: Error {
+        case invalidAcceptanceRoot
     }
 }
 

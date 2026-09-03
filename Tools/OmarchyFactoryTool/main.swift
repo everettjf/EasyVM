@@ -1,6 +1,7 @@
 import CryptoKit
 import EZVMCore
 import Foundation
+import Virtualization
 
 enum FactoryToolError: LocalizedError {
     case usage
@@ -15,6 +16,7 @@ enum FactoryToolError: LocalizedError {
               omarchy-factory-tool generate-key <private-key> <public-key>
               omarchy-factory-tool sign <image.asif> <image-url> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json>
               omarchy-factory-tool verify <manifest.json> <image.asif> <public-key>
+              omarchy-factory-tool prepare-workspace <manifest.json> <image.asif> <public-key> <application-support-root>
             """
         case .existingOutput(let path): "Refusing to overwrite existing output: \(path)"
         case .invalidPrivateKey: "The signing key is not a raw Ed25519 private key."
@@ -83,28 +85,34 @@ enum OmarchyFactoryTool {
             try encoder.encode(manifest).write(to: output, options: [.atomic])
         case "verify":
             guard arguments.count == 4 else { throw FactoryToolError.usage }
-            let manifest = try JSONDecoder().decode(
-                VMOmarchyFactoryManifest.self,
-                from: Data(contentsOf: URL(filePath: arguments[1]))
-            )
+            let manifest = try loadManifest(URL(filePath: arguments[1]))
             let publicKey = try Data(contentsOf: URL(filePath: arguments[3]))
-            let production = VMOmarchyProfile.production
-            let profile = VMOmarchyProfile(
-                schemaVersion: production.schemaVersion,
-                productID: production.productID,
-                minimumHostMajorVersion: production.minimumHostMajorVersion,
-                diskCapacityBytes: production.diskCapacityBytes,
-                resourceTiers: production.resourceTiers,
-                requiredGuestCapabilities: production.requiredGuestCapabilities,
-                factoryImage: .init(
-                    manifestURL: production.factoryImage.manifestURL,
-                    signingKeyID: manifest.keyID,
-                    architecture: production.factoryImage.architecture,
-                    maximumDownloadBytes: production.factoryImage.maximumDownloadBytes
-                )
-            )
+            let profile = verificationProfile(signingKeyID: manifest.keyID)
             try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKey: publicKey)
             try VMOmarchyFactoryValidator.validateImage(at: URL(filePath: arguments[2]), manifest: manifest)
+        case "prepare-workspace":
+            guard arguments.count == 5 else { throw FactoryToolError.usage }
+            let manifest = try loadManifest(URL(filePath: arguments[1]))
+            let image = URL(filePath: arguments[2])
+            let publicKey = try Data(contentsOf: URL(filePath: arguments[3]))
+            let profile = verificationProfile(signingKeyID: manifest.keyID)
+            try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKey: publicKey)
+            try VMOmarchyFactoryValidator.validateImage(at: image, manifest: manifest)
+            let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
+                productID: profile.productID,
+                createdAt: Date(),
+                factoryImageVersion: manifest.payload.imageVersion,
+                omarchyRevision: manifest.payload.omarchyRevision,
+                guestAgentVersion: manifest.payload.guestAgentVersion,
+                guestCapabilities: manifest.payload.guestCapabilities.sorted()
+            ))
+            try VMOmarchyWorkspaceManager(
+                layout: .init(applicationSupportRoot: URL(filePath: arguments[4]))
+            ).prepare(
+                factoryDisk: image,
+                configuration: metadata,
+                machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+            )
         default:
             throw FactoryToolError.usage
         }
@@ -114,6 +122,28 @@ enum OmarchyFactoryTool {
         for url in urls where FileManager.default.fileExists(atPath: url.path) {
             throw FactoryToolError.existingOutput(url.path)
         }
+    }
+
+    private static func loadManifest(_ url: URL) throws -> VMOmarchyFactoryManifest {
+        try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: Data(contentsOf: url))
+    }
+
+    private static func verificationProfile(signingKeyID: String) -> VMOmarchyProfile {
+        let production = VMOmarchyProfile.production
+        return VMOmarchyProfile(
+            schemaVersion: production.schemaVersion,
+            productID: production.productID,
+            minimumHostMajorVersion: production.minimumHostMajorVersion,
+            diskCapacityBytes: production.diskCapacityBytes,
+            resourceTiers: production.resourceTiers,
+            requiredGuestCapabilities: production.requiredGuestCapabilities,
+            factoryImage: .init(
+                manifestURL: production.factoryImage.manifestURL,
+                signingKeyID: signingKeyID,
+                architecture: production.factoryImage.architecture,
+                maximumDownloadBytes: production.factoryImage.maximumDownloadBytes
+            )
+        )
     }
 
     private static func digest(_ url: URL) throws -> String {

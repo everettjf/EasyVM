@@ -21,6 +21,18 @@ printf 'test factory bytes' > "$work/factory.asif"
   "$work/private.key" "$work/manifest.json"
 "$tool" verify "$work/manifest.json" "$work/factory.asif" "$work/public.key"
 
+"$tool" prepare-workspace \
+  "$work/manifest.json" "$work/factory.asif" "$work/public.key" "$work/application-support"
+[[ -f "$work/application-support/Workspace/Disk.asif" ]]
+[[ -f "$work/application-support/Workspace/Configuration.json" ]]
+[[ -f "$work/application-support/Workspace/MachineIdentifier" ]]
+[[ -f "$work/application-support/Enrollment/config.json" ]]
+if "$tool" prepare-workspace \
+  "$work/manifest.json" "$work/factory.asif" "$work/public.key" "$work/application-support" 2>/dev/null; then
+  echo 'existing acceptance workspace was unexpectedly overwritten' >&2
+  exit 1
+fi
+
 printf 'tamper' >> "$work/factory.asif"
 if "$tool" verify "$work/manifest.json" "$work/factory.asif" "$work/public.key" 2>/dev/null; then
   echo 'tampered factory unexpectedly verified' >&2
