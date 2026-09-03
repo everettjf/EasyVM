@@ -234,12 +234,12 @@ final class VMLinuxFeatureConfigurationTests: XCTestCase {
         guard case .success = VMEFISecureBootManager.apply(enabled: true, variableStore: store) else {
             return XCTFail("Expected default Secure Boot enrollment to succeed")
         }
-        XCTAssertTrue(try store.isSecureBootEnabled)
+        XCTAssertTrue(try VMEFISecureBootManager.isEnabled(variableStore: store))
 
         guard case .success = VMEFISecureBootManager.apply(enabled: false, variableStore: store) else {
             return XCTFail("Expected Secure Boot disable to succeed")
         }
-        XCTAssertFalse(try store.isSecureBootEnabled)
+        XCTAssertFalse(try VMEFISecureBootManager.isEnabled(variableStore: store))
     }
 
     func testDisabledSecureBootLetsDamagedStoreReachExistingRecoveryPath() throws {

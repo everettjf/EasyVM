@@ -1289,9 +1289,15 @@ extension VMLinuxFeatureConfiguration {
 
 @available(macOS 27.0, *)
 enum VMEFISecureBootManager {
+    static func isEnabled(variableStore: VZEFIVariableStore) throws -> Bool {
+        var enabled = ObjCBool(false)
+        try variableStore.__getSecureBootEnabled(&enabled)
+        return enabled.boolValue
+    }
+
     static func apply(enabled: Bool, variableStore: VZEFIVariableStore) -> VMOSResultVoid {
         do {
-            let isEnabled = try variableStore.isSecureBootEnabled
+            let isEnabled = try isEnabled(variableStore: variableStore)
             if enabled, !isEnabled {
                 try variableStore.enrollDefaultSecureBootSignatures()
                 try variableStore.enableSecureBootUsingDefaultPlatformKey()
