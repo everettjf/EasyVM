@@ -50,7 +50,9 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         let targetHeight: CGFloat = originalContentSize.height > 700 ? 640 : 760
         window.setContentSize(NSSize(width: targetWidth, height: targetHeight))
         try await Task.sleep(for: .milliseconds(500))
-        let viewSize = view.bounds.size
+        // Hyprland reports the virtual display's backing pixels, while AppKit
+        // bounds are expressed in logical points on Retina displays.
+        let viewSize = view.convertToBacking(view.bounds).size
         let hostAfter = OmarchyDisplaySize(
             width: Int(viewSize.width.rounded()),
             height: Int(viewSize.height.rounded())
