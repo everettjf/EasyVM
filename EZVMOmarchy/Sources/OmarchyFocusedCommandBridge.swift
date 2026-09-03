@@ -29,6 +29,7 @@ final class OmarchyFocusedCommandBridge {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
+    private var activationObserver: NSObjectProtocol?
 
     init(
         focusProbe: @escaping () -> Bool,
@@ -39,6 +40,20 @@ final class OmarchyFocusedCommandBridge {
     }
 
     func start() {
+        if activationObserver == nil {
+            activationObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self, self.tap == nil else { return }
+                self.installEventTap()
+            }
+        }
+        installEventTap()
+    }
+
+    private func installEventTap() {
         guard tap == nil else { return }
         let mask = (UInt64(1) << CGEventType.keyDown.rawValue)
             | (UInt64(1) << CGEventType.keyUp.rawValue)
@@ -96,6 +111,10 @@ final class OmarchyFocusedCommandBridge {
     func stop() {
         permissionTimer?.invalidate()
         permissionTimer = nil
+        if let activationObserver {
+            NotificationCenter.default.removeObserver(activationObserver)
+            self.activationObserver = nil
+        }
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         source = nil
