@@ -176,4 +176,19 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
         XCTAssertTrue(message.contains("review the provisioning status"))
         XCTAssertFalse(message.contains("try again automatically"))
     }
+
+    func testProvisioningRequiresMacOS27OrLaterGuest() {
+        XCTAssertFalse(VMGuestProvisioningCompatibility.supportsGuest(version: "26.6.2"))
+        XCTAssertTrue(VMGuestProvisioningCompatibility.supportsGuest(version: "27.0"))
+        XCTAssertTrue(VMGuestProvisioningCompatibility.supportsGuest(version: "28.1.3"))
+        XCTAssertFalse(VMGuestProvisioningCompatibility.supportsGuest(version: "unknown"))
+    }
+
+    func testUnsupportedGuestGuidanceNamesDetectedVersionAndRequiredVersion() {
+        let message = VMGuestProvisioningCompatibility.unsupportedGuestMessage(version: "26.6.2")
+
+        XCTAssertTrue(message.contains("macOS 27 or later guest"))
+        XCTAssertTrue(message.contains("macOS 26.6.2"))
+        XCTAssertTrue(message.contains("IPSW"))
+    }
 }

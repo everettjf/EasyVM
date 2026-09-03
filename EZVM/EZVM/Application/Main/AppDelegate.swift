@@ -197,6 +197,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     exit(69)
                 }
             }
+            if fixture.provisionsMacGuest,
+               case let .failure(message) = await VMOSCreatorForMacOS.validateGuestProvisioningImage(at: fixture.imageURL) {
+                fixture.report("failed: \(message)")
+                exit(68)
+            }
             let result = await VMOSCreateFactory.getCreator(fixture.osType).create(model: fixture.model) { progress in
                 switch progress {
                 case .info(let message): print(message)
@@ -212,7 +217,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         fullName: "EZVM Release Test",
                         username: "ezvmm9",
                         password: UUID().uuidString + "aA1!",
-                        logsInAutomatically: false,
+                        // Release fixtures use auto-login so a tester can verify
+                        // that Setup Assistant created the requested account
+                        // without ever printing or exporting the random password.
+                        logsInAutomatically: true,
                         enablesRemoteLogin: false
                     )
                     if case let .failure(message) = VMGuestProvisioningCredentialStore.save(
@@ -574,7 +582,7 @@ struct ReleaseFixtureCreationConfiguration {
         let config = VMConfigModel(
             type: osType,
             name: osType == .linux ? "Ubuntu Release Fixture" : "macOS Release Fixture",
-            remark: "Disposable M9 release fixture",
+            remark: "Disposable macOS 27 release fixture",
             cpu: defaults.cpu,
             memory: defaults.memory,
             graphicsDevices: defaults.graphicsDevices,

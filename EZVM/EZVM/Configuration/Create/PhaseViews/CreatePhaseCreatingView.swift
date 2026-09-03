@@ -57,6 +57,15 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         }
         context.formData.imagePath = imageURL.path(percentEncoded: false)
 
+        if context.formData.provisionsMacGuest,
+           context.configData.osType == .macOS,
+           case let .failure(error) = await VMOSCreatorForMacOS.validateGuestProvisioningImage(at: imageURL) {
+            context.formData.isCreating = false
+            context.formData.creationStage = "Unsupported macOS restore image"
+            context.formData.addLog("❌ \(error)")
+            return .failure(error)
+        }
+
         if context.configData.osType == .linux {
             attachLinuxInstaller(imagePath: context.formData.imagePath, context: context)
         }

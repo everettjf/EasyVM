@@ -37,7 +37,7 @@ final class VMOSCreatorForMacOS: VMOSCreator {
 
             // load image
             progress(.info("Begin load system image : \(model.state.imagePath.path(percentEncoded: false))"))
-            let restoreImage = try await loadSystemImage(ipswURL: model.state.imagePath)
+            let restoreImage = try await Self.loadSystemImage(ipswURL: model.state.imagePath)
             progress(.info("Succeed load system image"))
             
             progress(.info("Begin check image"))
@@ -227,7 +227,24 @@ final class VMOSCreatorForMacOS: VMOSCreator {
         })
     }
     
-    private func loadSystemImage(ipswURL: URL) async throws -> VZMacOSRestoreImage {
+    static func validateGuestProvisioningImage(at ipswURL: URL) async -> VMOSResultVoid {
+        do {
+            let restoreImage = try await loadSystemImage(ipswURL: ipswURL)
+            let version = restoreImage.operatingSystemVersion
+            guard version.majorVersion >= VMGuestProvisioningCompatibility.minimumGuestMajorVersion else {
+                return .failure(
+                    VMGuestProvisioningCompatibility.unsupportedGuestMessage(
+                        version: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
+                    )
+                )
+            }
+            return .success
+        } catch {
+            return .failure("Could not inspect the macOS restore image before provisioning: \(error.localizedDescription)")
+        }
+    }
+
+    private static func loadSystemImage(ipswURL: URL) async throws -> VZMacOSRestoreImage {
         return try await withCheckedThrowingContinuation({ continuation in
             VZMacOSRestoreImage.load(from: ipswURL) { result in
                 switch result {

@@ -63,6 +63,21 @@ Framework validation now maps invalid full-name, username, and password codes
 to field-specific recovery text in both the wizard and startup path. Diagnostic
 logs record only the error domain and numeric code, never the framework's raw
 description, so a future beta error cannot accidentally echo credential data.
+The signed release-fixture path generates a unique password directly inside the
+app, retains it only in the ThisDeviceOnly Keychain item, and enables auto-login
+for that disposable fixture. A tester can therefore verify that the requested
+account reached its desktop without putting the password in process arguments,
+environment variables, terminal output, or test reports.
+The host and guest requirements are checked independently. Provisioning needs a
+macOS 27 host *and* a macOS 27-or-later restore image; older guests silently
+ignore Apple's options. EZVM rejects a known older catalog entry immediately
+and inspects latest, local, and direct-URL IPSWs before beginning installation.
+The signed-artifact fixture exposed this requirement in practice: the cached
+`macos-latest.ipsw` was macOS 26.6.2 (25G83), accepted the start options, and
+still presented the manual account page exactly as Apple's SDK says an older
+guest will. After the guard was added, the signed EZVM 2.0.0 build rejected that
+same image before creating a destination bundle. A macOS 27 IPSW is still
+required to complete the positive first-boot and interruption matrix.
 
 ### Product outcome
 

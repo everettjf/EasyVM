@@ -20,6 +20,11 @@ class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
         guard #available(macOS 27.0, *) else {
             return .failure("macOS guest provisioning requires a macOS 27 host.")
         }
+        if case .catalog(let item) = context.formData.systemImageSelection,
+           let version = item.version,
+           !VMGuestProvisioningCompatibility.supportsGuest(version: version) {
+            return .failure(VMGuestProvisioningCompatibility.unsupportedGuestMessage(version: version))
+        }
         guard context.formData.provisioningPassword == context.formData.provisioningPasswordConfirmation else {
             return .failure("The guest account passwords do not match.")
         }
@@ -123,6 +128,9 @@ struct CreatePhaseConfigurationView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                Text("Requires both a macOS 27 host and a macOS 27 or later restore image. EZVM verifies the IPSW before installation.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(4)
         } label: {

@@ -1152,6 +1152,21 @@ enum VMGuestProvisioningStartFailureGuidance {
     }
 }
 
+enum VMGuestProvisioningCompatibility {
+    static let minimumGuestMajorVersion = 27
+
+    static func supportsGuest(version: String) -> Bool {
+        guard let major = version.split(separator: ".").first.flatMap({ Int($0) }) else {
+            return false
+        }
+        return major >= minimumGuestMajorVersion
+    }
+
+    static func unsupportedGuestMessage(version: String) -> String {
+        "Automatic account creation requires a macOS 27 or later guest. The selected restore image contains macOS \(version). Choose a macOS 27 or later IPSW."
+    }
+}
+
 enum VMGuestProvisioningCredentialStore {
     private static let service = "com.everettjf.ezvm.guest-provisioning"
 
