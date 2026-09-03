@@ -21,6 +21,7 @@ struct VMOSMainVirtualMachineView: View {
     @State private var isShowingSharedFolderResult = false
     @State private var sharedFolderResult = ""
     @State private var isSharedFolderDropTargeted = false
+    @State private var provisioningConfirmationUsername: String?
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     
     var body: some View {
@@ -342,6 +343,23 @@ struct VMOSMainVirtualMachineView: View {
         } message: {
             Text(sharedFolderResult)
         }
+        .alert(
+            "Remove Temporary Password?",
+            isPresented: Binding(
+                get: { provisioningConfirmationUsername != nil },
+                set: { if !$0 { provisioningConfirmationUsername = nil } }
+            )
+        ) {
+            Button("Keep Password", role: .cancel) {
+                provisioningConfirmationUsername = nil
+            }
+            Button("Remove Password", role: .destructive) {
+                provisioningConfirmationUsername = nil
+                runtimeState.confirmMacGuestProvisioningCompleted()
+            }
+        } message: {
+            Text("Confirm that you can sign in as “\(provisioningConfirmationUsername ?? "the new account")”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone.")
+        }
         .sheet(item: $settingsModel) { model in
             VMEditConfigurationView(model: model, appliesSharedFoldersImmediately: true)
         }
@@ -461,7 +479,7 @@ struct VMOSMainVirtualMachineView: View {
             .buttonStyle(.bordered)
             .help("Keep the temporary credential and submit provisioning again on the next VM start")
             Button("Setup Complete") {
-                runtimeState.confirmMacGuestProvisioningCompleted()
+                provisioningConfirmationUsername = username
             }
             .buttonStyle(.borderedProminent)
             .help("Remove the temporary provisioning credential after verifying the account in the guest")

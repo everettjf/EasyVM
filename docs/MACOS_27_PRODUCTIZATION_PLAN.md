@@ -34,7 +34,10 @@ credential after `VZVirtualMachine.start` succeeds because the framework does
 not expose a guest-provisioning completion callback. The VM window reports
 that setup is being applied and asks the user to confirm only after they can
 sign in; credential deletion is explicit, fallible, and reflected in runtime
-state. The creation review now previews the account identity, automatic login,
+state. The final action presents a destructive confirmation that names the
+account, explains that the Keychain deletion is permanent, and defaults to
+keeping the password so an accidental click cannot destroy the only recovery
+credential. The creation review now previews the account identity, automatic login,
 Remote Login, and temporary Keychain lifetime without rendering the password;
 opting out explicitly states that macOS Setup Assistant remains manual. Each
 Keychain payload now carries a stable attempt identifier and a
