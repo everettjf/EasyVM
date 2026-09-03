@@ -702,7 +702,9 @@ grapheme cluster. Import and portability tests use the same normalization, so a
 moved or imported machine does not silently diverge from a newly created one.
 Every signed release guest smoke now also requires the normalized label on the
 actual configuration immediately before startup. The three-guest matrix will
-therefore fail if a future macOS or Linux runtime path silently drops it.
+therefore fail if a future macOS or Linux runtime path silently drops it, and
+the retained matrix report records `configuration_label` so that this gate is
+visible in durable release evidence rather than only in terminal output.
 
 `VZUSBController.Delegate` is installed only after Accessory Access listener
 registration succeeds and is cleared during teardown. Controller disconnects

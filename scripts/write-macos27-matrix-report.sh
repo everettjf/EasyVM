@@ -33,6 +33,7 @@ generated="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ruby -rjson -e '
   checks = %w[
     gatekeeper signature entitlement_allowlist gui_launch cli_json concurrent_vms
+    configuration_label
     sigkill_restart efi_recovery macos_saved_state omarchy_guest_agent
     omarchy_virgl ubuntu_guest_agent ubuntu_virgl ubuntu_asif vmnet_shared
     vmnet_guest_ipv4 vmnet_fresh_process_reacquisition asif_snapshot_cross_process_restore
