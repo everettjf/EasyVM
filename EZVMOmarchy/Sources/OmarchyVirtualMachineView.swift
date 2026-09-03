@@ -614,6 +614,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             let machine = VZVirtualMachine(configuration: configuration)
             machine.delegate = context.coordinator
             context.coordinator.machine = machine
+            OmarchyApplicationTerminationController.shared.register(machine)
             context.coordinator.beginObservingCommands()
             view.virtualMachine = machine
             context.coordinator.installKeyboardBridge(for: view)
@@ -764,18 +765,26 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             keyboardBridge?.stop()
             keyboardBridge = nil
             stopIntegration()
-            guard let machine, machine.canStop else { return }
-            machine.stop { _ in }
+            guard let machine else { return }
+            Task { @MainActor in
+                OmarchyApplicationTerminationController.shared.stopForViewTeardown(machine)
+            }
             self.machine = nil
         }
 
         func guestDidStop(_ virtualMachine: VZVirtualMachine) {
+            Task { @MainActor in
+                OmarchyApplicationTerminationController.shared.machineDidStop(virtualMachine)
+            }
             stopIntegration()
             machine = nil
             phaseChanged(.stopped)
         }
 
         func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
+            Task { @MainActor in
+                OmarchyApplicationTerminationController.shared.machineDidStop(virtualMachine)
+            }
             stopIntegration()
             phaseChanged(.failed(error.localizedDescription))
         }

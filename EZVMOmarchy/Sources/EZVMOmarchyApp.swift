@@ -5,6 +5,7 @@ import Virtualization
 
 @main
 struct EZVMOmarchyApp: App {
+    @NSApplicationDelegateAdaptor(OmarchyApplicationDelegate.self) private var applicationDelegate
     private let workspaceManager: VMOmarchyWorkspaceManager
 
     init() {
