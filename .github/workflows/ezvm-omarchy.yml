@@ -19,6 +19,7 @@ on:
       - "scripts/test-omarchy-guest-overlay-package.sh"
       - "scripts/build-omarchy-release.sh"
       - "scripts/verify-omarchy-release-app.sh"
+      - "scripts/verify-omarchy-release-gui.sh"
       - "scripts/test-omarchy-release-gates.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   pull_request:
@@ -36,6 +37,7 @@ on:
       - "scripts/test-omarchy-guest-overlay-package.sh"
       - "scripts/build-omarchy-release.sh"
       - "scripts/verify-omarchy-release-app.sh"
+      - "scripts/verify-omarchy-release-gui.sh"
       - "scripts/test-omarchy-release-gates.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   workflow_dispatch:

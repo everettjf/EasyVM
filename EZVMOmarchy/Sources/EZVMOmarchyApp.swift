@@ -23,6 +23,7 @@ struct EZVMOmarchyApp: App {
         WindowGroup("EZVM Omarchy") {
             OmarchyRootView(profile: .production, workspaceManager: workspaceManager)
                 .frame(minWidth: 820, minHeight: 600)
+                .onAppear { OmarchyReleaseReadinessReporter.reportWhenReady() }
         }
         .defaultSize(width: 1100, height: 760)
         .windowResizability(.contentMinSize)
