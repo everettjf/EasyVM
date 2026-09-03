@@ -8,6 +8,8 @@ version=${2:-}
 evidence=${3:-}
 factory_manifest=${4:-}
 factory_image=${5:-}
+integration_observation=${6:-}
+lifecycle_observation=${7:-}
 release_branch=${EZVM_OMARCHY_RELEASE_BRANCH:-main}
 
 fail() { echo "publish-omarchy-release: $*" >&2; exit "${2:-1}"; }
@@ -15,12 +17,13 @@ require_environment() { [[ -n ${!1:-} ]] || fail "required environment variable 
 require_command() { command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1" 69; }
 
 [[ $mode == prepare || $mode == publish ]] || \
-  fail "usage: $0 prepare <version> | publish <version> <acceptance-evidence.json> <factory-manifest.json> <factory-image.asif>" 64
+  fail "usage: $0 prepare <version> | publish <version> <acceptance-evidence.json> <factory-manifest.json> <factory-image.asif> <integration-readiness.json> <integration-lifecycle.json>" 64
 [[ -n $version ]] || fail "release version is required" 64
 version=${version#v}
 [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || fail "invalid version: $version" 64
 if [[ $mode == publish ]]; then
-  for path in "$evidence" "$factory_manifest" "$factory_image"; do
+  for path in "$evidence" "$factory_manifest" "$factory_image" \
+    "$integration_observation" "$lifecycle_observation"; do
     [[ -f $path && ! -L $path ]] || fail "required release input is missing or unsafe: ${path:-<empty>}" 66
   done
 fi
@@ -85,7 +88,8 @@ if [[ $mode == prepare ]]; then
 fi
 
 "$project_root/scripts/verify-omarchy-release-evidence.sh" \
-  "$evidence" "$archive" "$factory_manifest" "$factory_image" "$source_revision"
+  "$evidence" "$archive" "$factory_manifest" "$factory_image" "$source_revision" \
+  "$integration_observation" "$lifecycle_observation"
 
 # No public ref or release is mutated before notarization, Gatekeeper, GUI, and
 # exact-artifact real-guest evidence all pass.

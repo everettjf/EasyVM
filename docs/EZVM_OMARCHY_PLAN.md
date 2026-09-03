@@ -655,10 +655,14 @@ machine-enforced boundary; CI tests its positive and tamper-rejection paths.
 `scripts/publish-omarchy-release.sh prepare <version>` creates, signs, notarizes,
 and Gatekeeper-tests one immutable candidate in a versioned state directory.
 Real-guest acceptance runs against that exact ZIP. A later
-`publish <version> <evidence> <manifest> <image>` invocation reuses the same
-checksum-verified bytes, validates the bound evidence, and only then pushes the
-release branch/tag and creates the GitHub release. Omarchy Edition tags use the
-separate `ezvm-omarchy-v<version>` namespace.
+`publish <version> <evidence> <manifest> <image> <integration-observation>
+<lifecycle-observation>` invocation reuses the same checksum-verified bytes,
+validates the bound evidence, and only then pushes the release branch/tag and
+creates the GitHub release. The schema-2 release record contains SHA-256 digests
+of both structured observations. Promotion therefore fails if either the live
+clipboard/display/shared-folder result or the lock-to-active recovery result is
+missing, stale, version-mismatched, or changed after acceptance. Omarchy Edition
+tags use the separate `ezvm-omarchy-v<version>` namespace.
 
 Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
 schema-4 `Diagnostics/integration-readiness.json` observation after the authenticated
@@ -720,8 +724,10 @@ real automation defects that capability-only tests could not see: a literal
 `(nonce)` path caused by missing Swift interpolation, a locked desktop being
 reported as active, and libinput dropping an unrealistically fast burst of
 batched character transitions. The acceptance path now uses a random directory,
-an explicit test-only unlock input when requested, complete per-character evdev
-reports with pacing, and a bounded SPICE propagation window.
+waits until owner provisioning is complete and the desktop is active before
+starting desktop probes, uses complete per-character evdev reports with pacing,
+and applies a bounded SPICE propagation window. Lock recovery is recorded
+independently so a first-run TTY cannot be mistaken for a locked desktop.
 
 The final schema-3 observation passed the strict validator and recorded:
 
