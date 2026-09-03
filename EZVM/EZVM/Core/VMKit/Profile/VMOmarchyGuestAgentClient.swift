@@ -1,6 +1,30 @@
 import Darwin
+import CryptoKit
 import Foundation
 import Virtualization
+
+public struct VMOmarchySharedFolderRoundTrip: Codable, Equatable, Sendable {
+    public let observedAt: Date
+    public let hostToGuestSHA256: String
+    public let guestToHostSHA256: String
+
+    public init(
+        observedAt: Date,
+        hostToGuestSHA256: String,
+        guestToHostSHA256: String
+    ) {
+        self.observedAt = observedAt
+        self.hostToGuestSHA256 = hostToGuestSHA256
+        self.guestToHostSHA256 = guestToHostSHA256
+    }
+}
+
+public enum VMOmarchySharedFolderProbeState: Equatable, Sendable {
+    case notRun
+    case running
+    case passed(VMOmarchySharedFolderRoundTrip)
+    case failed(String)
+}
 
 public struct VMOmarchyGuestStatus: Equatable, Sendable {
     public let agentVersion: String
@@ -63,6 +87,12 @@ public enum VMOmarchyIntegrationState: Equatable, Sendable {
 
 @MainActor
 public final class VMOmarchyGuestAgentClient {
+    private struct PendingRequest {
+        let operation: VMGuestAgentOperation
+        let continuation: CheckedContinuation<Data, Error>
+        let timeout: Task<Void, Never>
+    }
+
     private let device: VZVirtioSocketDevice
     private let enrollment: VMGuestAgentEnrollment
     private let stateChanged: (VMOmarchyIntegrationState) -> Void
@@ -77,6 +107,8 @@ public final class VMOmarchyGuestAgentClient {
     private var heartbeatTimer: Timer?
     private var lastResponseAt = Date.distantPast
     private var stopped = false
+    private var capabilities: Set<String> = []
+    private var pendingRequests: [String: PendingRequest] = [:]
 
     public init(
         device: VZVirtioSocketDevice,
@@ -106,10 +138,65 @@ public final class VMOmarchyGuestAgentClient {
         closeConnection()
         connection = nil
         sessionID = nil
+        capabilities.removeAll()
+        failPendingRequests(CancellationError())
     }
 
     public func requestShutdown() { send(.shutdown) }
     public func requestRestart() { send(.restart) }
+
+    /// Proves both directions of the live VirtioFS mount without requiring SSH.
+    /// The probe uses authenticated file-transfer requests and removes its
+    /// random marker files before returning.
+    public func verifySharedFolderRoundTrip(
+        hostDirectory: URL,
+        guestDirectory: String = "/mnt/ezvm-shared"
+    ) async throws -> VMOmarchySharedFolderRoundTrip {
+        guard capabilities.contains("shared-folders-v1"),
+              capabilities.contains("file-transfer-v1") else {
+            throw CocoaError(.featureUnsupported)
+        }
+        let nonce = UUID().uuidString.lowercased()
+        let hostName = ".ezvm-acceptance-host-\(nonce).marker"
+        let guestName = ".ezvm-acceptance-guest-\(nonce).marker"
+        let hostURL = hostDirectory.appending(path: hostName)
+        let guestURL = hostDirectory.appending(path: guestName)
+        let hostData = Data("ezvm-host-to-guest:\(nonce)".utf8)
+        let guestData = Data("ezvm-guest-to-host:\(nonce)".utf8)
+        defer {
+            try? FileManager.default.removeItem(at: hostURL)
+            try? FileManager.default.removeItem(at: guestURL)
+        }
+        try FileManager.default.createDirectory(at: hostDirectory, withIntermediateDirectories: true)
+        try hostData.write(to: hostURL, options: [.atomic])
+
+        let downloaded = try await downloadData(
+            guestPath: "\(guestDirectory)/\(hostName)"
+        )
+        guard downloaded == hostData else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        try await uploadData(
+            guestData,
+            guestPath: "\(guestDirectory)/\(guestName)"
+        )
+
+        let deadline = ContinuousClock.now + .seconds(5)
+        var returned: Data?
+        repeat {
+            returned = try? Data(contentsOf: guestURL)
+            if returned == guestData { break }
+            try await Task.sleep(for: .milliseconds(50))
+        } while ContinuousClock.now < deadline
+        guard returned == guestData else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return VMOmarchySharedFolderRoundTrip(
+            observedAt: Date(),
+            hostToGuestSHA256: Self.sha256(hostData),
+            guestToHostSHA256: Self.sha256(guestData)
+        )
+    }
 
     private func connect() {
         guard !stopped else { return }
@@ -221,20 +308,34 @@ public final class VMOmarchyGuestAgentClient {
     }
 
     private func received(_ envelope: VMGuestAgentEnvelope, generation: UInt64) {
-        guard !stopped, self.generation == generation,
-              envelope.operation == .status || envelope.operation == .heartbeat,
-              let status = try? JSONDecoder().decode(VMGuestAgentStatus.self, from: envelope.payload)
-        else { return }
+        guard !stopped, self.generation == generation else { return }
         lastResponseAt = Date()
-        stateChanged(.ready(VMOmarchyGuestStatus(
-            agentVersion: status.agentVersion,
-            omarchyRevision: status.omarchyRevision,
-            hostName: status.hostName,
-            addresses: status.addresses,
-            capabilities: Set(status.capabilities ?? []),
-            desktopSessionActive: status.desktopSessionActive ?? false,
-            provisioningPending: status.provisioningPending ?? false
-        )))
+        if envelope.operation == .status || envelope.operation == .heartbeat {
+            guard let status = try? JSONDecoder().decode(
+                VMGuestAgentStatus.self, from: envelope.payload
+            ) else {
+                disconnected("The Guest Agent returned invalid status.", generation: generation)
+                return
+            }
+            capabilities = Set(status.capabilities ?? [])
+            stateChanged(.ready(VMOmarchyGuestStatus(
+                agentVersion: status.agentVersion,
+                omarchyRevision: status.omarchyRevision,
+                hostName: status.hostName,
+                addresses: status.addresses,
+                capabilities: capabilities,
+                desktopSessionActive: status.desktopSessionActive ?? false,
+                provisioningPending: status.provisioningPending ?? false
+            )))
+            return
+        }
+        guard let pending = pendingRequests.removeValue(forKey: envelope.requestID) else { return }
+        pending.timeout.cancel()
+        guard pending.operation == envelope.operation else {
+            pending.continuation.resume(throwing: CocoaError(.fileReadCorruptFile))
+            return
+        }
+        pending.continuation.resume(returning: envelope.payload)
     }
 
     private func send(_ operation: VMGuestAgentOperation) {
@@ -263,6 +364,185 @@ public final class VMOmarchyGuestAgentClient {
         }
     }
 
+    private func request<Value: Encodable, Response: Decodable>(
+        _ operation: VMGuestAgentOperation,
+        payload value: Value
+    ) async throws -> Response {
+        guard let sessionID else { throw CocoaError(.fileNoSuchFile) }
+        let payload = try JSONEncoder().encode(value)
+        let requestID = UUID().uuidString
+        let response: Data = try await withCheckedThrowingContinuation { continuation in
+            let timeout = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled else { return }
+                self?.expireRequest(requestID)
+            }
+            pendingRequests[requestID] = PendingRequest(
+                operation: operation,
+                continuation: continuation,
+                timeout: timeout
+            )
+            do {
+                try sendEnvelope(
+                    operation: operation,
+                    requestID: requestID,
+                    payload: payload,
+                    sessionID: sessionID
+                )
+            } catch {
+                timeout.cancel()
+                pendingRequests.removeValue(forKey: requestID)
+                continuation.resume(throwing: error)
+            }
+        }
+        return try JSONDecoder().decode(Response.self, from: response)
+    }
+
+    private func sendEnvelope(
+        operation: VMGuestAgentOperation,
+        requestID: String,
+        payload: Data,
+        sessionID: String
+    ) throws {
+        guard let connection else { throw CocoaError(.fileNoSuchFile) }
+        writeLock.lock()
+        defer { writeLock.unlock() }
+        sendSequence &+= 1
+        let authenticator = try VMGuestAgentAuthenticator(
+            tokenData: enrollment.token,
+            machineID: enrollment.machineID
+        )
+        let envelope = try authenticator.makeEnvelope(
+            sessionID: sessionID,
+            sequence: sendSequence,
+            requestID: requestID,
+            operation: operation,
+            payload: payload
+        )
+        try Self.writeAll(
+            descriptor: connection.fileDescriptor,
+            data: VMGuestAgentFrameCodec.encode(envelope)
+        )
+    }
+
+    private func downloadData(guestPath: String) async throws -> Data {
+        let transferID = UUID().uuidString
+        do {
+            var result: VMGuestAgentTransferResult = try await request(
+                .downloadInfo,
+                payload: VMGuestAgentDownloadInfoRequest(
+                    transferID: transferID,
+                    sourcePath: guestPath
+                )
+            )
+            try Self.requireSuccess(result)
+            guard let total = result.totalBytes,
+                  total <= UInt64(VMGuestAgentProtocol.fileChunkBytes),
+                  let expectedSHA256 = result.sha256 else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            var data = Data()
+            repeat {
+                result = try await request(
+                    .downloadChunk,
+                    payload: VMGuestAgentDownloadChunkRequest(
+                        transferID: transferID,
+                        offset: UInt64(data.count),
+                        length: VMGuestAgentProtocol.fileChunkBytes
+                    )
+                )
+                try Self.requireSuccess(result)
+                guard result.offset == UInt64(data.count), let chunk = result.data else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                data.append(chunk)
+                if result.eof == true { break }
+            } while data.count <= VMGuestAgentProtocol.fileChunkBytes
+            guard UInt64(data.count) == total, Self.sha256(data) == expectedSHA256 else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return data
+        } catch {
+            sendTransferCancel(transferID)
+            throw error
+        }
+    }
+
+    private func uploadData(_ data: Data, guestPath: String) async throws {
+        let transferID = UUID().uuidString
+        do {
+            var result: VMGuestAgentTransferResult = try await request(
+                .uploadStart,
+                payload: VMGuestAgentUploadStart(
+                    transferID: transferID,
+                    destinationPath: guestPath,
+                    totalBytes: UInt64(data.count),
+                    sha256: Self.sha256(data),
+                    overwrite: false
+                )
+            )
+            try Self.requireSuccess(result)
+            result = try await request(
+                .uploadChunk,
+                payload: VMGuestAgentUploadChunk(
+                    transferID: transferID,
+                    offset: 0,
+                    data: data
+                )
+            )
+            try Self.requireSuccess(result)
+            result = try await request(
+                .uploadCommit,
+                payload: VMGuestAgentTransferID(transferID: transferID)
+            )
+            try Self.requireSuccess(result)
+        } catch {
+            sendTransferCancel(transferID)
+            throw error
+        }
+    }
+
+    private func sendTransferCancel(_ transferID: String) {
+        guard let sessionID,
+              let payload = try? JSONEncoder().encode(
+                VMGuestAgentTransferID(transferID: transferID)
+              ) else { return }
+        try? sendEnvelope(
+            operation: .transferCancel,
+            requestID: UUID().uuidString,
+            payload: payload,
+            sessionID: sessionID
+        )
+    }
+
+    private static func requireSuccess(_ result: VMGuestAgentTransferResult) throws {
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMOmarchySharedFolderProbe",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+    }
+
+    private static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func expireRequest(_ requestID: String) {
+        guard let pending = pendingRequests.removeValue(forKey: requestID) else { return }
+        pending.continuation.resume(throwing: CocoaError(.fileReadUnknown))
+    }
+
+    private func failPendingRequests(_ error: Error) {
+        let requests = pendingRequests.values
+        pendingRequests.removeAll()
+        for request in requests {
+            request.timeout.cancel()
+            request.continuation.resume(throwing: error)
+        }
+    }
+
     private func heartbeatTick() {
         guard Date().timeIntervalSince(lastResponseAt) <= 30 else {
             disconnected("The Guest Agent stopped responding.", generation: generation)
@@ -277,6 +557,10 @@ public final class VMOmarchyGuestAgentClient {
             var offset = 0
             while offset < buffer.count {
                 let count = Darwin.write(descriptor, base.advanced(by: offset), buffer.count - offset)
+                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    usleep(10_000)
+                    continue
+                }
                 if count < 0 && errno == EINTR { continue }
                 if count <= 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
                 offset += count
@@ -289,6 +573,8 @@ public final class VMOmarchyGuestAgentClient {
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
         sessionID = nil
+        capabilities.removeAll()
+        failPendingRequests(CocoaError(.fileReadUnknown))
         closeConnection()
         connection = nil
         stateChanged(.disconnected(reason))

@@ -177,10 +177,15 @@ final class EZVMOmarchyTests: XCTestCase {
             requiredCapabilities: VMOmarchyProfile.production.requiredGuestCapabilities,
             factoryImageVersion: "factory-version",
             sourceRevision: "source-commit",
+            sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip(
+                observedAt: observedAt,
+                hostToGuestSHA256: String(repeating: "a", count: 64),
+                guestToHostSHA256: String(repeating: "b", count: 64)
+            ),
             observedAt: observedAt
         )
 
-        XCTAssertEqual(observation.schemaVersion, 1)
+        XCTAssertEqual(observation.schemaVersion, 2)
         XCTAssertEqual(observation.observedAt, observedAt)
         XCTAssertEqual(observation.sourceRevision, "source-commit")
         XCTAssertEqual(observation.factoryImageVersion, "factory-version")
@@ -193,6 +198,10 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertTrue(observation.clipboardTextCapabilityAdvertised)
         XCTAssertTrue(observation.clipboardImageCapabilityAdvertised)
         XCTAssertTrue(observation.dynamicDisplayCapabilityAdvertised)
+        XCTAssertTrue(observation.sharedFolderRoundTripPassed)
+        XCTAssertEqual(observation.sharedFolderRoundTripObservedAt, observedAt)
+        XCTAssertEqual(observation.hostToGuestSHA256, String(repeating: "a", count: 64))
+        XCTAssertEqual(observation.guestToHostSHA256, String(repeating: "b", count: 64))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         XCTAssertNoThrow(try decoder.decode(

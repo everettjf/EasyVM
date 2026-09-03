@@ -20,6 +20,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var importingFiles = false
     @State private var notice: UserNotice?
     @State private var recordedIntegrationSignature = ""
+    @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
 
     private var phase: Phase { lifecycle.phase }
 
@@ -31,6 +32,7 @@ struct OmarchyVirtualMachineView: View {
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
                 integrationChanged: handleIntegrationChange,
+                sharedFolderProbeChanged: handleSharedFolderProbeChange,
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
@@ -281,7 +283,8 @@ struct OmarchyVirtualMachineView: View {
         OmarchyAcceptanceObservationReporter.reportIfEnabled(
             status: status,
             requiredCapabilities: profile.requiredGuestCapabilities,
-            layout: layout
+            layout: layout,
+            sharedFolderRoundTrip: sharedFolderRoundTrip
         )
         let signature = ([status.omarchyRevision ?? "", status.agentVersion]
             + status.capabilities.sorted()).joined(separator: "\u{1f}")
@@ -299,6 +302,22 @@ struct OmarchyVirtualMachineView: View {
                 NSLog("Could not record Omarchy integration metadata: %@", error.localizedDescription)
             }
         }
+    }
+
+    private var sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip? {
+        guard case .passed(let result) = sharedFolderProbe else { return nil }
+        return result
+    }
+
+    private func handleSharedFolderProbeChange(_ state: VMOmarchySharedFolderProbeState) {
+        sharedFolderProbe = state
+        guard case .ready(let status) = integration else { return }
+        OmarchyAcceptanceObservationReporter.reportIfEnabled(
+            status: status,
+            requiredCapabilities: profile.requiredGuestCapabilities,
+            layout: layout,
+            sharedFolderRoundTrip: sharedFolderRoundTrip
+        )
     }
 
     private func chooseFilesToImport() {
@@ -596,6 +615,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let sessionID: UUID
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
     let integrationChanged: (VMOmarchyIntegrationState) -> Void
+    let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -603,6 +623,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             sessionID: sessionID,
             keyboardIntegrationChanged: keyboardIntegrationChanged,
             integrationChanged: integrationChanged,
+            sharedFolderProbeChanged: sharedFolderProbeChanged,
             phaseChanged: phaseChanged
         )
     }
@@ -653,22 +674,27 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let sessionID: UUID
         let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
         let integrationChanged: (VMOmarchyIntegrationState) -> Void
+        let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
         private var keyboardPermissionObserver: NSObjectProtocol?
         private var forceStopObserver: NSObjectProtocol?
         private var keyboardBridge: OmarchyFocusedCommandBridge?
         private var integrationClient: VMOmarchyGuestAgentClient?
+        private var sharedFolderProbeTask: Task<Void, Never>?
+        private var sharedFolderProbePassed = false
 
         init(
             sessionID: UUID,
             keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
             integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
+            sharedFolderProbeChanged: @escaping (VMOmarchySharedFolderProbeState) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
             self.keyboardIntegrationChanged = keyboardIntegrationChanged
             self.integrationChanged = integrationChanged
+            self.sharedFolderProbeChanged = sharedFolderProbeChanged
             self.phaseChanged = phaseChanged
         }
 
@@ -731,13 +757,40 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     let client = try VMOmarchyGuestAgentClient(
                         device: socket,
                         layout: layout,
-                        stateChanged: self.integrationChanged
+                        stateChanged: { [weak self] state in
+                            guard let self else { return }
+                            self.integrationChanged(state)
+                            if case .ready = state {
+                                self.startSharedFolderProbeIfNeeded(layout: layout)
+                            }
+                        }
                     )
                     self.integrationClient = client
                     client.start()
                 } catch {
                     self.integrationChanged(.disconnected(error.localizedDescription))
                 }
+            }
+        }
+
+        private func startSharedFolderProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
+            guard ProcessInfo.processInfo.environment[
+                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+            ] == "1", !sharedFolderProbePassed, sharedFolderProbeTask == nil,
+                  let integrationClient else { return }
+            sharedFolderProbeChanged(.running)
+            sharedFolderProbeTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    let result = try await integrationClient.verifySharedFolderRoundTrip(
+                        hostDirectory: layout.shared
+                    )
+                    self.sharedFolderProbePassed = true
+                    self.sharedFolderProbeChanged(.passed(result))
+                } catch {
+                    self.sharedFolderProbeChanged(.failed(error.localizedDescription))
+                }
+                self.sharedFolderProbeTask = nil
             }
         }
 
@@ -767,6 +820,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         func stopImmediately() {
+            sharedFolderProbeTask?.cancel()
+            sharedFolderProbeTask = nil
             keyboardBridge?.stop()
             keyboardBridge = nil
             stopIntegration()
@@ -795,6 +850,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         private func stopIntegration() {
+            sharedFolderProbeTask?.cancel()
+            sharedFolderProbeTask = nil
+            sharedFolderProbePassed = false
             let client = integrationClient
             integrationClient = nil
             Task { @MainActor in client?.stop() }

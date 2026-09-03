@@ -18,6 +18,10 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
     let clipboardTextCapabilityAdvertised: Bool
     let clipboardImageCapabilityAdvertised: Bool
     let dynamicDisplayCapabilityAdvertised: Bool
+    let sharedFolderRoundTripPassed: Bool
+    let sharedFolderRoundTripObservedAt: Date?
+    let hostToGuestSHA256: String?
+    let guestToHostSHA256: String?
 
     func encoded() throws -> Data {
         let encoder = JSONEncoder()
@@ -34,6 +38,7 @@ enum OmarchyAcceptanceObservationReporter {
         status: VMOmarchyGuestStatus,
         requiredCapabilities: [String],
         layout: VMOmarchyWorkspaceLayout,
+        sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip?,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         observedAt: Date = Date()
@@ -50,6 +55,7 @@ enum OmarchyAcceptanceObservationReporter {
             requiredCapabilities: requiredCapabilities,
             factoryImageVersion: metadata?.factoryImageVersion,
             sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
+            sharedFolderRoundTrip: sharedFolderRoundTrip,
             observedAt: observedAt
         )
         do {
@@ -68,11 +74,12 @@ enum OmarchyAcceptanceObservationReporter {
         requiredCapabilities: [String],
         factoryImageVersion: String?,
         sourceRevision: String,
+        sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip?,
         observedAt: Date
     ) -> OmarchyIntegrationObservation {
         let capabilities = status.capabilities
         return OmarchyIntegrationObservation(
-            schemaVersion: 1,
+            schemaVersion: 2,
             observedAt: observedAt,
             sourceRevision: sourceRevision,
             factoryImageVersion: factoryImageVersion,
@@ -87,7 +94,11 @@ enum OmarchyAcceptanceObservationReporter {
             sharedFolderCapabilityAdvertised: capabilities.contains("shared-folders-v1"),
             clipboardTextCapabilityAdvertised: capabilities.contains("clipboard-text-v1"),
             clipboardImageCapabilityAdvertised: capabilities.contains("clipboard-image-v1"),
-            dynamicDisplayCapabilityAdvertised: capabilities.contains("dynamic-display-v1")
+            dynamicDisplayCapabilityAdvertised: capabilities.contains("dynamic-display-v1"),
+            sharedFolderRoundTripPassed: sharedFolderRoundTrip != nil,
+            sharedFolderRoundTripObservedAt: sharedFolderRoundTrip?.observedAt,
+            hostToGuestSHA256: sharedFolderRoundTrip?.hostToGuestSHA256,
+            guestToHostSHA256: sharedFolderRoundTrip?.guestToHostSHA256
         )
     }
 }

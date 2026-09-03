@@ -661,12 +661,16 @@ release branch/tag and creates the GitHub release. Omarchy Edition tags use the
 separate `ezvm-omarchy-v<version>` namespace.
 
 Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
-`Diagnostics/integration-readiness.json` observation after the authenticated
+schema-2 `Diagnostics/integration-readiness.json` observation after the authenticated
 Guest Agent reports an active desktop, completed provisioning, and every
 profile-required capability. Capability booleans explicitly mean “advertised,”
 not “round trip proven.” The observation binds those live facts to the App
 source revision, factory-image version, Omarchy revision, and Guest Agent
-version. `scripts/verify-omarchy-integration-observation.sh` rejects stale,
+version. In acceptance mode the Host also writes a random marker through
+VirtioFS, downloads it through the authenticated Agent, uploads a different
+random marker through the Agent, and verifies it on the Host. The report records
+both content digests only after this bidirectional round trip passes.
+`scripts/verify-omarchy-integration-observation.sh` rejects stale,
 version-mismatched, incomplete, or internally inconsistent observations; its
 positive and tamper-rejection cases run in CI. This is machine evidence for the
 integration-ready checkpoint only. It deliberately does not claim that input,
