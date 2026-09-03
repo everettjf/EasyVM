@@ -35,3 +35,15 @@ func TestIntersectsInputDeviceSets(t *testing.T) {
 		t.Fatal("disjoint input devices were accepted")
 	}
 }
+
+func TestDesktopSessionRequiresCompositorWithoutActiveLocker(t *testing.T) {
+	if !desktopSessionInteractive([]string{"101"}, nil) {
+		t.Fatal("unlocked compositor was not reported as interactive")
+	}
+	if desktopSessionInteractive([]string{"101"}, []string{"202"}) {
+		t.Fatal("locked compositor was reported as interactive")
+	}
+	if desktopSessionInteractive(nil, nil) {
+		t.Fatal("missing compositor was reported as interactive")
+	}
+}

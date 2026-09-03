@@ -169,7 +169,13 @@ func desktopInputReady() bool {
 	return intersects(ezvmKeyboardEventDevices(), desktopCompositorInputDevices())
 }
 
-func desktopSessionActive() bool { return len(desktopCompositorPIDs()) > 0 }
+func desktopSessionActive() bool {
+	return desktopSessionInteractive(desktopCompositorPIDs(), desktopLockerPIDs())
+}
+
+func desktopSessionInteractive(compositorPIDs, lockerPIDs []string) bool {
+	return len(compositorPIDs) > 0 && len(lockerPIDs) == 0
+}
 
 var desktopCompositorNames = map[string]bool{
 	"gnome-shell":  true,
@@ -179,7 +185,19 @@ var desktopCompositorNames = map[string]bool{
 	"weston":       true,
 }
 
+var desktopLockerNames = map[string]bool{
+	"hyprlock": true,
+}
+
 func desktopCompositorPIDs() []string {
+	return desktopProcessPIDs(desktopCompositorNames)
+}
+
+func desktopLockerPIDs() []string {
+	return desktopProcessPIDs(desktopLockerNames)
+}
+
+func desktopProcessPIDs(names map[string]bool) []string {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil
@@ -194,7 +212,7 @@ func desktopCompositorPIDs() []string {
 			continue
 		}
 		name := strings.ToLower(readTrimmed("/proc/" + pid + "/comm"))
-		if desktopCompositorNames[name] {
+		if names[name] {
 			pids = append(pids, pid)
 		}
 	}
