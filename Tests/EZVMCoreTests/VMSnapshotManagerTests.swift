@@ -570,6 +570,35 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertTrue(VMSnapshotManager.auditSnapshot(vmRootPath: root, snapshot: branchPoint).isValid)
     }
 
+    func testASIFLayerPruningStopsWhenSnapshotMetadataIndexIsIncomplete() throws {
+        guard #available(macOS 27.0, *) else { return }
+        let root = temporaryRoot.appendingPathComponent("damaged-index", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let diskURL = try prepareLayeredASIFMachine(at: root)
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: root, name: "Valid snapshot")
+        )
+        XCTAssertNotNil(try VMSnapshotManager.layeredDiskImage(baseURL: diskURL, vmRootPath: root))
+
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: root)
+        let damagedID = UUID().uuidString
+        let damagedDirectory = snapshotsRoot.appendingPathComponent(damagedID, isDirectory: true)
+        try FileManager.default.createDirectory(at: damagedDirectory, withIntermediateDirectories: true)
+        try Data("not valid snapshot metadata".utf8)
+            .write(to: damagedDirectory.appendingPathComponent("snapshot.json"))
+
+        let layersRoot = snapshotsRoot.appendingPathComponent("Layers", isDirectory: true)
+        let preservedLayer = layersRoot.appendingPathComponent("possibly-referenced.asif")
+        try Data("preserve while index is damaged".utf8).write(to: preservedLayer)
+
+        try unwrapSuccess(VMSnapshotManager.deleteSnapshot(vmRootPath: root, snapshot: snapshot))
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: preservedLayer.path),
+            "No ASIF layer may be deleted while snapshot references are incomplete"
+        )
+    }
+
     func testInterruptedRestoreRollsBackOriginalBundleAndIsIdempotent() throws {
         try write("partially restored", to: "config.json")
         let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)

@@ -1126,6 +1126,13 @@ class VMSnapshotManager {
         guard let layerNames = try? FileManager.default.contentsOfDirectory(atPath: layersRoot.path(percentEncoded: false)) else {
             return
         }
+        guard snapshotMetadataIndexIsComplete(vmRootPath: vmRootPath) else {
+            // A metadata record that cannot be decoded may still be the only
+            // durable reference to an ASIF layer. Preserve every layer until
+            // the snapshot index can be repaired instead of guessing which
+            // files are safe to destroy.
+            return
+        }
         var referenced = Set(readState(vmRootPath: vmRootPath).activeDiskLayers.values.flatMap { $0 })
         for snapshot in listSnapshots(vmRootPath: vmRootPath) {
             referenced.formUnion(snapshot.diskLayers.flatMap(\.layerPaths))
@@ -1137,6 +1144,24 @@ class VMSnapshotManager {
                 try? FileManager.default.removeItem(at: url)
             }
         }
+    }
+
+    private static func snapshotMetadataIndexIsComplete(vmRootPath: URL) -> Bool {
+        let rootURL = snapshotsRootURL(vmRootPath: vmRootPath)
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            atPath: rootURL.path(percentEncoded: false)
+        ) else {
+            return false
+        }
+        for id in entries where UUID(uuidString: id) != nil {
+            let metadataURL = snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: id)
+            guard let data = try? Data(contentsOf: metadataURL),
+                  let snapshot = try? jsonDecoder().decode(VMSnapshotModel.self, from: data),
+                  snapshot.id == id else {
+                return false
+            }
+        }
+        return true
     }
 
     private static func relativePathForPruning(_ url: URL, under root: URL) -> String {
