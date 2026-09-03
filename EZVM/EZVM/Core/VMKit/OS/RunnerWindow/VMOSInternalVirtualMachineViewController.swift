@@ -1220,13 +1220,13 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     func discoverUSBAccessories() {
         guard VMHostCapability.accessoryAccess.isGranted else {
             runtimeState?.updateUSBPassthrough(.unavailable(
-                "This build does not include the Accessory Access entitlement required for USB passthrough."
+                String(localized: "This build does not include the Accessory Access entitlement required for USB passthrough.")
             ))
             return
         }
         guard virtualMachine != nil, !virtualMachine.usbControllers.isEmpty else {
             runtimeState?.updateUSBPassthrough(.unavailable(
-                "This virtual machine has no USB controller. Stop it and verify its configuration before trying again."
+                String(localized: "This virtual machine has no USB controller. Stop it and verify its configuration before trying again.")
             ))
             return
         }
@@ -1864,7 +1864,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     guard self.listenerLifecycle.failRegistration(token: registrationToken) else { return }
                     let guidance = VMUSBFailureGuidance.message(
                         for: Self.failureKind(error),
-                        fallback: "Accessory Access failed: \(error.localizedDescription)"
+                        fallback: String(localized: "Accessory Access failed: \(error.localizedDescription)")
                     )
                     EZVMLog.error(
                         "Accessory Access registration failed: \(VMDiagnosticSanitizer.errorIdentifier(error))",
@@ -2123,7 +2123,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             if disposition == .attachInterrupted {
                 self.notice = .attachFailed(
                     deviceTitle: deviceTitle,
-                    detail: "The accessory disconnected before the connection finished. Reconnect it to the Mac and approve it for EZVM again."
+                    detail: String(localized: "The accessory disconnected before the connection finished. Reconnect it to the Mac and approve it for EZVM again.")
                 )
             } else if disposition == .unexpected {
                 self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
@@ -2156,7 +2156,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             if disposition == .attachInterrupted {
                 self.notice = .attachFailed(
                     deviceTitle: deviceTitle,
-                    detail: "The virtual USB controller disconnected the accessory before the connection finished. Reconnect it and try again."
+                    detail: String(localized: "The virtual USB controller disconnected the accessory before the connection finished. Reconnect it and try again.")
                 )
                 EZVMLog.info(
                     "A USB passthrough attachment was interrupted by the virtual controller.",

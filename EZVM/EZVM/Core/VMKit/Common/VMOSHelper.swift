@@ -310,21 +310,21 @@ enum VMUSBFailureGuidance {
     static func message(for kind: VMUSBFailureKind, fallback: String) -> String {
         switch kind {
         case .listenerAlreadyRegistered:
-            "Accessory Access is already active in another EZVM virtual machine window. Close that virtual machine or release its USB accessories, then try again."
+            String(localized: "Accessory Access is already active in another EZVM virtual machine window. Close that virtual machine or release its USB accessories, then try again.")
         case .accessoryNotAccessible:
-            "This accessory is being used by macOS or another app. Release it from the accessory menu, then choose it for EZVM again."
+            String(localized: "This accessory is being used by macOS or another app. Release it from the accessory menu, then choose it for EZVM again.")
         case .invalidAccessoryState:
-            "This accessory is no longer in a state that can be attached. Disconnect it from the Mac, reconnect it, and approve it for EZVM again."
+            String(localized: "This accessory is no longer in a state that can be attached. Disconnect it from the Mac, reconnect it, and approve it for EZVM again.")
         case .controllerNotFound:
-            "The running virtual machine no longer has an available USB controller. Restart the virtual machine and try again."
+            String(localized: "The running virtual machine no longer has an available USB controller. Restart the virtual machine and try again.")
         case .deviceAlreadyAttached:
-            "The USB device is already attached. Wait for the device list to refresh before trying another action."
+            String(localized: "The USB device is already attached. Wait for the device list to refresh before trying another action.")
         case .deviceInitializationFailure:
-            "The guest could not initialize this USB device. Safely reconnect the device and try again; this device class may not support passthrough."
+            String(localized: "The guest could not initialize this USB device. Safely reconnect the device and try again; this device class may not support passthrough.")
         case .deviceNotFound:
-            "The USB device is no longer connected to this virtual machine. Reconnect it to the Mac and approve it for EZVM again."
+            String(localized: "The USB device is no longer connected to this virtual machine. Reconnect it to the Mac and approve it for EZVM again.")
         case .internalFailure:
-            "Accessory Access could not complete the operation. Try again; if it repeats, restart EZVM and reconnect the accessory."
+            String(localized: "Accessory Access could not complete the operation. Try again; if it repeats, restart EZVM and reconnect the accessory.")
         case .other:
             fallback
         }
@@ -343,11 +343,11 @@ enum VMUSBPassthroughNotice: Equatable {
     var message: String {
         switch self {
         case .unexpectedDisconnect(let deviceTitle):
-            "\(deviceTitle) was disconnected from the virtual machine."
+            String(localized: "\(deviceTitle) was disconnected from the virtual machine.")
         case .attachFailed(let deviceTitle, let detail):
-            "Could not connect \(deviceTitle). \(detail)"
+            String(localized: "Could not connect \(deviceTitle). \(detail)")
         case .detachFailed(let deviceTitle, let detail):
-            "Could not disconnect \(deviceTitle). It may still be attached, so machine-state saving remains unavailable. \(detail)"
+            String(localized: "Could not disconnect \(deviceTitle). It may still be attached, so machine-state saving remains unavailable. \(detail)")
         }
     }
 }
@@ -378,8 +378,8 @@ enum VMUSBPassthroughState: Equatable {
 
     var menuTitle: String {
         guard case let .ready(snapshot) = self,
-              !snapshot.attachedRegistryIDs.isEmpty else { return "USB" }
-        return "USB (\(snapshot.attachedRegistryIDs.count))"
+              !snapshot.attachedRegistryIDs.isEmpty else { return String(localized: "USB") }
+        return String(localized: "USB (\(snapshot.attachedRegistryIDs.count))")
     }
 
     var menuSystemImage: String {
@@ -395,15 +395,15 @@ enum VMUSBPassthroughState: Equatable {
 
     var menuHelp: String {
         switch self {
-        case .idle: "Choose USB accessories to attach directly to this virtual machine"
-        case .discovering: "Waiting for Accessory Access"
+        case .idle: String(localized: "Choose USB accessories to attach directly to this virtual machine")
+        case .discovering: String(localized: "Waiting for Accessory Access")
         case .ready(let snapshot) where !snapshot.attachedRegistryIDs.isEmpty:
             if snapshot.attachedRegistryIDs.count == 1 {
-                "1 USB accessory is connected to this virtual machine"
+                String(localized: "1 USB accessory is connected to this virtual machine")
             } else {
-                "\(snapshot.attachedRegistryIDs.count) USB accessories are connected to this virtual machine"
+                String(localized: "\(snapshot.attachedRegistryIDs.count) USB accessories are connected to this virtual machine")
             }
-        case .ready: "Choose USB accessories to attach directly to this virtual machine"
+        case .ready: String(localized: "Choose USB accessories to attach directly to this virtual machine")
         case .unavailable(let message), .failed(let message): message
         }
     }
@@ -411,22 +411,24 @@ enum VMUSBPassthroughState: Equatable {
     var accessibilityValue: String {
         switch self {
         case .idle:
-            return "Not configured"
+            return String(localized: "Not configured")
         case .discovering:
-            return "Waiting for Accessory Access"
+            return String(localized: "Waiting for Accessory Access")
         case .ready(let snapshot) where !snapshot.attachedRegistryIDs.isEmpty:
             let count = snapshot.attachedRegistryIDs.count
-            return count == 1 ? "1 accessory connected" : "\(count) accessories connected"
+            return count == 1
+                ? String(localized: "1 accessory connected")
+                : String(localized: "\(count) accessories connected")
         case .ready(let snapshot) where snapshot.devices.isEmpty:
-            return "No approved accessories connected"
+            return String(localized: "No approved accessories connected")
         case .ready(let snapshot):
             return snapshot.devices.count == 1
-                ? "1 accessory available, none connected"
-                : "\(snapshot.devices.count) accessories available, none connected"
+                ? String(localized: "1 accessory available, none connected")
+                : String(localized: "\(snapshot.devices.count) accessories available, none connected")
         case .unavailable(let message):
-            return "Unavailable. \(message)"
+            return String(localized: "Unavailable. \(message)")
         case .failed(let message):
-            return "Needs attention. \(message)"
+            return String(localized: "Needs attention. \(message)")
         }
     }
 }
@@ -1060,10 +1062,10 @@ enum VMMachineStateSupport {
             return "Custom VirGL state cannot be saved."
         }
         if usbOperationInProgress {
-            return "Wait for the USB connection or disconnection to finish before saving machine state."
+            return String(localized: "Wait for the USB connection or disconnection to finish before saving machine state.")
         }
         if attachedAccessoryCount > 0 {
-            return "Disconnect USB accessories before saving machine state."
+            return String(localized: "Disconnect USB accessories before saving machine state.")
         }
         if let configurationValidationFailure, !configurationValidationFailure.isEmpty {
             return "This virtual machine configuration cannot save state: \(configurationValidationFailure)"
