@@ -408,6 +408,52 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertTrue(tokens.isEmpty)
     }
 
+    func testConsoleLogoutBatchDisconnectAndDuplicateDelegateCallbacksConverge() {
+        var attached: Set<UInt64> = [17, 42]
+        var operations: [UInt64: VMUSBDeviceOperation] = [17: .attaching, 42: .detaching]
+        var tokens: [UInt64: UUID] = [17: UUID(), 42: UUID()]
+
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 17,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .unexpected
+        )
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 42,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .explicitDetach
+        )
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 17,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .ignored
+        )
+        XCTAssertEqual(
+            VMUSBControllerSupport.reconcileDisconnect(
+                registryID: 42,
+                attachedRegistryIDs: &attached,
+                operations: &operations,
+                operationTokens: &tokens
+            ),
+            .ignored
+        )
+        XCTAssertTrue(attached.isEmpty)
+        XCTAssertTrue(operations.isEmpty)
+        XCTAssertTrue(tokens.isEmpty)
+    }
+
     func testUSBFailureSnapshotRetainsAttachedDevicesAndBlocksMachineState() {
         let device = VMUSBDeviceDescriptorSummary(
             registryID: 17,

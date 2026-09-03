@@ -1783,7 +1783,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             if disposition == .unexpected {
                 self.notice = .unexpectedDisconnect(deviceTitle: deviceTitle)
                 EZVMLog.info(
-                    "USB passthrough device disconnected unexpectedly (registry ID: \(registryID)).",
+                    "A USB passthrough device disconnected unexpectedly.",
                     logger: EZVMLog.lifecycle
                 )
             }

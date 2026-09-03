@@ -132,6 +132,8 @@ permission problems explain how to recover.
 - Two devices attached and detached in both orders.
 - Permission denial/revocation, host sleep/wake, guest reboot, VM stop, and app
   force-quit.
+- Fast user switching or console logout with two attached devices, followed by
+  returning to the console session and explicitly reconnecting them.
 - Ubuntu, Omarchy, and macOS guests where the device class is supported.
 
 ## 3. VMNet advanced networking
