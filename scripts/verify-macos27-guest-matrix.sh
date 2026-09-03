@@ -42,6 +42,7 @@ validate_fixture "$omarchy_vm" linux omarchy
 validate_fixture "$ubuntu_vm" linux ubuntu
 
 "$project_root/scripts/verify-release-app.sh" "$app_path" "$expected_version"
+"$project_root/scripts/verify-real-low-space-snapshot.sh"
 
 for fixture in "$macos_vm" "$omarchy_vm" "$ubuntu_vm"; do
   "$project_root/scripts/verify-release-cli.sh" "$app_path" "$fixture"

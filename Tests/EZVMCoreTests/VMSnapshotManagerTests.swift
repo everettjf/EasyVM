@@ -4,6 +4,7 @@ import XCTest
 @testable import EZVMCore
 
 final class VMSnapshotManagerTests: XCTestCase {
+    private static let realLowSpaceRootEnvironmentKey = "EZVM_REAL_LOW_SPACE_VOLUME"
     private var temporaryRoot: URL!
 
     override func setUpWithError() throws {
@@ -16,6 +17,39 @@ final class VMSnapshotManagerTests: XCTestCase {
         if let temporaryRoot {
             try? FileManager.default.removeItem(at: temporaryRoot)
         }
+    }
+
+    func testRealNearlyFullVolumeRejectsSnapshotBeforeMutation() throws {
+        guard let volumePath = ProcessInfo.processInfo.environment[Self.realLowSpaceRootEnvironmentKey],
+              !volumePath.isEmpty else {
+            throw XCTSkip("Set \(Self.realLowSpaceRootEnvironmentKey) to run the isolated APFS capacity gate.")
+        }
+        let volume = URL(filePath: volumePath).standardizedFileURL
+        let machine = volume.appendingPathComponent("NearFull.ezvm", isDirectory: true)
+        try FileManager.default.createDirectory(at: machine, withIntermediateDirectories: true)
+        let disk = machine.appendingPathComponent("Disk.img")
+        let original = Data(repeating: 0x5a, count: 8 * 1024 * 1024)
+        try original.write(to: disk, options: .atomic)
+
+        let available = try XCTUnwrap(VMStorageCapacity.availableBytes(at: machine))
+        XCTAssertLessThan(
+            available,
+            1_073_741_824 + Int64(original.count),
+            "The isolated volume is not full enough to exercise the real capacity failure."
+        )
+        let result = VMSnapshotManager.createSnapshot(
+            vmRootPath: machine,
+            name: "Must not be created"
+        )
+        guard case .failure(let message) = result else {
+            return XCTFail("Expected the real-volume capacity preflight to reject the snapshot")
+        }
+        XCTAssertTrue(message.contains("available"), message)
+        XCTAssertEqual(try Data(contentsOf: disk), original)
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: machine).isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: VMSnapshotManager.snapshotsRootURL(vmRootPath: machine).path
+        ))
     }
 
     func testCreateListRenameRestoreAndDeleteSnapshot() throws {

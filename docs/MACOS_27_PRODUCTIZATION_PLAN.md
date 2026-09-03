@@ -312,9 +312,13 @@ restores the machine into a new bundle while preserving its identity, and then
 boots and cleanly stops that imported guest. Temporary source, export, and
 import bundles are removed after the gate, including on failure.
 
-Low-space runs on larger real ASIF images and a genuinely nearly-full volume, a
-full host-restart exercise, and representative long-running performance
-measurements remain promotion gates for moving the feature out of Beta.
+An isolated APFS disk-image gate now fills a disposable 1.1 GB volume with 800
+MB of real data, then invokes the production snapshot path without a capacity
+override. It proves the filesystem-reported capacity is honored before any
+snapshot directory is created and that the source disk remains byte-identical.
+Low-space runs on larger real ASIF images, a full host-restart exercise, and
+representative long-running performance measurements remain promotion gates
+for moving the feature out of Beta.
 
 The snapshot sheet now distinguishes working, successful, warning, and failed
 outcomes with accessible system symbols and semantic colors. Diagnostic text
@@ -450,9 +454,10 @@ cross-process saved-state restore, VirGL and Guest Agent operation on both
 Linux guests, VMNet Shared transfer and fresh-process reacquisition, and ASIF
 snapshot creation, cross-process audit, restore, reboot, and clean stop.
 
-The next signed matrix additionally performs ASIF export, validation in an
-independent app process, restore import with machine-identity preservation, and
-an imported-guest boot and clean stop. This gate is implemented but must be
+The next signed matrix additionally performs the isolated real-volume low-space
+gate plus ASIF export, validation in an independent app process, restore import
+with machine-identity preservation, and an imported-guest boot and clean stop.
+These gates are implemented but must be
 rerun once the Developer ID identity is visible in the unlocked login keychain.
 The same path passed on September 2 using a disposable virtualization-only
 ad-hoc test signature, proving the application behavior independently of that
