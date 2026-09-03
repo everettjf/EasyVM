@@ -287,6 +287,11 @@ video, browser/WebGL, `glmark2`, 4K resize, full screen, host sleep/wake, guest
 reboot, long soak, memory pressure, malformed-command fuzzing, renderer failure,
 and Apple Virtio fallback.
 
+Renderer and Custom Virtio device creation now share one recoverable factory
+boundary. Failure to create a `VZCustomVirtioDeviceConfiguration` falls back to
+Apple Virtio before constructing the virtual machine, rather than failing an
+otherwise bootable Linux guest during configuration assembly.
+
 ## Shared UX work
 
 The five journeys should feel like one product rather than five framework

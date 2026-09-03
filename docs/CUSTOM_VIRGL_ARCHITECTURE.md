@@ -124,6 +124,16 @@ finishes makes simple tests deterministic at the cost of desktop latency and
 can deadlock teardown. Track pending fences, signal completions, and invalidate
 them explicitly during reset/stop.
 
+### Fallback ends before virtual-machine construction
+
+EZVM creates the renderer, Custom Virtio provider, and all
+`VZCustomVirtioDeviceConfiguration` instances inside one recoverable backend
+construction boundary. A missing runtime, renderer initialization failure, or
+device-configuration failure therefore selects Apple Virtio before creating a
+`VZVirtualMachine`; EZVM never exposes a partially initialized custom device to
+the guest. Once construction succeeds, configuration application is infallible
+and only installs the already validated device objects.
+
 ## Failure modes and lessons
 
 ### Typed characters appear only after mouse movement

@@ -661,6 +661,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     let displayView: NSView
     private let virglView: VMVirGLDisplayView
     private var runtime: EZVMVirGLRuntime?
+    private let deviceConfigurations: [VZCustomVirtioDeviceConfiguration]
     private var requestedResolution: (width: UInt32, height: UInt32)?
     private var pendingDisplayRequest: DispatchWorkItem?
     private var dynamicDisplayReady = false
@@ -704,7 +705,13 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
                 view?.updateCursor(update)
             }
         )
+        // Create every Virtualization.framework device while the backend is
+        // still inside the factory's recoverable initialization boundary. If
+        // this fails, the factory can discard the runtime and select Apple
+        // Virtio before a VZVirtualMachine or guest-visible device exists.
+        let deviceConfigurations = try runtime.makeDeviceConfigurations()
         self.runtime = runtime
+        self.deviceConfigurations = deviceConfigurations
         requestedResolution = initialResolution
         view.runtime = runtime
     }
@@ -713,14 +720,9 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         from devices: [VMModelFieldGraphicDevice],
         to configuration: VZVirtualMachineConfiguration
     ) -> VMOSResultVoid {
-        guard let runtime else { return .failure("The VirGL runtime stopped before VM configuration.") }
-        do {
-            configuration.graphicsDevices = []
-            configuration.customVirtioDevices.append(contentsOf: try runtime.makeDeviceConfigurations())
-            return .success
-        } catch {
-            return .failure("Could not configure the Custom VirGL GPU: \(error.localizedDescription)")
-        }
+        configuration.graphicsDevices = []
+        configuration.customVirtioDevices.append(contentsOf: deviceConfigurations)
+        return .success
     }
 
     func bind(virtualMachine: VZVirtualMachine?) {
