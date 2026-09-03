@@ -187,6 +187,174 @@ struct VMGuestAgentInputResult: Codable, Equatable {
     let message: String
 }
 
+enum VMFocusedCommandEventKind: Equatable {
+    case keyDown
+    case keyUp
+    case flagsChanged
+}
+
+struct VMFocusedCommandEvent: Equatable {
+    let kind: VMFocusedCommandEventKind
+    let keyCode: UInt16
+    let modifierFlags: NSEvent.ModifierFlags
+    let isRepeat: Bool
+
+    init(
+        kind: VMFocusedCommandEventKind,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags,
+        isRepeat: Bool = false
+    ) {
+        self.kind = kind
+        self.keyCode = keyCode
+        self.modifierFlags = modifierFlags
+        self.isRepeat = isRepeat
+    }
+}
+
+struct VMFocusedCommandOutcome: Equatable {
+    var suppressHostEvent = false
+    var guestEvents: [VMGuestAgentInputEvent] = []
+}
+
+/// Pure state machine for an Accessibility event tap that gives macOS Command
+/// chords to a focused Linux desktop as Super chords. Keeping this independent
+/// of `CGEventTap` makes focus loss, repeats, left/right Command, and forced
+/// release behavior deterministic and exhaustively testable.
+struct VMFocusedCommandCaptureState {
+    static let leftCommandKeyCode: UInt16 = 55
+    static let rightCommandKeyCode: UInt16 = 54
+    static let leftSuperCode: UInt16 = 125
+    static let rightSuperCode: UInt16 = 126
+
+    private var commandKeys: [UInt16: UInt16] = [:]
+    private var forwardedKeys = Set<UInt16>()
+
+    var isCapturing: Bool {
+        !commandKeys.isEmpty || !forwardedKeys.isEmpty
+    }
+
+    mutating func process(
+        _ event: VMFocusedCommandEvent,
+        focused: Bool
+    ) -> VMFocusedCommandOutcome {
+        guard focused else {
+            return VMFocusedCommandOutcome(guestEvents: releaseAll())
+        }
+
+        if let superCode = Self.superCode(forCommandKey: event.keyCode) {
+            return processCommand(event, superCode: superCode)
+        }
+
+        let commandReported = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .contains(.command)
+        let belongsToCapturedChord = VMGuestAgentKeyboard
+            .linuxKeyCode(forMacVirtualKey: event.keyCode)
+            .map(forwardedKeys.contains) ?? false
+        guard !commandKeys.isEmpty || commandReported || belongsToCapturedChord else {
+            return VMFocusedCommandOutcome()
+        }
+
+        // Other physical modifier transitions must continue through AppKit so
+        // the normal uinput path can preserve Shift, Option, and Control state.
+        guard event.kind != .flagsChanged else {
+            return VMFocusedCommandOutcome()
+        }
+
+        var outcome = VMFocusedCommandOutcome(suppressHostEvent: true)
+        if commandKeys.isEmpty, commandReported {
+            // Capture may start while Command is already held. Recover one
+            // balanced left-Super transition before forwarding the chord.
+            commandKeys[Self.leftCommandKeyCode] = Self.leftSuperCode
+            Self.appendKey(Self.leftSuperCode, pressed: true, to: &outcome.guestEvents)
+        }
+
+        guard let linuxCode = VMGuestAgentKeyboard.linuxKeyCode(
+            forMacVirtualKey: event.keyCode
+        ) else {
+            // Command belongs to the guest while focused. Unknown host keys are
+            // intentionally swallowed instead of leaking a system shortcut.
+            return outcome
+        }
+
+        switch event.kind {
+        case .keyDown:
+            if !event.isRepeat, forwardedKeys.insert(linuxCode).inserted {
+                Self.appendKey(linuxCode, pressed: true, to: &outcome.guestEvents)
+            }
+        case .keyUp:
+            if forwardedKeys.remove(linuxCode) != nil {
+                Self.appendKey(linuxCode, pressed: false, to: &outcome.guestEvents)
+            }
+        case .flagsChanged:
+            break
+        }
+        return outcome
+    }
+
+    mutating func releaseAll() -> [VMGuestAgentInputEvent] {
+        var events: [VMGuestAgentInputEvent] = []
+        for code in forwardedKeys.sorted() {
+            Self.appendKey(code, pressed: false, to: &events)
+        }
+        forwardedKeys.removeAll()
+        for (_, code) in commandKeys.sorted(by: { $0.key < $1.key }) {
+            Self.appendKey(code, pressed: false, to: &events)
+        }
+        commandKeys.removeAll()
+        return events
+    }
+
+    private mutating func processCommand(
+        _ event: VMFocusedCommandEvent,
+        superCode: UInt16
+    ) -> VMFocusedCommandOutcome {
+        var outcome = VMFocusedCommandOutcome(suppressHostEvent: true)
+        let pressed: Bool
+        switch event.kind {
+        case .keyDown:
+            pressed = true
+        case .keyUp:
+            pressed = false
+        case .flagsChanged:
+            if commandKeys[event.keyCode] != nil {
+                pressed = false
+            } else {
+                pressed = event.modifierFlags
+                    .intersection(.deviceIndependentFlagsMask)
+                    .contains(.command)
+            }
+        }
+
+        if pressed {
+            if commandKeys.updateValue(superCode, forKey: event.keyCode) == nil {
+                Self.appendKey(superCode, pressed: true, to: &outcome.guestEvents)
+            }
+        } else if let existing = commandKeys.removeValue(forKey: event.keyCode) {
+            Self.appendKey(existing, pressed: false, to: &outcome.guestEvents)
+        }
+        return outcome
+    }
+
+    private static func superCode(forCommandKey keyCode: UInt16) -> UInt16? {
+        switch keyCode {
+        case leftCommandKeyCode: leftSuperCode
+        case rightCommandKeyCode: rightSuperCode
+        default: nil
+        }
+    }
+
+    private static func appendKey(
+        _ code: UInt16,
+        pressed: Bool,
+        to events: inout [VMGuestAgentInputEvent]
+    ) {
+        events.append(.init(type: 1, code: code, value: pressed ? 1 : 0))
+        events.append(.init(type: 0, code: 0, value: 0))
+    }
+}
+
 enum VMGuestAgentKeyboard {
     private static let chordModifiers: [(NSEvent.ModifierFlags, UInt16)] = [
         (.control, 29),

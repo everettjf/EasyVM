@@ -178,6 +178,117 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         )
     }
 
+    func testFocusedCommandCaptureForwardsSuperSpaceAndSuppressesHost() {
+        var state = VMFocusedCommandCaptureState()
+        let commandDown = state.process(.init(
+            kind: .flagsChanged, keyCode: 55, modifierFlags: [.command]
+        ), focused: true)
+        XCTAssertTrue(commandDown.suppressHostEvent)
+        XCTAssertEqual(commandDown.guestEvents, keyEvents(125, true))
+
+        let spaceDown = state.process(.init(
+            kind: .keyDown, keyCode: 49, modifierFlags: [.command]
+        ), focused: true)
+        XCTAssertTrue(spaceDown.suppressHostEvent)
+        XCTAssertEqual(spaceDown.guestEvents, keyEvents(57, true))
+
+        let spaceUp = state.process(.init(
+            kind: .keyUp, keyCode: 49, modifierFlags: [.command]
+        ), focused: true)
+        XCTAssertTrue(spaceUp.suppressHostEvent)
+        XCTAssertEqual(spaceUp.guestEvents, keyEvents(57, false))
+
+        let commandUp = state.process(.init(
+            kind: .flagsChanged, keyCode: 55, modifierFlags: []
+        ), focused: true)
+        XCTAssertTrue(commandUp.suppressHostEvent)
+        XCTAssertEqual(commandUp.guestEvents, keyEvents(125, false))
+        XCTAssertFalse(state.isCapturing)
+    }
+
+    func testFocusedCommandCaptureLeavesUnfocusedShortcutWithMacOS() {
+        var state = VMFocusedCommandCaptureState()
+        let outcome = state.process(.init(
+            kind: .keyDown, keyCode: 49, modifierFlags: [.command]
+        ), focused: false)
+        XCTAssertFalse(outcome.suppressHostEvent)
+        XCTAssertTrue(outcome.guestEvents.isEmpty)
+    }
+
+    func testFocusedCommandCaptureRecoversWhenCommandWasAlreadyHeld() {
+        var state = VMFocusedCommandCaptureState()
+        let outcome = state.process(.init(
+            kind: .keyDown, keyCode: 36, modifierFlags: [.command]
+        ), focused: true)
+        XCTAssertTrue(outcome.suppressHostEvent)
+        XCTAssertEqual(
+            outcome.guestEvents,
+            keyEvents(125, true) + keyEvents(28, true)
+        )
+
+        let released = state.process(.init(
+            kind: .keyUp, keyCode: 36, modifierFlags: [.command]
+        ), focused: false)
+        XCTAssertFalse(released.suppressHostEvent)
+        XCTAssertEqual(
+            released.guestEvents,
+            keyEvents(28, false) + keyEvents(125, false)
+        )
+        XCTAssertFalse(state.isCapturing)
+    }
+
+    func testFocusedCommandCaptureBalancesBothCommandKeys() {
+        var state = VMFocusedCommandCaptureState()
+        XCTAssertEqual(state.process(.init(
+            kind: .flagsChanged, keyCode: 55, modifierFlags: [.command]
+        ), focused: true).guestEvents, keyEvents(125, true))
+        XCTAssertEqual(state.process(.init(
+            kind: .flagsChanged, keyCode: 54, modifierFlags: [.command]
+        ), focused: true).guestEvents, keyEvents(126, true))
+        XCTAssertEqual(state.process(.init(
+            kind: .flagsChanged, keyCode: 55, modifierFlags: [.command]
+        ), focused: true).guestEvents, keyEvents(125, false))
+        XCTAssertEqual(state.process(.init(
+            kind: .flagsChanged, keyCode: 54, modifierFlags: []
+        ), focused: true).guestEvents, keyEvents(126, false))
+        XCTAssertFalse(state.isCapturing)
+    }
+
+    func testFocusedCommandCaptureIgnoresRepeatsAndDuplicateReleases() {
+        var state = VMFocusedCommandCaptureState()
+        _ = state.process(.init(
+            kind: .flagsChanged, keyCode: 55, modifierFlags: [.command]
+        ), focused: true)
+        _ = state.process(.init(
+            kind: .keyDown, keyCode: 40, modifierFlags: [.command]
+        ), focused: true)
+        XCTAssertTrue(state.process(.init(
+            kind: .keyDown, keyCode: 40, modifierFlags: [.command], isRepeat: true
+        ), focused: true).guestEvents.isEmpty)
+        XCTAssertEqual(state.process(.init(
+            kind: .keyUp, keyCode: 40, modifierFlags: [.command]
+        ), focused: true).guestEvents, keyEvents(37, false))
+        XCTAssertTrue(state.process(.init(
+            kind: .keyUp, keyCode: 40, modifierFlags: [.command]
+        ), focused: true).guestEvents.isEmpty)
+    }
+
+    func testFocusedCommandCaptureLetsOtherModifierTransitionsReachAppKit() {
+        var state = VMFocusedCommandCaptureState()
+        _ = state.process(.init(
+            kind: .flagsChanged, keyCode: 55, modifierFlags: [.command]
+        ), focused: true)
+        let shiftDown = state.process(.init(
+            kind: .flagsChanged, keyCode: 56, modifierFlags: [.command, .shift]
+        ), focused: true)
+        XCTAssertFalse(shiftDown.suppressHostEvent)
+        XCTAssertTrue(shiftDown.guestEvents.isEmpty)
+    }
+
+    private func keyEvents(_ code: UInt16, _ pressed: Bool) -> [VMGuestAgentInputEvent] {
+        VMGuestAgentInputBatch.key(code: code, pressed: pressed).events
+    }
+
     func testAccessibilityKeyDownSynthesizesMissingShiftTransition() throws {
         XCTAssertEqual(
             VMGuestAgentKeyboard.chordEventsForMissingModifierTransition(
