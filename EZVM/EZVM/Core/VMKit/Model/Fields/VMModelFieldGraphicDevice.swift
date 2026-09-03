@@ -6,6 +6,8 @@
 //
 
 import AppKit
+import ApplicationServices
+import CoreGraphics
 import Foundation
 import Metal
 import QuartzCore
@@ -130,12 +132,120 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
 }
 
 @available(macOS 27.0, *)
+private final class VMFocusedCommandEventTap {
+    typealias FocusProbe = () -> Bool
+    typealias EventHandler = ([VMGuestAgentInputEvent]) -> Void
+
+    private let focusProbe: FocusProbe
+    private let eventHandler: EventHandler
+    private var state = VMFocusedCommandCaptureState()
+    private var tap: CFMachPort?
+    private var source: CFRunLoopSource?
+    private var focusTimer: Timer?
+
+    init(focusProbe: @escaping FocusProbe, eventHandler: @escaping EventHandler) {
+        self.focusProbe = focusProbe
+        self.eventHandler = eventHandler
+    }
+
+    deinit {
+        stop()
+    }
+
+    @discardableResult
+    func start() -> Bool {
+        guard tap == nil else { return true }
+        let mask = (UInt64(1) << CGEventType.keyDown.rawValue)
+            | (UInt64(1) << CGEventType.keyUp.rawValue)
+            | (UInt64(1) << CGEventType.flagsChanged.rawValue)
+        guard let eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: { _, type, event, userInfo in
+                guard let userInfo else { return Unmanaged.passUnretained(event) }
+                let owner = Unmanaged<VMFocusedCommandEventTap>
+                    .fromOpaque(userInfo).takeUnretainedValue()
+                return owner.handle(type: type, event: event)
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            return false
+        }
+        tap = eventTap
+        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+        source = runLoopSource
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+        focusTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.releaseIfFocusWasLost()
+        }
+        return true
+    }
+
+    func stop() {
+        emit(state.releaseAll())
+        focusTimer?.invalidate()
+        focusTimer = nil
+        if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
+        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+        source = nil
+        tap = nil
+    }
+
+    private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            emit(state.releaseAll())
+            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return Unmanaged.passUnretained(event)
+        }
+        let kind: VMFocusedCommandEventKind
+        switch type {
+        case .keyDown: kind = .keyDown
+        case .keyUp: kind = .keyUp
+        case .flagsChanged: kind = .flagsChanged
+        default: return Unmanaged.passUnretained(event)
+        }
+        let input = VMFocusedCommandEvent(
+            kind: kind,
+            keyCode: UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode)),
+            modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue)),
+            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        )
+        let outcome = state.process(input, focused: focusProbe())
+        emit(outcome.guestEvents)
+        return outcome.suppressHostEvent ? nil : Unmanaged.passUnretained(event)
+    }
+
+    private func releaseIfFocusWasLost() {
+        guard state.isCapturing, !focusProbe() else { return }
+        emit(state.releaseAll())
+    }
+
+    private func emit(_ events: [VMGuestAgentInputEvent]) {
+        guard !events.isEmpty else { return }
+        // Each transition is a key event followed by SYN_REPORT. Split large
+        // forced releases without breaking those pairs or the Agent's 64-event
+        // input-batch limit.
+        let maximumPairs = VMGuestAgentInputBatch.maximumEventCount / 2
+        var pairIndex = 0
+        while pairIndex * 2 < events.count {
+            let start = pairIndex * 2
+            let end = min(events.count, start + maximumPairs * 2)
+            eventHandler(Array(events[start..<end]))
+            pairIndex += maximumPairs
+        }
+    }
+}
+
+@available(macOS 27.0, *)
 final class VMVirGLDisplayView: VZVirtualMachineView {
     private let backgroundLayer = CALayer()
     private let metalLayer = CAMetalLayer()
     private let cursorLayer = CALayer()
     weak var runtime: EZVMVirGLRuntime?
-    var guestInputHandler: (([VMGuestAgentInputEvent]) -> Void)?
+    private var guestInputHandler: (([VMGuestAgentInputEvent]) -> Void)?
     var runtimeIssueHandler: ((String?) -> Void)?
     private var presentedFrames: UInt64 = 0
     private var performanceWindowStartedAt = CACurrentMediaTime()
@@ -154,6 +264,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var pointerCaptured = false
     private var windowObservers: [NSObjectProtocol] = []
     private var commandKeyMonitor: Any?
+    private var focusedCommandEventTap: VMFocusedCommandEventTap?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
@@ -214,6 +325,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     required init?(coder: NSCoder) { nil }
 
     deinit {
+        focusedCommandEventTap?.stop()
         if let commandKeyMonitor { NSEvent.removeMonitor(commandKeyMonitor) }
         displayRefreshTimer?.invalidate()
         windowObservers.forEach(NotificationCenter.default.removeObserver)
@@ -221,6 +333,8 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func stopPresentation() {
+        focusedCommandEventTap?.stop()
+        focusedCommandEventTap = nil
         presentationLifecycle.stop()
         displayRefreshTimer?.invalidate()
         displayRefreshTimer = nil
@@ -239,6 +353,42 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override var acceptsFirstResponder: Bool { true }
+
+    func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
+        focusedCommandEventTap?.stop()
+        focusedCommandEventTap = nil
+        guestInputHandler = handler
+        guard let handler else { return }
+        let eventTap = VMFocusedCommandEventTap(
+            focusProbe: { [weak self] in self?.shouldCaptureSystemKeys == true },
+            eventHandler: handler
+        )
+        if eventTap.start() {
+            focusedCommandEventTap = eventTap
+            EZVMLog.info("Focused Command/Super event tap enabled", logger: EZVMLog.input)
+        } else {
+            EZVMLog.error(
+                "Focused Command/Super event tap unavailable; grant Accessibility permission for system shortcuts",
+                logger: EZVMLog.input
+            )
+        }
+    }
+
+    private var shouldCaptureSystemKeys: Bool {
+        guard guestInputHandler != nil,
+              let vmWindow = window,
+              vmWindow.isKeyWindow,
+              NSApp.isActive,
+              NSApp.keyWindow === vmWindow,
+              NSApp.modalWindow == nil,
+              vmWindow.attachedSheet == nil,
+              !NSApp.windows.contains(where: {
+                  $0.isVisible && ($0 is NSOpenPanel || $0 is NSSavePanel)
+              }) else { return false }
+        guard let responder = vmWindow.firstResponder else { return false }
+        if responder === self { return true }
+        return (responder as? NSView)?.isDescendant(of: self) == true
+    }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -843,7 +993,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
-        virglView.guestInputHandler = handler
+        virglView.setGuestInputHandler(handler)
     }
 
     func setAbsolutePointerEnabled(_ enabled: Bool) {
@@ -859,7 +1009,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         pendingDisplayRequest = nil
         virglView.stopPresentation()
         virglView.virtualMachine = nil
-        virglView.guestInputHandler = nil
+        virglView.setGuestInputHandler(nil)
         virglView.runtimeIssueHandler = nil
         virglView.runtime = nil
         runtime?.shutdown()
