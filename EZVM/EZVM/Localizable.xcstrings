@@ -125,10 +125,10 @@
 
     },
     "Add Shared Folder" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加共享文件夹" } } }
     },
     "Add Shared Folder…" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加共享文件夹…" } } }
     },
     "Add Storage Device" : {
 
@@ -192,13 +192,13 @@
 
     },
     "Choose a folder once. EZVM configures the share automatically." : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "只需选择一次文件夹，EZVM 会自动配置共享。" } } }
     },
     "Choose a folder to share" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择要共享的文件夹" } } }
     },
     "Choose a folder to share with this virtual machine" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择要与此虚拟机共享的文件夹" } } }
     },
     "Choose a host folder to share after the next start" : {
 
@@ -356,7 +356,7 @@
 
     },
     "Done" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "完成" } } }
     },
     "Download failed" : {
       "localizations" : {
@@ -612,6 +612,48 @@
     "ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack." : {
       "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "ASIF 虚拟机会自动使用 DiskImageKit 分层快照。Linux 虚拟机默认使用自定义 Virtio GPU；关闭此选项即可回退到 Apple 图形。macOS 虚拟机始终使用 Apple 图形栈。" } } }
     },
+    "Copies the Linux VirtioFS mount command" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制 Linux VirtioFS 挂载命令" } } }
+    },
+    "Mount in Linux" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在 Linux 中挂载" } } }
+    },
+    "Run once after the guest starts. With one shared folder, its contents appear directly at /mnt/ezvm; with several, each appears as a named folder." : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "客体启动后运行一次。只有一个共享文件夹时，其内容会直接显示在 /mnt/ezvm；有多个时，每个共享文件夹会以单独命名的目录显示。" } } }
+    },
+    "Drop folders to share" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖入要共享的文件夹" } } }
+    },
+    "Share folders" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "共享文件夹" } } }
+    },
+    "Make files from your Mac available inside the virtual machine. You can also do this later." : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "让虚拟机访问 Mac 上的文件。也可以稍后再设置。" } } }
+    },
+    "No folders selected. Choose Not Now or Continue to skip sharing." : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未选择文件夹。选择“暂不共享”或“继续”即可跳过。" } } }
+    },
+    "Folders remain on your Mac. Nothing is copied into the virtual disk." : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "文件夹仍保留在 Mac 上，不会复制到虚拟磁盘中。" } } }
+    },
+    "Choose Folder…" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择文件夹…" } } }
+    },
+    "Shared folder drop area" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "共享文件夹拖放区域" } } }
+    },
+    "Drop one or more folders from Finder, or choose a folder" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从访达拖入一个或多个文件夹，或者选择文件夹" } } }
+    },
+    "Drop to share" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖放以共享" } } }
+    },
+    "Drop folders to share now" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖入文件夹以立即共享" } } }
+    },
+    "Choose a host folder to share with the running virtual machine" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择要与正在运行的虚拟机共享的 Mac 文件夹" } } }
+    },
     "Preparing the macOS account" : {
       "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备 macOS 账户" } } }
     },
@@ -768,7 +810,7 @@
 
     },
     "Manage shared folders" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "管理共享文件夹" } } }
     },
     "MAX: %lld MIN: %lld" : {
       "localizations" : {
@@ -954,7 +996,7 @@
 
     },
     "Remove" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除" } } }
     },
     "Remove from List" : {
 
@@ -963,7 +1005,7 @@
 
     },
     "Remove shared folder" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除共享文件夹" } } }
     },
     "Rename" : {
 
@@ -1088,7 +1130,7 @@
 
     },
     "Shared Folders" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "共享文件夹" } } }
     },
     "Sharing Directory" : {
 
