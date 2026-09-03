@@ -114,10 +114,24 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
     }
 }
 
-public enum VMOmarchyFactoryInstallError: Error, Equatable {
+public enum VMOmarchyFactoryInstallError: Error, Equatable, LocalizedError {
     case invalidHTTPResponse
     case downloadDidNotPublish
-    case factoryAlreadyExists
+    case manifestTooLarge
+    case invalidManifestEncoding
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidHTTPResponse:
+            "The Omarchy release server returned an invalid response."
+        case .downloadDidNotPublish:
+            "The Omarchy factory download completed without a usable file."
+        case .manifestTooLarge:
+            "The Omarchy factory manifest exceeds the allowed size."
+        case .invalidManifestEncoding:
+            "The Omarchy factory manifest is not valid signed-channel metadata."
+        }
+    }
 }
 
 public struct VMOmarchyFactoryInstallResult: Equatable {
@@ -130,7 +144,28 @@ public struct VMOmarchyFactoryInstallResult: Equatable {
     }
 }
 
+public enum VMOmarchyFactoryChannelState: Equatable, Sendable {
+    case untracked(availableVersion: String)
+    case current(version: String)
+    case different(installedVersion: String, availableVersion: String)
+
+    public static func assess(
+        installedVersion: String?,
+        manifest: VMOmarchyFactoryManifest
+    ) -> Self {
+        let available = manifest.payload.imageVersion
+        guard let installedVersion, !installedVersion.isEmpty else {
+            return .untracked(availableVersion: available)
+        }
+        if installedVersion == available {
+            return .current(version: installedVersion)
+        }
+        return .different(installedVersion: installedVersion, availableVersion: available)
+    }
+}
+
 public struct VMOmarchyFactoryInstaller {
+    public static let maximumManifestBytes = 256 * 1_024
     public let profile: VMOmarchyProfile
     public let cacheDirectory: URL
     public let publicKey: Data
@@ -152,9 +187,7 @@ public struct VMOmarchyFactoryInstaller {
         progress: @escaping (Int64, Int64) -> Void = { _, _ in }
     ) async throws -> VMOmarchyFactoryInstallResult {
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        let manifestData = try await transport.fetchData(from: profile.factoryImage.manifestURL)
-        let manifest = try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: manifestData)
-        try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKey: publicKey)
+        let manifest = try await fetchVerifiedManifest()
 
         let published = cacheDirectory.appending(path: "Factory-\(manifest.payload.imageVersion).asif")
         guard !FileManager.default.fileExists(atPath: published.path) else {
@@ -177,6 +210,23 @@ public struct VMOmarchyFactoryInstaller {
             try? FileManager.default.removeItem(at: staging)
             throw error
         }
+    }
+
+    /// Fetches and authenticates channel metadata without downloading or
+    /// changing a factory image or the user's workspace.
+    public func fetchVerifiedManifest() async throws -> VMOmarchyFactoryManifest {
+        let manifestData = try await transport.fetchData(from: profile.factoryImage.manifestURL)
+        guard manifestData.count <= Self.maximumManifestBytes else {
+            throw VMOmarchyFactoryInstallError.manifestTooLarge
+        }
+        let manifest: VMOmarchyFactoryManifest
+        do {
+            manifest = try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: manifestData)
+        } catch {
+            throw VMOmarchyFactoryInstallError.invalidManifestEncoding
+        }
+        try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKey: publicKey)
+        return manifest
     }
 }
 

@@ -13,6 +13,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var recoveryPoints: [VMOmarchyRecoveryPoint] = []
     @State private var recoveryOperation: RecoveryOperation = .idle
     @State private var pendingRestore: VMOmarchyRecoveryPoint?
+    @State private var factoryChannel: FactoryChannelViewState = .idle
 
     private var phase: Phase { lifecycle.phase }
 
@@ -35,6 +36,7 @@ struct OmarchyVirtualMachineView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 integrationMenu
+                updatesMenu
                 recoveryMenu
                 Button("Open Shared Folder", systemImage: "folder") {
                     NSWorkspace.shared.open(layout.shared)
@@ -165,6 +167,75 @@ struct OmarchyVirtualMachineView: View {
             ).isReady
         }
         return false
+    }
+
+    @ViewBuilder
+    private var updatesMenu: some View {
+        Menu {
+            Text("App updates are delivered separately from Omarchy and factory images.")
+            Text("Guest updates run inside Omarchy; create a protected backup first.")
+            Divider()
+            switch factoryChannel {
+            case .idle:
+                Button("Check Signed Factory Channel", systemImage: "checkmark.shield") {
+                    checkFactoryChannel()
+                }
+            case .checking:
+                Text("Checking signed factory metadata…")
+            case .current(let version):
+                Text("Installed from current factory \(version)")
+                Button("Check Again") { checkFactoryChannel() }
+            case .untracked(let available):
+                Text("Current workspace has no recorded factory version")
+                Text("Signed channel factory: \(available)")
+                Text("Factory images are only used for new installs and recovery.")
+                Button("Check Again") { checkFactoryChannel() }
+            case .different(let installed, let available):
+                Text("Workspace factory: \(installed)")
+                Text("Signed channel factory: \(available)")
+                Text("The different channel image will not replace this workspace.")
+                Button("Check Again") { checkFactoryChannel() }
+            case .failed(let message):
+                Text(message)
+                Button("Try Again") { checkFactoryChannel() }
+            }
+        } label: {
+            Label("Updates", systemImage: factoryChannel.needsAttention ? "arrow.down.circle.fill" : "arrow.triangle.2.circlepath")
+        }
+        .help("App, factory-image, and guest update status")
+    }
+
+    private func checkFactoryChannel() {
+        guard factoryChannel != .checking else { return }
+        guard let publicKey = FactoryTrustConfiguration.publicKey() else {
+            factoryChannel = .failed("This build has no trusted factory signing key.")
+            return
+        }
+        let workspace = VMOmarchyWorkspaceManager(layout: layout)
+        let installedVersion = try? workspace.metadata().factoryImageVersion
+        let installer = VMOmarchyFactoryInstaller(
+            profile: profile,
+            cacheDirectory: layout.cache,
+            publicKey: publicKey,
+            transport: VMOmarchyURLSessionTransport()
+        )
+        factoryChannel = .checking
+        Task {
+            do {
+                let manifest = try await installer.fetchVerifiedManifest()
+                switch VMOmarchyFactoryChannelState.assess(
+                    installedVersion: installedVersion,
+                    manifest: manifest
+                ) {
+                case .current(let version): factoryChannel = .current(version)
+                case .untracked(let available): factoryChannel = .untracked(available)
+                case .different(let installed, let available):
+                    factoryChannel = .different(installed: installed, available: available)
+                }
+            } catch {
+                factoryChannel = .failed(error.localizedDescription)
+            }
+        }
     }
 
     @ViewBuilder
@@ -309,6 +380,22 @@ struct OmarchyVirtualMachineView: View {
         var isFailed: Bool {
             if case .failed = self { return true }
             return false
+        }
+    }
+
+    private enum FactoryChannelViewState: Equatable {
+        case idle
+        case checking
+        case current(String)
+        case untracked(String)
+        case different(installed: String, available: String)
+        case failed(String)
+
+        var needsAttention: Bool {
+            switch self {
+            case .untracked, .different, .failed: true
+            case .idle, .checking, .current: false
+            }
         }
     }
 }

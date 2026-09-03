@@ -1,8 +1,8 @@
 import CryptoKit
 import Foundation
 
-public struct VMOmarchyFactoryManifest: Codable, Equatable {
-    public struct Payload: Codable, Equatable {
+public struct VMOmarchyFactoryManifest: Codable, Equatable, Sendable {
+    public struct Payload: Codable, Equatable, Sendable {
         public let schemaVersion: Int
         public let imageVersion: String
         public let imageURL: URL

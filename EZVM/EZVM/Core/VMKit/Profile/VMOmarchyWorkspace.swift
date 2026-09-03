@@ -65,6 +65,7 @@ public enum VMOmarchyWorkspaceError: Error, Equatable {
     case enrollmentFailed(String)
     case workspaceNotRecoverable
     case recoveryFailed(String)
+    case invalidWorkspaceMetadata
 }
 
 extension VMOmarchyWorkspaceError: LocalizedError {
@@ -86,6 +87,8 @@ extension VMOmarchyWorkspaceError: LocalizedError {
             "Only a broken Omarchy workspace can be preserved for recovery."
         case .recoveryFailed(let reason):
             "The broken Omarchy workspace could not be preserved: \(reason)"
+        case .invalidWorkspaceMetadata:
+            "The Omarchy workspace metadata is invalid or unsupported."
         }
     }
 }
@@ -109,11 +112,7 @@ public struct VMOmarchyWorkspaceManager {
               requiredFiles.allSatisfy({ regularFileExists($0) }) else {
             return .recovering(reason: "The Omarchy workspace is incomplete or unsafe.")
         }
-        guard let metadata = try? JSONDecoder().decode(
-            VMOmarchyWorkspaceMetadata.self,
-            from: Data(contentsOf: layout.configuration)
-        ), metadata.schemaVersion == VMOmarchyWorkspaceMetadata.currentSchemaVersion,
-           metadata.productID == VMOmarchyProfile.production.productID else {
+        guard (try? metadata()) != nil else {
             return .recovering(reason: "The Omarchy workspace metadata is invalid or unsupported.")
         }
         guard let identifierData = try? Data(contentsOf: layout.machineIdentifier),
@@ -121,6 +120,19 @@ public struct VMOmarchyWorkspaceManager {
             return .recovering(reason: "The Omarchy machine identity is invalid.")
         }
         return .ready
+    }
+
+    public func metadata() throws -> VMOmarchyWorkspaceMetadata {
+        guard regularFileExists(layout.configuration),
+              let metadata = try? JSONDecoder().decode(
+                VMOmarchyWorkspaceMetadata.self,
+                from: Data(contentsOf: layout.configuration)
+              ),
+              metadata.schemaVersion == VMOmarchyWorkspaceMetadata.currentSchemaVersion,
+              metadata.productID == VMOmarchyProfile.production.productID else {
+            throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
+        }
+        return metadata
     }
 
     /// Moves an invalid workspace out of the live location without deleting

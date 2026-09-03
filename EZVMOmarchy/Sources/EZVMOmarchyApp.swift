@@ -234,7 +234,7 @@ private struct OmarchyWelcomeView: View {
     }
 }
 
-private enum FactoryTrustConfiguration {
+enum FactoryTrustConfiguration {
     static func publicKey(bundle: Bundle = .main) -> Data? {
         guard let encoded = bundle.object(forInfoDictionaryKey: "EZVMOmarchyFactoryPublicKeyBase64") as? String,
               !encoded.isEmpty,

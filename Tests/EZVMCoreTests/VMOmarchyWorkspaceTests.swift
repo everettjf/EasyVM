@@ -32,6 +32,7 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         )
 
         XCTAssertEqual(manager.inspect(), .ready)
+        XCTAssertEqual(try manager.metadata().factoryImageVersion, "test")
         XCTAssertEqual(try Data(contentsOf: layout.disk), Data("factory".utf8))
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.snapshots.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.enrollment.path))

@@ -44,6 +44,72 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         XCTAssertEqual(transport.downloadCount, 0)
     }
 
+    func testReleaseCheckVerifiesManifestWithoutDownloadingImage() async throws {
+        let fixture = try Fixture()
+        let transport = MockTransport(manifestData: fixture.manifestData, image: fixture.image)
+        let installer = VMOmarchyFactoryInstaller(
+            profile: fixture.profile,
+            cacheDirectory: fixture.cache,
+            publicKey: fixture.key.publicKey.rawRepresentation,
+            transport: transport
+        )
+
+        let manifest = try await installer.fetchVerifiedManifest()
+
+        XCTAssertEqual(manifest.payload.imageVersion, "test")
+        XCTAssertEqual(transport.downloadCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.cache.path))
+        XCTAssertEqual(
+            VMOmarchyFactoryChannelState.assess(installedVersion: "test", manifest: manifest),
+            .current(version: "test")
+        )
+        XCTAssertEqual(
+            VMOmarchyFactoryChannelState.assess(installedVersion: "old", manifest: manifest),
+            .different(installedVersion: "old", availableVersion: "test")
+        )
+        XCTAssertEqual(
+            VMOmarchyFactoryChannelState.assess(installedVersion: nil, manifest: manifest),
+            .untracked(availableVersion: "test")
+        )
+    }
+
+    func testReleaseCheckRejectsTamperedManifestWithoutCreatingCache() async throws {
+        let fixture = try Fixture(tamperSignature: true)
+        let transport = MockTransport(manifestData: fixture.manifestData, image: fixture.image)
+        let installer = VMOmarchyFactoryInstaller(
+            profile: fixture.profile,
+            cacheDirectory: fixture.cache,
+            publicKey: fixture.key.publicKey.rawRepresentation,
+            transport: transport
+        )
+
+        await XCTAssertThrowsErrorAsync(try await installer.fetchVerifiedManifest()) { error in
+            XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidSignature)
+        }
+        XCTAssertEqual(transport.downloadCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.cache.path))
+    }
+
+    func testReleaseCheckRejectsOversizedManifestBeforeDecodingOrDownloading() async throws {
+        let fixture = try Fixture()
+        let transport = MockTransport(
+            manifestData: Data(repeating: 0x7b, count: VMOmarchyFactoryInstaller.maximumManifestBytes + 1),
+            image: fixture.image
+        )
+        let installer = VMOmarchyFactoryInstaller(
+            profile: fixture.profile,
+            cacheDirectory: fixture.cache,
+            publicKey: fixture.key.publicKey.rawRepresentation,
+            transport: transport
+        )
+
+        await XCTAssertThrowsErrorAsync(try await installer.fetchVerifiedManifest()) { error in
+            XCTAssertEqual(error as? VMOmarchyFactoryInstallError, .manifestTooLarge)
+        }
+        XCTAssertEqual(transport.downloadCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.cache.path))
+    }
+
     private final class MockTransport: VMOmarchyFactoryTransport {
         let manifestData: Data
         let image: Data
@@ -117,5 +183,19 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
                 signature: signature.base64EncodedString()
             ))
         }
+    }
+}
+
+private func XCTAssertThrowsErrorAsync<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ errorHandler: (Error) -> Void = { _ in },
+    file: StaticString = #filePath,
+    line: UInt = #line
+) async {
+    do {
+        _ = try await expression()
+        XCTFail("Expected expression to throw", file: file, line: line)
+    } catch {
+        errorHandler(error)
     }
 }
