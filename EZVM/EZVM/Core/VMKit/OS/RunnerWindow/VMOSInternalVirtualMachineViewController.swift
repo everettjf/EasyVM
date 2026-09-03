@@ -1407,7 +1407,12 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             Task { @MainActor in
                 guard let self else { return }
                 if let error {
-                    self.update(.failed("Accessory Access failed: \(error.localizedDescription)"))
+                    let guidance = VMUSBFailureGuidance.message(
+                        for: Self.failureKind(error),
+                        fallback: "Accessory Access failed: \(error.localizedDescription)"
+                    )
+                    EZVMLog.error("Accessory Access registration failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
+                    self.update(.failed(guidance))
                     return
                 }
                 self.isRegistered = true
@@ -1461,8 +1466,12 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     if let error {
                         self.notice = .attachFailed(
                             deviceTitle: self.title(for: registryID),
-                            detail: error.localizedDescription
+                            detail: VMUSBFailureGuidance.message(
+                                for: Self.failureKind(error),
+                                fallback: error.localizedDescription
+                            )
                         )
+                        EZVMLog.error("USB attach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
                     } else {
                         self.attachedDevices[registryID] = device
                     }
@@ -1474,8 +1483,12 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             operationTokens.removeValue(forKey: registryID)
             notice = .attachFailed(
                 deviceTitle: title(for: registryID),
-                detail: error.localizedDescription
+                detail: VMUSBFailureGuidance.message(
+                    for: Self.failureKind(error),
+                    fallback: error.localizedDescription
+                )
             )
+            EZVMLog.error("USB device creation failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
             publish()
         }
     }
@@ -1496,10 +1509,20 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     self.operations.removeValue(forKey: registryID)
                     self.operationTokens.removeValue(forKey: registryID)
                 if let error {
-                    self.notice = .detachFailed(
-                        deviceTitle: self.title(for: registryID),
-                        detail: error.localizedDescription
-                    )
+                    let failureKind = Self.failureKind(error)
+                    if VMUSBFailureGuidance.confirmsDeviceIsDisconnected(failureKind) {
+                        self.attachedDevices.removeValue(forKey: registryID)
+                        self.notice = .unexpectedDisconnect(deviceTitle: self.title(for: registryID))
+                    } else {
+                        self.notice = .detachFailed(
+                            deviceTitle: self.title(for: registryID),
+                            detail: VMUSBFailureGuidance.message(
+                                for: failureKind,
+                                fallback: error.localizedDescription
+                            )
+                        )
+                    }
+                    EZVMLog.error("USB detach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
                 } else {
                     self.attachedDevices.removeValue(forKey: registryID)
                 }
@@ -1575,6 +1598,18 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
             operations: operations,
             notice: notice
         )))
+    }
+
+    private static func failureKind(_ error: Error) -> VMUSBFailureKind {
+        let error = error as NSError
+        let framework: VMUSBFailureFramework = if error.domain == AAErrorDomain {
+            .accessoryAccess
+        } else if error.domain == VZErrorDomain {
+            .virtualization
+        } else {
+            .other
+        }
+        return VMUSBFailureGuidance.classify(framework: framework, code: error.code)
     }
 
     private func title(for registryID: UInt64) -> String {

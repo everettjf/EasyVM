@@ -224,6 +224,54 @@ final class VMNetworkConfigurationTests: XCTestCase {
         )
     }
 
+    func testUSBFailureGuidanceProvidesSpecificRecoveryActions() {
+        XCTAssertTrue(VMUSBFailureGuidance.message(
+            for: .accessoryNotAccessible,
+            fallback: "raw"
+        ).contains("another app"))
+        XCTAssertTrue(VMUSBFailureGuidance.message(
+            for: .invalidAccessoryState,
+            fallback: "raw"
+        ).contains("reconnect"))
+        XCTAssertTrue(VMUSBFailureGuidance.message(
+            for: .controllerNotFound,
+            fallback: "raw"
+        ).contains("Restart the virtual machine"))
+        XCTAssertTrue(VMUSBFailureGuidance.message(
+            for: .deviceInitializationFailure,
+            fallback: "raw"
+        ).contains("may not support passthrough"))
+        XCTAssertTrue(VMUSBFailureGuidance.message(
+            for: .deviceNotFound,
+            fallback: "raw"
+        ).contains("approve it for EZVM again"))
+    }
+
+    func testUSBFrameworkErrorCodesMapToStableFailureKinds() {
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .accessoryAccess, code: 2), .listenerAlreadyRegistered)
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .accessoryAccess, code: 3), .accessoryNotAccessible)
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .accessoryAccess, code: 4), .invalidAccessoryState)
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .virtualization, code: 30001), .controllerNotFound)
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .virtualization, code: 30002), .deviceAlreadyAttached)
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .virtualization, code: 30003), .deviceInitializationFailure)
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .virtualization, code: 30004), .deviceNotFound)
+        XCTAssertEqual(VMUSBFailureGuidance.classify(framework: .other, code: 30004), .other)
+    }
+
+    func testUSBUnknownFailurePreservesFrameworkDescription() {
+        XCTAssertEqual(
+            VMUSBFailureGuidance.message(for: .other, fallback: "Framework detail"),
+            "Framework detail"
+        )
+    }
+
+    func testUSBDetachOnlyTreatsDeviceNotFoundAsDisconnected() {
+        XCTAssertTrue(VMUSBFailureGuidance.confirmsDeviceIsDisconnected(.deviceNotFound))
+        XCTAssertFalse(VMUSBFailureGuidance.confirmsDeviceIsDisconnected(.internalFailure))
+        XCTAssertFalse(VMUSBFailureGuidance.confirmsDeviceIsDisconnected(.controllerNotFound))
+        XCTAssertFalse(VMUSBFailureGuidance.confirmsDeviceIsDisconnected(.other))
+    }
+
     func testVirtualMachineLabelTrimsWhitespaceAndAppliesToConfiguration() {
         let configuration = VZVirtualMachineConfiguration()
         VMConfigurationIdentity.apply(machineName: "  Development VM\n", to: configuration)

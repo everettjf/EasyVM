@@ -81,6 +81,11 @@ sanitized manufacturer and product names from the matching IORegistry entry,
 keeps VID:PID visible for disambiguation, and deliberately never reads or logs
 USB serial numbers. Physical-device,
 permission-revocation, and sleep/wake testing below remains the promotion gate.
+Framework failures are classified into inaccessible/accessory-state,
+controller, already-attached, initialization, and not-found conditions with a
+specific recovery action. A detach `DeviceNotFound` result now reconciles the
+device as disconnected instead of leaving machine-state saving blocked by a
+stale attachment.
 
 ### Product outcome
 

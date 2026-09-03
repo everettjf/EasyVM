@@ -132,6 +132,67 @@ enum VMUSBDeviceOperation: Equatable {
     case detaching
 }
 
+enum VMUSBFailureKind: Equatable {
+    case listenerAlreadyRegistered
+    case accessoryNotAccessible
+    case invalidAccessoryState
+    case controllerNotFound
+    case deviceAlreadyAttached
+    case deviceInitializationFailure
+    case deviceNotFound
+    case internalFailure
+    case other
+}
+
+enum VMUSBFailureFramework {
+    case accessoryAccess
+    case virtualization
+    case other
+}
+
+enum VMUSBFailureGuidance {
+    static func classify(framework: VMUSBFailureFramework, code: Int) -> VMUSBFailureKind {
+        switch (framework, code) {
+        case (.accessoryAccess, 1): .internalFailure
+        case (.accessoryAccess, 2): .listenerAlreadyRegistered
+        case (.accessoryAccess, 3): .accessoryNotAccessible
+        case (.accessoryAccess, 4): .invalidAccessoryState
+        case (.virtualization, 30001): .controllerNotFound
+        case (.virtualization, 30002): .deviceAlreadyAttached
+        case (.virtualization, 30003): .deviceInitializationFailure
+        case (.virtualization, 30004): .deviceNotFound
+        default: .other
+        }
+    }
+
+    static func message(for kind: VMUSBFailureKind, fallback: String) -> String {
+        switch kind {
+        case .listenerAlreadyRegistered:
+            "Accessory Access is already active in another EZVM virtual machine window. Close that virtual machine or release its USB accessories, then try again."
+        case .accessoryNotAccessible:
+            "This accessory is being used by macOS or another app. Release it from the accessory menu, then choose it for EZVM again."
+        case .invalidAccessoryState:
+            "This accessory is no longer in a state that can be attached. Disconnect it from the Mac, reconnect it, and approve it for EZVM again."
+        case .controllerNotFound:
+            "The running virtual machine no longer has an available USB controller. Restart the virtual machine and try again."
+        case .deviceAlreadyAttached:
+            "The USB device is already attached. Wait for the device list to refresh before trying another action."
+        case .deviceInitializationFailure:
+            "The guest could not initialize this USB device. Safely reconnect the device and try again; this device class may not support passthrough."
+        case .deviceNotFound:
+            "The USB device is no longer connected to this virtual machine. Reconnect it to the Mac and approve it for EZVM again."
+        case .internalFailure:
+            "Accessory Access could not complete the operation. Try again; if it repeats, restart EZVM and reconnect the accessory."
+        case .other:
+            fallback
+        }
+    }
+
+    static func confirmsDeviceIsDisconnected(_ kind: VMUSBFailureKind) -> Bool {
+        kind == .deviceNotFound
+    }
+}
+
 enum VMUSBPassthroughNotice: Equatable {
     case unexpectedDisconnect(deviceTitle: String)
     case attachFailed(deviceTitle: String, detail: String)
@@ -142,9 +203,9 @@ enum VMUSBPassthroughNotice: Equatable {
         case .unexpectedDisconnect(let deviceTitle):
             "\(deviceTitle) was disconnected from the virtual machine."
         case .attachFailed(let deviceTitle, let detail):
-            "Could not connect \(deviceTitle). Make sure it is approved, connected, and not in use by another app. \(detail)"
+            "Could not connect \(deviceTitle). \(detail)"
         case .detachFailed(let deviceTitle, let detail):
-            "Could not disconnect \(deviceTitle). It may still be attached; disconnect it before saving machine state. \(detail)"
+            "Could not disconnect \(deviceTitle). It may still be attached, so machine-state saving remains unavailable. \(detail)"
         }
     }
 }
