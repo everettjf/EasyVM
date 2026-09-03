@@ -63,6 +63,30 @@ struct VMSnapshotMaintenanceCleanupResult: Equatable {
     let reclaimedAllocatedSize: UInt64
 }
 
+struct VMSnapshotRestoreStorageEstimate: Equatable {
+    let restoreStagingBytes: Int64
+    let safetySnapshotBytes: Int64
+    let reserveBytes: Int64
+    let availableBytes: Int64?
+
+    var temporaryOperationBytes: Int64 {
+        Self.saturatingAdd(restoreStagingBytes, safetySnapshotBytes)
+    }
+
+    var requiredAvailableBytes: Int64 {
+        Self.saturatingAdd(temporaryOperationBytes, reserveBytes)
+    }
+
+    var hasEnoughSpace: Bool? {
+        availableBytes.map { $0 >= requiredAvailableBytes }
+    }
+
+    private static func saturatingAdd(_ lhs: Int64, _ rhs: Int64) -> Int64 {
+        let (sum, overflow) = max(0, lhs).addingReportingOverflow(max(0, rhs))
+        return overflow ? Int64.max : sum
+    }
+}
+
 /*
  File level snapshots for a virtual machine bundle.
 
@@ -847,6 +871,65 @@ class VMSnapshotManager {
             canCancel: false
         ))
         return .success
+    }
+
+    /// Produces the same conservative allocated-byte inputs used by snapshot
+    /// creation and restore, without mutating the machine or snapshot store.
+    /// When a safety snapshot is requested, both temporary peaks are included
+    /// so the UI can reject the journey before creating a recovery point that
+    /// cannot be followed by the restore itself.
+    static func restoreStorageEstimate(
+        vmRootPath: URL,
+        snapshot: VMSnapshotModel,
+        keepCurrentState: Bool,
+        availableCapacityBytes: Int64? = nil
+    ) -> VMOSResult<VMSnapshotRestoreStorageEstimate, String> {
+        let integrity = auditSnapshot(vmRootPath: vmRootPath, snapshot: snapshot)
+        guard integrity.isValid else {
+            return .failure("Snapshot integrity check failed: \(integrity.errors.joined(separator: "; "))")
+        }
+
+        let filesDir = snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
+        let snapshotFileNames: [String]
+        do {
+            snapshotFileNames = try FileManager.default.contentsOfDirectory(
+                atPath: filesDir.path(percentEncoded: false)
+            )
+        } catch {
+            return .failure("Snapshot files could not be inspected: \(error.localizedDescription)")
+        }
+        if snapshot.backend == .apfsClone, snapshotFileNames.isEmpty {
+            return .failure("Snapshot files are missing.")
+        }
+        let restoreBytes = allocatedSizeRequired(
+            for: snapshotFileNames.map { filesDir.appending(path: $0) }
+        )
+
+        var safetyBytes: Int64 = 0
+        if keepCurrentState {
+            do {
+                var currentFileNames = try listMachineFileNames(vmRootPath: vmRootPath)
+                if selectedBackend(vmRootPath: vmRootPath) == .diskImageKitLayered {
+                    currentFileNames.removeAll { $0.lowercased().hasSuffix(".asif") }
+                }
+                guard !currentFileNames.isEmpty else {
+                    return .failure("The current machine state has no files to preserve.")
+                }
+                safetyBytes = allocatedSizeRequired(
+                    for: currentFileNames.map { vmRootPath.appending(path: $0) }
+                )
+            } catch {
+                return .failure("The current machine state could not be inspected: \(error.localizedDescription)")
+            }
+        }
+
+        let available = availableCapacityBytes ?? VMStorageCapacity.availableBytes(at: vmRootPath)
+        return .success(VMSnapshotRestoreStorageEstimate(
+            restoreStagingBytes: restoreBytes,
+            safetySnapshotBytes: safetyBytes,
+            reserveBytes: VMStorageCapacity.defaultReserveBytes,
+            availableBytes: available
+        ))
     }
 
     static func auditSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMSnapshotIntegrityReport {

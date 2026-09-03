@@ -2023,6 +2023,8 @@ enum VMDownloadValidationError: LocalizedError, Equatable {
 }
 
 enum VMStorageCapacity {
+    static let defaultReserveBytes: Int64 = 1_073_741_824
+
     static func availableBytes(at url: URL) -> Int64? {
         let directory = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
         return (try? directory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
@@ -2032,7 +2034,7 @@ enum VMStorageCapacity {
     static func validate(
         requiredBytes: Int64?,
         at url: URL,
-        reserveBytes: Int64 = 1_073_741_824,
+        reserveBytes: Int64 = defaultReserveBytes,
         availableBytesOverride: Int64? = nil
     ) throws {
         guard let requiredBytes, requiredBytes > 0,

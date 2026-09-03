@@ -18,6 +18,14 @@ enum MachineSnapshotMessageTone: Equatable {
     case failure
 }
 
+struct MachineSnapshotRestoreReview: Identifiable {
+    let snapshot: VMSnapshotModel
+    let keepCurrentState: Bool
+    let estimate: VMSnapshotRestoreStorageEstimate
+
+    var id: String { snapshot.id }
+}
+
 @MainActor
 @Observable
 class MachineSnapshotsViewStateObject {
@@ -38,7 +46,12 @@ class MachineSnapshotsViewStateObject {
     var cleanupPreview: VMSnapshotMaintenanceReport?
     var messageTone: MachineSnapshotMessageTone = .neutral
     var searchText: String = ""
+    var restoreReview: MachineSnapshotRestoreReview?
+    var isPreparingRestoreReview = false
     @ObservationIgnored private var operationControl: VMSnapshotOperationControl?
+    @ObservationIgnored private var restoreReviewRequestID: UUID?
+
+    var isBusy: Bool { isWorking || isPreparingRestoreReview }
 
     var filteredTree: [VMSnapshotTreeNode] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -109,16 +122,73 @@ class MachineSnapshotsViewStateObject {
         }
     }
 
-    func restoreSnapshot(_ snapshot: VMSnapshotModel) {
+    func prepareRestoreReview(_ snapshot: VMSnapshotModel) {
+        guard !isBusy else { return }
+        let requestID = UUID()
+        restoreReviewRequestID = requestID
+        isPreparingRestoreReview = true
+        restoreReview = nil
+        message = "Estimating restore storage…"
+        workingDetail = "Inspecting the target snapshot and current machine without changing either one."
+        messageTone = .working
+        let rootPath = self.rootPath
+        let keepCurrentState = snapshotBeforeRestore
+        Task.detached {
+            let result = VMSnapshotManager.restoreStorageEstimate(
+                vmRootPath: rootPath,
+                snapshot: snapshot,
+                keepCurrentState: keepCurrentState
+            )
+            await MainActor.run {
+                guard self.restoreReviewRequestID == requestID else { return }
+                self.restoreReviewRequestID = nil
+                self.isPreparingRestoreReview = false
+                self.workingDetail = ""
+                switch result {
+                case .success(let estimate):
+                    self.restoreReview = MachineSnapshotRestoreReview(
+                        snapshot: snapshot,
+                        keepCurrentState: keepCurrentState,
+                        estimate: estimate
+                    )
+                    self.message = "Restore review ready"
+                    self.messageTone = estimate.hasEnoughSpace == false ? .warning : .neutral
+                case .failure(let error):
+                    self.fail("Restore cannot be prepared: \(error)")
+                }
+            }
+        }
+    }
+
+    func restoreSnapshot(_ snapshot: VMSnapshotModel, keepCurrentState: Bool) {
         let control = begin(
-            snapshotBeforeRestore ? "Saving the current state first…" : "Preparing restore…",
-            detail: snapshotBeforeRestore
+            keepCurrentState ? "Saving the current state first…" : "Preparing restore…",
+            detail: keepCurrentState
                 ? "EZVM will keep a recovery point before replacing the machine state."
                 : "Checking snapshot integrity and available disk space."
         )
         let rootPath = self.rootPath
-        let keepCurrentState = snapshotBeforeRestore
         Task.detached {
+            let estimateResult = VMSnapshotManager.restoreStorageEstimate(
+                vmRootPath: rootPath,
+                snapshot: snapshot,
+                keepCurrentState: keepCurrentState
+            )
+            switch estimateResult {
+            case .success(let estimate) where estimate.hasEnoughSpace == false:
+                await MainActor.run {
+                    self.fail("Restore cancelled before any change because the operation needs \(self.displaySize(estimate.requiredAvailableBytes)) available, but this volume has \(self.displaySize(estimate.availableBytes ?? 0)).")
+                }
+                return
+            case .failure(let error):
+                await MainActor.run {
+                    self.fail("Restore cancelled before any change: \(error)")
+                }
+                return
+            case .success:
+                break
+            }
+
             // optionally keep the current state as its own snapshot, so a
             // restore is never a one way door
             if keepCurrentState {
@@ -454,6 +524,10 @@ class MachineSnapshotsViewStateObject {
     private func displaySize(_ bytes: UInt64) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file)
     }
+
+    private func displaySize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: max(0, bytes), countStyle: .file)
+    }
 }
 
 
@@ -617,7 +691,6 @@ struct MachineSnapshotsView: View {
     @State private var state: MachineSnapshotsViewStateObject
     @State private var runningRegistry = VMRunningRegistry.shared
 
-    @State private var restoringSnapshot: VMSnapshotModel?
     @State private var deletingSnapshot: VMSnapshotModel?
 
     init(machineName: String, rootPath: URL) {
@@ -685,7 +758,7 @@ struct MachineSnapshotsView: View {
                 TextField("Snapshot name", text: $state.newSnapshotName, prompt: Text(VMSnapshotManager.defaultSnapshotName()))
                     .textFieldStyle(.roundedBorder)
                     .onSubmit {
-                        if !state.isWorking && !isMachineRunning {
+                        if !state.isBusy && !isMachineRunning {
                             state.createSnapshot()
                         }
                     }
@@ -693,15 +766,15 @@ struct MachineSnapshotsView: View {
                     state.createSnapshot()
                 } label: { Label("Create Snapshot", systemImage: "plus.circle") }
                 .buttonStyle(.borderedProminent)
-                .disabled(state.isWorking || isMachineRunning)
+                .disabled(state.isBusy || isMachineRunning)
                 Button {
                     state.auditSnapshots()
                 } label: { Label("Audit", systemImage: "checkmark.shield") }
-                .disabled(state.isWorking || state.snapshots.isEmpty)
+                .disabled(state.isBusy || state.snapshots.isEmpty)
                 Button {
                     state.previewLayerCleanup()
                 } label: { Label("Clean Up…", systemImage: "sparkles") }
-                .disabled(state.isWorking || isMachineRunning)
+                .disabled(state.isBusy || isMachineRunning)
                 .help("Preview unreferenced ASIF layers before removing anything.")
             }
 
@@ -732,10 +805,10 @@ struct MachineSnapshotsView: View {
                             parentName: node.snapshot.parentSnapshotID.flatMap { snapshotsByID[$0]?.name },
                             isCurrent: node.snapshot.id == state.currentSnapshotID,
                             hasChildren: !(node.children?.isEmpty ?? true),
-                            disableActions: state.isWorking,
+                            disableActions: state.isBusy,
                             disableRestore: isMachineRunning,
                             onRestore: {
-                                restoringSnapshot = node.snapshot
+                                state.prepareRestoreReview(node.snapshot)
                             },
                             onRename: {
                                 renameSnapshot(node.snapshot)
@@ -787,7 +860,21 @@ struct MachineSnapshotsView: View {
                     .accessibilityLabel(state.message)
                     .accessibilityValue(state.workingDetail)
                 }
-                if !state.isWorking, !state.message.isEmpty {
+                if state.isPreparingRestoreReview {
+                    HStack(spacing: 7) {
+                        ProgressView()
+                            .controlSize(.small)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(state.message)
+                                .font(.caption.weight(.medium))
+                            Text(state.workingDetail)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                if !state.isBusy, !state.message.isEmpty {
                     Label(state.message, systemImage: messageSymbol(for: state.messageTone))
                         .font(.caption)
                         .foregroundStyle(messageColor(for: state.messageTone))
@@ -812,9 +899,9 @@ struct MachineSnapshotsView: View {
                 } label: {
                     Text("Close")
                 }
-                .disabled(state.isWorking)
+                .disabled(state.isBusy)
                 .help(
-                    state.isWorking
+                    state.isBusy
                         ? "Wait until the snapshot transaction finishes safely before closing this window."
                         : "Close Snapshots"
                 )
@@ -822,7 +909,11 @@ struct MachineSnapshotsView: View {
         }
         .padding()
         .frame(minWidth: 680, idealWidth: 760, minHeight: 520, idealHeight: 600)
-        .interactiveDismissDisabled(state.isWorking)
+        .interactiveDismissDisabled(state.isBusy)
+        .sheet(item: $state.restoreReview) { review in
+            MachineSnapshotRestoreReviewView(review: review)
+                .environment(state)
+        }
         .confirmationDialog(
             "Clean up unreferenced snapshot layers?",
             isPresented: Binding(
@@ -837,7 +928,7 @@ struct MachineSnapshotsView: View {
                 ) {
                     state.cleanupUnreferencedLayers()
                 }
-                .disabled(isMachineRunning || state.isWorking)
+                .disabled(isMachineRunning || state.isBusy)
             }
             Button("Cancel", role: .cancel) {
                 state.cleanupPreview = nil
@@ -849,26 +940,6 @@ struct MachineSnapshotsView: View {
                     "This will reclaim \(ByteCountFormatter.string(fromByteCount: Int64(clamping: preview.removableAllocatedSize), countStyle: .file)). " +
                     "Unknown files and \(preview.retainedLayerCount) referenced or unmanaged item(s) will remain untouched."
                 )
-            }
-        }
-        .confirmationDialog(
-            "Restore snapshot \"\(restoringSnapshot?.name ?? "")\" ?",
-            isPresented: Binding(get: { restoringSnapshot != nil }, set: { if !$0 { restoringSnapshot = nil } })
-        ) {
-            Button("Restore", role: .destructive) {
-                if let snapshot = restoringSnapshot {
-                    state.restoreSnapshot(snapshot)
-                }
-                restoringSnapshot = nil
-            }
-            Button("Cancel", role: .cancel) {
-                restoringSnapshot = nil
-            }
-        } message: {
-            if state.snapshotBeforeRestore {
-                Text("The current state will be kept as a new snapshot first.")
-            } else {
-                Text("The current machine state will be replaced and lost.")
             }
         }
         .confirmationDialog(
@@ -911,6 +982,140 @@ struct MachineSnapshotsView: View {
         case .warning: return .orange
         case .failure: return .red
         }
+    }
+
+}
+
+private struct MachineSnapshotRestoreReviewView: View {
+    @Environment(MachineSnapshotsViewStateObject.self) private var state
+    @Environment(\.dismiss) private var dismiss
+
+    let review: MachineSnapshotRestoreReview
+
+    private var estimate: VMSnapshotRestoreStorageEstimate { review.estimate }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: estimate.hasEnoughSpace == false ? "externaldrive.badge.exclamationmark" : "arrow.counterclockwise.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(estimate.hasEnoughSpace == false ? Color.orange : Color.accentColor)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Review Restore")
+                        .font(.title2.weight(.semibold))
+                    Text(review.snapshot.name)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer()
+            }
+
+            GroupBox {
+                Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
+                    storageRow("Restore staging", value: displaySize(estimate.restoreStagingBytes))
+                    if review.keepCurrentState {
+                        storageRow("Safety snapshot", value: displaySize(estimate.safetySnapshotBytes))
+                    }
+                    storageRow("Safety reserve", value: displaySize(estimate.reserveBytes))
+                    Divider().gridCellColumns(2)
+                    storageRow("Required available", value: displaySize(estimate.requiredAvailableBytes), emphasized: true)
+                    storageRow("Available now", value: estimate.availableBytes.map(displaySize) ?? "Not reported", emphasized: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(4)
+            } label: {
+                Label("Storage", systemImage: "internaldrive")
+                    .font(.headline)
+            }
+
+            Label(statusMessage, systemImage: statusSymbol)
+                .font(.callout)
+                .foregroundStyle(statusColor)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityElement(children: .combine)
+
+            Text(preservationMessage)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Restore", systemImage: "arrow.counterclockwise") {
+                    state.restoreSnapshot(
+                        review.snapshot,
+                        keepCurrentState: review.keepCurrentState
+                    )
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(estimate.hasEnoughSpace == false)
+                .keyboardShortcut(.defaultAction)
+                .help(estimate.hasEnoughSpace == false ? "Free disk space before restoring." : "Begin the verified restore transaction.")
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 500, idealWidth: 540)
+    }
+
+    private var statusMessage: String {
+        switch estimate.hasEnoughSpace {
+        case .some(true):
+            "There is enough reported space. EZVM will verify capacity again before changing the machine."
+        case .some(false):
+            "Restore is unavailable. Free at least \(displaySize(missingBytes)) and try again."
+        case .none:
+            "macOS did not report available capacity. EZVM will check again before changing the machine."
+        }
+    }
+
+    private var statusSymbol: String {
+        switch estimate.hasEnoughSpace {
+        case .some(true): "checkmark.circle.fill"
+        case .some(false): "exclamationmark.triangle.fill"
+        case .none: "questionmark.circle"
+        }
+    }
+
+    private var statusColor: Color {
+        switch estimate.hasEnoughSpace {
+        case .some(true): .green
+        case .some(false): .orange
+        case .none: .secondary
+        }
+    }
+
+    private var preservationMessage: String {
+        if review.keepCurrentState {
+            "EZVM will create a recovery snapshot before restoring. The estimate is conservative; APFS copy-on-write may use less physical space."
+        } else {
+            "The current machine state will be replaced and cannot be recovered unless it already exists in another snapshot."
+        }
+    }
+
+    private var missingBytes: Int64 {
+        estimate.requiredAvailableBytes - max(0, estimate.availableBytes ?? 0)
+    }
+
+    private func storageRow(_ title: String, value: String, emphasized: Bool = false) -> some View {
+        GridRow {
+            Text(title)
+                .foregroundStyle(emphasized ? .primary : .secondary)
+            Text(value)
+                .fontWeight(emphasized ? .semibold : .regular)
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func displaySize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: max(0, bytes), countStyle: .file)
     }
 }
 

@@ -170,6 +170,89 @@ final class VMSnapshotManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryRoot.appendingPathComponent(".restore-backup").path))
     }
 
+    func testRestoreStorageEstimateIncludesStagingSafetySnapshotAndReserve() throws {
+        try Data(repeating: 0x41, count: 2 * 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("Disk.img"))
+        try write("snapshot config", to: "config.json")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Target")
+        )
+        try Data(repeating: 0x42, count: 3 * 1024 * 1024)
+            .write(to: temporaryRoot.appendingPathComponent("Disk.img"))
+        try write("current config", to: "config.json")
+
+        let estimate = try unwrapSuccess(VMSnapshotManager.restoreStorageEstimate(
+            vmRootPath: temporaryRoot,
+            snapshot: snapshot,
+            keepCurrentState: true,
+            availableCapacityBytes: Int64.max
+        ))
+
+        XCTAssertGreaterThan(estimate.restoreStagingBytes, 0)
+        XCTAssertGreaterThan(estimate.safetySnapshotBytes, estimate.restoreStagingBytes)
+        XCTAssertEqual(estimate.reserveBytes, VMStorageCapacity.defaultReserveBytes)
+        XCTAssertEqual(
+            estimate.requiredAvailableBytes,
+            estimate.restoreStagingBytes + estimate.safetySnapshotBytes + estimate.reserveBytes
+        )
+        XCTAssertEqual(estimate.hasEnoughSpace, true)
+    }
+
+    func testRestoreStorageEstimateOmitsSafetySnapshotWhenUserAcceptsReplacement() throws {
+        try write("snapshot disk", to: "Disk.img")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Target")
+        )
+        try write("current disk", to: "Disk.img")
+
+        let estimate = try unwrapSuccess(VMSnapshotManager.restoreStorageEstimate(
+            vmRootPath: temporaryRoot,
+            snapshot: snapshot,
+            keepCurrentState: false,
+            availableCapacityBytes: 0
+        ))
+
+        XCTAssertEqual(estimate.safetySnapshotBytes, 0)
+        XCTAssertEqual(
+            estimate.requiredAvailableBytes,
+            estimate.restoreStagingBytes + estimate.reserveBytes
+        )
+        XCTAssertEqual(estimate.hasEnoughSpace, false)
+    }
+
+    func testRestoreStorageEstimateRejectsDamagedSnapshotBeforeReview() throws {
+        try write("snapshot disk", to: "Disk.img")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Target")
+        )
+        try write("tampered", to: "Snapshots/\(snapshot.id)/files/Disk.img")
+
+        let result = VMSnapshotManager.restoreStorageEstimate(
+            vmRootPath: temporaryRoot,
+            snapshot: snapshot,
+            keepCurrentState: false,
+            availableCapacityBytes: Int64.max
+        )
+
+        guard case let .failure(message) = result else {
+            return XCTFail("A damaged snapshot must not produce a restore review")
+        }
+        XCTAssertTrue(message.contains("integrity"), message)
+    }
+
+    func testRestoreStorageEstimateSaturatesPathologicalTotals() {
+        let estimate = VMSnapshotRestoreStorageEstimate(
+            restoreStagingBytes: Int64.max,
+            safetySnapshotBytes: Int64.max,
+            reserveBytes: Int64.max,
+            availableBytes: Int64.max
+        )
+
+        XCTAssertEqual(estimate.temporaryOperationBytes, Int64.max)
+        XCTAssertEqual(estimate.requiredAvailableBytes, Int64.max)
+        XCTAssertEqual(estimate.hasEnoughSpace, true)
+    }
+
     func testCancelledAPFSSnapshotRemovesPartialOutputAndReportsRealProgress() throws {
         try Data(repeating: 0x41, count: 1024 * 1024)
             .write(to: temporaryRoot.appendingPathComponent("Disk.img"))

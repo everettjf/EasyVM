@@ -363,6 +363,17 @@ accepted across that atomic commit boundary. Foundation does not expose
 sub-file copy progress here, so a single very large disk can still advance in
 one truthful jump rather than showing a synthetic percentage.
 
+Restore now begins with a read-only storage review instead of a blind
+destructive confirmation. EZVM audits the selected snapshot and calculates the
+conservative allocated-byte peak for restore staging, the optional safety
+snapshot, and the existing 1 GiB reserve. The review shows each component,
+current available capacity, and whether Restore is allowed; it also explains
+that APFS copy-on-write may consume less than the conservative safety-snapshot
+estimate. Capacity and integrity are checked again in detached work immediately
+before any safety snapshot or restore mutation, so a stale review cannot bypass
+the transactional preflight. Insufficient space stops the journey before a
+recovery snapshot is created.
+
 Snapshot storage maintenance now starts with a read-only reference-map preview.
 Cleanup is offered only when both the complete snapshot metadata index and the
 active ASIF state decode successfully, no restore is pending, and an
@@ -420,7 +431,7 @@ exported or retired.
 
 | Area | Required refinement | Acceptance evidence |
 | --- | --- | --- |
-| Capacity | Keep allocated-byte plus safety-margin preflight before conversion, snapshot, and restore; extend the same temporary-peak model across clone and export. Do not reserve a sparse ASIF disk's entire logical size at creation. | Deterministic low-space tests prove failure before mutation and report required versus available space; a nearly-full real volume validates filesystem behavior. |
+| Capacity | Keep allocated-byte plus safety-margin preflight before conversion, snapshot, and restore; present a component-level restore estimate including an optional safety snapshot; extend the same temporary-peak model across clone and export. Do not reserve a sparse ASIF disk's entire logical size at creation. | Deterministic low-space tests prove failure before mutation and report staging, preservation, reserve, required, and available space; a nearly-full real volume validates filesystem behavior. |
 | Progress | Expose real byte/phase progress, cancellation boundaries, and “finishing safely” states for long operations. | Closing the UI does not abandon work; cancellation resolves to complete-or-absent output. |
 | Integrity | Record base/layer identity, checksums where appropriate, current head, referenced branches, and saved-state compatibility. Validate the active chain before disk creation or VM startup. | Audit accounts for every layer and refuses missing, reordered, foreign, or corrupted chains; a missing base is never silently replaced. |
 | Recovery | Use journaled transaction stages and startup recovery for every layer mutation. | Process kills at each commit point preserve the old head or atomically install the new one. |
