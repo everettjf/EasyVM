@@ -786,8 +786,14 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         hostDirectory: layout.shared
                     )
                     self.sharedFolderProbePassed = true
+                    NSLog(
+                        "Omarchy shared-folder round trip passed (host-to-guest %@, guest-to-host %@)",
+                        result.hostToGuestSHA256,
+                        result.guestToHostSHA256
+                    )
                     self.sharedFolderProbeChanged(.passed(result))
                 } catch {
+                    NSLog("Omarchy shared-folder round trip failed: %@", error.localizedDescription)
                     self.sharedFolderProbeChanged(.failed(error.localizedDescription))
                 }
                 self.sharedFolderProbeTask = nil

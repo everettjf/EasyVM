@@ -58,6 +58,11 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
             (configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration)?.tag,
             "ezvm_shared"
         )
+        let sharedDevice = try XCTUnwrap(
+            configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration
+        )
+        let sharedShare = try XCTUnwrap(sharedDevice.share as? VZSingleDirectoryShare)
+        XCTAssertFalse(sharedShare.directory.isReadOnly)
         XCTAssertEqual(configuration.consoleDevices.count, 1)
         let console = try XCTUnwrap(configuration.consoleDevices.first as? VZVirtioConsoleDeviceConfiguration)
         let clipboard = try XCTUnwrap(console.ports[0]?.attachment as? VZSpiceAgentPortAttachment)

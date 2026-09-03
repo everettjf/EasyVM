@@ -372,8 +372,18 @@ func mountInfoHasVirtioFS(data []byte, tag, mountPoint string) bool {
 		}
 		before := strings.Fields(sections[0])
 		after := strings.Fields(sections[1])
-		if len(before) >= 5 && len(after) >= 2 &&
-			before[4] == mountPoint && after[0] == "virtiofs" && after[1] == tag {
+		if len(before) >= 6 && len(after) >= 2 &&
+			before[4] == mountPoint && mountOptionsContain(before[5], "rw") &&
+			after[0] == "virtiofs" && after[1] == tag {
+			return true
+		}
+	}
+	return false
+}
+
+func mountOptionsContain(options, wanted string) bool {
+	for _, option := range strings.Split(options, ",") {
+		if option == wanted {
 			return true
 		}
 	}
