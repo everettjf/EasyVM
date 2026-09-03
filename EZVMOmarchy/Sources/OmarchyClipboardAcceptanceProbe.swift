@@ -28,7 +28,7 @@ enum OmarchyClipboardAcceptanceProbe {
         pasteboard: NSPasteboard = .general
     ) async throws -> OmarchyClipboardRoundTrip {
         let nonce = UUID().uuidString.lowercased()
-        let probeDirectory = sharedDirectory.appending(path: ".ezvm-clipboard-(nonce)")
+        let probeDirectory = sharedDirectory.appending(path: ".ezvm-clipboard-\(nonce)")
         let guestDirectory = "/mnt/ezvm-shared/\(probeDirectory.lastPathComponent)"
         let snapshot = PasteboardSnapshot.capture(pasteboard)
         defer {
