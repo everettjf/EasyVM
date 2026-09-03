@@ -646,6 +646,18 @@ Release gates:
 - release publication and previous-version rollback procedure;
 - documented backup, repair, restore, reset, and support flows.
 
+Release automation must reject promotion unless a fresh real-guest evidence
+record is cryptographically bound by SHA-256 to the exact App archive, signed
+factory manifest, factory image, and full source revision being released. The
+record must enumerate every required scenario rather than relying on a single
+aggregate pass flag. `scripts/verify-omarchy-release-evidence.sh` defines this
+machine-enforced boundary; CI tests its positive and tamper-rejection paths.
+`scripts/publish-omarchy-release.sh` then orders the irreversible operations:
+build and sign, notarize the exact ZIP, apply quarantine and verify Gatekeeper
+plus a responsive visible window, validate exact-artifact real-guest evidence,
+and only then push the release branch/tag and create the GitHub release. Omarchy
+Edition tags use the separate `ezvm-omarchy-v<version>` namespace.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests
