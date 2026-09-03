@@ -647,6 +647,25 @@ enum VMGraphicsBackendKind: String, Codable, Equatable {
     case customVirGL
 }
 
+enum VMMachineStateSupport {
+    static func unavailabilityReason(
+        backendSupportsSaveRestore: Bool,
+        configurationValidationFailure: String?,
+        attachedAccessoryCount: Int
+    ) -> String? {
+        if !backendSupportsSaveRestore {
+            return "Custom VirGL state cannot be saved."
+        }
+        if attachedAccessoryCount > 0 {
+            return "Disconnect USB accessories before saving machine state."
+        }
+        if let configurationValidationFailure, !configurationValidationFailure.isEmpty {
+            return "This virtual machine configuration cannot save state: \(configurationValidationFailure)"
+        }
+        return nil
+    }
+}
+
 struct VMGraphicsBackendSelection: Equatable {
     let requested: VMGraphicsBackendKind
     let active: VMGraphicsBackendKind

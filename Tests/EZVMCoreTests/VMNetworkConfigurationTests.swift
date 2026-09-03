@@ -132,6 +132,57 @@ final class VMNetworkConfigurationTests: XCTestCase {
         ))
     }
 
+    func testMachineStateSupportExplainsEveryUnsupportedConfiguration() {
+        XCTAssertNil(VMMachineStateSupport.unavailabilityReason(
+            backendSupportsSaveRestore: true,
+            configurationValidationFailure: nil,
+            attachedAccessoryCount: 0
+        ))
+        XCTAssertEqual(
+            VMMachineStateSupport.unavailabilityReason(
+                backendSupportsSaveRestore: false,
+                configurationValidationFailure: nil,
+                attachedAccessoryCount: 0
+            ),
+            "Custom VirGL state cannot be saved."
+        )
+        XCTAssertEqual(
+            VMMachineStateSupport.unavailabilityReason(
+                backendSupportsSaveRestore: true,
+                configurationValidationFailure: nil,
+                attachedAccessoryCount: 1
+            ),
+            "Disconnect USB accessories before saving machine state."
+        )
+        XCTAssertEqual(
+            VMMachineStateSupport.unavailabilityReason(
+                backendSupportsSaveRestore: true,
+                configurationValidationFailure: "Unsupported device",
+                attachedAccessoryCount: 0
+            ),
+            "This virtual machine configuration cannot save state: Unsupported device"
+        )
+    }
+
+    func testMachineStateSupportUsesMostActionableReasonFirst() {
+        XCTAssertEqual(
+            VMMachineStateSupport.unavailabilityReason(
+                backendSupportsSaveRestore: true,
+                configurationValidationFailure: "Unsupported device",
+                attachedAccessoryCount: 2
+            ),
+            "Disconnect USB accessories before saving machine state."
+        )
+        XCTAssertEqual(
+            VMMachineStateSupport.unavailabilityReason(
+                backendSupportsSaveRestore: false,
+                configurationValidationFailure: "Unsupported device",
+                attachedAccessoryCount: 2
+            ),
+            "Custom VirGL state cannot be saved."
+        )
+    }
+
     func testUSBListenerRejectsRegistrationCompletionAfterStop() {
         var lifecycle = VMUSBListenerLifecycle()
         let token = lifecycle.beginRegistration()

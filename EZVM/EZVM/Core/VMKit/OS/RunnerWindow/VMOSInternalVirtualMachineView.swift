@@ -64,6 +64,7 @@ final class VMRuntimeState {
     private(set) var graphicsBackendKind: VMGraphicsBackendKind?
     private(set) var graphicsBackendDetail: String?
     private(set) var supportsMachineSaveRestore = true
+    private(set) var machineStateConfigurationFailure: String?
     @ObservationIgnored
     weak var controller: VMOSInternalVirtualMachineViewController?
 
@@ -83,8 +84,12 @@ final class VMRuntimeState {
         return snapshot.hasAttachedDevices
     }
     var canPersistMachineState: Bool {
-        VMUSBControllerSupport.canSaveMachineState(
+        machineStateUnavailabilityReason == nil
+    }
+    var machineStateUnavailabilityReason: String? {
+        VMMachineStateSupport.unavailabilityReason(
             backendSupportsSaveRestore: supportsMachineSaveRestore,
+            configurationValidationFailure: machineStateConfigurationFailure,
             attachedAccessoryCount: hasAttachedUSBAccessories ? 1 : 0
         )
     }
@@ -148,6 +153,10 @@ final class VMRuntimeState {
         graphicsBackendKind = kind
         graphicsBackendDetail = detail
         self.supportsMachineSaveRestore = supportsMachineSaveRestore
+    }
+
+    func updateMachineStateConfigurationFailure(_ failure: String?) {
+        machineStateConfigurationFailure = failure
     }
 
     func pause() { controller?.pauseMachine() }

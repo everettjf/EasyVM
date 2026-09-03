@@ -235,6 +235,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         
         configuredMemorySize = virtualMachineConfiguration.memorySize
         self.virtualMachineConfiguration = virtualMachineConfiguration
+        updateMachineStateSupport(for: virtualMachineConfiguration)
         installVirtualMachine(configuration: virtualMachineConfiguration)
         VMSavedStateStore.recoverInterruptedTransaction(stateURL: model.savedMachineStateURL)
         startConfiguredMachine(rootPath: rootPath, model: model)
@@ -297,6 +298,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
+    private func updateMachineStateSupport(for configuration: VZVirtualMachineConfiguration) {
+        do {
+            try configuration.validateSaveRestoreSupport()
+            runtimeState?.updateMachineStateConfigurationFailure(nil)
+        } catch {
+            runtimeState?.updateMachineStateConfigurationFailure(error.localizedDescription)
+            EZVMLog.info("Machine-state save and restore is unavailable: \(error.localizedDescription)")
+        }
+    }
+
     private func rebuildVirtualMachine() -> Bool {
         guard let configuration = virtualMachineConfiguration else { return false }
         stopGuestAgent()
@@ -332,6 +343,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 return true
             }
             virtualMachineConfiguration = configuration
+            updateMachineStateSupport(for: configuration)
             installVirtualMachine(configuration: configuration)
             runtimeState?.update(.starting)
             startNormally(rootPath: rootPath, model: model)
@@ -999,8 +1011,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     func saveAndStopMachine() {
-        guard graphicsBackend?.supportsMachineSaveRestore != false,
-              usbAccessoryCoordinator?.hasAttachedDevices != true else {
+        guard runtimeState?.canPersistMachineState == true else {
             // Retain the controller until the guest acknowledges shutdown and
             // the VM delegate releases the Custom Virtio renderer.
             shutdownRetainer = self

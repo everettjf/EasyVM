@@ -253,12 +253,11 @@ struct VMOSMainVirtualMachineView: View {
                 }
 
                 Menu("Power", systemImage: "power") {
-                    if runtimeState.canPersistMachineState {
-                        Button("Save State and Stop", systemImage: "square.and.arrow.down") {
-                            runtimeState.saveAndStop()
-                        }
-                        .disabled(!runtimeState.canSave)
+                    Button("Save State and Stop", systemImage: "square.and.arrow.down") {
+                        runtimeState.saveAndStop()
                     }
+                    .disabled(!runtimeState.canSave)
+                    .help(runtimeState.machineStateUnavailabilityReason ?? "Pause, save, and stop this virtual machine")
 
                     Button("Shut Down", systemImage: "power") {
                         runtimeState.requestStop()
@@ -335,7 +334,7 @@ struct VMOSMainVirtualMachineView: View {
             } else if runtimeState.hasAttachedUSBAccessories {
                 Text("A USB accessory is connected. EZVM will shut down the guest instead of saving machine state so the accessory is released safely.")
             } else {
-                Text("Custom VirGL state cannot be saved. EZVM will ask the guest to shut down, force stop only if it does not respond, and then close this window.")
+                Text("\(runtimeState.machineStateUnavailabilityReason ?? "Machine state is unavailable for this configuration.") EZVM will ask the guest to shut down, force stop only if it does not respond, and then close this window.")
             }
         }
         .alert("Shared Folder", isPresented: $isShowingSharedFolderResult) {
