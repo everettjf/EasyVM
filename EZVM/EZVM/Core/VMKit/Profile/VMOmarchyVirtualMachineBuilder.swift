@@ -98,7 +98,19 @@ public enum VMOmarchyVirtualMachineBuilder {
             tag: VMGuestAgentEnrollmentStore.sharedDirectoryTag
         )
         enrollmentDevice.share = enrollmentShare
-        configuration.directorySharingDevices = [enrollmentDevice]
+        let sharedDirectory = VZSharedDirectory(url: layout.shared, readOnly: false)
+        let sharedDevice = VZVirtioFileSystemDeviceConfiguration(tag: "ezvm_shared")
+        sharedDevice.share = VZSingleDirectoryShare(directory: sharedDirectory)
+        configuration.directorySharingDevices = [enrollmentDevice, sharedDevice]
+
+        let spiceConsole = VZVirtioConsoleDeviceConfiguration()
+        let spicePort = VZVirtioConsolePortConfiguration()
+        spicePort.name = VZSpiceAgentPortAttachment.spiceAgentPortName
+        let spiceAttachment = VZSpiceAgentPortAttachment()
+        spiceAttachment.sharesClipboard = true
+        spicePort.attachment = spiceAttachment
+        spiceConsole.ports[0] = spicePort
+        configuration.consoleDevices = [spiceConsole]
 
         let network = VZVirtioNetworkDeviceConfiguration()
         network.attachment = VZNATNetworkDeviceAttachment()

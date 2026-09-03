@@ -22,6 +22,7 @@ public struct VMOmarchyWorkspaceLayout: Equatable {
     public var efiVariableStore: URL { boot.appending(path: "EFIVariableStore") }
     public var snapshots: URL { workspace.appending(path: "Snapshots", directoryHint: .isDirectory) }
     public var enrollment: URL { applicationSupportRoot.appending(path: "Enrollment", directoryHint: .isDirectory) }
+    public var shared: URL { applicationSupportRoot.appending(path: "Shared", directoryHint: .isDirectory) }
     public var cache: URL { applicationSupportRoot.appending(path: "Cache", directoryHint: .isDirectory) }
     public var diagnostics: URL { applicationSupportRoot.appending(path: "Diagnostics", directoryHint: .isDirectory) }
 }
@@ -119,7 +120,7 @@ public struct VMOmarchyWorkspaceManager {
     }
 
     private func createSupportDirectories() throws {
-        for directory in [layout.enrollment, layout.cache, layout.diagnostics] {
+        for directory in [layout.enrollment, layout.shared, layout.cache, layout.diagnostics] {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         }
     }

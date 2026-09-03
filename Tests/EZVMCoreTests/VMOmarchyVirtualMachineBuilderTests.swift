@@ -11,6 +11,7 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: layout.boot, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: layout.enrollment, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: layout.shared, withIntermediateDirectories: true)
         XCTAssertTrue(FileManager.default.createFile(atPath: layout.disk.path, contents: Data(count: 1_048_576)))
         try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
 
@@ -27,11 +28,19 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertEqual(configuration.storageDevices.count, 1)
         XCTAssertEqual(configuration.graphicsDevices.count, 1)
         XCTAssertEqual(configuration.socketDevices.count, 1)
-        XCTAssertEqual(configuration.directorySharingDevices.count, 1)
+        XCTAssertEqual(configuration.directorySharingDevices.count, 2)
         XCTAssertEqual(
             (configuration.directorySharingDevices.first as? VZVirtioFileSystemDeviceConfiguration)?.tag,
             "ezvm-agent"
         )
+        XCTAssertEqual(
+            (configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration)?.tag,
+            "ezvm_shared"
+        )
+        XCTAssertEqual(configuration.consoleDevices.count, 1)
+        let console = try XCTUnwrap(configuration.consoleDevices.first as? VZVirtioConsoleDeviceConfiguration)
+        let clipboard = try XCTUnwrap(console.ports[0]?.attachment as? VZSpiceAgentPortAttachment)
+        XCTAssertTrue(clipboard.sharesClipboard)
         XCTAssertEqual(configuration.audioDevices.count, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.efiVariableStore.path))
     }

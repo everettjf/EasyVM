@@ -33,6 +33,7 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: layout.disk), Data("factory".utf8))
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.snapshots.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.enrollment.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layout.shared.path))
         let enrollmentURL = layout.enrollment.appending(path: "config.json")
         let enrollment = try JSONDecoder().decode(
             VMGuestAgentEnrollment.self,

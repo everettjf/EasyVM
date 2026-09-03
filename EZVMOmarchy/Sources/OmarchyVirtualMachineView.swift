@@ -28,6 +28,9 @@ struct OmarchyVirtualMachineView: View {
         .background(.black)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button("Open Shared Folder", systemImage: "folder") {
+                    NSWorkspace.shared.open(layout.shared)
+                }
                 if phase == .running {
                     Button("Restart Omarchy", systemImage: "arrow.clockwise") {
                         handle(.restartRequested)
