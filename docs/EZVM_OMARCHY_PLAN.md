@@ -677,6 +677,32 @@ integration-ready checkpoint only. It deliberately does not claim that input,
 clipboard, shared-folder, sleep/wake, rollback, or 24-hour scenarios completed;
 those remain separate real actions in the release evidence record.
 
+### 11.1 Shared-folder real-guest checkpoint (2026-09-03)
+
+The draft `ezvm-omarchy-integration-20260903.5` image exposed two defects that
+unit and image-assembly tests had not caught: the Agent reported the placeholder
+version `image`, and `ProtectSystem=strict` made `/mnt/ezvm-shared` read-only in
+the system Agent's mount namespace. The acceptance probe correctly rejected the
+candidate with `sharedFolderRoundTripPassed=false` and the strict validator
+rejected the wrong Agent version.
+
+The corrected draft `ezvm-omarchy-integration-20260903.6` completed the full
+image CI, release-asset digest verification, 64 GiB raw reconstruction, signed
+factory conversion, clean-workspace preparation, first-owner provisioning, and
+Hyprland startup. Its live schema-2 observation passed the strict validator with:
+
+- App source and Guest Agent revision
+  `0ac3580464d532d58798b69071980f834e06219a`;
+- `desktopSessionActive=true` and `provisioningPending=false`;
+- text/image clipboard and dynamic-display capabilities advertised;
+- `sharedFolderRoundTripPassed=true`;
+- distinct recorded SHA-256 digests for Host-to-Guest and Guest-to-Host marker
+  transfers, with all temporary markers removed afterward.
+
+This closes only the shared-folder integration checkpoint. Clipboard payloads,
+keyboard capture, display resizing, lifecycle recovery, and soak scenarios still
+require their own real-guest evidence.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests
