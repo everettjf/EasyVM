@@ -88,16 +88,6 @@ jobs:
         run: scripts/test-omarchy-factory-tool.sh
       - name: Test sparse raw-to-ASIF factory conversion
         run: scripts/test-copy-sparse-raw-to-asif.sh
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: GuestAgent/linux/go.mod
-          cache: false
-      - name: Test Linux Guest Agent
-        working-directory: GuestAgent/linux
-        run: |
-          go test ./...
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/ezvm-agent" .
       - name: Validate Omarchy Guest Overlay
         run: |
           bash scripts/test-omarchy-guest-overlay.sh
@@ -131,3 +121,20 @@ jobs:
         run: scripts/test-omarchy-publish-preflight.sh
       - name: Test image-source integration contract
         run: scripts/test-omarchy-image-source-integration.sh
+
+  guest-agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: GuestAgent/linux/go.mod
+          cache: false
+      - name: Test and cross-compile Linux Guest Agent
+        working-directory: GuestAgent/linux
+        run: |
+          go test ./...
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/ezvm-agent" .
+          file "$RUNNER_TEMP/ezvm-agent" | grep -q 'ELF 64-bit.*ARM aarch64.*statically linked'
