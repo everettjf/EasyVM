@@ -10,6 +10,8 @@ omarchy_vm="${EZVM_MATRIX_OMARCHY_VM:-}"
 ubuntu_vm="${EZVM_MATRIX_UBUNTU_VM:-}"
 omarchy_enrollment="${EZVM_MATRIX_OMARCHY_ENROLLMENT:-}"
 ubuntu_enrollment="${EZVM_MATRIX_UBUNTU_ENROLLMENT:-}"
+matrix_report="${EZVM_MATRIX_REPORT:-}"
+matrix_started_at="$(date +%s)"
 
 fail() {
   echo "verify-macos27-guest-matrix: $*" >&2
@@ -73,6 +75,15 @@ EZVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
 if [[ "${EZVM_MATRIX_REQUIRE_NESTED:-0}" == "1" ]]; then
   EZVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
     "$project_root/scripts/verify-release-nested-virtualization.sh" "$app_path" "$omarchy_vm"
+fi
+
+if [[ -n "$matrix_report" ]]; then
+  "$project_root/scripts/write-macos27-matrix-report.sh" \
+    "$app_path" \
+    "${expected_version:-unknown}" \
+    "$(($(date +%s) - matrix_started_at))" \
+    "$matrix_report" \
+    "${EZVM_MATRIX_REQUIRE_NESTED:-0}"
 fi
 
 echo "Verified the signed macOS 27 guest matrix: macOS, Omarchy, and Ubuntu."

@@ -396,6 +396,12 @@ cross-process saved-state restore, VirGL and Guest Agent operation on both
 Linux guests, VMNet Shared transfer and fresh-process reacquisition, and ASIF
 snapshot creation, cross-process audit, restore, reboot, and clean stop.
 
+Release runs can set an absolute `EZVM_MATRIX_REPORT` path to atomically retain
+a versioned JSON result containing duration, executable SHA-256, guest set, and
+the exact automated checks that passed. The report is written mode `0600` and
+contains no fixture or user paths. This makes repeated notarized/Homebrew runs
+comparable without treating terminal scrollback as release evidence.
+
 This is signed development evidence, not release promotion. Physical USB,
 fresh macOS provisioning, real host sleep/network transitions, representative
 VirGL A/B workloads, notarization, and Homebrew installation remain required.
