@@ -467,6 +467,7 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let requireMemoryBalloon: Bool
     let requireEntropy: Bool
     let requireVirtioSocket: Bool
+    let requireASIFStorage: Bool
     let guestAgentEnrollmentURL: URL?
 }
 
@@ -483,6 +484,7 @@ enum VMReleaseSmokeTest {
     static let requireMemoryBalloonEnvironmentKey = "EZVM_RELEASE_REQUIRE_MEMORY_BALLOON"
     static let requireEntropyEnvironmentKey = "EZVM_RELEASE_REQUIRE_ENTROPY"
     static let requireVirtioSocketEnvironmentKey = "EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET"
+    static let requireASIFStorageEnvironmentKey = "EZVM_RELEASE_REQUIRE_ASIF_STORAGE"
     static let guestAgentEnrollmentEnvironmentKey = "EZVM_RELEASE_AGENT_ENROLLMENT_FILE"
 
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> VMReleaseSmokeTestConfiguration? {
@@ -505,6 +507,7 @@ enum VMReleaseSmokeTest {
             requireMemoryBalloon: environment[requireMemoryBalloonEnvironmentKey] == "1",
             requireEntropy: environment[requireEntropyEnvironmentKey] == "1",
             requireVirtioSocket: environment[requireVirtioSocketEnvironmentKey] == "1",
+            requireASIFStorage: environment[requireASIFStorageEnvironmentKey] == "1",
             guestAgentEnrollmentURL: environment[guestAgentEnrollmentEnvironmentKey].flatMap {
                 $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL
             }

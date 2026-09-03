@@ -48,17 +48,19 @@ done
 run_linux_guest_gate() {
   local fixture="$1"
   local enrollment="$2"
+  local require_asif="$3"
   [[ -f "$enrollment" ]] || fail "missing Guest Agent enrollment for $fixture"
   EZVM_RELEASE_SMOKE_ENROLLMENT="$enrollment" \
   EZVM_RELEASE_REQUIRE_VIRGL=1 \
   EZVM_RELEASE_REQUIRE_MEMORY_BALLOON=1 \
   EZVM_RELEASE_REQUIRE_ENTROPY=1 \
   EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET=1 \
+  EZVM_RELEASE_REQUIRE_ASIF_STORAGE="$require_asif" \
     "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
 }
 
-run_linux_guest_gate "$omarchy_vm" "$omarchy_enrollment"
-run_linux_guest_gate "$ubuntu_vm" "$ubuntu_enrollment"
+run_linux_guest_gate "$omarchy_vm" "$omarchy_enrollment" 0
+run_linux_guest_gate "$ubuntu_vm" "$ubuntu_enrollment" 1
 
 if [[ "${EZVM_MATRIX_REQUIRE_NESTED:-0}" == "1" ]]; then
   EZVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \

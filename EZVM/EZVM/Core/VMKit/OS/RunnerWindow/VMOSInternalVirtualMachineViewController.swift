@@ -575,7 +575,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // a full-screen round trip first.
         refreshAutomaticDisplayConfiguration()
         if let smokeTest = VMReleaseSmokeTest.configuration(for: rootPath) {
-            if let unmetRequirement = unmetReleaseSmokeRequirement(smokeTest) {
+            if let unmetRequirement = unmetReleaseSmokeRequirement(smokeTest, model: model) {
                 fail(unmetRequirement)
                 return
             }
@@ -598,7 +598,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
-    private func unmetReleaseSmokeRequirement(_ smoke: VMReleaseSmokeTestConfiguration) -> String? {
+    private func unmetReleaseSmokeRequirement(
+        _ smoke: VMReleaseSmokeTestConfiguration,
+        model: VMModel
+    ) -> String? {
         if smoke.requireVirGL, graphicsBackend?.kind != .customVirGL {
             return "Release test requires Custom VirGL, but the active backend is \(graphicsBackend?.kind.rawValue ?? "unknown")."
         }
@@ -610,6 +613,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         if smoke.requireVirtioSocket, virtualMachineConfiguration?.socketDevices.isEmpty != false {
             return "Release test requires a Virtio socket device."
+        }
+        if smoke.requireASIFStorage,
+           !model.config.storageDevices.contains(where: { $0.type == .Block && $0.format == .asif }) {
+            return "Release test requires an ASIF block-storage device."
         }
         return nil
     }

@@ -29,6 +29,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertFalse(configuration.requireMemoryBalloon)
         XCTAssertFalse(configuration.requireEntropy)
         XCTAssertFalse(configuration.requireVirtioSocket)
+        XCTAssertFalse(configuration.requireASIFStorage)
         XCTAssertNil(configuration.guestAgentEnrollmentURL)
     }
 
@@ -45,6 +46,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.requireMemoryBalloonEnvironmentKey: "1",
             VMReleaseSmokeTest.requireEntropyEnvironmentKey: "1",
             VMReleaseSmokeTest.requireVirtioSocketEnvironmentKey: "1",
+            VMReleaseSmokeTest.requireASIFStorageEnvironmentKey: "1",
             VMReleaseSmokeTest.guestAgentEnrollmentEnvironmentKey: "/tmp/agent.json",
         ]))
         XCTAssertTrue(configuration.requireGuestAgent)
@@ -56,6 +58,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertTrue(configuration.requireMemoryBalloon)
         XCTAssertTrue(configuration.requireEntropy)
         XCTAssertTrue(configuration.requireVirtioSocket)
+        XCTAssertTrue(configuration.requireASIFStorage)
         XCTAssertEqual(configuration.guestAgentEnrollmentURL?.path, "/tmp/agent.json")
     }
 }
