@@ -912,7 +912,7 @@ private struct VMNetworkRuntimeMenu: View {
         case .preparing(let count): "Preparing \(adapterCount(count))"
         case .connected(let count): "\(adapterCount(count)) connected"
         case .hostSleeping(let count): "\(adapterCount(count)) suspended while this Mac sleeps"
-        case .reconnecting(_, _, let deviceIndices): "Reconnecting \(issueCount(deviceIndices.count))"
+        case .reconnecting(_, _, let deviceIndices): "Recovering \(issueCount(deviceIndices.count))"
         case .degraded(_, let issues): "\(issueCount(issues.count)) disconnected"
         }
     }
@@ -936,7 +936,7 @@ private struct VMNetworkRuntimeBanner: View {
             HStack(spacing: 10) {
                 ProgressView()
                     .controlSize(.small)
-                Text("Reconnecting \(reconnectingTitle(issues: issues, deviceIndices: deviceIndices))…")
+                Text("Recovering \(reconnectingTitle(issues: issues, deviceIndices: deviceIndices))…")
                     .font(.callout.weight(.medium))
             }
             .networkRuntimeCard()

@@ -1089,33 +1089,65 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         EZVMLog.info("Reconnecting network adapter \(deviceIndex + 1).", logger: EZVMLog.network)
         device.attachment = attachment
 
-        // VZNetworkDevice has no completion handler for attachment changes.
-        // A failure is authoritative through the VM delegate; a short delayed
-        // read only confirms that the requested attachment remained installed.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self, weak device] in
+        // VZNetworkDevice has no positive completion callback for attachment
+        // changes. First confirm that the request remained installed, then keep
+        // the UI in its recovering state for a stabilization window. A delegate
+        // failure at either point invalidates this token and remains authoritative.
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + VMNetworkRuntimeTracker.reconnectAcceptanceDelay
+        ) { [weak self, weak device] in
             guard let self,
                   self.networkReconnectTokens[deviceIndex] == operationToken,
                   let device,
                   self.virtualMachine?.networkDevices.indices.contains(deviceIndex) == true,
                   self.virtualMachine.networkDevices[deviceIndex] === device else { return }
             if device.attachment != nil {
-                self.networkReconnectTokens.removeValue(forKey: deviceIndex)
-                self.networkRuntimeTracker.markConnected(deviceIndex: deviceIndex)
+                guard self.networkRuntimeTracker.markReconnectRequestAccepted(
+                    deviceIndex: deviceIndex
+                ) else { return }
                 self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
-                EZVMLog.info("Network adapter \(deviceIndex + 1) reconnected.", logger: EZVMLog.network)
-            } else {
-                self.networkReconnectTokens.removeValue(forKey: deviceIndex)
-                self.networkRuntimeTracker.markDisconnected(
-                    deviceIndex: deviceIndex,
-                    reason: "The host did not accept the network attachment. Check the selected interface and try again."
-                )
-                self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
-                EZVMLog.error(
-                    "Network adapter \(deviceIndex + 1) remained disconnected after a reconnect request.",
+                EZVMLog.info(
+                    "Network adapter \(deviceIndex + 1) accepted the reconnect request; observing stability.",
                     logger: EZVMLog.network
                 )
+                DispatchQueue.main.asyncAfter(
+                    deadline: .now() + VMNetworkRuntimeTracker.reconnectStabilizationDelay
+                ) { [weak self, weak device] in
+                    guard let self,
+                          self.networkReconnectTokens[deviceIndex] == operationToken,
+                          let device,
+                          self.virtualMachine?.networkDevices.indices.contains(deviceIndex) == true,
+                          self.virtualMachine.networkDevices[deviceIndex] === device else { return }
+                    if device.attachment != nil {
+                        self.networkReconnectTokens.removeValue(forKey: deviceIndex)
+                        self.networkRuntimeTracker.markConnected(deviceIndex: deviceIndex)
+                        self.runtimeState?.updateNetworkRuntime(self.networkRuntimeTracker.state)
+                        EZVMLog.info(
+                            "Network adapter \(deviceIndex + 1) remained stable after reconnect.",
+                            logger: EZVMLog.network
+                        )
+                    } else {
+                        self.markNetworkReconnectRequestRejected(deviceIndex: deviceIndex)
+                    }
+                }
+            } else {
+                self.markNetworkReconnectRequestRejected(deviceIndex: deviceIndex)
             }
         }
+    }
+
+    private func markNetworkReconnectRequestRejected(deviceIndex: Int) {
+        networkReconnectTokens.removeValue(forKey: deviceIndex)
+        networkRuntimeTracker.markDisconnected(
+            deviceIndex: deviceIndex,
+            reason: "The host did not accept the network attachment. Check the selected interface and try again."
+        )
+        runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
+        EZVMLog.error(
+            "Network adapter \(deviceIndex + 1) remained disconnected after a reconnect request.",
+            logger: EZVMLog.network
+        )
+        scheduleAutomaticNetworkReconnect(deviceIndex: deviceIndex)
     }
 
     private func scheduleAutomaticNetworkReconnect(deviceIndex: Int) {

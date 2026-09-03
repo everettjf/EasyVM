@@ -1958,12 +1958,15 @@ enum VMNetworkRuntimeState: Equatable {
 
 struct VMNetworkRuntimeTracker: Equatable {
     static let automaticReconnectDelays: [TimeInterval] = [1, 3]
+    static let reconnectAcceptanceDelay: TimeInterval = 0.25
+    static let reconnectStabilizationDelay: TimeInterval = 3
 
     private(set) var deviceCount: Int
     private(set) var isStarted = false
     private(set) var isHostSleeping = false
     private(set) var disconnectedReasons: [Int: String] = [:]
     private(set) var reconnectingIndices = Set<Int>()
+    private(set) var stabilizingIndices = Set<Int>()
     private(set) var automaticReconnectAttempts: [Int: Int] = [:]
 
     var disconnectedDeviceIndices: [Int] { disconnectedReasons.keys.sorted() }
@@ -1979,11 +1982,12 @@ struct VMNetworkRuntimeTracker: Equatable {
             .sorted { $0.deviceIndex < $1.deviceIndex }
         guard isStarted else { return .preparing(deviceCount: deviceCount) }
         if isHostSleeping { return .hostSleeping(deviceCount: deviceCount) }
-        if !reconnectingIndices.isEmpty {
+        let recoveringIndices = reconnectingIndices.union(stabilizingIndices)
+        if !recoveringIndices.isEmpty {
             return .reconnecting(
                 deviceCount: deviceCount,
                 issues: issues,
-                deviceIndices: reconnectingIndices.sorted()
+                deviceIndices: recoveringIndices.sorted()
             )
         }
         return issues.isEmpty
@@ -1999,12 +2003,21 @@ struct VMNetworkRuntimeTracker: Equatable {
         guard (0..<deviceCount).contains(deviceIndex) else { return }
         disconnectedReasons[deviceIndex] = reason
         reconnectingIndices.remove(deviceIndex)
+        stabilizingIndices.remove(deviceIndex)
     }
 
     mutating func beginReconnect(deviceIndex: Int) -> Bool {
         guard disconnectedReasons[deviceIndex] != nil,
-              !reconnectingIndices.contains(deviceIndex) else { return false }
+              !reconnectingIndices.contains(deviceIndex),
+              !stabilizingIndices.contains(deviceIndex) else { return false }
         reconnectingIndices.insert(deviceIndex)
+        return true
+    }
+
+    mutating func markReconnectRequestAccepted(deviceIndex: Int) -> Bool {
+        guard disconnectedReasons[deviceIndex] != nil,
+              reconnectingIndices.remove(deviceIndex) != nil else { return false }
+        stabilizingIndices.insert(deviceIndex)
         return true
     }
 
@@ -2012,6 +2025,7 @@ struct VMNetworkRuntimeTracker: Equatable {
         guard (0..<deviceCount).contains(deviceIndex) else { return }
         disconnectedReasons.removeValue(forKey: deviceIndex)
         reconnectingIndices.remove(deviceIndex)
+        stabilizingIndices.remove(deviceIndex)
         automaticReconnectAttempts.removeValue(forKey: deviceIndex)
     }
 
@@ -2019,7 +2033,8 @@ struct VMNetworkRuntimeTracker: Equatable {
         guard isStarted,
               !isHostSleeping,
               disconnectedReasons[deviceIndex] != nil,
-              !reconnectingIndices.contains(deviceIndex) else { return nil }
+              !reconnectingIndices.contains(deviceIndex),
+              !stabilizingIndices.contains(deviceIndex) else { return nil }
         let attempt = automaticReconnectAttempts[deviceIndex, default: 0]
         guard Self.automaticReconnectDelays.indices.contains(attempt) else { return nil }
         automaticReconnectAttempts[deviceIndex] = attempt + 1
@@ -2035,6 +2050,7 @@ struct VMNetworkRuntimeTracker: Equatable {
         guard isStarted else { return }
         isHostSleeping = true
         reconnectingIndices.removeAll()
+        stabilizingIndices.removeAll()
         automaticReconnectAttempts.removeAll()
     }
 

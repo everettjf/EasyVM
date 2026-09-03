@@ -194,6 +194,46 @@ final class VMNetworkConfigurationTests: XCTestCase {
         XCTAssertTrue(tracker.beginReconnect(deviceIndex: 0))
     }
 
+    func testNetworkRuntimeTrackerDoesNotClaimSuccessWhenReconnectRequestIsOnlyAccepted() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 1)
+        tracker.markStarted()
+        tracker.markDisconnected(deviceIndex: 0, reason: "Interface changed")
+
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
+        XCTAssertTrue(tracker.markReconnectRequestAccepted(deviceIndex: 0))
+        XCTAssertEqual(tracker.stabilizingIndices, [0])
+        XCTAssertEqual(tracker.automaticReconnectAttempts[0], 1)
+        XCTAssertEqual(
+            tracker.state,
+            .reconnecting(
+                deviceCount: 1,
+                issues: [VMNetworkDeviceIssue(deviceIndex: 0, reason: "Interface changed")],
+                deviceIndices: [0]
+            )
+        )
+        XCTAssertFalse(tracker.beginReconnect(deviceIndex: 0))
+        XCTAssertNil(tracker.beginAutomaticReconnect(deviceIndex: 0))
+
+        tracker.markConnected(deviceIndex: 0)
+        XCTAssertEqual(tracker.state, .connected(deviceCount: 1))
+        XCTAssertTrue(tracker.stabilizingIndices.isEmpty)
+        XCTAssertNil(tracker.automaticReconnectAttempts[0])
+    }
+
+    func testNetworkRuntimeTrackerLateFailureConsumesTheNextRetryBudget() {
+        var tracker = VMNetworkRuntimeTracker(deviceCount: 1)
+        tracker.markStarted()
+        tracker.markDisconnected(deviceIndex: 0, reason: "Interface changed")
+
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
+        XCTAssertTrue(tracker.markReconnectRequestAccepted(deviceIndex: 0))
+        tracker.markDisconnected(deviceIndex: 0, reason: "Late framework disconnect")
+
+        XCTAssertTrue(tracker.stabilizingIndices.isEmpty)
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 3)
+        XCTAssertEqual(tracker.automaticReconnectAttempts[0], 2)
+    }
+
     func testNetworkRuntimeTrackerKeepsIndependentAdapterFailures() {
         var tracker = VMNetworkRuntimeTracker(deviceCount: 3)
         tracker.markStarted()

@@ -265,8 +265,15 @@ also rejects a second reconnect for an adapter already in progress, so repeated
 UI, automation, or future CLI events cannot replace the authoritative operation
 identity; a failed attempt returns to a retryable disconnected state.
 
+Runtime reconnection no longer treats a non-`nil` replacement attachment as
+immediate proof of restored connectivity. EZVM keeps the adapter in a recovering
+state after Virtualization.framework accepts the request, observes a
+stabilization window, and lets any late framework disconnect callback win. The
+automatic retry budget resets only after that window succeeds, preventing a
+flapping interface or VPN transition from creating an unbounded retry loop.
+
 Disconnects while the host is awake now receive two bounded automatic recovery
-attempts after one and three seconds. A successful attachment, a manual retry,
+attempts after one and three seconds. A stabilized reconnection, a manual retry,
 or a new wake cycle renews that budget; sleep, teardown, and reconfiguration
 cancel queued work so stale callbacks cannot overwrite the current state. Once
 the bounded attempts are exhausted, the adapter remains visibly disconnected
