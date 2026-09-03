@@ -307,7 +307,10 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	}
 	sort.Strings(addresses)
 	kvmAvailable, kvmVersion, kvmError := kvmStatus()
-	capabilities := []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1", "shutdown-v1"}
+	capabilities := []string{"file-transfer-v1", "kvm-diagnostics-v1", "shutdown-v1"}
+	if sshListening() {
+		capabilities = append(capabilities, "ssh-addresses-v1")
+	}
 	if inputAvailable {
 		capabilities = append(capabilities, "input-uinput-v1")
 		if desktopInputReady() {
@@ -329,6 +332,31 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	}
 	_, provisioningErr := os.Stat("/var/lib/omarchy/provisioning/pending")
 	return status{AgentVersion: version, OmarchyRevision: readTrimmed("/usr/share/omarchy/version"), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+}
+
+func sshListening() bool {
+	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
+		data, err := os.ReadFile(path)
+		if err == nil && procNetTCPHasListener(data, 22) {
+			return true
+		}
+	}
+	return false
+}
+
+func procNetTCPHasListener(data []byte, port uint16) bool {
+	wantedPort := fmt.Sprintf("%04X", port)
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 || fields[3] != "0A" {
+			continue
+		}
+		parts := strings.Split(fields[1], ":")
+		if len(parts) == 2 && strings.EqualFold(parts[1], wantedPort) {
+			return true
+		}
+	}
+	return false
 }
 
 func sharedFolderMounted() bool {

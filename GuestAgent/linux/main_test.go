@@ -185,6 +185,21 @@ func TestSharedFolderCapabilityRequiresExactVirtioFSMount(t *testing.T) {
 	}
 }
 
+func TestProcNetTCPHasListener(t *testing.T) {
+	data := []byte("  sl  local_address rem_address   st tx_queue rx_queue\n" +
+		"   0: 00000000:0016 00000000:0000 0A 00000000:00000000\n" +
+		"   1: 0100007F:1F90 00000000:0000 0A 00000000:00000000\n")
+	if !procNetTCPHasListener(data, 22) {
+		t.Fatal("SSH listener was not detected")
+	}
+	if procNetTCPHasListener(data, 23) {
+		t.Fatal("unrelated port was reported as listening")
+	}
+	if procNetTCPHasListener([]byte("0: 00000000:0016 00000000:0000 01\n"), 22) {
+		t.Fatal("established connection was reported as a listener")
+	}
+}
+
 func TestEnrollmentValidationRequiresExactProtocolValues(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "config.json")

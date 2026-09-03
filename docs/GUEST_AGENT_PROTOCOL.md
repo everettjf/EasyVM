@@ -46,7 +46,9 @@ Protocol v1 operations are:
 - `input`: bounded Linux `input_event` batches for the Custom VirGL display
 
 Status responses advertise additive capabilities. `file-transfer-v1` enables the
-transfer UI and `ssh-addresses-v1` enables validated `ssh://` links.
+transfer UI. `ssh-addresses-v1` enables validated `ssh://` links and is advertised
+only while the Guest Agent observes a listening SSH socket; IP addresses remain
+available as diagnostic status even when SSH is not running.
 `input-uinput-v1` is advertised only when the agent successfully creates its
 root-owned `/dev/uinput` device; EZVM then forwards keyboard, relative pointer,
 button, and wheel events from the Custom VirGL display. The Apple graphics
