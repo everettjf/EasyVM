@@ -25,6 +25,8 @@ on:
       - "scripts/test-omarchy-release-evidence.sh"
       - "scripts/publish-omarchy-release.sh"
       - "scripts/test-omarchy-publish-preflight.sh"
+      - "scripts/verify-omarchy-image-source-integration.sh"
+      - "scripts/test-omarchy-image-source-integration.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   pull_request:
     paths:
@@ -47,6 +49,8 @@ on:
       - "scripts/test-omarchy-release-evidence.sh"
       - "scripts/publish-omarchy-release.sh"
       - "scripts/test-omarchy-publish-preflight.sh"
+      - "scripts/verify-omarchy-image-source-integration.sh"
+      - "scripts/test-omarchy-image-source-integration.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   workflow_dispatch:
 
@@ -105,3 +109,5 @@ jobs:
         run: scripts/test-omarchy-release-evidence.sh
       - name: Test two-phase publish preflight
         run: scripts/test-omarchy-publish-preflight.sh
+      - name: Test image-source integration contract
+        run: scripts/test-omarchy-image-source-integration.sh

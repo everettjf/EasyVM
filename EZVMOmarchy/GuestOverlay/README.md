@@ -23,3 +23,8 @@ registrations after 15 seconds, and never exposes a general command channel.
 versioned archive with a machine-readable manifest and per-file SHA-256 values.
 The image pipeline must verify the archive checksum and manifest before copying
 the files into a factory image, then enable both units explicitly.
+
+After integration, run
+`scripts/verify-omarchy-image-source-integration.sh <image-checkout>` from the
+EZVM repository. It verifies exact unit contents, explicit `wl-clipboard`
+installation, system/user enablement, and final-image required-path checks.
