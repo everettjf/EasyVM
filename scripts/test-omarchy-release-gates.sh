@@ -10,6 +10,7 @@ info="$app/Contents/Info.plist"
 executable="$app/Contents/MacOS/EZVM Omarchy"
 revision=0123456789abcdef0123456789abcdef01234567
 public_key='11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo='
+entitlement_verifier="$project_root/scripts/verify-omarchy-entitlements.sh"
 
 make_fixture() {
   rm -rf "$app"
@@ -42,6 +43,26 @@ expect_rejection() {
 make_fixture
 "$project_root/scripts/verify-omarchy-release-app.sh" \
   "$app" 0.1.0 "$revision" clean >/dev/null
+
+# Developer ID exports legitimately contain a TeamIdentifier in the code
+# signature while retaining only the explicitly requested minimal entitlement.
+"$entitlement_verifier" \
+  "$project_root/EZVMOmarchy/Resources/EZVMOmarchy.entitlements" YPV49M8592
+if "$entitlement_verifier" \
+  "$project_root/EZVMOmarchy/Resources/EZVMOmarchy.entitlements" WRONGTEAM 2>/dev/null; then
+  echo "entitlement verifier accepted an unexpected Developer ID team" >&2
+  exit 1
+fi
+
+development_entitlements="$fixture/development.entitlements"
+cp "$project_root/EZVMOmarchy/Resources/EZVMOmarchy.entitlements" "$development_entitlements"
+/usr/libexec/PlistBuddy -c \
+  'Add :com.apple.application-identifier string YPV49M8592.com.everettjf.ezvm.omarchy' \
+  "$development_entitlements"
+/usr/libexec/PlistBuddy -c \
+  'Add :com.apple.developer.team-identifier string YPV49M8592' \
+  "$development_entitlements"
+"$entitlement_verifier" "$development_entitlements" YPV49M8592
 
 if EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' \
   "$project_root/scripts/verify-omarchy-release-app.sh" \
