@@ -75,6 +75,71 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         )
     }
 
+    func testVersionOneWorkspaceMigratesAfterProtectedSnapshot() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory user data".utf8).write(to: factory)
+        let legacy = VMOmarchyWorkspaceMetadata(
+            schemaVersion: 1,
+            productID: VMOmarchyProfile.production.productID,
+            createdAt: Date(timeIntervalSince1970: 123),
+            factoryImageVersion: "factory-1"
+        )
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try JSONEncoder().encode(legacy),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+        XCTAssertEqual(manager.inspect(), .migrationRequired(fromVersion: 1))
+
+        try manager.migrateWorkspace()
+
+        XCTAssertEqual(manager.inspect(), .ready)
+        let migrated = try manager.metadata()
+        XCTAssertEqual(migrated.schemaVersion, VMOmarchyWorkspaceMetadata.currentSchemaVersion)
+        XCTAssertEqual(migrated.createdAt, legacy.createdAt)
+        XCTAssertEqual(migrated.factoryImageVersion, "factory-1")
+        XCTAssertEqual(try Data(contentsOf: layout.disk), Data("factory user data".utf8))
+        let point = try XCTUnwrap(
+            VMOmarchyRecoveryManager(workspaceManager: manager).recoveryPoints().first
+        )
+        XCTAssertEqual(point.name, "Before workspace migration 1 to 2")
+        XCTAssertTrue(point.isProtected)
+    }
+
+    func testFailedWorkspaceMigrationKeepsOldMetadataAndProtectedSnapshot() throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory".utf8).write(to: factory)
+        let legacyData = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
+            schemaVersion: 1,
+            productID: VMOmarchyProfile.production.productID,
+            createdAt: Date(timeIntervalSince1970: 123),
+            factoryImageVersion: "factory-1"
+        ))
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: legacyData,
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+
+        XCTAssertThrowsError(try manager.migrateWorkspace(metadataWriter: { _, _ in
+            throw CocoaError(.fileWriteNoPermission)
+        })) { error in
+            guard case .migrationFailed = error as? VMOmarchyWorkspaceError else {
+                return XCTFail("Expected migration failure, got \(error)")
+            }
+        }
+
+        XCTAssertEqual(manager.inspect(), .migrationRequired(fromVersion: 1))
+        XCTAssertEqual(try Data(contentsOf: layout.configuration), legacyData)
+        let points = VMOmarchyRecoveryManager(workspaceManager: manager).recoveryPoints()
+        XCTAssertEqual(points.count, 1)
+        XCTAssertTrue(points[0].isProtected)
+    }
+
     func testBrokenWorkspaceIsPreservedBeforeReinstall() throws {
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
         try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)

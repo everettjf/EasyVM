@@ -2,23 +2,32 @@ import Foundation
 import Virtualization
 
 public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
 
     public let schemaVersion: Int
     public let productID: String
     public let createdAt: Date
     public let factoryImageVersion: String?
+    public let omarchyRevision: String?
+    public let guestAgentVersion: String?
+    public let guestCapabilities: [String]?
 
     public init(
         schemaVersion: Int = currentSchemaVersion,
         productID: String,
         createdAt: Date,
-        factoryImageVersion: String? = nil
+        factoryImageVersion: String? = nil,
+        omarchyRevision: String? = nil,
+        guestAgentVersion: String? = nil,
+        guestCapabilities: [String]? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.productID = productID
         self.createdAt = createdAt
         self.factoryImageVersion = factoryImageVersion
+        self.omarchyRevision = omarchyRevision
+        self.guestAgentVersion = guestAgentVersion
+        self.guestCapabilities = guestCapabilities
     }
 }
 
@@ -52,6 +61,7 @@ public struct VMOmarchyWorkspaceLayout: Equatable {
 
 public enum VMOmarchyWorkspaceState: Equatable {
     case notPrepared
+    case migrationRequired(fromVersion: Int)
     case ready
     case recovering(reason: String)
 }
@@ -66,6 +76,7 @@ public enum VMOmarchyWorkspaceError: Error, Equatable {
     case workspaceNotRecoverable
     case recoveryFailed(String)
     case invalidWorkspaceMetadata
+    case migrationFailed(String)
 }
 
 extension VMOmarchyWorkspaceError: LocalizedError {
@@ -89,6 +100,8 @@ extension VMOmarchyWorkspaceError: LocalizedError {
             "The broken Omarchy workspace could not be preserved: \(reason)"
         case .invalidWorkspaceMetadata:
             "The Omarchy workspace metadata is invalid or unsupported."
+        case .migrationFailed(let reason):
+            "The Omarchy workspace could not be migrated: \(reason)"
         }
     }
 }
@@ -112,27 +125,73 @@ public struct VMOmarchyWorkspaceManager {
               requiredFiles.allSatisfy({ regularFileExists($0) }) else {
             return .recovering(reason: "The Omarchy workspace is incomplete or unsafe.")
         }
-        guard (try? metadata()) != nil else {
+        guard let metadata = decodedMetadata(),
+              metadata.productID == VMOmarchyProfile.production.productID,
+              metadata.schemaVersion > 0,
+              metadata.schemaVersion <= VMOmarchyWorkspaceMetadata.currentSchemaVersion else {
             return .recovering(reason: "The Omarchy workspace metadata is invalid or unsupported.")
         }
         guard let identifierData = try? Data(contentsOf: layout.machineIdentifier),
               VZGenericMachineIdentifier(dataRepresentation: identifierData) != nil else {
             return .recovering(reason: "The Omarchy machine identity is invalid.")
         }
+        if metadata.schemaVersion < VMOmarchyWorkspaceMetadata.currentSchemaVersion {
+            return .migrationRequired(fromVersion: metadata.schemaVersion)
+        }
         return .ready
     }
 
     public func metadata() throws -> VMOmarchyWorkspaceMetadata {
-        guard regularFileExists(layout.configuration),
-              let metadata = try? JSONDecoder().decode(
-                VMOmarchyWorkspaceMetadata.self,
-                from: Data(contentsOf: layout.configuration)
-              ),
+        guard let metadata = decodedMetadata(),
               metadata.schemaVersion == VMOmarchyWorkspaceMetadata.currentSchemaVersion,
               metadata.productID == VMOmarchyProfile.production.productID else {
             throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
         }
         return metadata
+    }
+
+    public func migrateWorkspace(availableCapacityBytes: Int64? = nil) throws {
+        try migrateWorkspace(availableCapacityBytes: availableCapacityBytes) { data, destination in
+            try data.write(to: destination, options: .atomic)
+        }
+    }
+
+    func migrateWorkspace(
+        availableCapacityBytes: Int64? = nil,
+        metadataWriter: (Data, URL) throws -> Void
+    ) throws {
+        guard case .migrationRequired(let fromVersion) = inspect(),
+              fromVersion == 1,
+              let old = decodedMetadata() else {
+            throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
+        }
+        switch VMSnapshotManager.createSnapshot(
+            vmRootPath: layout.workspace,
+            name: "Before workspace migration 1 to 2",
+            isProtected: true,
+            availableCapacityBytes: availableCapacityBytes
+        ) {
+        case .failure(let reason):
+            throw VMOmarchyWorkspaceError.migrationFailed(reason)
+        case .success:
+            break
+        }
+        let migrated = VMOmarchyWorkspaceMetadata(
+            productID: old.productID,
+            createdAt: old.createdAt,
+            factoryImageVersion: old.factoryImageVersion,
+            omarchyRevision: old.omarchyRevision,
+            guestAgentVersion: old.guestAgentVersion,
+            guestCapabilities: old.guestCapabilities
+        )
+        do {
+            try metadataWriter(try JSONEncoder().encode(migrated), layout.configuration)
+        } catch {
+            throw VMOmarchyWorkspaceError.migrationFailed(error.localizedDescription)
+        }
+        guard inspect() == .ready else {
+            throw VMOmarchyWorkspaceError.migrationFailed("The migrated workspace did not pass validation.")
+        }
     }
 
     /// Moves an invalid workspace out of the live location without deleting
@@ -245,6 +304,14 @@ public struct VMOmarchyWorkspaceManager {
 
     private var requiredFiles: [URL] {
         [layout.disk, layout.configuration, layout.machineIdentifier]
+    }
+
+    private func decodedMetadata() -> VMOmarchyWorkspaceMetadata? {
+        guard regularFileExists(layout.configuration) else { return nil }
+        return try? JSONDecoder().decode(
+            VMOmarchyWorkspaceMetadata.self,
+            from: Data(contentsOf: layout.configuration)
+        )
     }
 
     private func uniqueRecoveryDestination(now: Date) -> URL {
