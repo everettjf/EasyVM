@@ -107,6 +107,8 @@ enum OmarchyClipboardAcceptanceProbe {
             pasteboard.data(forType: .png) == image
         }
         try touch(probeDirectory.appending(path: "guest-image-consumed"))
+        try await waitForFile(at: probeDirectory.appending(path: "script-done"))
+        try await Task.sleep(for: .milliseconds(250))
 
         return OmarchyClipboardRoundTrip(
             observedAt: Date(),
@@ -141,6 +143,7 @@ enum OmarchyClipboardAcceptanceProbe {
         while [ ! -f "$d/guest-image-consumed" ]; do sleep 0.1; done
         kill "$image_pid" 2>/dev/null || true
         wait "$image_pid" 2>/dev/null || true
+        touch "$d/script-done"
         """
     }
 
