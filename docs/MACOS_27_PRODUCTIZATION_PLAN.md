@@ -693,6 +693,9 @@ passed its SHA-256 check, survived an extract-and-verify round trip, and its
 extracted app passed strict deep-signature verification, Gatekeeper assessment,
 CLI doctor JSON parsing, version validation, entitlement validation, Launch
 Services startup, and the visible/responsive SwiftUI-window readiness gate.
+The same checkout also passed the disposable real-APFS low-space rejection
+gate before mutation and the 64 GiB sparse-ASIF snapshot, audit, restore,
+reopen, and logical-capacity-preservation gate.
 The candidate does not have a notarization ticket stapled to it, and no local
 macOS 27, Ubuntu, or Omarchy fixture or claimable physical USB accessory was
 present, so this evidence does not replace notarization or the guest/hardware
