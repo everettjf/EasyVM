@@ -8,6 +8,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var lifecycle = OmarchyMachineLifecycle()
     @State private var sessionID = UUID()
     @State private var keyboardIntegration: OmarchyKeyboardIntegrationState = .accessibilityRequired
+    @State private var integration: VMOmarchyIntegrationState = .connecting
 
     private var phase: Phase { lifecycle.phase }
 
@@ -18,6 +19,7 @@ struct OmarchyVirtualMachineView: View {
                 profile: profile,
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
+                integrationChanged: { integration = $0 },
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
@@ -28,6 +30,7 @@ struct OmarchyVirtualMachineView: View {
         .background(.black)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                integrationMenu
                 Button("Open Shared Folder", systemImage: "folder") {
                     NSWorkspace.shared.open(layout.shared)
                 }
@@ -55,6 +58,34 @@ struct OmarchyVirtualMachineView: View {
                 .background(.orange.opacity(0.18))
             }
         }
+    }
+
+    @ViewBuilder
+    private var integrationMenu: some View {
+        Menu {
+            switch integration {
+            case .connecting:
+                Text("Connecting to Guest Agent…")
+            case .authenticating:
+                Text("Authenticating Guest Agent…")
+            case .disconnected(let reason):
+                Text("Guest Agent unavailable")
+                Text(reason).foregroundStyle(.secondary)
+            case .ready(let status):
+                Text("Agent \(status.agentVersion) • \(status.hostName)")
+                Text(status.desktopSessionActive ? "Omarchy desktop ready" : "Waiting for Omarchy desktop")
+                if !status.addresses.isEmpty { Text(status.addresses.joined(separator: ", ")) }
+                Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
+            }
+        } label: {
+            Label("Integration", systemImage: integrationReady ? "checkmark.circle.fill" : "exclamationmark.circle")
+        }
+        .help(integrationReady ? "Omarchy integration is ready" : "Omarchy integration is not ready")
+    }
+
+    private var integrationReady: Bool {
+        if case .ready(let status) = integration { return status.desktopSessionActive }
+        return false
     }
 
     @ViewBuilder
@@ -188,12 +219,14 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let profile: VMOmarchyProfile
     let sessionID: UUID
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
+    let integrationChanged: (VMOmarchyIntegrationState) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             sessionID: sessionID,
             keyboardIntegrationChanged: keyboardIntegrationChanged,
+            integrationChanged: integrationChanged,
             phaseChanged: phaseChanged
         )
     }
@@ -215,7 +248,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             machine.start { result in
                 DispatchQueue.main.async {
                     switch result {
-                    case .success: context.coordinator.phaseChanged(.running)
+                    case .success:
+                        context.coordinator.startIntegration(layout: layout)
+                        context.coordinator.phaseChanged(.running)
                     case .failure(let error): context.coordinator.phaseChanged(.failed(error.localizedDescription))
                     }
                 }
@@ -239,18 +274,22 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         var machine: VZVirtualMachine?
         let sessionID: UUID
         let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
+        let integrationChanged: (VMOmarchyIntegrationState) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
         private var keyboardPermissionObserver: NSObjectProtocol?
         private var keyboardBridge: OmarchyFocusedCommandBridge?
+        private var integrationClient: VMOmarchyGuestAgentClient?
 
         init(
             sessionID: UUID,
             keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
+            integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
             self.keyboardIntegrationChanged = keyboardIntegrationChanged
+            self.integrationChanged = integrationChanged
             self.phaseChanged = phaseChanged
         }
 
@@ -293,6 +332,27 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             bridge.start()
         }
 
+        func startIntegration(layout: VMOmarchyWorkspaceLayout) {
+            guard let socket = machine?.socketDevices.first as? VZVirtioSocketDevice else {
+                integrationChanged(.disconnected("The VM has no Virtio Socket device."))
+                return
+            }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    let client = try VMOmarchyGuestAgentClient(
+                        device: socket,
+                        layout: layout,
+                        stateChanged: self.integrationChanged
+                    )
+                    self.integrationClient = client
+                    client.start()
+                } catch {
+                    self.integrationChanged(.disconnected(error.localizedDescription))
+                }
+            }
+        }
+
         private func requestStop() {
             guard let machine else { return }
             guard machine.canRequestStop else {
@@ -309,18 +369,27 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         func stopImmediately() {
             keyboardBridge?.stop()
             keyboardBridge = nil
+            stopIntegration()
             guard let machine, machine.canStop else { return }
             machine.stop { _ in }
             self.machine = nil
         }
 
         func guestDidStop(_ virtualMachine: VZVirtualMachine) {
+            stopIntegration()
             machine = nil
             phaseChanged(.stopped)
         }
 
         func virtualMachine(_ virtualMachine: VZVirtualMachine, didStopWithError error: Error) {
+            stopIntegration()
             phaseChanged(.failed(error.localizedDescription))
+        }
+
+        private func stopIntegration() {
+            let client = integrationClient
+            integrationClient = nil
+            Task { @MainActor in client?.stop() }
         }
     }
 }
