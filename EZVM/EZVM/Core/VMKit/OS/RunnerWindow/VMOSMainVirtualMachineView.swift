@@ -97,22 +97,24 @@ struct VMOSMainVirtualMachineView: View {
                     .padding(18)
             }
 
-            VStack(spacing: 10) {
-                macGuestProvisioningOverlay
+            if runtimeState.errorMessage == nil, !runtimeState.isCloseInProgress {
+                VStack(spacing: 10) {
+                    macGuestProvisioningOverlay
 
-                if runtimeState.graphicsBackendKind == .customVirGL,
-                   let graphicsIssue = runtimeState.graphicsBackendDetail {
-                    VMGraphicsRuntimeBanner(detail: graphicsIssue, openSettings: openSettings)
+                    if runtimeState.graphicsBackendKind == .customVirGL,
+                       let graphicsIssue = runtimeState.graphicsBackendDetail {
+                        VMGraphicsRuntimeBanner(detail: graphicsIssue, openSettings: openSettings)
+                    }
+
+                    VMNetworkRuntimeBanner(
+                        state: runtimeState.networkRuntimeState,
+                        reconnect: runtimeState.reconnectNetworkDevice
+                    )
                 }
-
-                VMNetworkRuntimeBanner(
-                    state: runtimeState.networkRuntimeState,
-                    reconnect: runtimeState.reconnectNetworkDevice
-                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, 16)
+                .padding(.horizontal, 18)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 16)
-            .padding(.horizontal, 18)
 
             if let notice = runtimeState.machineStateNotice {
                 VMMachineStateNoticeView(
