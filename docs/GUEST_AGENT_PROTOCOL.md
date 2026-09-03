@@ -55,6 +55,12 @@ backend continues to use Virtualization.framework's native USB input path.
 compositor actually owns the EZVM input device. The host must not infer this
 only from `hyprctl` or a compositor socket: stale runtime sockets can produce a
 false positive or false negative after login/restart.
+`shared-folders-v1` is advertised only while the agent can verify an active
+VirtioFS mount whose tag is exactly `ezvm_shared` and whose guest mount point is
+exactly `/mnt/ezvm-shared`. The existence of the host device or a guest mount
+unit is not sufficient. Hosts should present shared-folder workflows as
+degraded whenever this capability is absent and must not infer readiness from
+the configured VM model alone.
 `input-uinput-absolute-v1` is advertised only when the agent also creates a
 separate tablet-style `/dev/uinput` device. A capable host sends
 `EV_ABS/ABS_X` and `EV_ABS/ABS_Y` in the inclusive range `0...32767`, followed

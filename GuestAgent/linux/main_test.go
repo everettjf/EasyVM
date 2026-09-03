@@ -166,6 +166,25 @@ func contains(values []string, expected string) bool {
 	return false
 }
 
+func TestSharedFolderCapabilityRequiresExactVirtioFSMount(t *testing.T) {
+	valid := []byte("41 30 0:38 / /mnt/ezvm-shared rw,nosuid,nodev - virtiofs ezvm_shared rw\n")
+	if !mountInfoHasVirtioFS(valid, "ezvm_shared", "/mnt/ezvm-shared") {
+		t.Fatal("exact EZVM shared-folder mount was not recognized")
+	}
+	for name, value := range map[string][]byte{
+		"wrong tag":        []byte("41 30 0:38 / /mnt/ezvm-shared rw - virtiofs other rw\n"),
+		"wrong mountpoint": []byte("41 30 0:38 / /mnt/other rw - virtiofs ezvm_shared rw\n"),
+		"wrong filesystem": []byte("41 30 0:38 / /mnt/ezvm-shared rw - ext4 ezvm_shared rw\n"),
+		"malformed":        []byte("not mountinfo"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if mountInfoHasVirtioFS(value, "ezvm_shared", "/mnt/ezvm-shared") {
+				t.Fatal("invalid mount was advertised as a working shared folder")
+			}
+		})
+	}
+}
+
 func TestEnrollmentValidationRequiresExactProtocolValues(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "config.json")

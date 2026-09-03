@@ -308,11 +308,35 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 		// alias lets the dedicated host enforce its signed readiness contract.
 		capabilities = append(capabilities, "dynamic-display-v1")
 	}
+	if sharedFolderMounted() {
+		capabilities = append(capabilities, "shared-folders-v1")
+	}
 	if absolutePointerAvailable {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
 	_, provisioningErr := os.Stat("/var/lib/omarchy/provisioning/pending")
 	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+}
+
+func sharedFolderMounted() bool {
+	data, err := os.ReadFile("/proc/self/mountinfo")
+	return err == nil && mountInfoHasVirtioFS(data, "ezvm_shared", "/mnt/ezvm-shared")
+}
+
+func mountInfoHasVirtioFS(data []byte, tag, mountPoint string) bool {
+	for _, line := range strings.Split(string(data), "\n") {
+		sections := strings.SplitN(line, " - ", 2)
+		if len(sections) != 2 {
+			continue
+		}
+		before := strings.Fields(sections[0])
+		after := strings.Fields(sections[1])
+		if len(before) >= 5 && len(after) >= 2 &&
+			before[4] == mountPoint && after[0] == "virtiofs" && after[1] == tag {
+			return true
+		}
+	}
+	return false
 }
 
 func inputDeviceNames() []string {

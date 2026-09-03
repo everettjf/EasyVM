@@ -116,6 +116,11 @@ struct OmarchyVirtualMachineView: View {
                     Text("Omarchy desktop integration ready")
                 }
                 if !status.addresses.isEmpty { Text(status.addresses.joined(separator: ", ")) }
+                if status.capabilities.contains("shared-folders-v1") {
+                    Text("Shared folder mounted at /mnt/ezvm-shared")
+                } else {
+                    Text("Shared folder is not mounted in Omarchy")
+                }
                 Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
             }
         } label: {

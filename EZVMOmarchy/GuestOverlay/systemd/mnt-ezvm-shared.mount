@@ -1,0 +1,13 @@
+[Unit]
+Description=EZVM Omarchy shared folder
+After=local-fs-pre.target
+Before=multi-user.target
+
+[Mount]
+What=ezvm_shared
+Where=/mnt/ezvm-shared
+Type=virtiofs
+Options=rw,nosuid,nodev
+
+[Install]
+WantedBy=multi-user.target
