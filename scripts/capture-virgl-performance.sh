@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=scripts/lib/virgl-capture-preflight.sh
+source "$script_dir/lib/virgl-capture-preflight.sh"
+
 duration="${1:-30}"
 output="${2:-/tmp/ezvm-virgl-performance-$(date +%Y%m%d-%H%M%S).txt}"
 backend="${EZVM_VIRGL_BACKEND:-custom-virgl}"
@@ -25,9 +29,15 @@ if [[ "$workload" == *$'\n'* || "$workload" == *$'\r'* ]]; then
     exit 2
 fi
 
-pid="$(pgrep -x EZVM | tail -n 1 || true)"
-if [[ -z "$pid" ]]; then
-    echo "No running EZVM process was found." >&2
+discovered_pids="$(pgrep -x EZVM || true)"
+pid="$(select_virgl_capture_pid "${EZVM_VIRGL_PID:-}" "$discovered_pids")" || exit $?
+if ! kill -0 "$pid" 2>/dev/null; then
+    echo "EZVM process $pid is no longer running." >&2
+    exit 1
+fi
+process_name="$(ps -p "$pid" -o comm= | awk -F/ '{ print $NF }')"
+if [[ "$process_name" != "EZVM" ]]; then
+    echo "Process $pid is $process_name, not EZVM." >&2
     exit 1
 fi
 

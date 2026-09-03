@@ -29,6 +29,20 @@ windows, and the graphics logs for that exact interval. Use the same VM CPU,
 memory, window size, display scaling, workload, and capture length when
 comparing runs.
 
+Only one EZVM process may be running by default. When deliberately comparing
+multiple concurrent VMs, identify the exact app process instead of relying on
+process order:
+
+```sh
+EZVM_VIRGL_PID=12345 \
+EZVM_VIRGL_BACKEND=custom-virgl \
+EZVM_VIRGL_WORKLOAD=browser-scroll-1920x1080 \
+scripts/capture-virgl-performance.sh 30 /tmp/virgl.txt
+```
+
+The capture rejects a missing, exited, non-EZVM, or ambiguous process before
+collecting metrics.
+
 Capture the same VM and workload after selecting Apple Virtio graphics:
 
 ```sh
