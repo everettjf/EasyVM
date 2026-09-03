@@ -76,7 +76,11 @@ enum OmarchyClipboardAcceptanceProbe {
             at: probeDirectory.appending(path: "host-text-result")
         )
         guard hostTextResult == Data(hostText.utf8) else {
-            throw ProbeError.mismatch("host-to-guest text")
+            throw ProbeError.mismatch(
+                "host-to-guest text",
+                expected: Data(hostText.utf8),
+                actual: hostTextResult
+            )
         }
 
         NSLog("Omarchy clipboard probe starting Host-to-Guest PNG")
@@ -86,7 +90,7 @@ enum OmarchyClipboardAcceptanceProbe {
             at: probeDirectory.appending(path: "host-image-result")
         )
         guard hostImageResult == image else {
-            throw ProbeError.mismatch("host-to-guest PNG")
+            throw ProbeError.mismatch("host-to-guest PNG", expected: image, actual: hostImageResult)
         }
 
         NSLog("Omarchy clipboard probe starting Guest-to-Host text")
@@ -119,8 +123,10 @@ enum OmarchyClipboardAcceptanceProbe {
         set -eu
         d='\(guestDirectory)'
         while [ ! -f "$d/host-text-go" ]; do sleep 0.1; done
+        sleep 1
         wl-paste --no-newline > "$d/host-text-result"
         while [ ! -f "$d/host-image-go" ]; do sleep 0.1; done
+        sleep 1
         wl-paste --type image/png > "$d/host-image-result"
         while [ ! -f "$d/guest-text-go" ]; do sleep 0.1; done
         wl-copy --type 'text/plain;charset=utf-8' < "$d/guest-text-input" &
@@ -192,20 +198,21 @@ enum OmarchyClipboardAcceptanceProbe {
         return data
     }
 
-    private static func sha256(_ data: Data) -> String {
+    nonisolated private static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     enum ProbeError: LocalizedError {
         case invalidFixture
-        case mismatch(String)
+        case mismatch(String, expected: Data, actual: Data)
         case pasteboardWrite(String)
         case timeout(String)
 
         var errorDescription: String? {
             switch self {
             case .invalidFixture: "The clipboard PNG fixture is invalid."
-            case .mismatch(let operation): "Clipboard \(operation) data did not match."
+            case .mismatch(let operation, let expected, let actual):
+                "Clipboard \(operation) data did not match (expected \(expected.count) bytes/\(sha256(expected)), actual \(actual.count) bytes/\(sha256(actual)))."
             case .pasteboardWrite(let type): "Could not write \(type) to the macOS pasteboard."
             case .timeout(let operation): "Timed out waiting for clipboard \(operation)."
             }
