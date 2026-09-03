@@ -18,6 +18,8 @@ public struct VMOmarchyWorkspaceLayout: Equatable {
     public var disk: URL { workspace.appending(path: "Disk.asif") }
     public var configuration: URL { workspace.appending(path: "Configuration.json") }
     public var machineIdentifier: URL { workspace.appending(path: "MachineIdentifier") }
+    public var boot: URL { workspace.appending(path: "Boot", directoryHint: .isDirectory) }
+    public var efiVariableStore: URL { boot.appending(path: "EFIVariableStore") }
     public var snapshots: URL { workspace.appending(path: "Snapshots", directoryHint: .isDirectory) }
     public var enrollment: URL { applicationSupportRoot.appending(path: "Enrollment", directoryHint: .isDirectory) }
     public var cache: URL { applicationSupportRoot.appending(path: "Cache", directoryHint: .isDirectory) }
@@ -85,6 +87,10 @@ public struct VMOmarchyWorkspaceManager {
             try machineIdentifier.write(to: staging.appending(path: "MachineIdentifier"), options: [.atomic])
             try fileManager.createDirectory(
                 at: staging.appending(path: "Snapshots", directoryHint: .isDirectory),
+                withIntermediateDirectories: false
+            )
+            try fileManager.createDirectory(
+                at: staging.appending(path: "Boot", directoryHint: .isDirectory),
                 withIntermediateDirectories: false
             )
             try createSupportDirectories()

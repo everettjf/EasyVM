@@ -42,6 +42,7 @@ let package = Package(
                 "Profile/VMOmarchyProfile.swift",
                 "Profile/VMOmarchyFactoryManifest.swift",
                 "Profile/VMOmarchyWorkspace.swift",
+                "Profile/VMOmarchyVirtualMachineBuilder.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ]
         ),
