@@ -1532,33 +1532,212 @@ struct VMDiskImageManager {
 }
 
 enum VMSavedStateStore {
+    enum Compatibility: Equatable {
+        case compatible
+        case legacyUnverified
+        case incompatible(String)
+    }
+
+    private struct Manifest: Codable, Equatable {
+        struct FileIdentity: Codable, Equatable {
+            let pathDigest: String
+            let logicalSize: UInt64
+            let modificationTime: TimeInterval
+        }
+
+        let schemaVersion: Int
+        let configurationDigest: String
+        let snapshotStateDigest: String?
+        let hardwareModelDigest: String?
+        let machineIdentifierDigest: String?
+        let auxiliaryStorageDigest: String?
+        let efiVariableStoreDigest: String?
+        let storage: [FileIdentity]
+    }
+
     static func pendingURL(for stateURL: URL) -> URL {
         stateURL.appendingPathExtension("pending")
+    }
+
+    static func manifestURL(for stateURL: URL) -> URL {
+        stateURL.appendingPathExtension("manifest.json")
+    }
+
+    private static func pendingManifestURL(for stateURL: URL) -> URL {
+        manifestURL(for: stateURL).appendingPathExtension("pending")
     }
 
     static func prepare(stateURL: URL) throws -> URL {
         let pending = pendingURL(for: stateURL)
         try? FileManager.default.removeItem(at: pending)
+        try? FileManager.default.removeItem(at: pendingManifestURL(for: stateURL))
         return pending
     }
 
-    static func commit(pendingURL: URL, stateURL: URL) throws {
+    static func commit(pendingURL: URL, stateURL: URL, vmRootPath: URL? = nil) throws {
         guard FileManager.default.fileExists(atPath: pendingURL.path(percentEncoded: false)) else {
             throw CocoaError(.fileNoSuchFile)
+        }
+        let pendingManifest = pendingManifestURL(for: stateURL)
+        if let vmRootPath {
+            let manifest = try captureManifest(vmRootPath: vmRootPath)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(manifest).write(to: pendingManifest, options: .atomic)
+        }
+        let currentManifest = manifestURL(for: stateURL)
+        if FileManager.default.fileExists(atPath: currentManifest.path(percentEncoded: false)) {
+            try FileManager.default.removeItem(at: currentManifest)
         }
         if FileManager.default.fileExists(atPath: stateURL.path(percentEncoded: false)) {
             _ = try FileManager.default.replaceItemAt(stateURL, withItemAt: pendingURL)
         } else {
             try FileManager.default.moveItem(at: pendingURL, to: stateURL)
         }
+        if vmRootPath != nil {
+            try FileManager.default.moveItem(at: pendingManifest, to: manifestURL(for: stateURL))
+        }
     }
 
     static func discardPending(stateURL: URL) {
         try? FileManager.default.removeItem(at: pendingURL(for: stateURL))
+        try? FileManager.default.removeItem(at: pendingManifestURL(for: stateURL))
+    }
+
+    static func discardCommitted(stateURL: URL) {
+        try? FileManager.default.removeItem(at: stateURL)
+        try? FileManager.default.removeItem(at: manifestURL(for: stateURL))
+        discardPending(stateURL: stateURL)
     }
 
     static func recoverInterruptedTransaction(stateURL: URL) {
+        let pendingState = pendingURL(for: stateURL)
+        let pendingManifest = pendingManifestURL(for: stateURL)
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: pendingState.path(percentEncoded: false)),
+           fm.fileExists(atPath: stateURL.path(percentEncoded: false)),
+           fm.fileExists(atPath: pendingManifest.path(percentEncoded: false)) {
+            try? fm.removeItem(at: manifestURL(for: stateURL))
+            try? fm.moveItem(at: pendingManifest, to: manifestURL(for: stateURL))
+        }
         discardPending(stateURL: stateURL)
+    }
+
+    static func compatibility(stateURL: URL, vmRootPath: URL) -> Compatibility {
+        guard FileManager.default.fileExists(atPath: stateURL.path(percentEncoded: false)) else {
+            return .compatible
+        }
+        let manifestURL = manifestURL(for: stateURL)
+        guard FileManager.default.fileExists(atPath: manifestURL.path(percentEncoded: false)) else {
+            return .legacyUnverified
+        }
+        do {
+            let stored = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL))
+            guard stored.schemaVersion == 1 else {
+                return .incompatible("Its compatibility record uses an unsupported format.")
+            }
+            let current = try captureManifest(vmRootPath: vmRootPath)
+            guard stored.configurationDigest == current.configurationDigest else {
+                return .incompatible("The virtual machine configuration changed after its state was saved.")
+            }
+            guard stored.snapshotStateDigest == current.snapshotStateDigest else {
+                return .incompatible("The active disk snapshot branch changed after its state was saved.")
+            }
+            guard stored.hardwareModelDigest == current.hardwareModelDigest,
+                  stored.machineIdentifierDigest == current.machineIdentifierDigest,
+                  stored.auxiliaryStorageDigest == current.auxiliaryStorageDigest,
+                  stored.efiVariableStoreDigest == current.efiVariableStoreDigest else {
+                return .incompatible("The virtual machine hardware identity changed after its state was saved.")
+            }
+            guard stored.storage == current.storage else {
+                return .incompatible("One or more virtual disks changed after the machine state was saved.")
+            }
+            return .compatible
+        } catch {
+            return .incompatible("Its compatibility record is damaged or incomplete.")
+        }
+    }
+
+    static func coldBootNotice(reason: String) -> String {
+        "EZVM could not safely resume the saved session because \(reason). " +
+        "The saved session was discarded and the virtual machine is starting normally."
+    }
+
+    private static func captureManifest(vmRootPath: URL) throws -> Manifest {
+        let configURL = vmRootPath.appending(path: "config.json")
+        let configData = try Data(contentsOf: configURL)
+        guard let configObject = try JSONSerialization.jsonObject(with: configData) as? [String: Any],
+              let storageDevices = configObject["storageDevices"] as? [[String: Any]] else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let snapshotStateURL = VMSnapshotManager.snapshotsRootURL(vmRootPath: vmRootPath)
+            .appending(path: "state.json")
+        let snapshotStateData: Data?
+        if FileManager.default.fileExists(atPath: snapshotStateURL.path(percentEncoded: false)) {
+            snapshotStateData = try Data(contentsOf: snapshotStateURL)
+        } else {
+            snapshotStateData = nil
+        }
+        var storageURLs = try storageDevices.map { device -> URL in
+            guard let imagePath = device["imagePath"] as? String,
+                  let type = device["type"] as? String else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            if type == "USB", imagePath.hasPrefix("/") {
+                return URL(filePath: imagePath).standardizedFileURL
+            }
+            return vmRootPath.appending(path: imagePath).standardizedFileURL
+        }
+        if let snapshotStateData {
+            guard let object = try JSONSerialization.jsonObject(with: snapshotStateData) as? [String: Any] else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            if let value = object["activeDiskLayers"] {
+                guard let active = value as? [String: [String]] else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                storageURLs.append(contentsOf: active.values.flatMap { $0 }.map {
+                    vmRootPath.appending(path: $0).standardizedFileURL
+                })
+            }
+        }
+        let storage = try Array(Set(storageURLs.map { $0.path(percentEncoded: false) })).sorted().map { path in
+            let url = URL(filePath: path).standardizedFileURL
+            let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+            guard let size = values.fileSize, let modified = values.contentModificationDate else {
+                throw CocoaError(.fileReadUnknown)
+            }
+            return Manifest.FileIdentity(
+                pathDigest: digest(Data(path.utf8)),
+                logicalSize: UInt64(size),
+                modificationTime: modified.timeIntervalSince1970
+            )
+        }
+        return Manifest(
+            schemaVersion: 1,
+            configurationDigest: try canonicalJSONDigest(configData),
+            snapshotStateDigest: try snapshotStateData.map(canonicalJSONDigest),
+            hardwareModelDigest: try digestIfPresent(vmRootPath.appending(path: "HardwareModel")),
+            machineIdentifierDigest: try digestIfPresent(vmRootPath.appending(path: "MachineIdentifier")),
+            auxiliaryStorageDigest: try digestIfPresent(vmRootPath.appending(path: "AuxiliaryStorage")),
+            efiVariableStoreDigest: try digestIfPresent(vmRootPath.appending(path: "NVRAM")),
+            storage: storage
+        )
+    }
+
+    private static func digestIfPresent(_ url: URL) throws -> String? {
+        guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else { return nil }
+        return digest(try Data(contentsOf: url))
+    }
+
+    private static func canonicalJSONDigest(_ data: Data) throws -> String {
+        let object = try JSONSerialization.jsonObject(with: data)
+        let canonical = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        return digest(canonical)
+    }
+
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }
 

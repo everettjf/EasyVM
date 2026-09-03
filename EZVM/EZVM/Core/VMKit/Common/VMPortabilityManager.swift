@@ -52,6 +52,7 @@ enum VMPortabilityManager {
     static let manifestFileName = "manifest.json"
     private static let excludedCloneNames: Set<String> = [
         "MachineState.vzvmsave", "MachineState.vzvmsave.pending",
+        "MachineState.vzvmsave.manifest.json", "MachineState.vzvmsave.manifest.json.pending",
         ".restore-staging", ".restore-backup", ".restore-transaction.json"
     ]
 

@@ -109,6 +109,16 @@ struct VMOSMainVirtualMachineView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(.top, 16)
             .padding(.trailing, 18)
+
+            if let notice = runtimeState.machineStateNotice {
+                VMMachineStateNoticeView(
+                    message: notice,
+                    dismiss: runtimeState.dismissMachineStateNotice
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.horizontal, 18)
+                .padding(.bottom, 18)
+            }
         }
         .overlay {
             if isSharedFolderDropTargeted {
@@ -974,6 +984,36 @@ private extension View {
             .background(.regularMaterial, in: .rect(cornerRadius: 11))
             .shadow(color: .black.opacity(0.16), radius: 9, y: 3)
             .frame(maxWidth: 460)
+    }
+}
+
+private struct VMMachineStateNoticeView: View {
+    let message: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(.blue)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Saved Session Status")
+                    .font(.headline)
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button("Dismiss", systemImage: "xmark", action: dismiss)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .accessibilityHint("Dismiss the saved-session status message")
+        }
+        .padding(14)
+        .frame(maxWidth: 620, alignment: .leading)
+        .background(.regularMaterial, in: .rect(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Saved session status")
     }
 }
 

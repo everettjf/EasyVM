@@ -15,6 +15,7 @@ final class VMPortabilityManagerTests: XCTestCase {
     func testCloneChangesIdentityAndNameAndDropsUnsafeRuntimeHistory() throws {
         let source = try makeMachine(name: "Source")
         try Data("old state".utf8).write(to: source.appendingPathComponent("MachineState.vzvmsave"))
+        try Data("old manifest".utf8).write(to: source.appendingPathComponent("MachineState.vzvmsave.manifest.json"))
         try FileManager.default.createDirectory(at: source.appendingPathComponent("Snapshots"), withIntermediateDirectories: true)
         try Data("history".utf8).write(to: source.appendingPathComponent("Snapshots/item"))
         let destination = root.appendingPathComponent("Clone.ezvm")
@@ -28,6 +29,7 @@ final class VMPortabilityManagerTests: XCTestCase {
         let config = try json(destination.appendingPathComponent("config.json"))
         XCTAssertEqual(config["name"] as? String, "Clone")
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent("MachineState.vzvmsave").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent("MachineState.vzvmsave.manifest.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent("Snapshots").path))
         XCTAssertEqual(try Data(contentsOf: source.appendingPathComponent("MachineIdentifier")), Data("source identifier".utf8))
     }
@@ -127,6 +129,7 @@ final class VMPortabilityManagerTests: XCTestCase {
     func testCopyImportDropsRuntimeHistoryAndRepeatedImportsUseDistinctIdentities() throws {
         let source = try makeMachine(name: "Portable")
         try Data("state".utf8).write(to: source.appendingPathComponent("MachineState.vzvmsave"))
+        try Data("manifest".utf8).write(to: source.appendingPathComponent("MachineState.vzvmsave.manifest.json"))
         try FileManager.default.createDirectory(at: source.appendingPathComponent("Snapshots"), withIntermediateDirectories: true)
         let export = root.appendingPathComponent("Portable.ezvmexport")
         try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
@@ -145,6 +148,7 @@ final class VMPortabilityManagerTests: XCTestCase {
         XCTAssertNotEqual(try Data(contentsOf: first.appendingPathComponent("MachineIdentifier")),
                           try Data(contentsOf: second.appendingPathComponent("MachineIdentifier")))
         XCTAssertFalse(FileManager.default.fileExists(atPath: first.appendingPathComponent("MachineState.vzvmsave").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.appendingPathComponent("MachineState.vzvmsave.manifest.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: first.appendingPathComponent("Snapshots").path))
     }
 

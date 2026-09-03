@@ -66,6 +66,7 @@ final class VMRuntimeState {
     private(set) var graphicsBackendDetail: String?
     private(set) var supportsMachineSaveRestore = true
     private(set) var machineStateConfigurationFailure: String?
+    private(set) var machineStateNotice: String?
     @ObservationIgnored
     weak var controller: VMOSInternalVirtualMachineViewController?
 
@@ -158,6 +159,14 @@ final class VMRuntimeState {
 
     func updateMachineStateConfigurationFailure(_ failure: String?) {
         machineStateConfigurationFailure = failure
+    }
+
+    func updateMachineStateNotice(_ notice: String?) {
+        machineStateNotice = notice
+    }
+
+    func dismissMachineStateNotice() {
+        machineStateNotice = nil
     }
 
     func pause() { controller?.pauseMachine() }

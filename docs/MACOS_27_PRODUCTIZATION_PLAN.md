@@ -362,6 +362,18 @@ them after a pre-commit interruption or finishes reclamation after a committed
 interruption. The sheet shows candidate count, allocated bytes to reclaim, and
 retained-item count before the destructive action.
 
+Machine-state resume is now tied to the disk history it was saved against. A
+successful save writes a companion compatibility manifest containing canonical
+configuration and active-snapshot-state digests, hardware identity digests, and
+the size and modification identity of every attached base image and active ASIF
+layer. Startup validates that manifest before asking Virtualization.framework
+to restore. A known mismatch or damaged manifest is discarded before restore,
+the VM cold-boots, and an in-window notice explains whether configuration,
+hardware identity, snapshot branch, or disk state diverged. States created
+before manifests existed retain one guarded restore attempt and still fall back
+to a cold boot if the framework rejects them. Clone and portable-export paths
+remove both the state and its companion manifest together.
+
 Long-chain validation now creates and opens a real 32-layer ASIF history. Audit
 does not stop at file signatures: it asks DiskImageKit to assemble each complete
 stack read-only, which rejects reordered layers and broken parent relationships.

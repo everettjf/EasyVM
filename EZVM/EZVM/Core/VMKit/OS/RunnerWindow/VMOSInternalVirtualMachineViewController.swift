@@ -381,8 +381,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func retryWithColdBoot(rootPath: URL, model: VMModel, reason: String) {
-        try? FileManager.default.removeItem(at: model.savedMachineStateURL)
-        VMSavedStateStore.discardPending(stateURL: model.savedMachineStateURL)
+        VMSavedStateStore.discardCommitted(stateURL: model.savedMachineStateURL)
+        runtimeState?.updateMachineStateNotice(
+            VMSavedStateStore.coldBootNotice(reason: reason)
+        )
         guard rebuildVirtualMachine() else {
             fail("Could not rebuild the virtual machine after \(reason).")
             return
@@ -443,12 +445,32 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 // A state produced by another graphics backend cannot restore
                 // into Custom VirGL safely. Cold boot and remove it so later
                 // launches don't repeatedly attempt an incompatible restore.
-                try? FileManager.default.removeItem(at: model.savedMachineStateURL)
-                VMSavedStateStore.discardPending(stateURL: model.savedMachineStateURL)
+                VMSavedStateStore.discardCommitted(stateURL: model.savedMachineStateURL)
+                runtimeState?.updateMachineStateNotice(
+                    "The saved session used a graphics configuration that Custom VirGL cannot restore. EZVM discarded it and started the virtual machine normally."
+                )
                 EZVMLog.info("Discarded saved state because Custom VirGL does not support machine-state restore.")
             } else if #available(macOS 14.0, *), FileManager.default.fileExists(atPath: model.savedMachineStateURL.path(percentEncoded: false)) {
-                restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath, model: model)
-                return
+                switch VMSavedStateStore.compatibility(
+                    stateURL: model.savedMachineStateURL,
+                    vmRootPath: rootPath
+                ) {
+                case .compatible:
+                    restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath, model: model)
+                    return
+                case .legacyUnverified:
+                    runtimeState?.updateMachineStateNotice(
+                        "This saved session predates compatibility records. EZVM will try to resume it once; if that fails, it will safely fall back to a normal start."
+                    )
+                    restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath, model: model)
+                    return
+                case .incompatible(let reason):
+                    VMSavedStateStore.discardCommitted(stateURL: model.savedMachineStateURL)
+                    runtimeState?.updateMachineStateNotice(
+                        "\(reason) EZVM discarded the incompatible saved session and started the virtual machine normally."
+                    )
+                    EZVMLog.info("Discarded incompatible saved state: \(reason)")
+                }
             }
 
             startNormally(rootPath: rootPath, model: model)
@@ -471,7 +493,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 Task { @MainActor in
                     switch result {
                     case .success:
-                        try? FileManager.default.removeItem(at: stateURL)
+                        VMSavedStateStore.discardCommitted(stateURL: stateURL)
                         self.runtimeState?.update(.running)
                         self.markNetworkRuntimeStarted()
                         self.markMachineRunning()
@@ -1189,8 +1211,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         lifecycleGeneration += 1
         if let rootPath {
             let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
-            VMSavedStateStore.discardPending(stateURL: stateURL)
-            try? FileManager.default.removeItem(at: stateURL)
+            VMSavedStateStore.discardCommitted(stateURL: stateURL)
         }
         shutdownRetainer = nil
         guard virtualMachine != nil else {
@@ -1266,7 +1287,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         self.fail("Could not save the virtual machine state: \(error.localizedDescription)")
                     } else {
                         do {
-                            try VMSavedStateStore.commit(pendingURL: pendingURL, stateURL: stateURL)
+                            try VMSavedStateStore.commit(
+                                pendingURL: pendingURL,
+                                stateURL: stateURL,
+                                vmRootPath: rootPath
+                            )
                             self.releaseVirtualMachineAfterStop()
                             self.runtimeState?.update(.stopped)
                             self.releaseRunLease()
