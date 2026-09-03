@@ -661,7 +661,7 @@ release branch/tag and creates the GitHub release. Omarchy Edition tags use the
 separate `ezvm-omarchy-v<version>` namespace.
 
 Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
-schema-3 `Diagnostics/integration-readiness.json` observation after the authenticated
+schema-4 `Diagnostics/integration-readiness.json` observation after the authenticated
 Guest Agent reports an active desktop, completed provisioning, and every
 profile-required capability. Capability booleans explicitly mean “advertised,”
 not “round trip proven.” The observation binds those live facts to the App
@@ -674,12 +674,17 @@ opens a Guest terminal through the authenticated uinput device and runs an
 isolated shared-folder script that proves UTF-8 text and PNG in both directions
 through the actual `NSPasteboard`/SPICE/Wayland clipboard path. Four additional
 content digests are recorded only after those transfers match byte-for-byte.
+Finally, the Host resizes the VM window, measures the display view in Retina
+backing pixels, and compares it with Hyprland's live monitor dimensions before
+and after the change. Display evidence is recorded only when the Guest changes
+resolution and exactly matches the Host backing surface.
 `scripts/verify-omarchy-integration-observation.sh` rejects stale,
 version-mismatched, incomplete, or internally inconsistent observations; its
 positive and tamper-rejection cases run in CI. This is machine evidence for the
 integration-ready checkpoint only. It deliberately does not claim that focused
-Command capture, dynamic display, sleep/wake, rollback, or 24-hour scenarios completed;
-those remain separate real actions in the release evidence record.
+Command capture, full-screen transitions, sleep/wake, rollback, or 24-hour
+scenarios completed; those remain separate real actions in the release evidence
+record.
 
 ### 11.1 Shared-folder real-guest checkpoint (2026-09-03)
 
@@ -734,6 +739,29 @@ files after completion. This closes the bidirectional text/PNG clipboard
 checkpoint. The locked-session readiness signal remains tracked for correction
 in the lifecycle/recovery phase rather than being treated as a successful
 interactive desktop.
+
+### 11.3 Dynamic-display real-guest checkpoint (2026-09-03)
+
+The exact `.6` workspace was retested with App source revision
+`2126bc4a4ff530ee1df17f3e5d34ecf793a7bb88`. Real execution first exposed a
+phase race: the Host began typing the display probe before the preceding Guest
+clipboard script had returned to its shell prompt. A Guest-written completion
+marker now synchronizes the two acceptance phases. The next run exposed a
+measurement-unit error: Hyprland reported physical display pixels while AppKit
+reported logical points. The Host now uses the VM view's Retina backing size.
+
+The final schema-4 observation passed the strict validator and recorded:
+
+- Guest display before resize: `2200x1216` pixels;
+- Guest display after resize: `1760x1320` pixels;
+- Host VM backing view after resize: `1760x1320` pixels;
+- `dynamicDisplayRoundTripPassed=true`, together with fresh shared-folder and
+  bidirectional text/PNG clipboard results.
+
+All randomly named acceptance directories were removed afterward. This closes
+the windowed dynamic-resolution and Retina-mapping checkpoint. Repeated resize,
+full-screen, multi-Space, sleep/wake, and long-running display recovery remain
+part of lifecycle and soak acceptance.
 
 ## 12. Test and measurement strategy
 
