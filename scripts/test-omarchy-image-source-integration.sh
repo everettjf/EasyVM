@@ -8,19 +8,21 @@ trap 'rm -rf "$fixture"' EXIT
 profile="$fixture/profiles/aarch64-virt"
 agent_ref=$(git -C "$project_root" rev-parse HEAD)
 mkdir -p "$fixture/bin" "$profile/overlay/etc/systemd/system" "$profile/overlay/etc/systemd/user"
-cp "$project_root/EZVMOmarchy/GuestOverlay/systemd/mnt-ezvm-shared.mount" \
-  "$profile/overlay/etc/systemd/system/mnt-ezvm-shared.mount"
+cp "$project_root/EZVMOmarchy/GuestOverlay/systemd/mnt-ezvm\x2dshared.mount" \
+  "$profile/overlay/etc/systemd/system/mnt-ezvm\x2dshared.mount"
 cp "$project_root/EZVMOmarchy/GuestOverlay/systemd/ezvm-session-agent.service" \
   "$profile/overlay/etc/systemd/user/ezvm-session-agent.service"
 printf '%s\n' wl-clipboard >"$profile/runtime-packages"
 printf 'EZVM_GUEST_AGENT_REF=%s\n' "$agent_ref" >"$fixture/sources.env"
 cat >"$fixture/bin/build-image" <<'EOF'
-target_chroot systemctl enable mnt-ezvm-shared.mount
+target_chroot systemctl enable 'mnt-ezvm\x2dshared.mount'
+install -d -m755 "$MOUNT_DIR/mnt/ezvm-shared"
 target_chroot systemctl --global enable ezvm-session-agent.service
 required_paths=(
-  etc/systemd/system/mnt-ezvm-shared.mount
+  'etc/systemd/system/mnt-ezvm\x2dshared.mount'
   etc/systemd/user/ezvm-session-agent.service
-  etc/systemd/system/multi-user.target.wants/mnt-ezvm-shared.mount
+  'etc/systemd/system/multi-user.target.wants/mnt-ezvm\x2dshared.mount'
+  mnt/ezvm-shared
   etc/systemd/user/graphical-session.target.wants/ezvm-session-agent.service
 )
 EOF

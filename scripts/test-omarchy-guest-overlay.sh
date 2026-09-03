@@ -2,7 +2,7 @@
 set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-unit="$project_root/EZVMOmarchy/GuestOverlay/systemd/mnt-ezvm-shared.mount"
+unit="$project_root/EZVMOmarchy/GuestOverlay/systemd/mnt-ezvm\x2dshared.mount"
 session_unit="$project_root/EZVMOmarchy/GuestOverlay/systemd/ezvm-session-agent.service"
 
 test -f "$unit"

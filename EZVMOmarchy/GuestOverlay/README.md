@@ -3,7 +3,9 @@
 This directory contains the Omarchy-specific image additions owned by the
 dedicated product. It does not fork the general EZVM Guest Agent.
 
-The image build installs and enables `systemd/mnt-ezvm-shared.mount`. The unit
+The image build creates `/mnt/ezvm-shared`, then installs and enables
+`systemd/mnt-ezvm\x2dshared.mount`. The escaped unit name is required by
+systemd because the mount path itself contains a hyphen. The unit
 mounts the Host-provided VirtioFS tag `ezvm_shared` at `/mnt/ezvm-shared` with
 `nosuid,nodev`. The Guest Agent advertises `shared-folders-v1` only after Linux
 mountinfo proves that this exact tag, filesystem type, and mount point are
