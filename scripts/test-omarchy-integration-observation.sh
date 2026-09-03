@@ -17,7 +17,7 @@ write_observation() {
       shared-folders-v1 shutdown-v1
     ]
     value = {
-      schemaVersion: 2, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
+      schemaVersion: 3, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
       factoryImageVersion: ARGV.fetch(2), omarchyRevision: "omarchy-test-1",
       guestAgentVersion: ARGV.fetch(3), guestHostName: "omarchy",
       guestAddresses: ["192.0.2.2"], guestCapabilities: capabilities,
@@ -28,7 +28,11 @@ write_observation() {
       dynamicDisplayCapabilityAdvertised: true,
       sharedFolderRoundTripPassed: true,
       sharedFolderRoundTripObservedAt: ARGV.fetch(0),
-      hostToGuestSHA256: "a" * 64, guestToHostSHA256: "b" * 64
+      hostToGuestSHA256: "a" * 64, guestToHostSHA256: "b" * 64,
+      clipboardRoundTripPassed: true,
+      clipboardRoundTripObservedAt: ARGV.fetch(0),
+      hostToGuestTextSHA256: "c" * 64, guestToHostTextSHA256: "d" * 64,
+      hostToGuestImageSHA256: "e" * 64, guestToHostImageSHA256: "f" * 64
     }
     File.write(ARGV.fetch(4), JSON.pretty_generate(value))
   ' "$observed" "$revision" "$factory_version" "$agent_version" "$work/observation.json"
@@ -58,6 +62,14 @@ expect_rejection "observation without shared-folder readiness was accepted"
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["sharedFolderRoundTripPassed"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
 expect_rejection "observation without a real shared-folder round trip was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["clipboardRoundTripPassed"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+expect_rejection "observation without a real clipboard round trip was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v.delete("guestToHostImageSHA256"); File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+expect_rejection "observation without clipboard image evidence was accepted"
 
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["guestCapabilities"].delete("clipboard-image-v1"); File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"

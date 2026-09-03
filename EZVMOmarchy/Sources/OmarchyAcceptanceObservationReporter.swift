@@ -22,6 +22,12 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
     let sharedFolderRoundTripObservedAt: Date?
     let hostToGuestSHA256: String?
     let guestToHostSHA256: String?
+    let clipboardRoundTripPassed: Bool
+    let clipboardRoundTripObservedAt: Date?
+    let hostToGuestTextSHA256: String?
+    let guestToHostTextSHA256: String?
+    let hostToGuestImageSHA256: String?
+    let guestToHostImageSHA256: String?
 
     func encoded() throws -> Data {
         let encoder = JSONEncoder()
@@ -39,6 +45,7 @@ enum OmarchyAcceptanceObservationReporter {
         requiredCapabilities: [String],
         layout: VMOmarchyWorkspaceLayout,
         sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip?,
+        clipboardRoundTrip: OmarchyClipboardRoundTrip?,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         observedAt: Date = Date()
@@ -56,6 +63,7 @@ enum OmarchyAcceptanceObservationReporter {
             factoryImageVersion: metadata?.factoryImageVersion,
             sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
             sharedFolderRoundTrip: sharedFolderRoundTrip,
+            clipboardRoundTrip: clipboardRoundTrip,
             observedAt: observedAt
         )
         do {
@@ -75,11 +83,12 @@ enum OmarchyAcceptanceObservationReporter {
         factoryImageVersion: String?,
         sourceRevision: String,
         sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip?,
+        clipboardRoundTrip: OmarchyClipboardRoundTrip?,
         observedAt: Date
     ) -> OmarchyIntegrationObservation {
         let capabilities = status.capabilities
         return OmarchyIntegrationObservation(
-            schemaVersion: 2,
+            schemaVersion: 3,
             observedAt: observedAt,
             sourceRevision: sourceRevision,
             factoryImageVersion: factoryImageVersion,
@@ -98,7 +107,13 @@ enum OmarchyAcceptanceObservationReporter {
             sharedFolderRoundTripPassed: sharedFolderRoundTrip != nil,
             sharedFolderRoundTripObservedAt: sharedFolderRoundTrip?.observedAt,
             hostToGuestSHA256: sharedFolderRoundTrip?.hostToGuestSHA256,
-            guestToHostSHA256: sharedFolderRoundTrip?.guestToHostSHA256
+            guestToHostSHA256: sharedFolderRoundTrip?.guestToHostSHA256,
+            clipboardRoundTripPassed: clipboardRoundTrip != nil,
+            clipboardRoundTripObservedAt: clipboardRoundTrip?.observedAt,
+            hostToGuestTextSHA256: clipboardRoundTrip?.hostToGuestTextSHA256,
+            guestToHostTextSHA256: clipboardRoundTrip?.guestToHostTextSHA256,
+            hostToGuestImageSHA256: clipboardRoundTrip?.hostToGuestImageSHA256,
+            guestToHostImageSHA256: clipboardRoundTrip?.guestToHostImageSHA256
         )
     }
 }

@@ -3,6 +3,25 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
+    func testLinuxKeyboardTextEncoderProducesBalancedBatches() throws {
+        let batches = try VMLinuxKeyboardTextEncoder.batches(
+            for: "bash /mnt/ezvm-shared/.ezvm-clipboard-probe.sh\n"
+        )
+        XCTAssertFalse(batches.isEmpty)
+        XCTAssertTrue(batches.allSatisfy { !$0.events.isEmpty })
+        XCTAssertTrue(batches.allSatisfy {
+            $0.events.count <= VMGuestAgentInputBatch.maximumEventCount
+        })
+        let events = batches.flatMap(\.events)
+        XCTAssertEqual(events.filter { $0.type == 1 && $0.value == 1 }.count,
+                       events.filter { $0.type == 1 && $0.value == 0 }.count)
+        XCTAssertEqual(events.last, VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+    }
+
+    func testLinuxKeyboardTextEncoderRejectsUnsupportedCharacters() {
+        XCTAssertThrowsError(try VMLinuxKeyboardTextEncoder.batches(for: "é"))
+    }
+
     func testRetryPolicyUsesBoundedExponentialBackoff() {
         let policy = VMGuestAgentRetryPolicy(maximumDelay: 30)
         XCTAssertEqual(policy.delay(afterFailureCount: 0), 0)

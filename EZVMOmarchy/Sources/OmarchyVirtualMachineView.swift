@@ -21,6 +21,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var notice: UserNotice?
     @State private var recordedIntegrationSignature = ""
     @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
+    @State private var clipboardProbe: OmarchyClipboardProbeState = .notRun
 
     private var phase: Phase { lifecycle.phase }
 
@@ -33,6 +34,7 @@ struct OmarchyVirtualMachineView: View {
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
                 integrationChanged: handleIntegrationChange,
                 sharedFolderProbeChanged: handleSharedFolderProbeChange,
+                clipboardProbeChanged: handleClipboardProbeChange,
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
@@ -284,7 +286,8 @@ struct OmarchyVirtualMachineView: View {
             status: status,
             requiredCapabilities: profile.requiredGuestCapabilities,
             layout: layout,
-            sharedFolderRoundTrip: sharedFolderRoundTrip
+            sharedFolderRoundTrip: sharedFolderRoundTrip,
+            clipboardRoundTrip: clipboardRoundTrip
         )
         let signature = ([status.omarchyRevision ?? "", status.agentVersion]
             + status.capabilities.sorted()).joined(separator: "\u{1f}")
@@ -316,7 +319,25 @@ struct OmarchyVirtualMachineView: View {
             status: status,
             requiredCapabilities: profile.requiredGuestCapabilities,
             layout: layout,
-            sharedFolderRoundTrip: sharedFolderRoundTrip
+            sharedFolderRoundTrip: sharedFolderRoundTrip,
+            clipboardRoundTrip: clipboardRoundTrip
+        )
+    }
+
+    private var clipboardRoundTrip: OmarchyClipboardRoundTrip? {
+        guard case .passed(let result) = clipboardProbe else { return nil }
+        return result
+    }
+
+    private func handleClipboardProbeChange(_ state: OmarchyClipboardProbeState) {
+        clipboardProbe = state
+        guard case .ready(let status) = integration else { return }
+        OmarchyAcceptanceObservationReporter.reportIfEnabled(
+            status: status,
+            requiredCapabilities: profile.requiredGuestCapabilities,
+            layout: layout,
+            sharedFolderRoundTrip: sharedFolderRoundTrip,
+            clipboardRoundTrip: clipboardRoundTrip
         )
     }
 
@@ -616,6 +637,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
     let integrationChanged: (VMOmarchyIntegrationState) -> Void
     let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
+    let clipboardProbeChanged: (OmarchyClipboardProbeState) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -624,6 +646,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             keyboardIntegrationChanged: keyboardIntegrationChanged,
             integrationChanged: integrationChanged,
             sharedFolderProbeChanged: sharedFolderProbeChanged,
+            clipboardProbeChanged: clipboardProbeChanged,
             phaseChanged: phaseChanged
         )
     }
@@ -675,6 +698,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
         let integrationChanged: (VMOmarchyIntegrationState) -> Void
         let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
+        let clipboardProbeChanged: (OmarchyClipboardProbeState) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
         private var keyboardPermissionObserver: NSObjectProtocol?
@@ -683,18 +707,22 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var integrationClient: VMOmarchyGuestAgentClient?
         private var sharedFolderProbeTask: Task<Void, Never>?
         private var sharedFolderProbePassed = false
+        private var clipboardProbeTask: Task<Void, Never>?
+        private var clipboardProbePassed = false
 
         init(
             sessionID: UUID,
             keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
             integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
             sharedFolderProbeChanged: @escaping (VMOmarchySharedFolderProbeState) -> Void,
+            clipboardProbeChanged: @escaping (OmarchyClipboardProbeState) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
             self.keyboardIntegrationChanged = keyboardIntegrationChanged
             self.integrationChanged = integrationChanged
             self.sharedFolderProbeChanged = sharedFolderProbeChanged
+            self.clipboardProbeChanged = clipboardProbeChanged
             self.phaseChanged = phaseChanged
         }
 
@@ -792,11 +820,42 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         result.guestToHostSHA256
                     )
                     self.sharedFolderProbeChanged(.passed(result))
+                    self.startClipboardProbeIfNeeded(layout: layout)
                 } catch {
                     NSLog("Omarchy shared-folder round trip failed: %@", error.localizedDescription)
                     self.sharedFolderProbeChanged(.failed(error.localizedDescription))
                 }
                 self.sharedFolderProbeTask = nil
+            }
+        }
+
+        private func startClipboardProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
+            guard ProcessInfo.processInfo.environment[
+                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+            ] == "1", sharedFolderProbePassed, !clipboardProbePassed,
+                  clipboardProbeTask == nil, let integrationClient else { return }
+            clipboardProbeChanged(.running)
+            clipboardProbeTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    let result = try await OmarchyClipboardAcceptanceProbe.run(
+                        client: integrationClient,
+                        sharedDirectory: layout.shared
+                    )
+                    self.clipboardProbePassed = true
+                    NSLog(
+                        "Omarchy clipboard round trip passed (text %@/%@, PNG %@/%@)",
+                        result.hostToGuestTextSHA256,
+                        result.guestToHostTextSHA256,
+                        result.hostToGuestImageSHA256,
+                        result.guestToHostImageSHA256
+                    )
+                    self.clipboardProbeChanged(.passed(result))
+                } catch {
+                    NSLog("Omarchy clipboard round trip failed: %@", error.localizedDescription)
+                    self.clipboardProbeChanged(.failed(error.localizedDescription))
+                }
+                self.clipboardProbeTask = nil
             }
         }
 
@@ -828,6 +887,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         func stopImmediately() {
             sharedFolderProbeTask?.cancel()
             sharedFolderProbeTask = nil
+            clipboardProbeTask?.cancel()
+            clipboardProbeTask = nil
             keyboardBridge?.stop()
             keyboardBridge = nil
             stopIntegration()
@@ -859,6 +920,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             sharedFolderProbeTask?.cancel()
             sharedFolderProbeTask = nil
             sharedFolderProbePassed = false
+            clipboardProbeTask?.cancel()
+            clipboardProbeTask = nil
+            clipboardProbePassed = false
             let client = integrationClient
             integrationClient = nil
             Task { @MainActor in client?.stop() }

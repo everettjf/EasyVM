@@ -182,10 +182,17 @@ final class EZVMOmarchyTests: XCTestCase {
                 hostToGuestSHA256: String(repeating: "a", count: 64),
                 guestToHostSHA256: String(repeating: "b", count: 64)
             ),
+            clipboardRoundTrip: OmarchyClipboardRoundTrip(
+                observedAt: observedAt,
+                hostToGuestTextSHA256: String(repeating: "c", count: 64),
+                guestToHostTextSHA256: String(repeating: "d", count: 64),
+                hostToGuestImageSHA256: String(repeating: "e", count: 64),
+                guestToHostImageSHA256: String(repeating: "f", count: 64)
+            ),
             observedAt: observedAt
         )
 
-        XCTAssertEqual(observation.schemaVersion, 2)
+        XCTAssertEqual(observation.schemaVersion, 3)
         XCTAssertEqual(observation.observedAt, observedAt)
         XCTAssertEqual(observation.sourceRevision, "source-commit")
         XCTAssertEqual(observation.factoryImageVersion, "factory-version")
@@ -202,6 +209,12 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(observation.sharedFolderRoundTripObservedAt, observedAt)
         XCTAssertEqual(observation.hostToGuestSHA256, String(repeating: "a", count: 64))
         XCTAssertEqual(observation.guestToHostSHA256, String(repeating: "b", count: 64))
+        XCTAssertTrue(observation.clipboardRoundTripPassed)
+        XCTAssertEqual(observation.clipboardRoundTripObservedAt, observedAt)
+        XCTAssertEqual(observation.hostToGuestTextSHA256, String(repeating: "c", count: 64))
+        XCTAssertEqual(observation.guestToHostTextSHA256, String(repeating: "d", count: 64))
+        XCTAssertEqual(observation.hostToGuestImageSHA256, String(repeating: "e", count: 64))
+        XCTAssertEqual(observation.guestToHostImageSHA256, String(repeating: "f", count: 64))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         XCTAssertNoThrow(try decoder.decode(

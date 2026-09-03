@@ -145,6 +145,52 @@ public final class VMOmarchyGuestAgentClient {
     public func requestShutdown() { send(.shutdown) }
     public func requestRestart() { send(.restart) }
 
+    /// Types a constrained US-ASCII command through the authenticated uinput
+    /// channel. This is used by isolated end-to-end acceptance runs and does
+    /// not expose a Guest shell or command-execution protocol.
+    public func typeUSASCII(_ text: String) async throws {
+        guard capabilities.contains("desktop-input-v1") else {
+            throw CocoaError(.featureUnsupported)
+        }
+        for batch in try VMLinuxKeyboardTextEncoder.batches(for: text) {
+            let result: VMGuestAgentInputResult = try await request(.input, payload: batch)
+            guard result.success else {
+                throw NSError(
+                    domain: "EZVMOmarchyInput",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: result.message]
+                )
+            }
+        }
+    }
+
+    /// Sends one complete Linux key chord with deterministic key-up cleanup.
+    public func injectKeyChord(modifiers: [UInt16], key: UInt16) async throws {
+        guard capabilities.contains("desktop-input-v1") else {
+            throw CocoaError(.featureUnsupported)
+        }
+        var events: [VMGuestAgentInputEvent] = []
+        func append(_ code: UInt16, pressed: Bool) {
+            events.append(.init(type: 1, code: code, value: pressed ? 1 : 0))
+            events.append(.init(type: 0, code: 0, value: 0))
+        }
+        modifiers.forEach { append($0, pressed: true) }
+        append(key, pressed: true)
+        append(key, pressed: false)
+        modifiers.reversed().forEach { append($0, pressed: false) }
+        let result: VMGuestAgentInputResult = try await request(
+            .input,
+            payload: VMGuestAgentInputBatch(events: events)
+        )
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMOmarchyInput",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+    }
+
     /// Proves both directions of the live VirtioFS mount without requiring SSH.
     /// The probe uses authenticated file-transfer requests and removes its
     /// random marker files before returning.

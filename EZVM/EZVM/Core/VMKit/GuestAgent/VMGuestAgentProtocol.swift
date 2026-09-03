@@ -187,6 +187,78 @@ struct VMGuestAgentInputResult: Codable, Equatable {
     let message: String
 }
 
+/// Encodes the deliberately small US-ASCII subset used by automated guest
+/// acceptance commands into Linux evdev events. Keeping this encoder in the
+/// authenticated input path exercises the same uinput device as Command/Super
+/// integration without adding a shell-execution operation to the Guest Agent.
+enum VMLinuxKeyboardTextEncoder {
+    private static let eventKey: UInt16 = 1
+    private static let eventSyn: UInt16 = 0
+    private static let keyLeftShift: UInt16 = 42
+
+    static func events(for text: String) throws -> [VMGuestAgentInputEvent] {
+        var result: [VMGuestAgentInputEvent] = []
+        for character in text {
+            let stroke = try stroke(for: character)
+            if stroke.shifted { result.append(key(keyLeftShift, 1)); result.append(syn()) }
+            result.append(key(stroke.code, 1))
+            result.append(syn())
+            result.append(key(stroke.code, 0))
+            result.append(syn())
+            if stroke.shifted { result.append(key(keyLeftShift, 0)); result.append(syn()) }
+        }
+        return result
+    }
+
+    /// Splits only between complete keystrokes, so a failed request can never
+    /// leave Shift held merely because a protocol batch boundary was crossed.
+    static func batches(for text: String) throws -> [VMGuestAgentInputBatch] {
+        var batches: [VMGuestAgentInputBatch] = []
+        var current: [VMGuestAgentInputEvent] = []
+        for character in text {
+            let strokeEvents = try events(for: String(character))
+            if current.count + strokeEvents.count > VMGuestAgentInputBatch.maximumEventCount {
+                batches.append(VMGuestAgentInputBatch(events: current))
+                current = []
+            }
+            current.append(contentsOf: strokeEvents)
+        }
+        if !current.isEmpty { batches.append(VMGuestAgentInputBatch(events: current)) }
+        return batches
+    }
+
+    private static func stroke(for character: Character) throws -> (code: UInt16, shifted: Bool) {
+        if let code = lowerCodes[character] { return (code, false) }
+        if let lower = character.lowercased().first,
+           character.isUppercase,
+           let code = lowerCodes[lower] { return (code, true) }
+        if let stroke = symbolCodes[character] { return stroke }
+        throw CocoaError(.validationMissingMandatoryProperty)
+    }
+
+    private static func key(_ code: UInt16, _ value: Int32) -> VMGuestAgentInputEvent {
+        VMGuestAgentInputEvent(type: eventKey, code: code, value: value)
+    }
+
+    private static func syn() -> VMGuestAgentInputEvent {
+        VMGuestAgentInputEvent(type: eventSyn, code: 0, value: 0)
+    }
+
+    private static let lowerCodes: [Character: UInt16] = [
+        "a": 30, "b": 48, "c": 46, "d": 32, "e": 18, "f": 33, "g": 34,
+        "h": 35, "i": 23, "j": 36, "k": 37, "l": 38, "m": 50, "n": 49,
+        "o": 24, "p": 25, "q": 16, "r": 19, "s": 31, "t": 20, "u": 22,
+        "v": 47, "w": 17, "x": 45, "y": 21, "z": 44,
+        "1": 2, "2": 3, "3": 4, "4": 5, "5": 6,
+        "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
+    ]
+
+    private static let symbolCodes: [Character: (code: UInt16, shifted: Bool)] = [
+        " ": (57, false), "\n": (28, false), "/": (53, false), ".": (52, false),
+        "-": (12, false), "_": (12, true), ":": (39, true), "=": (13, false),
+    ]
+}
+
 enum VMFocusedCommandEventKind: Equatable {
     case keyDown
     case keyUp

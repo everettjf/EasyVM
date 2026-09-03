@@ -15,7 +15,7 @@ fail() { echo "verify-omarchy-integration-observation: $*" >&2; exit 1; }
 
 ruby -rjson -rtime -e '
   value = JSON.parse(File.read(ARGV.fetch(0)))
-  abort "wrong observation schema" unless value["schemaVersion"] == 2
+  abort "wrong observation schema" unless value["schemaVersion"] == 3
   abort "wrong source revision" unless value["sourceRevision"] == ARGV.fetch(1)
   abort "wrong factory image version" unless value["factoryImageVersion"] == ARGV.fetch(2)
   expected_agent = ARGV.fetch(3)
@@ -54,6 +54,16 @@ ruby -rjson -rtime -e '
   abort "shared-folder result predates observation window" if round_trip_at < observed - 300
   abort "shared-folder result is in the future" if round_trip_at > Time.now.utc + 300
   %w[hostToGuestSHA256 guestToHostSHA256].each do |field|
+    abort "invalid #{field}" unless value[field].is_a?(String) && value[field].match?(/\A[0-9a-f]{64}\z/)
+  end
+  abort "clipboard round trip did not pass" unless value["clipboardRoundTripPassed"] == true
+  clipboard_at = Time.iso8601(value.fetch("clipboardRoundTripObservedAt"))
+  abort "clipboard result predates observation window" if clipboard_at < observed - 300
+  abort "clipboard result is in the future" if clipboard_at > Time.now.utc + 300
+  %w[
+    hostToGuestTextSHA256 guestToHostTextSHA256
+    hostToGuestImageSHA256 guestToHostImageSHA256
+  ].each do |field|
     abort "invalid #{field}" unless value[field].is_a?(String) && value[field].match?(/\A[0-9a-f]{64}\z/)
   end
 ' "$observation" "$expected_revision" "$expected_factory_version" "$expected_agent_version"
