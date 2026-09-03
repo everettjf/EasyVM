@@ -26,8 +26,12 @@ smoke_parent="$(dirname "$vm_path")"
 smoke_directory="$(mktemp -d "$smoke_parent/.ezvm-release-smoke.XXXXXX")"
 smoke_vm="$smoke_directory/Smoke.ezvm"
 result_file="$smoke_directory/result.txt"
-pid_file="$smoke_directory/pid.txt"
+pid_file="${EZVM_RELEASE_SMOKE_PID_OUTPUT:-$smoke_directory/pid.txt}"
 launch_log="$(mktemp "${TMPDIR:-/tmp}/ezvm-vm-smoke-launch.XXXXXX")"
+if [[ "$pid_file" != "$smoke_directory/pid.txt" ]]; then
+  [[ "$pid_file" == /* ]] || fail "EZVM_RELEASE_SMOKE_PID_OUTPUT must be an absolute path"
+  [[ ! -L "$pid_file" ]] || fail "EZVM_RELEASE_SMOKE_PID_OUTPUT must not be a symbolic link"
+fi
 app_pid=""
 open_pid=""
 cleanup() {
@@ -75,6 +79,9 @@ open -n -g -W --stdout "$launch_log" --stderr "$launch_log" \
   --env "EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET=${EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET:-0}" \
   --env "EZVM_RELEASE_REQUIRE_ASIF_STORAGE=${EZVM_RELEASE_REQUIRE_ASIF_STORAGE:-0}" \
   --env "EZVM_RELEASE_REQUIRE_VMNET=${EZVM_RELEASE_REQUIRE_VMNET:-0}" \
+  --env "EZVM_RELEASE_FORCE_APPLE_GRAPHICS=${EZVM_RELEASE_FORCE_APPLE_GRAPHICS:-0}" \
+  --env "EZVM_RELEASE_HOLD_SECONDS=${EZVM_RELEASE_HOLD_SECONDS:-0}" \
+  --env "EZVM_RELEASE_HOLD_READY=${EZVM_RELEASE_HOLD_READY:-}" \
   --env "EZVM_RELEASE_AGENT_ENROLLMENT_FILE=$enrollment_file" \
   "$app_path" &
 open_pid=$!

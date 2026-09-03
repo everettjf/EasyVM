@@ -577,6 +577,9 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let requireVMNet: Bool
     let requireMachineStateSupport: Bool
     let saveMachineState: Bool
+    let forceAppleGraphics: Bool
+    let holdSeconds: Int
+    let holdReadyURL: URL?
     let guestAgentEnrollmentURL: URL?
 }
 
@@ -597,6 +600,9 @@ enum VMReleaseSmokeTest {
     static let requireVMNetEnvironmentKey = "EZVM_RELEASE_REQUIRE_VMNET"
     static let requireMachineStateSupportEnvironmentKey = "EZVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT"
     static let saveMachineStateEnvironmentKey = "EZVM_RELEASE_SAVE_MACHINE_STATE"
+    static let forceAppleGraphicsEnvironmentKey = "EZVM_RELEASE_FORCE_APPLE_GRAPHICS"
+    static let holdSecondsEnvironmentKey = "EZVM_RELEASE_HOLD_SECONDS"
+    static let holdReadyEnvironmentKey = "EZVM_RELEASE_HOLD_READY"
     static let guestAgentEnrollmentEnvironmentKey = "EZVM_RELEASE_AGENT_ENROLLMENT_FILE"
 
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> VMReleaseSmokeTestConfiguration? {
@@ -604,6 +610,8 @@ enum VMReleaseSmokeTest {
               let resultPath = environment[resultPathEnvironmentKey], !resultPath.isEmpty else {
             return nil
         }
+        let requestedHold = environment[holdSecondsEnvironmentKey].flatMap(Int.init) ?? 0
+        let holdSeconds = (0...600).contains(requestedHold) ? requestedHold : 0
         return VMReleaseSmokeTestConfiguration(
             vmRootPath: URL(filePath: vmPath).standardizedFileURL,
             resultPath: URL(filePath: resultPath).standardizedFileURL,
@@ -623,6 +631,11 @@ enum VMReleaseSmokeTest {
             requireVMNet: environment[requireVMNetEnvironmentKey] == "1",
             requireMachineStateSupport: environment[requireMachineStateSupportEnvironmentKey] == "1",
             saveMachineState: environment[saveMachineStateEnvironmentKey] == "1",
+            forceAppleGraphics: environment[forceAppleGraphicsEnvironmentKey] == "1",
+            holdSeconds: holdSeconds,
+            holdReadyURL: environment[holdReadyEnvironmentKey].flatMap {
+                $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL
+            },
             guestAgentEnrollmentURL: environment[guestAgentEnrollmentEnvironmentKey].flatMap {
                 $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL
             }

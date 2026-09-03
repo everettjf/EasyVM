@@ -44,6 +44,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     private var releaseSmokeInputVerified = false
     private var releaseSmokeVisibleInputInjected = false
     private var releaseSmokeVisibleInputHoldUntil: Date?
+    private var releaseSmokePerformanceHoldUntil: Date?
     private var shutdownFallbackGeneration = 0
     private var networkRuntimeTracker = VMNetworkRuntimeTracker(deviceCount: 0)
     private var networkReconnectTokens: [Int: UUID] = [:]
@@ -249,12 +250,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         let guestInputReady = machineIdentifierData.map {
             VMGuestAgentEnrollmentStore.isInputReady(machineIdentifierData: $0)
         } ?? false
-        let releaseSmokeRequiresVirGL = VMReleaseSmokeTest.configuration(for: rootPath)?.requireVirGL == true
+        let releaseSmokeConfiguration = VMReleaseSmokeTest.configuration(for: rootPath)
+        let releaseSmokeRequiresVirGL = releaseSmokeConfiguration?.requireVirGL == true
         let graphicsCreation = VMGraphicsBackendFactory.make(
             forLinux: model.config.type == .linux,
             devices: model.config.graphicsDevices,
             hasInstallationMedia: hasInstallationMedia,
-            guestInputReady: guestInputReady || releaseSmokeRequiresVirGL
+            guestInputReady: guestInputReady || releaseSmokeRequiresVirGL,
+            forceAppleGraphics: releaseSmokeConfiguration?.forceAppleGraphics == true
         )
         let graphicsBackend = graphicsCreation.backend
         self.graphicsBackend = graphicsBackend
@@ -676,6 +679,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         if smoke.requireVirGL, graphicsBackend?.kind != .customVirGL {
             return "Release test requires Custom VirGL, but the active backend is \(graphicsBackend?.kind.rawValue ?? "unknown")."
         }
+        if smoke.forceAppleGraphics, graphicsBackend?.kind != .appleVirtio {
+            return "Release test requires Apple Virtio graphics, but the active backend is \(graphicsBackend?.kind.rawValue ?? "unknown")."
+        }
         if smoke.requireMemoryBalloon, virtualMachineConfiguration?.memoryBalloonDevices.isEmpty != false {
             return "Release test requires a Virtio memory balloon device."
         }
@@ -819,6 +825,23 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 failReleaseSmokeTest("Guest Agent download did not match the uploaded bytes", configuration)
                 return
             }
+            if configuration.holdSeconds > 0 {
+                releaseSmokeStage = 3
+                releaseSmokeDeadline = Date().addingTimeInterval(TimeInterval(configuration.holdSeconds + 15))
+                releaseSmokePerformanceHoldUntil = Date().addingTimeInterval(TimeInterval(configuration.holdSeconds))
+                if let readyURL = configuration.holdReadyURL {
+                    do {
+                        try Data("ready\n".utf8).write(to: readyURL, options: .atomic)
+                    } catch {
+                        failReleaseSmokeTest("could not write performance hold marker: \(error.localizedDescription)", configuration)
+                    }
+                }
+                return
+            }
+            cleanupReleaseSmokeFiles()
+            finishReleaseSmokeTest(configuration)
+        case 3:
+            guard let holdUntil = releaseSmokePerformanceHoldUntil, Date() >= holdUntil else { return }
             cleanupReleaseSmokeFiles()
             finishReleaseSmokeTest(configuration)
         default: return
@@ -873,6 +896,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         releaseSmokeInputVerified = false
         releaseSmokeVisibleInputInjected = false
         releaseSmokeVisibleInputHoldUntil = nil
+        releaseSmokePerformanceHoldUntil = nil
     }
 
     private func finishReleaseSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {

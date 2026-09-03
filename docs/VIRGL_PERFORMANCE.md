@@ -71,6 +71,23 @@ For a useful first comparison, capture separate 30-second samples for:
 3. repeated workspace switching and window movement;
 4. browser scrolling or video playback.
 
+The signed release gate can automate the first, idle-desktop comparison without
+editing the source VM. It makes independent copy-on-write fixture clones, waits
+for Guest Agent transfer verification, holds each VM for the bounded capture,
+forces the requested graphics backend, and applies the same verifier:
+
+```sh
+scripts/verify-release-virgl-idle-performance.sh \
+  /path/to/EZVM.app \
+  /path/to/Omarchy.ezvm \
+  /path/to/Omarchy.ezvm/.EZVMAgent/config.json \
+  /tmp/ezvm-virgl-idle
+```
+
+This closes the repeatability gap for the idle baseline only. Interactive
+scrolling, workspace movement, and video remain human-driven representative
+workloads and must not be inferred from this result.
+
 Healthy runs should report zero presentation failures, few or no drawable
 misses, bounded frame coalescing, and a stable FPS appropriate for the guest
 workload. Coalescing is intentional: EZVM keeps at most one pending frame so it

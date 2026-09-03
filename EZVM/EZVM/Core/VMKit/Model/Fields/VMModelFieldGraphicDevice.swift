@@ -868,8 +868,15 @@ enum VMGraphicsBackendFactory {
         forLinux: Bool = true,
         devices: [VMModelFieldGraphicDevice],
         hasInstallationMedia: Bool = false,
-        guestInputReady: Bool = true
+        guestInputReady: Bool = true,
+        forceAppleGraphics: Bool = false
     ) -> VMGraphicsBackendCreation {
+        if forceAppleGraphics {
+            return VMGraphicsBackendCreation(
+                backend: VMAppleGraphicsBackend(),
+                detail: "Apple Virtio graphics selected for release comparison."
+            )
+        }
         let selection = selection(
             forLinux: forLinux,
             hasInstallationMedia: hasInstallationMedia,

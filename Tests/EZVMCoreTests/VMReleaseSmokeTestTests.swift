@@ -66,6 +66,9 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertFalse(configuration.requireVMNet)
         XCTAssertFalse(configuration.requireMachineStateSupport)
         XCTAssertFalse(configuration.saveMachineState)
+        XCTAssertFalse(configuration.forceAppleGraphics)
+        XCTAssertEqual(configuration.holdSeconds, 0)
+        XCTAssertNil(configuration.holdReadyURL)
         XCTAssertNil(configuration.guestAgentEnrollmentURL)
     }
 
@@ -86,6 +89,9 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.requireVMNetEnvironmentKey: "1",
             VMReleaseSmokeTest.requireMachineStateSupportEnvironmentKey: "1",
             VMReleaseSmokeTest.saveMachineStateEnvironmentKey: "1",
+            VMReleaseSmokeTest.forceAppleGraphicsEnvironmentKey: "1",
+            VMReleaseSmokeTest.holdSecondsEnvironmentKey: "30",
+            VMReleaseSmokeTest.holdReadyEnvironmentKey: "/tmp/hold/../ready.txt",
             VMReleaseSmokeTest.guestAgentEnrollmentEnvironmentKey: "/tmp/agent.json",
         ]))
         XCTAssertTrue(configuration.requireGuestAgent)
@@ -101,7 +107,19 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertTrue(configuration.requireVMNet)
         XCTAssertTrue(configuration.requireMachineStateSupport)
         XCTAssertTrue(configuration.saveMachineState)
+        XCTAssertTrue(configuration.forceAppleGraphics)
+        XCTAssertEqual(configuration.holdSeconds, 30)
+        XCTAssertEqual(configuration.holdReadyURL?.path, "/tmp/ready.txt")
         XCTAssertEqual(configuration.guestAgentEnrollmentURL?.path, "/tmp/agent.json")
+    }
+
+    func testConfigurationRejectsOutOfRangePerformanceHold() throws {
+        let configuration = try XCTUnwrap(VMReleaseSmokeTest.configuration(environment: [
+            VMReleaseSmokeTest.vmPathEnvironmentKey: "/tmp/smoke.ezvm",
+            VMReleaseSmokeTest.resultPathEnvironmentKey: "/tmp/result.txt",
+            VMReleaseSmokeTest.holdSecondsEnvironmentKey: "601",
+        ]))
+        XCTAssertEqual(configuration.holdSeconds, 0)
     }
 }
 #endif
