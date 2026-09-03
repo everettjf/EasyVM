@@ -208,6 +208,17 @@ processes is deliberately not claimed: the SDK serialization APIs transfer a
 live XPC object, so that behavior would require a dedicated owner process and
 an explicit lifecycle protocol.
 
+Named logical networks now also have a kernel-backed cross-process ownership
+lease. Lookup, ownership acquisition, and VMNet creation are serialized inside
+each process; a second GUI or headless EZVM process therefore cannot silently
+reserve a separate network with the same product-level name. Matching and
+conflicting configurations receive distinct recovery guidance. The lease is
+released normally with its process and automatically by the kernel after a
+crash; a separate-process termination test proves that stale metadata cannot
+strand the name. This is a safety boundary, not a claim of simultaneous
+cross-process topology sharing: that remains dependent on an XPC coordinator
+that transports Apple's live serialized network object.
+
 The VMNet-only fixture must also report a syntactically valid guest IPv4
 address. This proves that the configured adapter reached guest address
 assignment instead of incorrectly treating VirtioSocket Agent traffic as
@@ -267,7 +278,7 @@ and failure recovery without learning VMNet implementation details.
 | --- | --- | --- |
 | Presets | Present NAT, Host-only, and Shared network as outcome-oriented cards; hide subnet, MTU, interface, and forwarding details until requested. Keep unimplemented Bridged networking out of the supported surface even though Apple documents it under the same restricted networking entitlement. | Default creation needs no networking knowledge; advanced review states host/guest/internet reachability, and hidden fields never leak into another mode. |
 | Preflight | Validate entitlement, external interface, subnet overlap, malformed masks, duplicate logical networks, occupied TCP/UDP host endpoints, and conflicting forwarding rules before VM start. | Structural failures perform no host-port probe; each unique valid endpoint is probed once before any VMNet object exists, and known conflicts fail synchronously with the conflicting value and recovery action. |
-| Ownership | Reuse one reserved logical network for matching adapters inside the app, release it at process teardown, and verify that a fresh process can recreate the same topology. Treat simultaneous independent-process sharing as a separate XPC-broker feature: VMNet serialization transfers a live XPC object and is not a persistent network identifier. | Multiple VMs in one app reuse a matching network; two successive signed-app processes acquire the same configuration without stale ownership. A simultaneous second process fails clearly unless a future broker explicitly transfers the live network object. |
+| Ownership | Reuse one reserved logical network for matching adapters inside the app. A kernel-backed name lease prevents a simultaneous independent process from creating an accidental second topology, distinguishes matching from conflicting settings, and recovers automatically after process termination. Treat true simultaneous sharing as a separate XPC-broker feature: VMNet serialization transfers a live XPC object and is not a persistent network identifier. | Multiple VMs in one app reuse a matching network; an independent-process test proves the second owner fails clearly and can acquire immediately after the first process is terminated. A future broker must explicitly transport the live network object before simultaneous cross-process sharing can be claimed. |
 | Runtime recovery | Continue hardening Wi-Fi/Ethernet changes, VPN routes, sleep/wake, and interface removal around the implemented per-adapter disconnect/reconnect state. Host sleep now cancels stale reconnect completions and moves the runtime out of “Connected”; wake retries only adapters with authoritative disconnect callbacks, including callbacks that arrive just after wake. | UI distinguishes preparing, connected, host sleeping, reconnecting, and failed without stale “Connected” state; signed-fixture runs must now prove recovery and clearly identify cases that require settings changes or restart. |
 | Diagnostics | Provide sanitized topology, interface identity, port rules, and failing VMNet stage without exposing unrelated host network data. | A diagnostic bundle can distinguish entitlement, configuration, port, interface, and runtime failures. |
 

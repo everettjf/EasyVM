@@ -5,6 +5,111 @@ import Darwin
 
 #if arch(arm64)
 final class VMNetworkConfigurationTests: XCTestCase {
+    func testNamedNetworkOwnershipIsExclusiveAcrossRegistriesAndRecoversAfterRelease() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EZVMNetworkLease-\(UUID().uuidString)", isDirectory: true)
+        let first = VMNetNamedNetworkOwnershipRegistry(directory: directory)
+        let second = VMNetNamedNetworkOwnershipRegistry(directory: directory)
+
+        guard case let .acquired(lease) = first.acquire(identifier: "team-network", signature: "shared|24") else {
+            return XCTFail("The first registry should own the named network")
+        }
+        guard case let .alreadyOwned(signatureMatches) = second.acquire(
+            identifier: "team-network",
+            signature: "shared|24"
+        ) else {
+            return XCTFail("A second registry must not reserve an active named network")
+        }
+        XCTAssertTrue(signatureMatches)
+
+        first.release(lease)
+        guard case .acquired = second.acquire(identifier: "team-network", signature: "shared|24") else {
+            return XCTFail("Ownership should become available after an orderly release")
+        }
+    }
+
+    func testNamedNetworkOwnershipReportsConfigurationMismatch() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EZVMNetworkLeaseMismatch-\(UUID().uuidString)", isDirectory: true)
+        let first = VMNetNamedNetworkOwnershipRegistry(directory: directory)
+        let second = VMNetNamedNetworkOwnershipRegistry(directory: directory)
+        guard case .acquired = first.acquire(identifier: "private-lab", signature: "host|10.0.0.0") else {
+            return XCTFail("The first registry should own the named network")
+        }
+        guard case let .alreadyOwned(signatureMatches) = second.acquire(
+            identifier: "private-lab",
+            signature: "host|10.1.0.0"
+        ) else {
+            return XCTFail("Expected an ownership conflict")
+        }
+        XCTAssertFalse(signatureMatches)
+    }
+
+    func testNamedNetworkOwnershipRecoversAfterOwnerProcessTerminates() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EZVMNetworkLeaseProcess-\(UUID().uuidString)", isDirectory: true)
+        let readyURL = directory.appendingPathComponent("ready")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.arguments = [
+            "xctest",
+            "-XCTest",
+            "VMNetworkConfigurationTests/testNamedNetworkOwnershipHolderChild",
+            Bundle(for: VMNetworkConfigurationTests.self).bundleURL.path,
+        ]
+        var environment = ProcessInfo.processInfo.environment
+        environment["EZVM_VMNET_LEASE_DIRECTORY"] = directory.path
+        environment["EZVM_VMNET_LEASE_READY"] = readyURL.path
+        process.environment = environment
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        defer {
+            if process.isRunning {
+                process.terminate()
+                process.waitUntilExit()
+            }
+        }
+
+        let deadline = Date().addingTimeInterval(10)
+        while !FileManager.default.fileExists(atPath: readyURL.path), Date() < deadline {
+            usleep(20_000)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: readyURL.path), "Child process did not acquire its lease")
+
+        let contender = VMNetNamedNetworkOwnershipRegistry(directory: directory)
+        guard case let .alreadyOwned(signatureMatches) = contender.acquire(
+            identifier: "process-network",
+            signature: "shared|process"
+        ) else {
+            return XCTFail("The parent must observe the child's kernel-backed lease")
+        }
+        XCTAssertTrue(signatureMatches)
+
+        process.terminate()
+        process.waitUntilExit()
+        guard case .acquired = contender.acquire(identifier: "process-network", signature: "shared|process") else {
+            return XCTFail("A terminated owner must not strand the named network")
+        }
+    }
+
+    func testNamedNetworkOwnershipHolderChild() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let directoryPath = environment["EZVM_VMNET_LEASE_DIRECTORY"],
+              let readyPath = environment["EZVM_VMNET_LEASE_READY"] else { return }
+        let registry = VMNetNamedNetworkOwnershipRegistry(
+            directory: URL(fileURLWithPath: directoryPath, isDirectory: true)
+        )
+        guard case .acquired = registry.acquire(
+            identifier: "process-network",
+            signature: "shared|process"
+        ) else {
+            return XCTFail("Child could not acquire the network lease")
+        }
+        try Data().write(to: URL(fileURLWithPath: readyPath), options: .atomic)
+        RunLoop.current.run(until: Date().addingTimeInterval(30))
+    }
+
     func testNetworkDisconnectGuidanceIsActionableSanitizedAndBounded() {
         let unsafeDetail = " bridge0\n\u{1} unavailable "
             + String(repeating: "x", count: 300)

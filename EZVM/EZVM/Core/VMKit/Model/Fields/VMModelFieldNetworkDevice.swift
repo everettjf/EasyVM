@@ -2,6 +2,7 @@ import Foundation
 import Virtualization
 import vmnet
 import Darwin
+import CryptoKit
 
 #if arch(arm64)
 private let ezvmVMNetSuccess = vmnet_return_t.VMNET_SUCCESS
@@ -45,6 +46,136 @@ enum VMHostPortProbe {
     }
 }
 
+enum VMNetNamedNetworkOwnershipResult {
+    case acquired(VMNetNamedNetworkLease)
+    case alreadyOwned(signatureMatches: Bool)
+    case unavailable(String)
+}
+
+final class VMNetNamedNetworkLease {
+    fileprivate let identifier: String
+    fileprivate let signature: String
+    fileprivate let id = UUID()
+    fileprivate let handle: FileHandle
+
+    fileprivate init(identifier: String, signature: String, descriptor: Int32) {
+        self.identifier = identifier
+        self.signature = signature
+        handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+    }
+}
+
+/// Prevents two EZVM processes from independently reserving the same named
+/// VMNet topology. A `VZVmnetNetworkDeviceAttachment` must use a network
+/// created in its own process, so safe cross-process reuse requires a future
+/// XPC coordinator that transports Apple's serialized network object.
+final class VMNetNamedNetworkOwnershipRegistry {
+    private struct Record: Codable {
+        let schemaVersion: Int
+        let identifier: String
+        let signature: String
+        let pid: Int32
+        let updatedAt: Date
+    }
+
+    private let directory: URL
+    private let lock = NSLock()
+    private var leases: [String: VMNetNamedNetworkLease] = [:]
+
+    init(directory: URL? = nil) {
+        self.directory = directory ?? FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        )[0].appendingPathComponent("EZVM/NetworkLeases", isDirectory: true)
+    }
+
+    func acquire(identifier: String, signature: String) -> VMNetNamedNetworkOwnershipResult {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let lease = leases[identifier] {
+            return .alreadyOwned(signatureMatches: lease.signature == signature)
+        }
+        do {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+        } catch {
+            return .unavailable("EZVM could not prepare its network ownership directory: \(error.localizedDescription)")
+        }
+
+        let descriptor = open(lockURL(identifier: identifier).path, O_RDWR | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR)
+        guard descriptor >= 0 else {
+            return .unavailable("EZVM could not open the network ownership lock: \(String(cString: strerror(errno))).")
+        }
+        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+            let lockError = errno
+            close(descriptor)
+            guard lockError == EWOULDBLOCK else {
+                return .unavailable("EZVM could not check network ownership: \(String(cString: strerror(lockError))).")
+            }
+            let existingSignature = readRecord(identifier: identifier)?.signature
+            return .alreadyOwned(signatureMatches: existingSignature == signature)
+        }
+
+        let lease = VMNetNamedNetworkLease(identifier: identifier, signature: signature, descriptor: descriptor)
+        guard writeRecord(for: lease) else {
+            flock(descriptor, LOCK_UN)
+            try? lease.handle.close()
+            return .unavailable("EZVM could not record ownership of VMNet network ‘\(identifier)’.")
+        }
+        leases[identifier] = lease
+        return .acquired(lease)
+    }
+
+    func release(_ lease: VMNetNamedNetworkLease) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard leases[lease.identifier]?.id == lease.id else { return }
+        leases.removeValue(forKey: lease.identifier)
+        try? FileManager.default.removeItem(at: recordURL(identifier: lease.identifier))
+        flock(lease.handle.fileDescriptor, LOCK_UN)
+        try? lease.handle.close()
+    }
+
+    private func lockURL(identifier: String) -> URL {
+        directory.appendingPathComponent("\(digest(identifier)).lock", isDirectory: false)
+    }
+
+    private func recordURL(identifier: String) -> URL {
+        directory.appendingPathComponent("\(digest(identifier)).json", isDirectory: false)
+    }
+
+    private func digest(_ identifier: String) -> String {
+        SHA256.hash(data: Data(identifier.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func readRecord(identifier: String) -> Record? {
+        try? JSONDecoder().decode(Record.self, from: Data(contentsOf: recordURL(identifier: identifier)))
+    }
+
+    private func writeRecord(for lease: VMNetNamedNetworkLease) -> Bool {
+        let record = Record(
+            schemaVersion: 1,
+            identifier: lease.identifier,
+            signature: lease.signature,
+            pid: getpid(),
+            updatedAt: Date()
+        )
+        guard let data = try? JSONEncoder().encode(record) else { return false }
+        let url = recordURL(identifier: lease.identifier)
+        do {
+            try data.write(to: url, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            return true
+        } catch {
+            return false
+        }
+    }
+}
+
 private final class VMNetLogicalNetworkRegistry: @unchecked Sendable {
     enum Lookup {
         case missing
@@ -55,10 +186,12 @@ private final class VMNetLogicalNetworkRegistry: @unchecked Sendable {
     private struct Entry {
         let signature: String
         let network: vmnet_network_ref
+        let ownershipLease: VMNetNamedNetworkLease
     }
 
     static let shared = VMNetLogicalNetworkRegistry()
     private let lock = NSLock()
+    private let ownership = VMNetNamedNetworkOwnershipRegistry()
     private var entries: [String: Entry] = [:]
 
     func lookup(identifier: String, signature: String) -> Lookup {
@@ -68,14 +201,33 @@ private final class VMNetLogicalNetworkRegistry: @unchecked Sendable {
         return entry.signature == signature ? .found(entry.network) : .conflictingConfiguration
     }
 
-    func store(_ network: vmnet_network_ref, identifier: String, signature: String) {
+    func store(
+        _ network: vmnet_network_ref,
+        identifier: String,
+        signature: String,
+        ownershipLease: VMNetNamedNetworkLease
+    ) {
         lock.lock()
-        entries[identifier] = Entry(signature: signature, network: network)
+        entries[identifier] = Entry(
+            signature: signature,
+            network: network,
+            ownershipLease: ownershipLease
+        )
         lock.unlock()
+    }
+
+    func acquireOwnership(identifier: String, signature: String) -> VMNetNamedNetworkOwnershipResult {
+        ownership.acquire(identifier: identifier, signature: signature)
+    }
+
+    func releaseOwnership(_ lease: VMNetNamedNetworkLease) {
+        ownership.release(lease)
     }
 }
 
 struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
+    private static let vmnetCreationLock = NSLock()
+
     struct PortForwardingRule: Codable, Equatable, Identifiable {
         enum Transport: String, Codable, CaseIterable, Identifiable {
             case tcp, udp
@@ -417,6 +569,11 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
         case .NAT:
             device.attachment = VZNATNetworkDeviceAttachment()
         case .VMNetShared, .VMNetHost:
+            // Lookup, cross-process ownership, and creation are one process-local
+            // critical section. Otherwise two simultaneous VM starts could both
+            // observe a missing entry and misreport the second as another process.
+            Self.vmnetCreationLock.lock()
+            defer { Self.vmnetCreationLock.unlock() }
             if let validationError { return .failure(validationError) }
             let networkSignature = vmnetConfigurationSignature
             if let networkIdentifier {
@@ -481,14 +638,37 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
                 }
             }
 
+            var ownershipLease: VMNetNamedNetworkLease?
+            if let networkIdentifier {
+                switch VMNetLogicalNetworkRegistry.shared.acquireOwnership(
+                    identifier: networkIdentifier,
+                    signature: networkSignature
+                ) {
+                case .acquired(let lease):
+                    ownershipLease = lease
+                case .alreadyOwned(let signatureMatches):
+                    return .failure(
+                        signatureMatches
+                            ? "VMNet network ‘\(networkIdentifier)’ is active in another EZVM process. Stop the virtual machine using it or close that EZVM process, then try again."
+                            : "VMNet network ‘\(networkIdentifier)’ is active in another EZVM process with different settings. Choose another network name or close that EZVM process."
+                    )
+                case .unavailable(let error):
+                    return .failure(error)
+                }
+            }
+
             guard let network = vmnet_network_create(networkConfiguration, &status) else {
+                if let ownershipLease {
+                    VMNetLogicalNetworkRegistry.shared.releaseOwnership(ownershipLease)
+                }
                 return .failure("Could not reserve the VMNet logical network (status \(status.rawValue)).")
             }
-            if let networkIdentifier {
+            if let networkIdentifier, let ownershipLease {
                 VMNetLogicalNetworkRegistry.shared.store(
                     network,
                     identifier: networkIdentifier,
-                    signature: networkSignature
+                    signature: networkSignature,
+                    ownershipLease: ownershipLease
                 )
             }
             device.attachment = VZVmnetNetworkDeviceAttachment(network: network)
