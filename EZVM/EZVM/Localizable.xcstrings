@@ -473,6 +473,76 @@
     "Graphics" : {
 
     },
+    "Graphics needs attention" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图形显示需要处理"
+          }
+        }
+      }
+    },
+    "Network adapter needs attention" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络适配器需要处理"
+          }
+        }
+      }
+    },
+    "Check the macOS account" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查 macOS 账户"
+          }
+        }
+      }
+    },
+    "Retry Next Start" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次启动时重试"
+          }
+        }
+      }
+    },
+    "Setup Complete" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置已完成"
+          }
+        }
+      }
+    },
+    "Use Setup Assistant" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用设置助理"
+          }
+        }
+      }
+    },
+    "This snapshot chain is deep. Audit it before adding more snapshots, keep an exported backup, and remove unneeded leaf branches. EZVM does not compact layered ASIF disks in place." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此快照链层数较深。继续添加快照前请先审计完整性、保留导出备份，并删除不再需要的叶子分支。EZVM 目前不能原地压缩分层 ASIF 磁盘。"
+          }
+        }
+      }
+    },
     "Graphics Devices" : {
 
     },
@@ -897,7 +967,14 @@
 
     },
     "Settings" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置"
+          }
+        }
+      }
     },
     "Shared Folder" : {
 
