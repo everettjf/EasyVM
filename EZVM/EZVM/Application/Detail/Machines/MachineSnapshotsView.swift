@@ -169,13 +169,30 @@ class MachineSnapshotsViewStateObject {
     }
 
     func toggleProtection(_ snapshot: VMSnapshotModel) {
-        let result = VMSnapshotManager.setSnapshotProtected(
-            vmRootPath: rootPath,
-            snapshot: snapshot,
-            isProtected: !snapshot.isProtected
-        )
-        if case let .failure(error) = result { fail(error) }
-        reload()
+        let shouldProtect = !snapshot.isProtected
+        begin("\(shouldProtect ? "Protecting" : "Unprotecting") snapshot \"\(snapshot.name)\"…")
+        let rootPath = self.rootPath
+        Task.detached {
+            let result = VMSnapshotManager.setSnapshotProtected(
+                vmRootPath: rootPath,
+                snapshot: snapshot,
+                isProtected: shouldProtect
+            )
+            await MainActor.run {
+                switch result {
+                case .success:
+                    self.succeed(
+                        shouldProtect
+                            ? "Snapshot \"\(snapshot.name)\" protected from deletion"
+                            : "Snapshot \"\(snapshot.name)\" can now be deleted"
+                    )
+                    self.notifySnapshotsChanged()
+                case .failure(let error):
+                    self.fail(error)
+                }
+                self.reload()
+            }
+        }
     }
 
     func auditSnapshots() {
