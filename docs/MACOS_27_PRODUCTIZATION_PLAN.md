@@ -379,6 +379,27 @@ demos:
 
 ## Execution order
 
+### Latest signed-artifact evidence
+
+On September 2, 2026, commit `929dd38` was built as EZVM 2.0.0 through the
+Developer ID archive/export path. The app, CLI helper, and bundled VirGL
+libraries shared TeamIdentifier `YPV49M8592`; Gatekeeper accepted the app and
+the production entitlement allowlist contained Virtualization, VMNet, and
+Accessory Access.
+
+`verify-macos27-guest-matrix.sh` then passed against the frozen macOS 27,
+Omarchy, and Ubuntu fixtures. Evidence included CLI JSON and concurrent-VM
+operations, SIGKILL restart and saved-state fallback, EFI recovery, macOS
+cross-process saved-state restore, VirGL and Guest Agent operation on both
+Linux guests, VMNet Shared transfer and fresh-process reacquisition, and ASIF
+snapshot creation, cross-process audit, restore, reboot, and clean stop.
+
+This is signed development evidence, not release promotion. Physical USB,
+fresh macOS provisioning, real host sleep/network transitions, representative
+VirGL A/B workloads, notarization, and Homebrew installation remain required.
+The release build environment variable is `EZVM_SIGNING_IDENTITY`; similarly
+named legacy variables do not select the Developer ID archive/export path.
+
 ### Gate 0 — Establish release evidence
 
 - Freeze three primary guest fixtures: macOS 27, Ubuntu, and Omarchy.
