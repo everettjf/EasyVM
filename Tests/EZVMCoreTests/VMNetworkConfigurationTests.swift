@@ -132,6 +132,39 @@ final class VMNetworkConfigurationTests: XCTestCase {
         ))
     }
 
+    func testUSBListenerRejectsRegistrationCompletionAfterStop() {
+        var lifecycle = VMUSBListenerLifecycle()
+        let token = lifecycle.beginRegistration()
+
+        XCTAssertFalse(lifecycle.stop())
+        XCTAssertFalse(lifecycle.completeRegistration(token: token))
+        XCTAssertFalse(lifecycle.isRegistered)
+        XCTAssertFalse(lifecycle.acceptsAccessoryCallbacks)
+    }
+
+    func testUSBListenerAcceptsCallbacksOnlyAfterCurrentRegistrationCompletes() {
+        var lifecycle = VMUSBListenerLifecycle()
+        let staleToken = lifecycle.beginRegistration()
+        let currentToken = lifecycle.beginRegistration()
+
+        XCTAssertFalse(lifecycle.completeRegistration(token: staleToken))
+        XCTAssertFalse(lifecycle.acceptsAccessoryCallbacks)
+        XCTAssertTrue(lifecycle.completeRegistration(token: currentToken))
+        XCTAssertTrue(lifecycle.isRegistered)
+        XCTAssertTrue(lifecycle.acceptsAccessoryCallbacks)
+        XCTAssertTrue(lifecycle.stop())
+        XCTAssertFalse(lifecycle.acceptsAccessoryCallbacks)
+    }
+
+    func testUSBListenerCanRetryAfterRegistrationFailure() {
+        var lifecycle = VMUSBListenerLifecycle()
+        let failedToken = lifecycle.beginRegistration()
+
+        XCTAssertTrue(lifecycle.failRegistration(token: failedToken))
+        let retryToken = lifecycle.beginRegistration()
+        XCTAssertTrue(lifecycle.completeRegistration(token: retryToken))
+    }
+
     func testUSBDescriptorParsesVendorAndProductInLittleEndianOrder() {
         let descriptor = Data([18, 1, 0, 2, 0, 0, 0, 64, 0x34, 0x12, 0xCD, 0xAB])
         XCTAssertEqual(

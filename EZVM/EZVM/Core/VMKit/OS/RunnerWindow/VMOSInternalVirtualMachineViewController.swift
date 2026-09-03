@@ -1424,7 +1424,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     private var operations: [UInt64: VMUSBDeviceOperation] = [:]
     private var operationTokens: [UInt64: UUID] = [:]
     private var notice: VMUSBPassthroughNotice?
-    private var isRegistered = false
+    private var listenerLifecycle = VMUSBListenerLifecycle()
 
     var hasAttachedDevices: Bool { !attachedDevices.isEmpty }
 
@@ -1434,14 +1434,16 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
     }
 
     func start() {
-        guard !isRegistered else {
+        guard !listenerLifecycle.isRegistered else {
             publish()
             return
         }
+        let registrationToken = listenerLifecycle.beginRegistration()
         AAUSBAccessoryManager.shared.registerListener(self, matchingCriteria: []) { [weak self] accessories, error in
             Task { @MainActor in
                 guard let self else { return }
                 if let error {
+                    guard self.listenerLifecycle.failRegistration(token: registrationToken) else { return }
                     let guidance = VMUSBFailureGuidance.message(
                         for: Self.failureKind(error),
                         fallback: "Accessory Access failed: \(error.localizedDescription)"
@@ -1450,7 +1452,10 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     self.update(.failed(guidance))
                     return
                 }
-                self.isRegistered = true
+                guard self.listenerLifecycle.completeRegistration(token: registrationToken) else {
+                    AAUSBAccessoryManager.shared.unregisterListener(self) {}
+                    return
+                }
                 for accessory in accessories {
                     self.accessories[accessory.registryID] = accessory
                 }
@@ -1462,8 +1467,7 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
 
     func stop() {
         virtualMachine?.usbControllers.first?.delegate = nil
-        let shouldUnregister = isRegistered
-        isRegistered = false
+        let shouldUnregister = listenerLifecycle.stop()
         if shouldUnregister {
             AAUSBAccessoryManager.shared.unregisterListener(self) {}
         }
@@ -1582,14 +1586,15 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
 
     nonisolated func usbAccessoryDidConnect(_ usbAccessory: AAUSBAccessory) {
         Task { @MainActor [weak self] in
-            self?.accessories[usbAccessory.registryID] = usbAccessory
-            self?.publish()
+            guard let self, self.listenerLifecycle.acceptsAccessoryCallbacks else { return }
+            self.accessories[usbAccessory.registryID] = usbAccessory
+            self.publish()
         }
     }
 
     nonisolated func usbAccessoryDidDisconnect(_ usbAccessory: AAUSBAccessory) {
         Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self, self.listenerLifecycle.acceptsAccessoryCallbacks else { return }
             let registryID = usbAccessory.registryID
             let deviceTitle = self.title(for: registryID)
             let wasAttached = self.attachedDevices.removeValue(forKey: registryID) != nil

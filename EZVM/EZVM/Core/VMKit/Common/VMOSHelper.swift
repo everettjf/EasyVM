@@ -132,6 +132,44 @@ enum VMUSBDeviceOperation: Equatable {
     case detaching
 }
 
+struct VMUSBListenerLifecycle {
+    private enum State: Equatable {
+        case idle
+        case registering(UUID)
+        case registered
+        case stopped
+    }
+
+    private var state: State = .idle
+
+    var isRegistered: Bool { state == .registered }
+    var acceptsAccessoryCallbacks: Bool { state == .registered }
+
+    mutating func beginRegistration() -> UUID {
+        let token = UUID()
+        state = .registering(token)
+        return token
+    }
+
+    mutating func completeRegistration(token: UUID) -> Bool {
+        guard state == .registering(token) else { return false }
+        state = .registered
+        return true
+    }
+
+    mutating func failRegistration(token: UUID) -> Bool {
+        guard state == .registering(token) else { return false }
+        state = .idle
+        return true
+    }
+
+    mutating func stop() -> Bool {
+        let shouldUnregister = state == .registered
+        state = .stopped
+        return shouldUnregister
+    }
+}
+
 enum VMUSBFailureKind: Equatable {
     case listenerAlreadyRegistered
     case accessoryNotAccessible
