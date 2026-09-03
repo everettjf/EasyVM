@@ -114,7 +114,7 @@ extension VMOmarchyProfile {
         schemaVersion: currentSchemaVersion,
         productID: "com.everettjf.ezvm.omarchy",
         minimumHostMajorVersion: 27,
-        diskCapacityBytes: 128 * 1_024 * 1_024 * 1_024,
+        diskCapacityBytes: 64 * 1_024 * 1_024 * 1_024,
         resourceTiers: [
             .init(hostMemoryBytes: 16 * 1_024 * 1_024 * 1_024, cpuCount: 4, memoryBytes: 8 * 1_024 * 1_024 * 1_024),
             .init(hostMemoryBytes: 24 * 1_024 * 1_024 * 1_024, cpuCount: 6, memoryBytes: 12 * 1_024 * 1_024 * 1_024),
@@ -127,10 +127,10 @@ extension VMOmarchyProfile {
             "shutdown-v1",
         ],
         factoryImage: .init(
-            manifestURL: URL(string: "https://download.ezvm.app/omarchy/stable/manifest.json")!,
+            manifestURL: URL(string: "https://github.com/everettjf/omarchy-aarch64-image/releases/latest/download/ezvm-omarchy-factory-manifest.json")!,
             signingKeyID: "ezvm-omarchy-factory-2026",
             architecture: "arm64",
-            maximumDownloadBytes: 32 * 1_024 * 1_024 * 1_024
+            maximumDownloadBytes: 8 * 1_024 * 1_024 * 1_024
         )
     )
 }

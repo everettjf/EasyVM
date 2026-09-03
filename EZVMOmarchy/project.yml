@@ -28,6 +28,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: EZVM Omarchy
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_EZVMOmarchyFactoryPublicKeyBase64: $(EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)
         SWIFT_VERSION: 5.0
         ENABLE_HARDENED_RUNTIME: YES
     scheme:
