@@ -26,7 +26,7 @@ fail() { printf 'build-omarchy-factory: %s\n' "$*" >&2; exit 1; }
 factory="$output_dir/Omarchy-Factory.asif"
 manifest="$output_dir/ezvm-omarchy-factory-manifest.json"
 
-/usr/sbin/diskutil image create from --format ASIF "$source_disk" "$factory"
+"$project_root/scripts/copy-sparse-raw-to-asif.sh" "$source_disk" "$factory"
 swift run --package-path "$project_root" -c release omarchy-factory-tool sign \
   "$factory" "$image_url" "$image_version" "$omarchy_revision" "$agent_version" \
   "$key_id" "$private_key" "$manifest"

@@ -13,6 +13,9 @@ on:
       - "Tools/OmarchyFactoryTool/**"
       - "Package.swift"
       - "scripts/build-omarchy-factory.sh"
+      - "scripts/copy-sparse-raw-to-asif.sh"
+      - "scripts/verify-raw-device-bytes.pl"
+      - "scripts/test-copy-sparse-raw-to-asif.sh"
       - "scripts/test-omarchy-factory-tool.sh"
       - "scripts/test-omarchy-guest-overlay.sh"
       - "scripts/build-omarchy-guest-overlay.sh"
@@ -37,6 +40,9 @@ on:
       - "Tools/OmarchyFactoryTool/**"
       - "Package.swift"
       - "scripts/build-omarchy-factory.sh"
+      - "scripts/copy-sparse-raw-to-asif.sh"
+      - "scripts/verify-raw-device-bytes.pl"
+      - "scripts/test-copy-sparse-raw-to-asif.sh"
       - "scripts/test-omarchy-factory-tool.sh"
       - "scripts/test-omarchy-guest-overlay.sh"
       - "scripts/build-omarchy-guest-overlay.sh"
@@ -73,6 +79,8 @@ jobs:
         run: swift test
       - name: Test factory signing pipeline
         run: scripts/test-omarchy-factory-tool.sh
+      - name: Test sparse raw-to-ASIF factory conversion
+        run: scripts/test-copy-sparse-raw-to-asif.sh
       - name: Test Linux Guest Agent
         working-directory: GuestAgent/linux
         run: |
