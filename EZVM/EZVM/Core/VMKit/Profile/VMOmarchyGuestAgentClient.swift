@@ -1,3 +1,4 @@
+import AppKit
 import Darwin
 import CryptoKit
 import Foundation
@@ -85,6 +86,30 @@ public enum VMOmarchyIntegrationState: Equatable, Sendable {
     case disconnected(String)
 }
 
+enum VMOmarchyConnectionSuspensionReason: Hashable {
+    case hostSleeping
+    case virtualMachinePaused
+}
+
+struct VMOmarchyConnectionSuspensionGate {
+    private var reasons: Set<VMOmarchyConnectionSuspensionReason> = []
+
+    var isSuspended: Bool { !reasons.isEmpty }
+
+    mutating func suspend(for reason: VMOmarchyConnectionSuspensionReason) {
+        reasons.insert(reason)
+    }
+
+    mutating func resume(after reason: VMOmarchyConnectionSuspensionReason) -> Bool {
+        guard reasons.remove(reason) != nil else { return false }
+        return reasons.isEmpty
+    }
+
+    mutating func reset() {
+        reasons.removeAll()
+    }
+}
+
 @MainActor
 public final class VMOmarchyGuestAgentClient {
     private struct PendingRequest {
@@ -105,6 +130,8 @@ public final class VMOmarchyGuestAgentClient {
     private var retryTask: DispatchWorkItem?
     private var retryFailureCount = 0
     private var heartbeatTimer: Timer?
+    private var workspaceObservers: [NSObjectProtocol] = []
+    private var suspensionGate = VMOmarchyConnectionSuspensionGate()
     private var lastResponseAt = Date.distantPast
     private var stopped = false
     private var capabilities: Set<String> = []
@@ -125,6 +152,7 @@ public final class VMOmarchyGuestAgentClient {
 
     public func start() {
         guard !stopped else { return }
+        installWorkspaceObservers()
         connect()
     }
 
@@ -133,6 +161,8 @@ public final class VMOmarchyGuestAgentClient {
         generation &+= 1
         retryTask?.cancel()
         retryTask = nil
+        removeWorkspaceObservers()
+        suspensionGate.reset()
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
         closeConnection()
@@ -140,6 +170,14 @@ public final class VMOmarchyGuestAgentClient {
         sessionID = nil
         capabilities.removeAll()
         failPendingRequests(CancellationError())
+    }
+
+    public func virtualMachineDidPause() {
+        suspendConnection(for: .virtualMachinePaused)
+    }
+
+    public func virtualMachineDidResume() {
+        resumeConnection(after: .virtualMachinePaused)
     }
 
     public func requestShutdown() { send(.shutdown) }
@@ -255,7 +293,7 @@ public final class VMOmarchyGuestAgentClient {
     }
 
     private func connect() {
-        guard !stopped else { return }
+        guard !stopped, !suspensionGate.isSuspended else { return }
         generation &+= 1
         let currentGeneration = generation
         stateChanged(.connecting)
@@ -635,6 +673,7 @@ public final class VMOmarchyGuestAgentClient {
         connection = nil
         stateChanged(.disconnected(reason))
         retryTask?.cancel()
+        guard !suspensionGate.isSuspended else { return }
         retryFailureCount += 1
         let delay = VMGuestAgentRetryPolicy(maximumDelay: 30).delay(afterFailureCount: retryFailureCount)
         let task = DispatchWorkItem { [weak self] in
@@ -642,6 +681,57 @@ public final class VMOmarchyGuestAgentClient {
         }
         retryTask = task
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: task)
+    }
+
+    private func installWorkspaceObservers() {
+        guard workspaceObservers.isEmpty else { return }
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers = [
+            center.addObserver(
+                forName: NSWorkspace.willSleepNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.suspendConnection(for: .hostSleeping) }
+            },
+            center.addObserver(
+                forName: NSWorkspace.didWakeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.resumeConnection(after: .hostSleeping) }
+            },
+        ]
+    }
+
+    private func removeWorkspaceObservers() {
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers.forEach(center.removeObserver)
+        workspaceObservers.removeAll()
+    }
+
+    private func suspendConnection(for reason: VMOmarchyConnectionSuspensionReason) {
+        guard !stopped else { return }
+        suspensionGate.suspend(for: reason)
+        generation &+= 1
+        retryTask?.cancel()
+        retryTask = nil
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+        sessionID = nil
+        capabilities.removeAll()
+        failPendingRequests(CancellationError())
+        closeConnection()
+        connection = nil
+        stateChanged(.disconnected("Connection suspended."))
+    }
+
+    private func resumeConnection(after reason: VMOmarchyConnectionSuspensionReason) {
+        guard !stopped else { return }
+        guard suspensionGate.resume(after: reason) else { return }
+        retryFailureCount = 0
+        stateChanged(.connecting)
+        connect()
     }
 
     private func closeConnection() {
