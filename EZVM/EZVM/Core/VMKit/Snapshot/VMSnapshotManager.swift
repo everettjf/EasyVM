@@ -7,6 +7,7 @@
 
 import Foundation
 import CryptoKit
+import Darwin
 #if canImport(DiskImageKit)
 import DiskImageKit
 #endif
@@ -274,6 +275,16 @@ final class VMSnapshotOperationControl: @unchecked Sendable {
     }
 }
 
+private final class VMSnapshotMutationLease {
+    let key: String
+    let handle: FileHandle
+
+    init(key: String, descriptor: Int32) {
+        self.key = key
+        handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+    }
+}
+
 
 class VMSnapshotManager {
 
@@ -287,7 +298,96 @@ class VMSnapshotManager {
     private static let restoreTransactionFileName = ".restore-transaction.json"
     private static let cleanupTransactionFileName = ".layer-cleanup-transaction.json"
     private static let cleanupQuarantineDirectoryName = ".layer-cleanup-quarantine"
+    private static let mutationLockFileName = ".snapshot-operation.lock"
     private static let maximumHashedFileSize: UInt64 = 16 * 1024 * 1024
+    private static let mutationRegistryLock = NSLock()
+    private static var activeMutationRoots = Set<String>()
+
+    static func mutationLockURL(vmRootPath: URL) -> URL {
+        vmRootPath.appending(path: mutationLockFileName)
+    }
+
+    private static func acquireMutationLease(vmRootPath: URL) -> VMOSResult<VMSnapshotMutationLease, String> {
+        let root = vmRootPath.resolvingSymlinksInPath().standardizedFileURL
+        let key = root.path(percentEncoded: false)
+
+        mutationRegistryLock.lock()
+        guard activeMutationRoots.insert(key).inserted else {
+            mutationRegistryLock.unlock()
+            return .failure("Another snapshot operation is already changing this virtual machine. Wait for it to finish, then try again.")
+        }
+        mutationRegistryLock.unlock()
+
+        let descriptor = open(
+            mutationLockURL(vmRootPath: root).path(percentEncoded: false),
+            O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW,
+            S_IRUSR | S_IWUSR
+        )
+        guard descriptor >= 0 else {
+            releaseMutationReservation(key)
+            return .failure("EZVM could not open the snapshot operation lock: \(String(cString: strerror(errno))).")
+        }
+        var status = stat()
+        guard fstat(descriptor, &status) == 0 else {
+            let lockError = errno
+            close(descriptor)
+            releaseMutationReservation(key)
+            return .failure("EZVM could not inspect the snapshot operation lock: \(String(cString: strerror(lockError))).")
+        }
+        guard (status.st_mode & S_IFMT) == S_IFREG else {
+            close(descriptor)
+            releaseMutationReservation(key)
+            return .failure("The snapshot operation lock is not a regular file. EZVM left it untouched.")
+        }
+        guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+            let lockError = errno
+            close(descriptor)
+            releaseMutationReservation(key)
+            if lockError == EWOULDBLOCK {
+                return .failure("Another EZVM process is already changing snapshots for this virtual machine. Wait for it to finish, then try again.")
+            }
+            return .failure("EZVM could not acquire the snapshot operation lock: \(String(cString: strerror(lockError))).")
+        }
+        return .success(VMSnapshotMutationLease(key: key, descriptor: descriptor))
+    }
+
+    private static func releaseMutationReservation(_ key: String) {
+        mutationRegistryLock.lock()
+        activeMutationRoots.remove(key)
+        mutationRegistryLock.unlock()
+    }
+
+    private static func releaseMutationLease(_ lease: VMSnapshotMutationLease) {
+        flock(lease.handle.fileDescriptor, LOCK_UN)
+        try? lease.handle.close()
+        releaseMutationReservation(lease.key)
+    }
+
+    private static func withMutationLease<Success>(
+        vmRootPath: URL,
+        _ operation: () -> VMOSResult<Success, String>
+    ) -> VMOSResult<Success, String> {
+        let lease: VMSnapshotMutationLease
+        switch acquireMutationLease(vmRootPath: vmRootPath) {
+        case .success(let acquired): lease = acquired
+        case .failure(let error): return .failure(error)
+        }
+        defer { releaseMutationLease(lease) }
+        return operation()
+    }
+
+    private static func withMutationLease(
+        vmRootPath: URL,
+        _ operation: () -> VMOSResultVoid
+    ) -> VMOSResultVoid {
+        let lease: VMSnapshotMutationLease
+        switch acquireMutationLease(vmRootPath: vmRootPath) {
+        case .success(let acquired): lease = acquired
+        case .failure(let error): return .failure(error)
+        }
+        defer { releaseMutationLease(lease) }
+        return operation()
+    }
 
     private struct RestoreTransaction: Codable {
         enum Kind: String, Codable {
@@ -369,7 +469,7 @@ class VMSnapshotManager {
     // machine files are everything in the bundle except the Snapshots
     // directory itself and restore working directories
     private static func listMachineFileNames(vmRootPath: URL) throws -> [String] {
-        let excluded: Set<String> = [snapshotsDirectoryName, restoreStagingDirectoryName, restoreBackupDirectoryName, restoreTransactionFileName, ".DS_Store"]
+        let excluded: Set<String> = [snapshotsDirectoryName, restoreStagingDirectoryName, restoreBackupDirectoryName, restoreTransactionFileName, mutationLockFileName, ".DS_Store"]
         let items = try FileManager.default.contentsOfDirectory(atPath: vmRootPath.path(percentEncoded: false))
         return items.filter { !excluded.contains($0) }
     }
@@ -400,6 +500,12 @@ class VMSnapshotManager {
     /// It is safe and idempotent to call before every VM start.
     @discardableResult
     static func recoverInterruptedRestore(vmRootPath: URL) -> VMOSResultVoid {
+        withMutationLease(vmRootPath: vmRootPath) {
+            recoverInterruptedRestoreWithoutLease(vmRootPath: vmRootPath)
+        }
+    }
+
+    private static func recoverInterruptedRestoreWithoutLease(vmRootPath: URL) -> VMOSResultVoid {
         if case let .failure(error) = recoverInterruptedLayerCleanup(vmRootPath: vmRootPath) {
             return .failure(error)
         }
@@ -601,6 +707,24 @@ class VMSnapshotManager {
         operationControl: VMSnapshotOperationControl? = nil,
         progress: ((VMSnapshotOperationProgress) -> Void)? = nil
     ) -> VMOSResult<VMSnapshotModel, String> {
+        withMutationLease(vmRootPath: vmRootPath) {
+            createSnapshotWithoutLease(
+                vmRootPath: vmRootPath,
+                name: name,
+                availableCapacityBytes: availableCapacityBytes,
+                operationControl: operationControl,
+                progress: progress
+            )
+        }
+    }
+
+    private static func createSnapshotWithoutLease(
+        vmRootPath: URL,
+        name: String,
+        availableCapacityBytes: Int64?,
+        operationControl: VMSnapshotOperationControl?,
+        progress: ((VMSnapshotOperationProgress) -> Void)?
+    ) -> VMOSResult<VMSnapshotModel, String> {
 #if canImport(DiskImageKit)
         if #available(macOS 27.0, *), selectedBackend(vmRootPath: vmRootPath) == .diskImageKitLayered {
             return createLayeredSnapshot(
@@ -730,7 +854,29 @@ class VMSnapshotManager {
         operationControl: VMSnapshotOperationControl? = nil,
         progress: ((VMSnapshotOperationProgress) -> Void)? = nil
     ) -> VMOSResultVoid {
-        if case let .failure(error) = recoverInterruptedRestore(vmRootPath: vmRootPath) {
+        withMutationLease(vmRootPath: vmRootPath) {
+            restoreSnapshotWithoutLease(
+                vmRootPath: vmRootPath,
+                snapshot: snapshot,
+                faultAt: checkpoint,
+                checkpointObserver: checkpointObserver,
+                availableCapacityBytes: availableCapacityBytes,
+                operationControl: operationControl,
+                progress: progress
+            )
+        }
+    }
+
+    private static func restoreSnapshotWithoutLease(
+        vmRootPath: URL,
+        snapshot: VMSnapshotModel,
+        faultAt checkpoint: VMSnapshotRestoreCheckpoint?,
+        checkpointObserver: ((VMSnapshotRestoreCheckpoint) throws -> Void)?,
+        availableCapacityBytes: Int64?,
+        operationControl: VMSnapshotOperationControl?,
+        progress: ((VMSnapshotOperationProgress) -> Void)?
+    ) -> VMOSResultVoid {
+        if case let .failure(error) = recoverInterruptedRestoreWithoutLease(vmRootPath: vmRootPath) {
             return .failure(error)
         }
 #if canImport(DiskImageKit)
@@ -1069,6 +1215,12 @@ class VMSnapshotManager {
     }
 
     static func renameSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel, newName: String) -> VMOSResultVoid {
+        withMutationLease(vmRootPath: vmRootPath) {
+            renameSnapshotWithoutLease(vmRootPath: vmRootPath, snapshot: snapshot, newName: newName)
+        }
+    }
+
+    private static func renameSnapshotWithoutLease(vmRootPath: URL, snapshot: VMSnapshotModel, newName: String) -> VMOSResultVoid {
         var model = snapshot
         model.name = newName
         do {
@@ -1081,6 +1233,12 @@ class VMSnapshotManager {
     }
 
     static func setSnapshotProtected(vmRootPath: URL, snapshot: VMSnapshotModel, isProtected: Bool) -> VMOSResultVoid {
+        withMutationLease(vmRootPath: vmRootPath) {
+            setSnapshotProtectedWithoutLease(vmRootPath: vmRootPath, snapshot: snapshot, isProtected: isProtected)
+        }
+    }
+
+    private static func setSnapshotProtectedWithoutLease(vmRootPath: URL, snapshot: VMSnapshotModel, isProtected: Bool) -> VMOSResultVoid {
         var model = snapshot
         model.isProtected = isProtected
         do {
@@ -1093,6 +1251,12 @@ class VMSnapshotManager {
     }
 
     static func deleteSnapshot(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
+        withMutationLease(vmRootPath: vmRootPath) {
+            deleteSnapshotWithoutLease(vmRootPath: vmRootPath, snapshot: snapshot)
+        }
+    }
+
+    private static func deleteSnapshotWithoutLease(vmRootPath: URL, snapshot: VMSnapshotModel) -> VMOSResultVoid {
         if snapshot.isProtected {
             return .failure("Unprotect this snapshot before deleting it")
         }
@@ -1422,7 +1586,7 @@ class VMSnapshotManager {
                     try? fm.removeItem(at: url)
                 }
             }
-            switch recoverInterruptedRestore(vmRootPath: vmRootPath) {
+            switch recoverInterruptedRestoreWithoutLease(vmRootPath: vmRootPath) {
             case .success:
                 if error is VMSnapshotOperationCancelled {
                     return .failure("Snapshot restore cancelled before the machine was changed.")
@@ -1446,6 +1610,12 @@ class VMSnapshotManager {
 
     @available(macOS 27.0, *)
     static func layeredDiskImage(baseURL: URL, vmRootPath: URL) throws -> DiskImage? {
+        let lease: VMSnapshotMutationLease
+        switch acquireMutationLease(vmRootPath: vmRootPath) {
+        case .success(let acquired): lease = acquired
+        case .failure(let error): throw VMOSError.regularFailure(error)
+        }
+        defer { releaseMutationLease(lease) }
         guard selectedBackend(vmRootPath: vmRootPath) == .diskImageKitLayered else { return nil }
         var state = readState(vmRootPath: vmRootPath)
         var paths = state.activeDiskLayers[baseURL.lastPathComponent] ?? []
@@ -1628,6 +1798,14 @@ class VMSnapshotManager {
     }
 
     static func cleanupUnreferencedLayers(
+        vmRootPath: URL
+    ) -> VMOSResult<VMSnapshotMaintenanceCleanupResult, String> {
+        withMutationLease(vmRootPath: vmRootPath) {
+            cleanupUnreferencedLayersWithoutLease(vmRootPath: vmRootPath)
+        }
+    }
+
+    private static func cleanupUnreferencedLayersWithoutLease(
         vmRootPath: URL
     ) -> VMOSResult<VMSnapshotMaintenanceCleanupResult, String> {
         if case let .failure(error) = recoverInterruptedLayerCleanup(vmRootPath: vmRootPath) {

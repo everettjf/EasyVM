@@ -1366,6 +1366,86 @@ final class VMSnapshotManagerTests: XCTestCase {
         try unwrapSuccess(VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: unprotected))
     }
 
+    func testConcurrentMutationInSameProcessIsRejectedWithoutChangingMetadata() throws {
+        try write("configuration", to: "config.json")
+        let existing = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Existing")
+        )
+        let operationStarted = DispatchSemaphore(value: 0)
+        let allowOperationToFinish = DispatchSemaphore(value: 0)
+        let operationFinished = expectation(description: "snapshot operation finished")
+        let callbackLock = NSLock()
+        var didBlock = false
+
+        DispatchQueue.global().async {
+            _ = VMSnapshotManager.createSnapshot(
+                vmRootPath: self.temporaryRoot,
+                name: "Concurrent"
+            ) { update in
+                guard update.phase == .preparing else { return }
+                callbackLock.lock()
+                let shouldBlock = !didBlock
+                didBlock = true
+                callbackLock.unlock()
+                if shouldBlock {
+                    operationStarted.signal()
+                    _ = allowOperationToFinish.wait(timeout: .now() + 5)
+                }
+            }
+            operationFinished.fulfill()
+        }
+
+        XCTAssertEqual(operationStarted.wait(timeout: .now() + 2), .success)
+        defer { allowOperationToFinish.signal() }
+        guard case let .failure(message) = VMSnapshotManager.renameSnapshot(
+            vmRootPath: temporaryRoot,
+            snapshot: existing,
+            newName: "Must not win"
+        ) else {
+            return XCTFail("A second in-process snapshot mutation was admitted")
+        }
+        XCTAssertTrue(message.contains("already changing"), message)
+        XCTAssertEqual(
+            VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot)
+                .first(where: { $0.id == existing.id })?.name,
+            "Existing"
+        )
+        allowOperationToFinish.signal()
+        wait(for: [operationFinished], timeout: 5)
+    }
+
+    func testKernelLockRejectsMutationOwnedByAnotherProcessContext() throws {
+        try write("configuration", to: "config.json")
+        let lockURL = VMSnapshotManager.mutationLockURL(vmRootPath: temporaryRoot)
+        let descriptor = open(lockURL.path, O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IWUSR)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        guard descriptor >= 0 else { return }
+        defer {
+            flock(descriptor, LOCK_UN)
+            close(descriptor)
+        }
+        XCTAssertEqual(flock(descriptor, LOCK_EX | LOCK_NB), 0)
+
+        guard case let .failure(message) = VMSnapshotManager.createSnapshot(
+            vmRootPath: temporaryRoot,
+            name: "Must not start"
+        ) else {
+            return XCTFail("A mutation was admitted while the kernel lock was owned")
+        }
+        XCTAssertTrue(message.contains("Another EZVM process"), message)
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: temporaryRoot).isEmpty)
+    }
+
+    func testSnapshotOperationLockIsNeverCapturedAsMachineState() throws {
+        try write("configuration", to: "config.json")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "No lock payload")
+        )
+        XCTAssertFalse(snapshot.fileManifest?.contains(where: {
+            $0.relativePath == VMSnapshotManager.mutationLockURL(vmRootPath: temporaryRoot).lastPathComponent
+        }) ?? true)
+    }
+
     private func write(_ value: String, to relativePath: String) throws {
         try Data(value.utf8).write(to: temporaryRoot.appendingPathComponent(relativePath))
     }

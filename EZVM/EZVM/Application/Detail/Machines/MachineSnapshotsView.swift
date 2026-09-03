@@ -95,10 +95,10 @@ class MachineSnapshotsViewStateObject {
             name = VMSnapshotManager.defaultSnapshotName()
         }
 
-        let control = begin(
+        guard let control = begin(
             "Preparing snapshot…",
             detail: "Checking disk space and preserving the current machine files."
-        )
+        ) else { return }
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.createSnapshot(
@@ -109,6 +109,7 @@ class MachineSnapshotsViewStateObject {
                 Task { @MainActor in self.receive(update, from: control) }
             }
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 switch result {
                 case .success(let model):
                     self.succeed("Snapshot \"\(model.name)\" created")
@@ -161,12 +162,12 @@ class MachineSnapshotsViewStateObject {
     }
 
     func restoreSnapshot(_ snapshot: VMSnapshotModel, keepCurrentState: Bool) {
-        let control = begin(
+        guard let control = begin(
             keepCurrentState ? "Saving the current state first…" : "Preparing restore…",
             detail: keepCurrentState
                 ? "EZVM will keep a recovery point before replacing the machine state."
                 : "Checking snapshot integrity and available disk space."
-        )
+        ) else { return }
         let rootPath = self.rootPath
         Task.detached {
             let estimateResult = VMSnapshotManager.restoreStorageEstimate(
@@ -177,11 +178,13 @@ class MachineSnapshotsViewStateObject {
             switch estimateResult {
             case .success(let estimate) where estimate.hasEnoughSpace == false:
                 await MainActor.run {
+                    guard self.isCurrent(control) else { return }
                     self.fail("Restore cancelled before any change because the operation needs \(self.displaySize(estimate.requiredAvailableBytes)) available, but this volume has \(self.displaySize(estimate.availableBytes ?? 0)).")
                 }
                 return
             case .failure(let error):
                 await MainActor.run {
+                    guard self.isCurrent(control) else { return }
                     self.fail("Restore cancelled before any change: \(error)")
                 }
                 return
@@ -202,6 +205,7 @@ class MachineSnapshotsViewStateObject {
                 }
                 if case let .failure(error) = safetyResult {
                     await MainActor.run {
+                        guard self.isCurrent(control) else { return }
                         self.fail("Restore cancelled because EZVM could not snapshot the current state: \(error)")
                         self.reload()
                     }
@@ -210,6 +214,7 @@ class MachineSnapshotsViewStateObject {
             }
 
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 self.updateWorking(
                     "Restoring snapshot \"\(snapshot.name)\"…",
                     detail: "Installing the verified snapshot transaction. This window will unlock when the machine is safe to use."
@@ -224,6 +229,7 @@ class MachineSnapshotsViewStateObject {
                 Task { @MainActor in self.receive(update, from: control) }
             }
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 switch result {
                 case .success:
                     self.succeed("Snapshot \"\(snapshot.name)\" restored")
@@ -241,11 +247,12 @@ class MachineSnapshotsViewStateObject {
         if name.isEmpty || name == snapshot.name {
             return
         }
-        begin("Renaming snapshot \"\(snapshot.name)\"…", detail: "Updating snapshot metadata safely.")
+        guard let control = begin("Renaming snapshot \"\(snapshot.name)\"…", detail: "Updating snapshot metadata safely.") else { return }
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.renameSnapshot(vmRootPath: rootPath, snapshot: snapshot, newName: name)
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 switch result {
                 case .success:
                     self.succeed("Snapshot renamed to \"\(name)\"")
@@ -259,11 +266,12 @@ class MachineSnapshotsViewStateObject {
     }
 
     func deleteSnapshot(_ snapshot: VMSnapshotModel) {
-        begin("Deleting snapshot \"\(snapshot.name)\"…", detail: "Removing only data that is no longer referenced.")
+        guard let control = begin("Deleting snapshot \"\(snapshot.name)\"…", detail: "Removing only data that is no longer referenced.") else { return }
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.deleteSnapshot(vmRootPath: rootPath, snapshot: snapshot)
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 switch result {
                 case .success:
                     self.succeed("Snapshot \"\(snapshot.name)\" deleted")
@@ -278,10 +286,10 @@ class MachineSnapshotsViewStateObject {
 
     func toggleProtection(_ snapshot: VMSnapshotModel) {
         let shouldProtect = !snapshot.isProtected
-        begin(
+        guard let control = begin(
             "\(shouldProtect ? "Protecting" : "Unprotecting") snapshot \"\(snapshot.name)\"…",
             detail: "Updating snapshot protection metadata safely."
-        )
+        ) else { return }
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.setSnapshotProtected(
@@ -290,6 +298,7 @@ class MachineSnapshotsViewStateObject {
                 isProtected: shouldProtect
             )
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 switch result {
                 case .success:
                     self.succeed(
@@ -307,10 +316,10 @@ class MachineSnapshotsViewStateObject {
     }
 
     func auditSnapshots() {
-        let control = begin(
+        guard let control = begin(
             "Auditing snapshot integrity…",
             detail: "Validating metadata, files, and every ASIF layer stack."
-        )
+        ) else { return }
         let rootPath = self.rootPath
         let snapshots = self.snapshots
         Task.detached {
@@ -319,6 +328,7 @@ class MachineSnapshotsViewStateObject {
             for (index, snapshot) in snapshots.enumerated() {
                 if control.isCancellationRequested {
                     await MainActor.run {
+                        guard self.isCurrent(control) else { return }
                         self.cancelled("Snapshot audit cancelled")
                     }
                     return
@@ -334,6 +344,7 @@ class MachineSnapshotsViewStateObject {
                 reports.append((snapshot, VMSnapshotManager.auditSnapshot(vmRootPath: rootPath, snapshot: snapshot)))
                 if control.isCancellationRequested {
                     await MainActor.run {
+                        guard self.isCurrent(control) else { return }
                         self.cancelled("Snapshot audit cancelled")
                     }
                     return
@@ -359,6 +370,7 @@ class MachineSnapshotsViewStateObject {
             let warningCount = reports.reduce(0) { $0 + $1.1.warnings.count }
             let reportCount = reports.count
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 if invalid.isEmpty {
                     if warningCount == 0 {
                         self.succeed("All \(reportCount) snapshots passed integrity checks")
@@ -375,14 +387,15 @@ class MachineSnapshotsViewStateObject {
 
     func previewLayerCleanup() {
         cleanupPreview = nil
-        begin(
+        guard let control = begin(
             "Inspecting snapshot storage…",
             detail: "Building a read-only reference map before offering any cleanup."
-        )
+        ) else { return }
         let rootPath = self.rootPath
         Task.detached {
             let report = VMSnapshotManager.snapshotMaintenanceReport(vmRootPath: rootPath)
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 if !report.issues.isEmpty {
                     self.fail(report.issues.joined(separator: " "))
                 } else if report.removableLayers.isEmpty {
@@ -399,14 +412,15 @@ class MachineSnapshotsViewStateObject {
 
     func cleanupUnreferencedLayers() {
         cleanupPreview = nil
-        begin(
+        guard let control = begin(
             "Cleaning snapshot storage…",
             detail: "Moving verified orphan layers through a recoverable cleanup transaction."
-        )
+        ) else { return }
         let rootPath = self.rootPath
         Task.detached {
             let result = VMSnapshotManager.cleanupUnreferencedLayers(vmRootPath: rootPath)
             await MainActor.run {
+                guard self.isCurrent(control) else { return }
                 switch result {
                 case .success(let cleanup):
                     if cleanup.removedLayerCount == 0 {
@@ -426,7 +440,8 @@ class MachineSnapshotsViewStateObject {
     }
 
     @discardableResult
-    private func begin(_ message: String, detail: String) -> VMSnapshotOperationControl {
+    private func begin(_ message: String, detail: String) -> VMSnapshotOperationControl? {
+        guard !isBusy else { return nil }
         let control = VMSnapshotOperationControl()
         operationControl = control
         operationProgress = nil
@@ -436,6 +451,10 @@ class MachineSnapshotsViewStateObject {
         workingDetail = detail
         messageTone = .working
         return control
+    }
+
+    private func isCurrent(_ control: VMSnapshotOperationControl) -> Bool {
+        isWorking && operationControl === control
     }
 
     private func updateWorking(_ message: String, detail: String) {
