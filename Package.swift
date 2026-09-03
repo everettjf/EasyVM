@@ -9,6 +9,7 @@ let package = Package(
         .library(name: "EZVMCore", targets: ["EZVMCore"]),
         .library(name: "EZVMCLIKit", targets: ["EZVMCLIKit"]),
         .executable(name: "ezvm", targets: ["ezvm"]),
+        .executable(name: "omarchy-factory-tool", targets: ["OmarchyFactoryTool"]),
     ],
     targets: [
         .target(
@@ -57,6 +58,11 @@ let package = Package(
             name: "ezvm",
             dependencies: ["EZVMCLIKit"],
             path: "CLI/Executable"
+        ),
+        .executableTarget(
+            name: "OmarchyFactoryTool",
+            dependencies: ["EZVMCore"],
+            path: "Tools/OmarchyFactoryTool"
         ),
         .testTarget(
             name: "EZVMCLIKitTests",
