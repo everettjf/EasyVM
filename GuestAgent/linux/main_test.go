@@ -126,6 +126,9 @@ func TestServePerformsAuthenticatedHandshakeAndReturnsStatus(t *testing.T) {
 	if !contains(value.Capabilities, "input-uinput-absolute-v1") {
 		t.Fatalf("absolute input capability was not advertised: %#v", value.Capabilities)
 	}
+	if !contains(value.Capabilities, "shutdown-v1") {
+		t.Fatalf("authenticated power capability was not advertised: %#v", value.Capabilities)
+	}
 
 	inputRequest := makeEnvelope(token, sessionID, 2, "integration-input", "input", inputPayload(t,
 		inputEvent{Type: 1, Code: 28, Value: 1}, inputEvent{Type: 0},

@@ -73,7 +73,19 @@ struct OmarchyVirtualMachineView: View {
                 Text(reason).foregroundStyle(.secondary)
             case .ready(let status):
                 Text("Agent \(status.agentVersion) • \(status.hostName)")
-                Text(status.desktopSessionActive ? "Omarchy desktop ready" : "Waiting for Omarchy desktop")
+                let assessment = VMOmarchyIntegrationAssessment.evaluate(
+                    status: status,
+                    requiredCapabilities: profile.requiredGuestCapabilities
+                )
+                if assessment.provisioningPending {
+                    Text("Complete Omarchy owner setup")
+                } else if !assessment.desktopSessionActive {
+                    Text("Waiting for Omarchy desktop")
+                } else if !assessment.missingCapabilities.isEmpty {
+                    Text("Missing: \(assessment.missingCapabilities.joined(separator: ", "))")
+                } else {
+                    Text("Omarchy desktop integration ready")
+                }
                 if !status.addresses.isEmpty { Text(status.addresses.joined(separator: ", ")) }
                 Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
             }
@@ -84,7 +96,12 @@ struct OmarchyVirtualMachineView: View {
     }
 
     private var integrationReady: Bool {
-        if case .ready(let status) = integration { return status.desktopSessionActive }
+        if case .ready(let status) = integration {
+            return VMOmarchyIntegrationAssessment.evaluate(
+                status: status,
+                requiredCapabilities: profile.requiredGuestCapabilities
+            ).isReady
+        }
         return false
     }
 
@@ -234,6 +251,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     func makeNSView(context: Context) -> VZVirtualMachineView {
         let view = VZVirtualMachineView()
         view.capturesSystemKeys = true
+        view.automaticallyReconfiguresDisplay = true
         do {
             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
                 layout: layout,

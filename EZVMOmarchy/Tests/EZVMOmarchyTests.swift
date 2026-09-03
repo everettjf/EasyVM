@@ -74,6 +74,38 @@ final class EZVMOmarchyTests: XCTestCase {
         ))
     }
 
+    func testIntegrationRequiresDesktopProvisioningAndEverySignedCapability() {
+        let required = VMOmarchyProfile.production.requiredGuestCapabilities
+        let readyStatus = VMOmarchyGuestStatus(
+            agentVersion: "test",
+            hostName: "omarchy",
+            addresses: ["192.0.2.10"],
+            capabilities: Set(required),
+            desktopSessionActive: true,
+            provisioningPending: false
+        )
+        XCTAssertTrue(VMOmarchyIntegrationAssessment.evaluate(
+            status: readyStatus,
+            requiredCapabilities: required
+        ).isReady)
+
+        let pending = VMOmarchyGuestStatus(
+            agentVersion: "test",
+            hostName: "omarchy",
+            addresses: [],
+            capabilities: Set(required.dropLast()),
+            desktopSessionActive: true,
+            provisioningPending: true
+        )
+        let assessment = VMOmarchyIntegrationAssessment.evaluate(
+            status: pending,
+            requiredCapabilities: required
+        )
+        XCTAssertFalse(assessment.isReady)
+        XCTAssertTrue(assessment.provisioningPending)
+        XCTAssertEqual(assessment.missingCapabilities, [required.last!])
+    }
+
     private func runningLifecycle() -> OmarchyMachineLifecycle {
         var lifecycle = OmarchyMachineLifecycle()
         XCTAssertEqual(lifecycle.handle(.machineStarted), [])

@@ -8,6 +8,47 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
     public let addresses: [String]
     public let capabilities: Set<String>
     public let desktopSessionActive: Bool
+    public let provisioningPending: Bool
+
+    public init(
+        agentVersion: String,
+        hostName: String,
+        addresses: [String],
+        capabilities: Set<String>,
+        desktopSessionActive: Bool,
+        provisioningPending: Bool
+    ) {
+        self.agentVersion = agentVersion
+        self.hostName = hostName
+        self.addresses = addresses
+        self.capabilities = capabilities
+        self.desktopSessionActive = desktopSessionActive
+        self.provisioningPending = provisioningPending
+    }
+}
+
+public struct VMOmarchyIntegrationAssessment: Equatable, Sendable {
+    public let isReady: Bool
+    public let missingCapabilities: [String]
+    public let provisioningPending: Bool
+    public let desktopSessionActive: Bool
+
+    public static func evaluate(
+        status: VMOmarchyGuestStatus,
+        requiredCapabilities: [String]
+    ) -> Self {
+        let missing = Set(requiredCapabilities)
+            .subtracting(status.capabilities)
+            .sorted()
+        return Self(
+            isReady: missing.isEmpty
+                && status.desktopSessionActive
+                && !status.provisioningPending,
+            missingCapabilities: missing,
+            provisioningPending: status.provisioningPending,
+            desktopSessionActive: status.desktopSessionActive
+        )
+    }
 }
 
 public enum VMOmarchyIntegrationState: Equatable, Sendable {
@@ -187,7 +228,8 @@ public final class VMOmarchyGuestAgentClient {
             hostName: status.hostName,
             addresses: status.addresses,
             capabilities: Set(status.capabilities ?? []),
-            desktopSessionActive: status.desktopSessionActive ?? false
+            desktopSessionActive: status.desktopSessionActive ?? false,
+            provisioningPending: status.provisioningPending ?? false
         )))
     }
 

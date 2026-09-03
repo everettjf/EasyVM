@@ -295,12 +295,18 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	}
 	sort.Strings(addresses)
 	kvmAvailable, kvmVersion, kvmError := kvmStatus()
-	capabilities := []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1"}
+	capabilities := []string{"file-transfer-v1", "ssh-addresses-v1", "kvm-diagnostics-v1", "shutdown-v1"}
 	if inputAvailable {
 		capabilities = append(capabilities, "input-uinput-v1")
 		if desktopInputReady() {
-			capabilities = append(capabilities, "input-uinput-desktop-v1")
+			capabilities = append(capabilities, "input-uinput-desktop-v1", "desktop-input-v1")
 		}
+	}
+	if desktopSessionActive() {
+		// On the Omarchy image, the native Virtio GPU plus SPICE session
+		// service handles host-driven display resizing. This product-level
+		// alias lets the dedicated host enforce its signed readiness contract.
+		capabilities = append(capabilities, "dynamic-display-v1")
 	}
 	if absolutePointerAvailable {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
