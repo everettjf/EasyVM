@@ -636,6 +636,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
            }) != true {
             return "Release test requires a VMNet network attachment."
         }
+        if smoke.requireMachineStateSupport,
+           let reason = runtimeState?.machineStateUnavailabilityReason {
+            return "Release test requires machine-state save and restore support: \(reason)"
+        }
         return nil
     }
 

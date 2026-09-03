@@ -45,6 +45,8 @@ for fixture in "$macos_vm" "$omarchy_vm" "$ubuntu_vm"; do
   "$project_root/scripts/verify-release-cli.sh" "$app_path" "$fixture"
 done
 
+"$project_root/scripts/verify-release-machine-state-support.sh" "$app_path" "$macos_vm"
+
 run_linux_guest_gate() {
   local fixture="$1"
   local enrollment="$2"
