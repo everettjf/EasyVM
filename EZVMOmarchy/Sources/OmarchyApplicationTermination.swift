@@ -28,12 +28,14 @@ final class OmarchyApplicationTerminationController {
     private var pending = false
     private var stopping = false
     private var timeout: DispatchWorkItem?
-    private let reply: (Bool) -> Void
-    private let scheduleTimeout: (DispatchWorkItem) -> Void
+    private let reply: @MainActor (Bool) -> Void
+    private let scheduleTimeout: @MainActor (DispatchWorkItem) -> Void
 
     init(
-        reply: @escaping (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) },
-        scheduleTimeout: @escaping (DispatchWorkItem) -> Void = {
+        reply: @escaping @MainActor (Bool) -> Void = {
+            NSApp.reply(toApplicationShouldTerminate: $0)
+        },
+        scheduleTimeout: @escaping @MainActor (DispatchWorkItem) -> Void = {
             DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: $0)
         }
     ) {
