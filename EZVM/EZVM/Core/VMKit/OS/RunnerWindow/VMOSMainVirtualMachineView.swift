@@ -949,24 +949,39 @@ private struct VMNetworkRuntimeBanner: View {
             }
             .networkRuntimeCard()
         case .degraded(_, let issues):
-            if let issue = issues.first {
-                HStack(spacing: 10) {
-                    Image(systemName: "network.slash")
-                        .foregroundStyle(.orange)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(issue.title) disconnected")
+            if !issues.isEmpty {
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "network.slash")
+                            .foregroundStyle(.orange)
+                            .accessibilityHidden(true)
+                        Text(issues.count == 1
+                             ? "Network adapter needs attention"
+                             : "\(issues.count) network adapters need attention")
                             .font(.callout.weight(.semibold))
-                        Text(issue.reason)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
                     }
-                    Button("Reconnect") {
-                        reconnect(issue.deviceIndex)
+                    ForEach(issues) { issue in
+                        HStack(alignment: .top, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(issue.title)
+                                    .font(.caption.weight(.semibold))
+                                Text(issue.reason)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            Button("Reconnect") {
+                                reconnect(issue.deviceIndex)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            .accessibilityLabel("Reconnect \(issue.title)")
+                        }
+                        if issue.id != issues.last?.id {
+                            Divider()
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
                 }
                 .accessibilityElement(children: .contain)
                 .networkRuntimeCard()
@@ -992,7 +1007,7 @@ private extension View {
             .padding(.vertical, 9)
             .background(.regularMaterial, in: .rect(cornerRadius: 11))
             .shadow(color: .black.opacity(0.16), radius: 9, y: 3)
-            .frame(maxWidth: 460)
+            .frame(maxWidth: 520)
     }
 }
 

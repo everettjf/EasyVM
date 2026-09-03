@@ -337,6 +337,11 @@ also rejects a second reconnect for an adapter already in progress, so repeated
 UI, automation, or future CLI events cannot replace the authoritative operation
 identity; a failed attempt returns to a retryable disconnected state.
 
+When several adapters are disconnected, the runtime banner now lists every
+affected adapter, its bounded diagnostic reason, and an independent Reconnect
+action. The toolbar remains a compact summary, but no second failure is hidden
+behind it while the first adapter occupies the banner.
+
 Runtime reconnection no longer treats a non-`nil` replacement attachment as
 immediate proof of restored connectivity. EZVM keeps the adapter in a recovering
 state after Virtualization.framework accepts the request, observes a
