@@ -45,7 +45,7 @@ team_identifier=$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^T
 
 if grep -q '^\[Dict\]$' "$entitlements"; then
   keys=$(sed -n 's/^[[:space:]]*\[Key\] //p' "$entitlements" | LC_ALL=C sort)
-  if [[ -n $team_identifier && $team_identifier != "not set" ]]; then
+  if grep -q '^[[:space:]]*\[Key\] com.apple.application-identifier$' "$entitlements"; then
     expected_keys=$'com.apple.application-identifier\ncom.apple.developer.team-identifier\ncom.apple.security.virtualization'
     [[ $team_identifier == YPV49M8592 ]] || fail "unexpected TeamIdentifier"
     grep -A2 '^[[:space:]]*\[Key\] com.apple.application-identifier$' "$entitlements" | \
@@ -53,6 +53,9 @@ if grep -q '^\[Dict\]$' "$entitlements"; then
       fail "application identifier does not match the Omarchy App ID"
   else
     expected_keys='com.apple.security.virtualization'
+    if [[ -n $team_identifier && $team_identifier != "not set" ]]; then
+      [[ $team_identifier == YPV49M8592 ]] || fail "unexpected TeamIdentifier"
+    fi
   fi
   [[ $keys == "$expected_keys" ]] || fail "release entitlement set does not match the allowlist"
   grep -A2 '^[[:space:]]*\[Key\] com.apple.security.virtualization$' "$entitlements" | \
@@ -60,7 +63,7 @@ if grep -q '^\[Dict\]$' "$entitlements"; then
 else
   plutil -lint "$entitlements" >/dev/null
   keys=$(plutil -p "$entitlements" | sed -n 's/^  "\([^"]*\)" =>.*/\1/p' | LC_ALL=C sort)
-  if [[ -n $team_identifier && $team_identifier != "not set" ]]; then
+  if [[ $keys == *com.apple.application-identifier* ]]; then
     expected_keys=$'com.apple.application-identifier\ncom.apple.developer.team-identifier\ncom.apple.security.virtualization'
     [[ $(plutil -extract com.apple.application-identifier raw "$entitlements") == \
       YPV49M8592.com.everettjf.ezvm.omarchy ]] || fail "application identifier does not match"
@@ -68,6 +71,9 @@ else
       fail "embedded team identifier does not match"
   else
     expected_keys='com.apple.security.virtualization'
+    if [[ -n $team_identifier && $team_identifier != "not set" ]]; then
+      [[ $team_identifier == YPV49M8592 ]] || fail "unexpected TeamIdentifier"
+    fi
   fi
   [[ $keys == "$expected_keys" ]] || fail "release entitlement set does not match the allowlist"
   [[ $(plutil -extract com.apple.security.virtualization raw "$entitlements") == true ]] || \

@@ -101,7 +101,7 @@ signing_options=(--force --deep --sign "$signing_identity")
 if [[ $signing_identity == - ]]; then
   signing_options+=(--entitlements "$project_root/EZVMOmarchy/Resources/EZVMOmarchy.entitlements" --timestamp=none)
 else
-  signing_options+=(--preserve-metadata=entitlements --options runtime --timestamp)
+  signing_options+=(--entitlements "$project_root/EZVMOmarchy/Resources/EZVMOmarchy.entitlements" --options runtime --timestamp)
 fi
 codesign "${signing_options[@]}" "$app_path"
 
