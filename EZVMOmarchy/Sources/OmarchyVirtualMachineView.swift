@@ -1,5 +1,6 @@
 import EZVMCore
 import SwiftUI
+import UniformTypeIdentifiers
 import Virtualization
 
 private let omarchyMetadataQueue = DispatchQueue(label: "com.everettjf.ezvm.omarchy.metadata")
@@ -17,7 +18,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var pendingRestore: VMOmarchyRecoveryPoint?
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
-    @State private var importNotice: ImportNotice?
+    @State private var notice: UserNotice?
     @State private var recordedIntegrationSignature = ""
 
     private var phase: Phase { lifecycle.phase }
@@ -100,9 +101,9 @@ struct OmarchyVirtualMachineView: View {
         } message: {
             Text("Omarchy must remain stopped. The current workspace will be replaced transactionally; an interrupted restore is rolled back automatically.")
         }
-        .alert(item: $importNotice) { notice in
+        .alert(item: $notice) { notice in
             Alert(
-                title: Text(notice.isError ? "Import Failed" : "Files Ready in Omarchy"),
+                title: Text(notice.title),
                 message: Text(notice.message),
                 dismissButton: .default(Text("OK"))
             )
@@ -149,6 +150,10 @@ struct OmarchyVirtualMachineView: View {
                     Text("Clipboard session integration is not ready")
                 }
                 Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
+            }
+            Divider()
+            Button("Export Diagnostics…", systemImage: "square.and.arrow.up") {
+                exportDiagnostics()
             }
         } label: {
             Label("Integration", systemImage: integrationReady ? "checkmark.circle.fill" : "exclamationmark.circle")
@@ -301,6 +306,27 @@ struct OmarchyVirtualMachineView: View {
         importFiles(panel.urls)
     }
 
+    private func exportDiagnostics() {
+        let panel = NSSavePanel()
+        panel.title = "Export EZVM Omarchy Diagnostics"
+        let date = ISO8601DateFormatter().string(from: Date()).prefix(10)
+        panel.nameFieldStringValue = "EZVM-Omarchy-Diagnostics-\(date).json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+            let report = VMOmarchyDiagnostics().report(
+                layout: layout,
+                appVersion: appVersion,
+                integrationState: integration
+            )
+            try report.encoded().write(to: destination, options: .atomic)
+            notice = UserNotice(title: "Diagnostics Exported", message: destination.lastPathComponent)
+        } catch {
+            notice = UserNotice(title: "Diagnostics Export Failed", message: error.localizedDescription)
+        }
+    }
+
     private func importFiles(_ urls: [URL]) {
         guard !urls.isEmpty, !importingFiles else { return }
         importingFiles = true
@@ -314,12 +340,12 @@ struct OmarchyVirtualMachineView: View {
                 switch result {
                 case .success(let files):
                     let names = files.map(\.destinationURL.lastPathComponent).joined(separator: ", ")
-                    importNotice = ImportNotice(
-                        isError: false,
+                    notice = UserNotice(
+                        title: "Files Ready in Omarchy",
                         message: "Imported \(files.count) file(s): \(names). Open /mnt/ezvm-shared in Omarchy."
                     )
                 case .failure(let error):
-                    importNotice = ImportNotice(isError: true, message: error.localizedDescription)
+                    notice = UserNotice(title: "Import Failed", message: error.localizedDescription)
                 }
             }
         }
@@ -486,9 +512,9 @@ struct OmarchyVirtualMachineView: View {
         }
     }
 
-    private struct ImportNotice: Identifiable {
+    private struct UserNotice: Identifiable {
         let id = UUID()
-        let isError: Bool
+        let title: String
         let message: String
     }
 }

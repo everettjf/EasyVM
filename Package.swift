@@ -44,6 +44,7 @@ let package = Package(
                 "Profile/VMOmarchyStorageForecast.swift",
                 "Profile/VMOmarchyFactoryManifest.swift",
                 "Profile/VMOmarchyFactoryInstaller.swift",
+                "Profile/VMOmarchyDiagnostics.swift",
                 "Profile/VMOmarchyWorkspace.swift",
                 "Profile/VMOmarchySharedFolderImporter.swift",
                 "Profile/VMOmarchyVirtualMachineBuilder.swift",
