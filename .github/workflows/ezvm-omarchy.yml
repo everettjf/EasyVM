@@ -76,7 +76,17 @@ jobs:
       - name: Install project generator
         run: brew install xcodegen
       - name: Test shared core and CLI
-        run: swift test
+        run: |
+          # This runner intentionally pairs the macOS 27 SDK with an older
+          # runtime. Keep broad logic coverage here, but do not execute suites
+          # that require runtime-only Virtualization or DiskImageKit symbols.
+          # Those suites run in the signed real-boot acceptance job and on a
+          # native macOS 27 development host.
+          swift test \
+            --skip VMLinuxFeatureConfigurationTests \
+            --skip VMNetworkConfigurationTests \
+            --skip VMOmarchyVirtualMachineBuilderTests \
+            --skip VMPortabilityManagerTests
       - name: Test factory signing pipeline
         run: scripts/test-omarchy-factory-tool.sh
       - name: Test sparse raw-to-ASIF factory conversion
