@@ -24,6 +24,7 @@ struct VMModelFieldDirectorySharingDevice : Decodable, Encodable, CustomStringCo
     let items: [SharingItem]
     
     static let autoMoundTag = VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag
+    static let runtimeLinuxTag = "ezvm_shared"
     
     var description: String {
         "Tag: \(tag) Directories: \(items.map({$0.description}).joined(separator: " , "))"
@@ -57,6 +58,38 @@ struct VMModelFieldDirectorySharingDevice : Decodable, Encodable, CustomStringCo
         sharingConfiguration.share = multipleDirectoryShare
         
         return sharingConfiguration
+    }
+
+    static func createRuntimeConfiguration(
+        _ devices: [VMModelFieldDirectorySharingDevice],
+        osType: VMOSType
+    ) -> VZVirtioFileSystemDeviceConfiguration {
+        let tag = osType == .macOS ? autoMoundTag : runtimeLinuxTag
+        let configuration = VZVirtioFileSystemDeviceConfiguration(tag: tag)
+        configuration.share = runtimeShare(devices)
+        return configuration
+    }
+
+    static func runtimeShare(
+        _ devices: [VMModelFieldDirectorySharingDevice]
+    ) -> VZDirectoryShare? {
+        let entries = VMSharedFolderRuntimePlan.uniquelyNamed(
+            devices.flatMap(\.items).map {
+                VMSharedFolderRuntimeEntry(name: $0.name, path: $0.path, readOnly: $0.readOnly)
+            }
+        )
+        guard !entries.isEmpty else { return nil }
+        if entries.count == 1, let item = entries.first {
+            return VZSingleDirectoryShare(
+                directory: VZSharedDirectory(url: item.path, readOnly: item.readOnly)
+            )
+        }
+
+        var names: [String: VZSharedDirectory] = [:]
+        for item in entries {
+            names[item.name] = VZSharedDirectory(url: item.path, readOnly: item.readOnly)
+        }
+        return VZMultipleDirectoryShare(directories: names)
     }
 }
 

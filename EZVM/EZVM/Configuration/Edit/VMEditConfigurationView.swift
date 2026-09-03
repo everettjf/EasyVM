@@ -1,6 +1,10 @@
 import SwiftUI
 
 #if arch(arm64)
+extension Notification.Name {
+    static let ezvmConfigurationSaved = Notification.Name("com.everettjf.ezvm.configuration-saved")
+}
+
 struct VMEditConfigurationView: View {
     private enum Category: String, CaseIterable, Identifiable {
         case general = "General", hardware = "Hardware", devices = "Devices", sharing = "Sharing", linux = "Linux"
@@ -21,9 +25,11 @@ struct VMEditConfigurationView: View {
     @State private var selection: Category = .general
     @State private var saveError: String?
     let model: VMModel
+    let appliesSharedFoldersImmediately: Bool
 
-    init(model: VMModel) {
+    init(model: VMModel, appliesSharedFoldersImmediately: Bool = false) {
         self.model = model
+        self.appliesSharedFoldersImmediately = appliesSharedFoldersImmediately
         _configData = State(initialValue: VMConfigurationViewStateObject(configModel: model.config))
     }
 
@@ -125,7 +131,11 @@ struct VMEditConfigurationView: View {
 
     private var footer: some View {
         HStack {
-            Text("Changes take effect the next time the virtual machine starts.").font(.caption).foregroundStyle(.secondary)
+            Text(appliesSharedFoldersImmediately
+                 ? "Shared-folder changes apply now. Other changes apply the next time the virtual machine starts."
+                 : "Changes take effect the next time the virtual machine starts.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Spacer()
             Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
             Button("Save") { saveConfig() }
@@ -141,9 +151,15 @@ struct VMEditConfigurationView: View {
     }
 
     private func saveConfig() {
-        switch configData.getConfigModel().writeConfigToFile(path: model.configURL) {
+        let configuration = configData.getConfigModel()
+        switch configuration.writeConfigToFile(path: model.configURL) {
         case .success:
             NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
+            NotificationCenter.default.post(
+                name: .ezvmConfigurationSaved,
+                object: model.rootPath.standardizedFileURL,
+                userInfo: ["configuration": configuration]
+            )
             dismiss()
         case .failure(let error):
             EZVMLog.error("Failed to save VM configuration: \(error)", logger: EZVMLog.storage)

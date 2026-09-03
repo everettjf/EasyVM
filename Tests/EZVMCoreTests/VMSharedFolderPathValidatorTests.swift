@@ -32,5 +32,25 @@ final class VMSharedFolderPathValidatorTests: XCTestCase {
         try FileManager.default.removeItem(at: folder)
         XCTAssertEqual(VMSharedFolderPathValidator.status(for: folder), .missing)
     }
+
+    func testRuntimeSharePlanKeepsAnEmptyShareEmpty() {
+        XCTAssertEqual(VMSharedFolderRuntimePlan.uniquelyNamed([]), [])
+    }
+
+    func testRuntimeSharePlanDisambiguatesDuplicateNamesWithoutChangingPathsOrAccess() throws {
+        let first = root.appending(path: "first/Projects", directoryHint: .isDirectory)
+        let second = root.appending(path: "second/Projects", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        let entries = [
+            VMSharedFolderRuntimeEntry(name: "Projects", path: first, readOnly: false),
+            VMSharedFolderRuntimeEntry(name: "Projects", path: second, readOnly: true),
+        ]
+
+        XCTAssertEqual(VMSharedFolderRuntimePlan.uniquelyNamed(entries), [
+            VMSharedFolderRuntimeEntry(name: "Projects", path: first, readOnly: false),
+            VMSharedFolderRuntimeEntry(name: "Projects 2", path: second, readOnly: true),
+        ])
+    }
 }
 #endif

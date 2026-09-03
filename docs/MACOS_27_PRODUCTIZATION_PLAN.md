@@ -270,6 +270,12 @@ and Apple Virtio fallback.
 The five journeys should feel like one product rather than five framework
 demos:
 
+- Shared folders use one stable runtime VirtioFS device per VM. A folder dropped
+  on a running VM is persisted and published immediately through
+  `VZVirtioFileSystemDevice.share`; macOS uses the system automount tag and Linux
+  uses `ezvm_shared`. Removing a folder or changing read-only access in the
+  running VM's Settings sheet updates the same live share.
+
 - Use the same `Ready / Needs attention / Working / Restart required /
   Unavailable` vocabulary and visual treatment.
 - Put permission and compatibility explanations at the action that needs them.

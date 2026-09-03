@@ -158,7 +158,12 @@ final class VMOSCreatorForLinux: VMOSCreator {
             virtualMachineConfiguration.consoleDevices = [createSpiceAgentConsoleDeviceConfiguration()]
             
             // directorySharingDevices
-            virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
+            virtualMachineConfiguration.directorySharingDevices = [
+                VMModelFieldDirectorySharingDevice.createRuntimeConfiguration(
+                    model.config.directorySharingDevices,
+                    osType: .linux
+                )
+            ]
 
             let features = model.config.linuxFeatures ?? .legacy
             if case let .failure(error) = features.applyDevices(

@@ -184,7 +184,12 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             VMUSBControllerSupport.addEmptyXHCIController(to: virtualMachineConfiguration)
             
             // directorySharingDevices
-            virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
+            virtualMachineConfiguration.directorySharingDevices = [
+                VMModelFieldDirectorySharingDevice.createRuntimeConfiguration(
+                    model.config.directorySharingDevices,
+                    osType: .macOS
+                )
+            ]
             
             // Validate
             progress(.info("Begin validate"))

@@ -184,7 +184,9 @@ struct CreatePhaseSharingView: View {
     }
 
     private func guestMountDescription(tag: String) -> String {
-        configData.osType == .macOS ? "mounts automatically" : "VirtioFS tag: \(tag)"
+        configData.osType == .macOS
+            ? "mounts automatically"
+            : "VirtioFS tag: \(VMModelFieldDirectorySharingDevice.runtimeLinuxTag)"
     }
 }
 

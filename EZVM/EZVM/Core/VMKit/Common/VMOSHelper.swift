@@ -1327,6 +1327,28 @@ enum VMSharedFolderPathValidator {
     }
 }
 
+struct VMSharedFolderRuntimeEntry: Equatable {
+    let name: String
+    let path: URL
+    let readOnly: Bool
+}
+
+enum VMSharedFolderRuntimePlan {
+    static func uniquelyNamed(_ entries: [VMSharedFolderRuntimeEntry]) -> [VMSharedFolderRuntimeEntry] {
+        var used: Set<String> = []
+        return entries.map { entry in
+            var name = entry.name
+            var suffix = 2
+            while used.contains(name) {
+                name = "\(entry.name) \(suffix)"
+                suffix += 1
+            }
+            used.insert(name)
+            return VMSharedFolderRuntimeEntry(name: name, path: entry.path, readOnly: entry.readOnly)
+        }
+    }
+}
+
 enum VMSystemImageFileValidator {
     static func validate(
         _ url: URL,

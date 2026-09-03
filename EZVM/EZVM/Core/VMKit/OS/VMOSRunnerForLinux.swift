@@ -92,7 +92,12 @@ class VMOSRunnerForLinux : VMOSRunner {
         virtualMachineConfiguration.consoleDevices = [createSpiceAgentConsoleDeviceConfiguration()]
         
         // directorySharingDevices
-        virtualMachineConfiguration.directorySharingDevices = model.config.directorySharingDevices.compactMap({$0.createConfiguration()})
+        virtualMachineConfiguration.directorySharingDevices = [
+            VMModelFieldDirectorySharingDevice.createRuntimeConfiguration(
+                model.config.directorySharingDevices,
+                osType: .linux
+            )
+        ]
 
         if (model.config.linuxFeatures ?? .legacy).virtioSocketEnabled {
             guard !model.config.directorySharingDevices.contains(where: {

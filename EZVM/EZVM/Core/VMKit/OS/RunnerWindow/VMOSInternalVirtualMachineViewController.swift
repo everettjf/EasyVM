@@ -251,6 +251,23 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         EZVMLog.info("VM display first responder accepted=\(focused)")
     }
 
+    func updateRuntimeSharedFolders(_ devices: [VMModelFieldDirectorySharingDevice]) -> String? {
+        guard let configuration = virtualMachineConfiguration,
+              let virtualMachine else {
+            return "The virtual machine is not ready to update shared folders."
+        }
+        let tag = configuration.platform is VZMacPlatformConfiguration
+            ? VMModelFieldDirectorySharingDevice.autoMoundTag
+            : VMModelFieldDirectorySharingDevice.runtimeLinuxTag
+        guard let device = virtualMachine.directorySharingDevices
+            .compactMap({ $0 as? VZVirtioFileSystemDevice })
+            .first(where: { $0.tag == tag }) else {
+            return "The running virtual machine does not expose the EZVM shared-folder device."
+        }
+        device.share = VMModelFieldDirectorySharingDevice.runtimeShare(devices)
+        return nil
+    }
+
     private func installVirtualMachine(configuration: VZVirtualMachineConfiguration) {
         virtualMachine?.delegate = nil
         graphicsBackend?.bind(virtualMachine: nil)

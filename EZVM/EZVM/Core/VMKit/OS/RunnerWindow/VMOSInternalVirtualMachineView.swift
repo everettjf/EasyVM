@@ -174,6 +174,9 @@ final class VMRuntimeState {
     func confirmMacGuestProvisioningCompleted() { controller?.confirmMacGuestProvisioningCompleted() }
     func retryMacGuestProvisioningOnNextStart() { controller?.retryMacGuestProvisioningOnNextStart() }
     func reconnectNetworkDevice(deviceIndex: Int) { controller?.reconnectNetworkDevice(deviceIndex: deviceIndex) }
+    func updateSharedFolders(_ devices: [VMModelFieldDirectorySharingDevice]) -> String? {
+        controller?.updateRuntimeSharedFolders(devices)
+    }
 }
 
 struct VMWindowCloseObserver: NSViewRepresentable {

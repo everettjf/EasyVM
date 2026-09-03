@@ -113,7 +113,7 @@ struct VMOSMainVirtualMachineView: View {
                 RoundedRectangle(cornerRadius: 18)
                     .fill(Color.accentColor.opacity(0.16))
                     .overlay {
-                        Label("Drop folders to share after restart", systemImage: "folder.fill.badge.plus")
+                        Label("Drop folders to share now", systemImage: "folder.fill.badge.plus")
                             .font(.title3.weight(.semibold))
                             .padding(18)
                             .background(.regularMaterial, in: Capsule())
@@ -137,7 +137,7 @@ struct VMOSMainVirtualMachineView: View {
                 Button("Add Shared Folder", systemImage: "folder.badge.plus") {
                     addSharedFolder()
                 }
-                .help("Choose a host folder to share after the next start")
+                .help("Choose a host folder to share with the running virtual machine")
                 .accessibilityHint("Choose a folder to share with this virtual machine")
 
                 if let backend = runtimeState.graphicsBackendKind {
@@ -332,7 +332,17 @@ struct VMOSMainVirtualMachineView: View {
             Text(sharedFolderResult)
         }
         .sheet(item: $settingsModel) { model in
-            VMEditConfigurationView(model: model)
+            VMEditConfigurationView(model: model, appliesSharedFoldersImmediately: true)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ezvmConfigurationSaved)) { notification in
+            guard let savedRoot = notification.object as? URL,
+                  savedRoot.standardizedFileURL == rootPath.standardizedFileURL,
+                  let configuration = notification.userInfo?["configuration"] as? VMConfigModel,
+                  let error = runtimeState.updateSharedFolders(configuration.directorySharingDevices) else {
+                return
+            }
+            sharedFolderResult = "Settings were saved, but the running shared folders could not be updated: \(error) They will match after the next start."
+            isShowingSharedFolderResult = true
         }
         .onChange(of: runtimeState.phase) { _, phase in
             guard phase.shouldDismissMachineWindow else { return }
@@ -695,7 +705,11 @@ struct VMOSMainVirtualMachineView: View {
             switch state.getConfigModel().writeConfigToFile(path: model.configURL) {
             case .success:
                 NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
-                sharedFolderResult = "“\(url.lastPathComponent)” was added. It will be available after the next virtual machine start."
+                if let error = runtimeState.updateSharedFolders(state.getConfigModel().directorySharingDevices) {
+                    sharedFolderResult = "“\(url.lastPathComponent)” was saved, but could not be shared now: \(error) It will be available after the next start."
+                } else {
+                    sharedFolderResult = "“\(url.lastPathComponent)” is now shared with this virtual machine."
+                }
             case .failure(let error):
                 sharedFolderResult = "EZVM could not add the shared folder: \(error)"
             }
@@ -727,7 +741,11 @@ struct VMOSMainVirtualMachineView: View {
         switch state.getConfigModel().writeConfigToFile(path: model.configURL) {
         case .success:
             NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
-            sharedFolderResult = "Added \(added) shared folder\(added == 1 ? "" : "s"). It will be available after the next start."
+            if let error = runtimeState.updateSharedFolders(state.getConfigModel().directorySharingDevices) {
+                sharedFolderResult = "Saved \(added) shared folder\(added == 1 ? "" : "s"), but could not share them now: \(error) They will be available after the next start."
+            } else {
+                sharedFolderResult = "Now sharing \(added) new folder\(added == 1 ? "" : "s") with this virtual machine."
+            }
             isShowingSharedFolderResult = true
             return true
         case .failure(let error):
