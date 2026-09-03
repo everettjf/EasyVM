@@ -1025,8 +1025,9 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
               virtualMachine.state == .running || virtualMachine.state == .paused,
               virtualMachine.networkDevices.indices.contains(deviceIndex),
               virtualMachineConfiguration?.networkDevices.indices.contains(deviceIndex) == true,
-              let attachment = virtualMachineConfiguration?.networkDevices[deviceIndex].attachment,
-              networkRuntimeTracker.beginReconnect(deviceIndex: deviceIndex) else { return }
+              let attachment = virtualMachineConfiguration?.networkDevices[deviceIndex].attachment else { return }
+        if !networkRuntimeTracker.reconnectingIndices.contains(deviceIndex),
+           !networkRuntimeTracker.beginReconnect(deviceIndex: deviceIndex) { return }
 
         let operationToken = UUID()
         networkReconnectTokens[deviceIndex] = operationToken
@@ -1066,13 +1067,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func scheduleAutomaticNetworkReconnect(deviceIndex: Int) {
         guard networkAutomaticReconnectTokens[deviceIndex] == nil,
-              let delay = networkRuntimeTracker.nextAutomaticReconnectDelay(
+              let delay = networkRuntimeTracker.beginAutomaticReconnect(
                 deviceIndex: deviceIndex
               ) else { return }
 
         let token = UUID()
         networkAutomaticReconnectTokens[deviceIndex] = token
         let attempt = networkRuntimeTracker.automaticReconnectAttempts[deviceIndex] ?? 0
+        runtimeState?.updateNetworkRuntime(networkRuntimeTracker.state)
         EZVMLog.info(
             "Network adapter \(deviceIndex + 1) will automatically reconnect in \(Int(delay)) second(s) (attempt \(attempt)/\(VMNetworkRuntimeTracker.automaticReconnectDelays.count)).",
             logger: EZVMLog.network

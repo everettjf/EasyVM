@@ -1741,13 +1741,15 @@ struct VMNetworkRuntimeTracker: Equatable {
         automaticReconnectAttempts.removeValue(forKey: deviceIndex)
     }
 
-    mutating func nextAutomaticReconnectDelay(deviceIndex: Int) -> TimeInterval? {
+    mutating func beginAutomaticReconnect(deviceIndex: Int) -> TimeInterval? {
         guard isStarted,
               !isHostSleeping,
-              disconnectedReasons[deviceIndex] != nil else { return nil }
+              disconnectedReasons[deviceIndex] != nil,
+              !reconnectingIndices.contains(deviceIndex) else { return nil }
         let attempt = automaticReconnectAttempts[deviceIndex, default: 0]
         guard Self.automaticReconnectDelays.indices.contains(attempt) else { return nil }
         automaticReconnectAttempts[deviceIndex] = attempt + 1
+        reconnectingIndices.insert(deviceIndex)
         return Self.automaticReconnectDelays[attempt]
     }
 

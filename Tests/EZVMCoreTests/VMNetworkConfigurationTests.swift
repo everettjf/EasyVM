@@ -155,36 +155,49 @@ final class VMNetworkConfigurationTests: XCTestCase {
         tracker.markStarted()
         tracker.markDisconnected(deviceIndex: 0, reason: "Interface changed")
 
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 1)
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 3)
-        XCTAssertNil(tracker.nextAutomaticReconnectDelay(deviceIndex: 0))
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
+        XCTAssertEqual(
+            tracker.state,
+            .reconnecting(
+                deviceCount: 1,
+                issues: [VMNetworkDeviceIssue(deviceIndex: 0, reason: "Interface changed")],
+                deviceIndices: [0]
+            )
+        )
+        XCTAssertNil(tracker.beginAutomaticReconnect(deviceIndex: 0))
+        tracker.markDisconnected(deviceIndex: 0, reason: "Interface still unavailable")
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 3)
+        tracker.markDisconnected(deviceIndex: 0, reason: "Interface still unavailable")
+        XCTAssertNil(tracker.beginAutomaticReconnect(deviceIndex: 0))
 
         tracker.markConnected(deviceIndex: 0)
         tracker.markDisconnected(deviceIndex: 0, reason: "VPN changed")
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 1)
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
     }
 
     func testNetworkRuntimeTrackerSuspendsAndRenewsAutomaticRecoveryAcrossSleep() {
         var tracker = VMNetworkRuntimeTracker(deviceCount: 1)
         tracker.markStarted()
         tracker.markDisconnected(deviceIndex: 0, reason: "Interface changed")
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 1)
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
 
         tracker.markHostSleeping()
-        XCTAssertNil(tracker.nextAutomaticReconnectDelay(deviceIndex: 0))
+        XCTAssertNil(tracker.beginAutomaticReconnect(deviceIndex: 0))
         XCTAssertEqual(tracker.markHostAwake(), [0])
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 1)
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
     }
 
     func testNetworkRuntimeTrackerManualRecoveryRenewsAutomaticBudget() {
         var tracker = VMNetworkRuntimeTracker(deviceCount: 1)
         tracker.markStarted()
         tracker.markDisconnected(deviceIndex: 0, reason: "Interface changed")
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 1)
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 3)
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
+        tracker.markDisconnected(deviceIndex: 0, reason: "Still unavailable")
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 3)
+        tracker.markDisconnected(deviceIndex: 0, reason: "Still unavailable")
 
         tracker.resetAutomaticReconnectAttempts(deviceIndex: 0)
-        XCTAssertEqual(tracker.nextAutomaticReconnectDelay(deviceIndex: 0), 1)
+        XCTAssertEqual(tracker.beginAutomaticReconnect(deviceIndex: 0), 1)
     }
 
     func testUSBPassthroughDisablesMachineStateWhileAttached() {
