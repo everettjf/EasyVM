@@ -818,6 +818,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     private func finishReleaseSmokeTest(_ configuration: VMReleaseSmokeTestConfiguration) {
         releaseSmokeTimer?.invalidate()
+        if configuration.saveMachineState {
+            startReleaseMachineStateSave(configuration)
+            return
+        }
         virtualMachine.stop { [weak self] error in
             Task { @MainActor in
                 guard let self else { return }
@@ -832,6 +836,41 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 NSApplication.shared.terminate(nil)
             }
         }
+    }
+
+    private func startReleaseMachineStateSave(_ configuration: VMReleaseSmokeTestConfiguration) {
+        guard runtimeState?.canSave == true, let rootPath else {
+            failReleaseSmokeTest(
+                "machine state is unavailable: \(runtimeState?.machineStateUnavailabilityReason ?? "unknown reason")",
+                configuration
+            )
+            return
+        }
+        releaseSmokeDeadline = Date().addingTimeInterval(30)
+        releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
+            guard let self, let runtimeState = self.runtimeState else { return }
+            if runtimeState.phase == .stopped {
+                timer.invalidate()
+                let stateURL = rootPath.appending(path: "MachineState.vzvmsave")
+                guard FileManager.default.fileExists(atPath: stateURL.path) else {
+                    VMReleaseSmokeTest.report("failed: save completed without a machine-state file", configuration: configuration)
+                    NSApplication.shared.terminate(nil)
+                    return
+                }
+                VMReleaseSmokeTest.report("machine-state-saved", configuration: configuration)
+                NSApplication.shared.terminate(nil)
+            } else if case let .failed(message) = runtimeState.phase {
+                timer.invalidate()
+                VMReleaseSmokeTest.report("failed: \(message)", configuration: configuration)
+                NSApplication.shared.terminate(nil)
+            } else if Date() >= (self.releaseSmokeDeadline ?? .distantPast) {
+                timer.invalidate()
+                VMReleaseSmokeTest.report("failed: timed out saving machine state", configuration: configuration)
+                self.forceStopMachine()
+                NSApplication.shared.terminate(nil)
+            }
+        }
+        saveAndStopMachine()
     }
 
     func pauseMachine() {

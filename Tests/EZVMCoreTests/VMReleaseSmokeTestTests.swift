@@ -65,6 +65,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertFalse(configuration.requireASIFStorage)
         XCTAssertFalse(configuration.requireVMNet)
         XCTAssertFalse(configuration.requireMachineStateSupport)
+        XCTAssertFalse(configuration.saveMachineState)
         XCTAssertNil(configuration.guestAgentEnrollmentURL)
     }
 
@@ -84,6 +85,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.requireASIFStorageEnvironmentKey: "1",
             VMReleaseSmokeTest.requireVMNetEnvironmentKey: "1",
             VMReleaseSmokeTest.requireMachineStateSupportEnvironmentKey: "1",
+            VMReleaseSmokeTest.saveMachineStateEnvironmentKey: "1",
             VMReleaseSmokeTest.guestAgentEnrollmentEnvironmentKey: "/tmp/agent.json",
         ]))
         XCTAssertTrue(configuration.requireGuestAgent)
@@ -98,6 +100,7 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertTrue(configuration.requireASIFStorage)
         XCTAssertTrue(configuration.requireVMNet)
         XCTAssertTrue(configuration.requireMachineStateSupport)
+        XCTAssertTrue(configuration.saveMachineState)
         XCTAssertEqual(configuration.guestAgentEnrollmentURL?.path, "/tmp/agent.json")
     }
 }

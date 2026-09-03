@@ -34,32 +34,44 @@ trap cleanup EXIT
 cp -cR "$vm_path" "$fixture"
 rm -f "$fixture/MachineState.vzvmsave"
 
-open -n -g -W --stdout "$launch_log" --stderr "$launch_log" \
-  --env "EZVM_RELEASE_SMOKE_VM=$fixture" \
-  --env "EZVM_RELEASE_SMOKE_RESULT=$result_file" \
-  --env "EZVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT=1" \
-  "$app_path" &
-open_pid=$!
+run_action() {
+  local expected="$1"
+  local save_state="$2"
+  rm -f "$result_file"
+  open -n -g -W --stdout "$launch_log" --stderr "$launch_log" \
+    --env "EZVM_RELEASE_SMOKE_VM=$fixture" \
+    --env "EZVM_RELEASE_SMOKE_RESULT=$result_file" \
+    --env "EZVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT=1" \
+    --env "EZVM_RELEASE_SAVE_MACHINE_STATE=$save_state" \
+    "$app_path" &
+  open_pid=$!
 
-for ((second = 1; second <= timeout; second++)); do
-  sleep 1
-  if [[ -f "$result_file" ]]; then
-    result="$(tr -d '\r\n' <"$result_file")"
-    if [[ "$result" == "started-and-stopped" ]]; then
-      wait "$open_pid" || true
-      open_pid=""
-      echo "Verified signed macOS VM configuration supports machine-state save and restore."
-      exit 0
+  for ((second = 1; second <= timeout; second++)); do
+    sleep 1
+    if [[ -f "$result_file" ]]; then
+      result="$(tr -d '\r\n' <"$result_file")"
+      if [[ "$result" == "$expected" ]]; then
+        wait "$open_pid" || true
+        open_pid=""
+        return 0
+      fi
+      cat "$launch_log" >&2
+      fail "$result"
     fi
-    cat "$launch_log" >&2
-    fail "$result"
-  fi
-  if ! kill -0 "$open_pid" 2>/dev/null; then
-    wait "$open_pid" || exit_code=$?
-    cat "$launch_log" >&2
-    fail "application exited before reporting a result with status ${exit_code:-0}"
-  fi
-done
+    if ! kill -0 "$open_pid" 2>/dev/null; then
+      wait "$open_pid" || exit_code=$?
+      cat "$launch_log" >&2
+      fail "application exited before reporting a result with status ${exit_code:-0}"
+    fi
+  done
 
-cat "$launch_log" >&2
-fail "timed out after ${timeout}s"
+  cat "$launch_log" >&2
+  fail "timed out after ${timeout}s waiting for $expected"
+}
+
+run_action machine-state-saved 1
+[[ -f "$fixture/MachineState.vzvmsave" ]] || fail "save action did not create MachineState.vzvmsave"
+run_action started-and-stopped 0
+[[ ! -e "$fixture/MachineState.vzvmsave" ]] || fail "restored machine state was not consumed"
+
+echo "Verified signed macOS VM machine-state save and cross-process restore."

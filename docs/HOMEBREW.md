@@ -88,8 +88,8 @@ The script rejects mislabeled fixtures, verifies the app signature,
 Gatekeeper, entitlements, GUI readiness, and then exercises CLI lifecycle,
 concurrent ownership, forced-exit recovery, saved-state recovery, Linux EFI
 recovery, Guest Agent authentication, byte-exact transfer, ASIF attachment,
-VMNet Shared guest connectivity, signed macOS machine-state capability, and clean
-shutdown. The VMNet gate creates and
+VMNet Shared guest connectivity, signed macOS machine-state save and cross-process
+restore, and clean shutdown. The VMNet gate creates and
 removes its own clone of the Ubuntu fixture. The ASIF gate separately creates a
 layered snapshot, audits and restores it from fresh app processes, then boots the
 restored clone. Neither gate changes the source VM. Set
