@@ -92,11 +92,12 @@ jobs:
         run: |
           bash scripts/test-omarchy-guest-overlay.sh
           bash scripts/test-omarchy-guest-overlay-package.sh
-      - name: Regenerate independent project
+      - name: Generate independent project
         working-directory: EZVMOmarchy
-        run: |
-          xcodegen generate
-          git diff --exit-code -- EZVMOmarchy.xcodeproj
+        # XcodeGen emits a few PBXProject compatibility fields according to the
+        # installed Xcode version. The following xcodebuild step validates the
+        # generated project without requiring byte-identical output across SDKs.
+        run: xcodegen generate
       - name: Build and test EZVM Omarchy
         working-directory: EZVMOmarchy
         run: >-

@@ -268,12 +268,16 @@ type sockaddrVM struct {
 	Zero     [3]uint8
 }
 
+// AF_VSOCK is part of Linux's UAPI, but the frozen syscall package does not
+// expose it on every architecture/toolchain combination used by CI.
+const addressFamilyVSock = 40
+
 func listenVSock(port uint32) (int, error) {
-	fd, err := syscall.Socket(syscall.AF_VSOCK, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
+	fd, err := syscall.Socket(addressFamilyVSock, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
 	if err != nil {
 		return -1, err
 	}
-	address := sockaddrVM{Family: syscall.AF_VSOCK, Port: port, CID: vmaddrCIDAny}
+	address := sockaddrVM{Family: addressFamilyVSock, Port: port, CID: vmaddrCIDAny}
 	_, _, errno := syscall.Syscall(syscall.SYS_BIND, uintptr(fd), uintptr(unsafe.Pointer(&address)), unsafe.Sizeof(address))
 	if errno != 0 {
 		syscall.Close(fd)
