@@ -151,5 +151,35 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         ]))
         XCTAssertEqual(configuration.holdSeconds, 0)
     }
+
+    func testHoldFinishesOnlyAfterGuestAgentAndRequiredIPv4Recover() {
+        let withoutAddress = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: [], bootID: "boot", uptimeSeconds: 1,
+            capabilities: nil
+        )
+        let withAddress = VMGuestAgentStatus(
+            agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
+            hostName: "guest", addresses: ["192.168.64.2"], bootID: "boot", uptimeSeconds: 2,
+            capabilities: nil
+        )
+
+        XCTAssertFalse(VMReleaseSmokeTest.canFinishHold(
+            guestStatus: nil,
+            requireGuestIPv4: false
+        ))
+        XCTAssertTrue(VMReleaseSmokeTest.canFinishHold(
+            guestStatus: withoutAddress,
+            requireGuestIPv4: false
+        ))
+        XCTAssertFalse(VMReleaseSmokeTest.canFinishHold(
+            guestStatus: withoutAddress,
+            requireGuestIPv4: true
+        ))
+        XCTAssertTrue(VMReleaseSmokeTest.canFinishHold(
+            guestStatus: withAddress,
+            requireGuestIPv4: true
+        ))
+    }
 }
 #endif

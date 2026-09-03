@@ -615,6 +615,14 @@ enum VMReleaseSmokeTest {
     static let holdReadyEnvironmentKey = "EZVM_RELEASE_HOLD_READY"
     static let guestAgentEnrollmentEnvironmentKey = "EZVM_RELEASE_AGENT_ENROLLMENT_FILE"
 
+    static func canFinishHold(
+        guestStatus: VMGuestAgentStatus?,
+        requireGuestIPv4: Bool
+    ) -> Bool {
+        guard let status = guestStatus else { return false }
+        return !requireGuestIPv4 || status.hasIPv4Address
+    }
+
     static func configuration(environment: [String: String] = ProcessInfo.processInfo.environment) -> VMReleaseSmokeTestConfiguration? {
         guard let vmPath = environment[vmPathEnvironmentKey], !vmPath.isEmpty,
               let resultPath = environment[resultPathEnvironmentKey], !resultPath.isEmpty else {

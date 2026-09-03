@@ -747,7 +747,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             )
             return
         }
-        if releaseSmokeStage > 0, case .disconnected(let reason) = runtimeState.guestAgentState {
+        // A hold is used for sleep/wake and host-network transition gates. The
+        // guest agent may disconnect briefly during those transitions, so give
+        // it the hold deadline's recovery window. Transfers still fail fast.
+        if releaseSmokeStage > 0, releaseSmokeStage != 3,
+           case .disconnected(let reason) = runtimeState.guestAgentState {
             failReleaseSmokeTest("Guest Agent disconnected: \(reason)", configuration)
             return
         }
@@ -852,6 +856,16 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             finishReleaseSmokeTest(configuration)
         case 3:
             guard let holdUntil = releaseSmokePerformanceHoldUntil, Date() >= holdUntil else { return }
+            let recoveredStatus: VMGuestAgentStatus?
+            if case .ready(let status) = runtimeState.guestAgentState {
+                recoveredStatus = status
+            } else {
+                recoveredStatus = nil
+            }
+            guard VMReleaseSmokeTest.canFinishHold(
+                guestStatus: recoveredStatus,
+                requireGuestIPv4: configuration.requireGuestIPv4
+            ) else { return }
             cleanupReleaseSmokeFiles()
             finishReleaseSmokeTest(configuration)
         default: return

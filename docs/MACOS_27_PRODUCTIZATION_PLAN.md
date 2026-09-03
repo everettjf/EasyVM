@@ -215,6 +215,13 @@ with its sanitized error and explicit retry action instead of looping.
 The runtime enters its reconnecting state as soon as a retry is scheduled, so
 the banner never claims the adapter is merely idle during the backoff window.
 
+The long-running signed release hold treats sleep and host-network changes as
+recoverable interruptions rather than immediate failures. It cannot pass at
+the end of the hold until the authenticated Guest Agent is ready again; VMNet
+gates additionally require the guest to report a valid IPv4 address after the
+transition. The existing 15-second post-hold deadline bounds recovery instead
+of allowing an indefinitely reconnecting release candidate to pass.
+
 Disconnect UI no longer displays an unbounded framework string by itself. EZVM
 adds a stable recovery action covering interface changes, VPNs, and host access,
 then appends at most 160 sanitized characters of framework detail. Full raw
