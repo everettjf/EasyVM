@@ -39,7 +39,8 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
             imageSHA256: payload.imageSHA256,
             architecture: payload.architecture,
             omarchyRevision: payload.omarchyRevision,
-            guestAgentVersion: payload.guestAgentVersion
+            guestAgentVersion: payload.guestAgentVersion,
+            guestCapabilities: payload.guestCapabilities
         )
         XCTAssertThrowsError(try VMOmarchyFactoryValidator.validateManifest(
             .init(payload: changed, keyID: VMOmarchyProfile.production.factoryImage.signingKeyID, signature: signature.base64EncodedString()),
@@ -47,6 +48,34 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
             publicKey: key.publicKey.rawRepresentation
         )) { error in
             XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidSignature)
+        }
+    }
+
+    func testManifestMissingRequiredGuestCapabilityIsRejected() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let original = makePayload(image: Data("factory".utf8))
+        let payload = VMOmarchyFactoryManifest.Payload(
+            schemaVersion: original.schemaVersion,
+            imageVersion: original.imageVersion,
+            imageURL: original.imageURL,
+            imageByteCount: original.imageByteCount,
+            imageSHA256: original.imageSHA256,
+            architecture: original.architecture,
+            omarchyRevision: original.omarchyRevision,
+            guestAgentVersion: original.guestAgentVersion,
+            guestCapabilities: ["shutdown-v1"]
+        )
+        let signature = try key.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
+        XCTAssertThrowsError(try VMOmarchyFactoryValidator.validateManifest(
+            .init(
+                payload: payload,
+                keyID: VMOmarchyProfile.production.factoryImage.signingKeyID,
+                signature: signature.base64EncodedString()
+            ),
+            profile: .production,
+            publicKey: key.publicKey.rawRepresentation
+        )) { error in
+            XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidManifest)
         }
     }
 
@@ -76,7 +105,8 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
             imageSHA256: digest,
             architecture: "arm64",
             omarchyRevision: "test-revision",
-            guestAgentVersion: "1.0.0"
+            guestAgentVersion: "1.0.0",
+            guestCapabilities: VMOmarchyProfile.production.requiredGuestCapabilities.sorted()
         )
     }
 }

@@ -11,6 +11,7 @@ public struct VMOmarchyFactoryManifest: Codable, Equatable {
         public let architecture: String
         public let omarchyRevision: String
         public let guestAgentVersion: String
+        public let guestCapabilities: [String]
 
         public init(
             schemaVersion: Int,
@@ -20,7 +21,8 @@ public struct VMOmarchyFactoryManifest: Codable, Equatable {
             imageSHA256: String,
             architecture: String,
             omarchyRevision: String,
-            guestAgentVersion: String
+            guestAgentVersion: String,
+            guestCapabilities: [String]
         ) {
             self.schemaVersion = schemaVersion
             self.imageVersion = imageVersion
@@ -30,6 +32,7 @@ public struct VMOmarchyFactoryManifest: Codable, Equatable {
             self.architecture = architecture
             self.omarchyRevision = omarchyRevision
             self.guestAgentVersion = guestAgentVersion
+            self.guestCapabilities = guestCapabilities
         }
     }
 
@@ -70,7 +73,9 @@ public enum VMOmarchyFactoryValidator {
               payload.imageSHA256.allSatisfy({ $0.isHexDigit }),
               !payload.imageVersion.isEmpty,
               !payload.omarchyRevision.isEmpty,
-              !payload.guestAgentVersion.isEmpty else {
+              !payload.guestAgentVersion.isEmpty,
+              Set(payload.guestCapabilities).count == payload.guestCapabilities.count,
+              Set(payload.guestCapabilities).isSuperset(of: profile.requiredGuestCapabilities) else {
             throw VMOmarchyFactoryValidationError.invalidManifest
         }
         guard manifest.keyID == profile.factoryImage.signingKeyID else {
