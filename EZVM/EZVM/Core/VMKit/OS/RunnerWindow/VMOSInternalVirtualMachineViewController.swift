@@ -1582,7 +1582,10 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                         for: Self.failureKind(error),
                         fallback: "Accessory Access failed: \(error.localizedDescription)"
                     )
-                    EZVMLog.error("Accessory Access registration failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
+                    EZVMLog.error(
+                        "Accessory Access registration failed: \(VMDiagnosticSanitizer.errorIdentifier(error))",
+                        logger: EZVMLog.lifecycle
+                    )
                     self.update(.failed(guidance))
                     return
                 }
@@ -1654,7 +1657,10 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                             fallback: error.localizedDescription
                         )
                     )
-                    EZVMLog.error("USB attach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
+                    EZVMLog.error(
+                        "USB attach failed: \(VMDiagnosticSanitizer.errorIdentifier(error))",
+                        logger: EZVMLog.lifecycle
+                    )
                     self.publish()
                 }
             }
@@ -1668,7 +1674,10 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                     fallback: error.localizedDescription
                 )
             )
-            EZVMLog.error("USB device creation failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
+            EZVMLog.error(
+                "USB device creation failed: \(VMDiagnosticSanitizer.errorIdentifier(error))",
+                logger: EZVMLog.lifecycle
+            )
             publish()
         }
     }
@@ -1709,7 +1718,10 @@ private final class VMUSBAccessoryCoordinator: NSObject, AAUSBAccessoryListener,
                         )
                     )
                 }
-                EZVMLog.error("USB detach failed: \(error.localizedDescription)", logger: EZVMLog.lifecycle)
+                EZVMLog.error(
+                    "USB detach failed: \(VMDiagnosticSanitizer.errorIdentifier(error))",
+                    logger: EZVMLog.lifecycle
+                )
                 self.publish()
             }
         }

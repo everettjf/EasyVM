@@ -57,7 +57,7 @@ class MachinesHomeStateObject {
             let loadModelResult = VMModel.loadConfigFromFile(rootPath: rootURL)
             switch loadModelResult {
             case .failure(let error):
-                EZVMLog.error("Failed to load VM at \(rootPath): \(error)", logger: EZVMLog.storage)
+                EZVMLog.error("Failed to load a registered VM: \(error)", logger: EZVMLog.storage)
                 vmItems.append(HomeItemVMModel(rootPath: rootURL, model: nil))
                 continue
             case .success(let model):

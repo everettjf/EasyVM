@@ -64,7 +64,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         // fill from form
         let rootPath = URL(filePath:context.formData.rootPath)
         let imagePath = imageURL
-        EZVMLog.info("Creating VM at \(rootPath.path(percentEncoded: false)) with image \(imagePath.lastPathComponent)", logger: EZVMLog.lifecycle)
+        EZVMLog.info("Creating a \(context.configData.osType.rawValue) VM with image \(imagePath.lastPathComponent)", logger: EZVMLog.lifecycle)
 
         let stateModel = VMStateModel(imagePath: imagePath)
         let configModel = context.configData.getConfigModel()

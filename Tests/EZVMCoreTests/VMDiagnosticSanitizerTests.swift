@@ -54,4 +54,17 @@ final class VMDiagnosticSanitizerTests: XCTestCase {
     func testMalformedConfigurationIsNotExported() {
         XCTAssertNil(VMDiagnosticSanitizer.sanitizedConfiguration(data: Data("not json".utf8)))
     }
+
+    func testErrorIdentifierDoesNotIncludePotentiallySensitiveDescription() {
+        let error = NSError(
+            domain: "AccessoryError",
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "Serial 1234 at /Users/alice"]
+        )
+
+        XCTAssertEqual(
+            VMDiagnosticSanitizer.errorIdentifier(error),
+            "domain=AccessoryError code=42"
+        )
+    }
 }

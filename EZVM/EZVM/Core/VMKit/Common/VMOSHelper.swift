@@ -44,6 +44,11 @@ enum VMDiagnosticSanitizer {
             }
     }
 
+    static func errorIdentifier(_ error: Error) -> String {
+        let error = error as NSError
+        return "domain=\(error.domain) code=\(error.code)"
+    }
+
     private static func sanitize(_ value: Any) -> Any {
         if let dictionary = value as? [String: Any] {
             return dictionary.reduce(into: [String: Any]()) { result, entry in
