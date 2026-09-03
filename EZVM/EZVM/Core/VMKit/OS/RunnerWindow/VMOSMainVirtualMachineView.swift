@@ -163,8 +163,10 @@ struct VMOSMainVirtualMachineView: View {
                         && runtimeState.graphicsBackendDetail != nil
                     Menu {
                         Text(graphicsNeedsAttention
-                             ? "Custom VirGL needs attention"
-                             : (backend == .customVirGL ? "Custom VirGL active" : "Apple Virtio active"))
+                             ? String(localized: "Custom VirGL needs attention")
+                             : (backend == .customVirGL
+                                ? String(localized: "Custom VirGL active")
+                                : String(localized: "Apple Virtio active")))
                         if let detail = runtimeState.graphicsBackendDetail {
                             Divider()
                             Text(detail)
@@ -179,9 +181,13 @@ struct VMOSMainVirtualMachineView: View {
                     }
                     .help(runtimeState.graphicsBackendDetail
                           ?? (backend == .customVirGL
-                              ? "Custom VirGL acceleration is active"
-                              : "Apple Virtio graphics is active"))
-                    .accessibilityLabel(graphicsNeedsAttention ? "Graphics needs attention" : "Graphics")
+                              ? String(localized: "Custom VirGL acceleration is active")
+                              : String(localized: "Apple Virtio graphics is active")))
+                    .accessibilityLabel(
+                        graphicsNeedsAttention
+                            ? String(localized: "Graphics needs attention")
+                            : String(localized: "Graphics")
+                    )
                 }
 
                 if runtimeState.networkRuntimeState != .unavailable {

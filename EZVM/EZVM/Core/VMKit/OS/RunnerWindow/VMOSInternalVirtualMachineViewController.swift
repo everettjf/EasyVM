@@ -462,7 +462,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 // launches don't repeatedly attempt an incompatible restore.
                 VMSavedStateStore.discardCommitted(stateURL: model.savedMachineStateURL)
                 runtimeState?.updateMachineStateNotice(
-                    "The saved session used a graphics configuration that Custom VirGL cannot restore. EZVM discarded it and started the virtual machine normally."
+                    String(localized: "The saved session used a graphics configuration that Custom VirGL cannot restore. EZVM discarded it and started the virtual machine normally.")
                 )
                 EZVMLog.info("Discarded saved state because Custom VirGL does not support machine-state restore.")
             } else if #available(macOS 14.0, *), FileManager.default.fileExists(atPath: model.savedMachineStateURL.path(percentEncoded: false)) {

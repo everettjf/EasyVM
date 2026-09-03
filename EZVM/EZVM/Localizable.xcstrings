@@ -473,7 +473,24 @@
 
     },
     "Apple Virtio active" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Apple Virtio 已启用" } }
+      }
+    },
+    "Apple Virtio graphics is active" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Apple Virtio 图形已启用" } }
+      }
+    },
+    "Apple Virtio is used until the EZVM Guest Agent confirms reliable keyboard and pointer input." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在 EZVM 客体代理确认键盘和指针输入可靠之前，将使用 Apple Virtio。" } }
+      }
+    },
+    "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接安装介质期间将使用 Apple Virtio，以确保安装程序获得可靠的键盘和指针输入。" } }
+      }
     },
     "ASIF is optimized for macOS 27 and supports efficient snapshots." : {
 
@@ -1037,11 +1054,30 @@
     "Custom" : {
 
     },
+    "Custom VirGL acceleration is active" : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 加速已启用" } }
+      }
+    },
     "Custom VirGL active" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 已启用" } }
+      }
     },
     "Custom VirGL needs attention" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 需要处理" } }
+      }
+    },
+    "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 多次无法呈现客体画面。虚拟机仍在运行；如果画面没有恢复，请停止虚拟机，关闭自定义 VirGL 后再重新启动。" } }
+      }
+    },
+    "Custom VirGL state cannot be saved." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法保存自定义 VirGL 状态。" } }
+      }
     },
     "Delete" : {
 
@@ -1431,7 +1467,9 @@
 
     },
     "Graphics" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "图形" } }
+      }
     },
     "Graphics needs attention" : {
       "localizations" : {
@@ -2021,7 +2059,9 @@
 
     },
     "Open settings to select Apple Virtio graphics for the next start" : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开设置，为下次启动选择 Apple Virtio 图形" } }
+      }
     },
     "Open source under the MIT license" : {
 
@@ -2203,7 +2243,12 @@
     },
     "Protecting snapshot \"%@\"…" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在保护快照“%@”…" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在保护快照“%@”…"
+          }
+        }
       }
     },
     "Protocol" : {
@@ -2876,6 +2921,16 @@
         }
       }
     },
+    "The Custom VirGL backend is enabled but has not been linked into this build." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 后端已启用，但未链接到此构建。" } }
+      }
+    },
+    "The Custom VirGL backend requires macOS 27 or later." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 后端需要 macOS 27 或更高版本。" } }
+      }
+    },
     "The guest could not initialize this USB device. Safely reconnect the device and try again; this device class may not support passthrough." : {
       "localizations" : {
         "zh-Hans" : {
@@ -2947,6 +3002,11 @@
             "value" : "正在运行的虚拟机不再有可用的 USB 控制器。请重新启动虚拟机后重试。"
           }
         }
+      }
+    },
+    "The saved session used a graphics configuration that Custom VirGL cannot restore. EZVM discarded it and started the virtual machine normally." : {
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已保存的会话使用了自定义 VirGL 无法恢复的图形配置。EZVM 已丢弃该会话，并正常启动虚拟机。" } }
       }
     },
     "The signed-release list updates automatically via IPSW.me. Downloads come directly from Apple; EZVM performs the final host compatibility check before installation." : {
@@ -3124,7 +3184,12 @@
     },
     "Unprotecting snapshot \"%@\"…" : {
       "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在取消保护快照“%@”…" } }
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在取消保护快照“%@”…"
+          }
+        }
       }
     },
     "Updating available versions…" : {
@@ -3246,7 +3311,9 @@
       }
     },
     "Virtio displays are intended for Linux guests and can use Apple graphics or VirGL." : {
-
+      "localizations" : {
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Virtio 显示设备适用于 Linux 客体，可使用 Apple 图形或 VirGL。" } }
+      }
     },
     "Virtio entropy source" : {
 

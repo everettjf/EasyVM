@@ -628,7 +628,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             break
         case .degraded:
             runtimeIssueHandler?(
-                "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting."
+                String(localized: "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting.")
             )
         case .recovered:
             runtimeIssueHandler?(nil)

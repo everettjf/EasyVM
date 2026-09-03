@@ -1059,7 +1059,7 @@ enum VMMachineStateSupport {
         usbOperationInProgress: Bool = false
     ) -> String? {
         if !backendSupportsSaveRestore {
-            return "Custom VirGL state cannot be saved."
+            return String(localized: "Custom VirGL state cannot be saved.")
         }
         if usbOperationInProgress {
             return String(localized: "Wait for the USB connection or disconnection to finish before saving machine state.")
@@ -1096,28 +1096,28 @@ struct VMGraphicsBackendSelection: Equatable {
             return VMGraphicsBackendSelection(
                 requested: .customVirGL,
                 active: .appleVirtio,
-                fallbackReason: "The Custom VirGL backend requires macOS 27 or later."
+                fallbackReason: String(localized: "The Custom VirGL backend requires macOS 27 or later.")
             )
         }
         guard customBackendImplemented else {
             return VMGraphicsBackendSelection(
                 requested: .customVirGL,
                 active: .appleVirtio,
-                fallbackReason: "The Custom VirGL backend is enabled but has not been linked into this build."
+                fallbackReason: String(localized: "The Custom VirGL backend is enabled but has not been linked into this build.")
             )
         }
         guard !hasInstallationMedia else {
             return VMGraphicsBackendSelection(
                 requested: .customVirGL,
                 active: .appleVirtio,
-                fallbackReason: "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input."
+                fallbackReason: String(localized: "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input.")
             )
         }
         guard guestInputReady else {
             return VMGraphicsBackendSelection(
                 requested: .customVirGL,
                 active: .appleVirtio,
-                fallbackReason: "Apple Virtio is used until the EZVM Guest Agent confirms reliable keyboard and pointer input."
+                fallbackReason: String(localized: "Apple Virtio is used until the EZVM Guest Agent confirms reliable keyboard and pointer input.")
             )
         }
         return VMGraphicsBackendSelection(

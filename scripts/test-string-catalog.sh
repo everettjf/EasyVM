@@ -64,7 +64,14 @@ ruby -rjson -e '
     "Installing the verified transaction",
     "Cancellation requested. EZVM will stop at the next safe boundary.",
     "Protecting snapshot \"%@\"…",
-    "Unprotecting snapshot \"%@\"…"
+    "Unprotecting snapshot \"%@\"…",
+    "Custom VirGL active",
+    "Custom VirGL needs attention",
+    "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting.",
+    "Custom VirGL state cannot be saved.",
+    "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input.",
+    "Apple Virtio is used until the EZVM Guest Agent confirms reliable keyboard and pointer input.",
+    "The saved session used a graphics configuration that Custom VirGL cannot restore. EZVM discarded it and started the virtual machine normally."
   ]
 
   required.each do |key|
