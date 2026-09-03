@@ -716,7 +716,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     private func createContext(_ request: Data, header: VirtioGPU.Header) -> Data {
-        guard request.count >= 96, header.contextID != 0, !contexts.contains(header.contextID) else {
+        guard request.count >= 96, header.contextID != 0,
+              !contexts.contains(header.contextID),
+              contexts.count < VirtioGPU.Limits.maxContexts else {
+            log(
+                "CTX_CREATE rejected context=\(header.contextID) "
+                    + "activeContexts=\(contexts.count) limit=\(VirtioGPU.Limits.maxContexts)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let nameLength = min(Int(request.littleEndianUInt32(at: 24)), 64)
@@ -885,6 +892,18 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         guard var resource = resources[update.resourceID], !resource.backing.isEmpty else {
             return VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
+        }
+        guard VirtioGPU.cursorResourceIsSupported(
+            width: resource.width,
+            height: resource.height
+        ) else {
+            log(
+                "UPDATE_CURSOR rejected resource=\(resource.id) size="
+                    + "\(resource.width)x\(resource.height) "
+                    + "limit=\(VirtioGPU.Limits.maxCursorDimension)",
+                error: true
+            )
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         guard update.hotX < UInt32(resource.width), update.hotY < UInt32(resource.height) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)

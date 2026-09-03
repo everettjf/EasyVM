@@ -244,6 +244,20 @@ import Testing
     #expect(VirtioGPU.CursorUpdate(Data(request.dropLast())) == nil)
 }
 
+@Test func cursorResourcesCannotBecomeUnboundedHostImages() {
+    #expect(VirtioGPU.cursorResourceIsSupported(width: 64, height: 64))
+    #expect(VirtioGPU.cursorResourceIsSupported(width: 256, height: 256))
+    #expect(!VirtioGPU.cursorResourceIsSupported(width: 257, height: 64))
+    #expect(!VirtioGPU.cursorResourceIsSupported(width: 64, height: 257))
+    #expect(!VirtioGPU.cursorResourceIsSupported(width: 0, height: 64))
+    #expect(!VirtioGPU.cursorResourceIsSupported(width: -1, height: 64))
+}
+
+@Test func rendererContextCountHasAHostSafetyCeiling() {
+    #expect(VirtioGPU.Limits.maxContexts >= 64)
+    #expect(VirtioGPU.Limits.maxContexts <= VirtioGPU.Limits.maxResources)
+}
+
 @Test func threeDimensionalResourceLimitsRejectPathologicalAllocations() {
     #expect(VirtioGPU.valid3DResourceDimensions(
         target: 2,

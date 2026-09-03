@@ -148,6 +148,21 @@ signatures, but it does not write an automatic scanout image to `/tmp` or a
 support bundle. User-requested VM thumbnails remain a separate, explicit
 product feature stored inside that VM's bundle.
 
+### Guest requests have one protocol boundary
+
+Every supported virtio-gpu command declares its fixed wire size and is rejected
+before dispatch if the guest supplies a shorter request. Variable command data
+is then checked against bounded submit, backing-entry, mapping, resource, and
+allocation limits. This common gate prevents an individual handler from
+accidentally reading a partial request; it also accepts the standard 40-byte
+`MOVE_CURSOR` layout instead of treating it like the larger `UPDATE_CURSOR`.
+
+Renderer-owned state is bounded independently of guest RAM. One device may own
+at most 256 VirGL contexts, and an AppKit cursor image may be at most 256×256.
+The latter preserves standard 64×64 and HiDPI cursor planes while preventing a
+guest from turning a scanout-sized resource into an unbounded host cursor image.
+Limit rejections record dimensions or active counts, never guest pixels.
+
 ### Reset and stop have distinct ownership boundaries
 
 Both transitions cancel scheduled frames and fences, invalidate the scanout,

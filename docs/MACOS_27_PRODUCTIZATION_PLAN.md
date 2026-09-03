@@ -513,6 +513,13 @@ also releases the framework device reference, preventing late resize work from
 crossing the device ownership boundary while preserving failed completion of
 outstanding fenced queue elements.
 
+The command dispatcher now verifies the fixed ABI size of all 21 supported
+virtio-gpu commands before any handler reads guest bytes. Renderer contexts are
+capped at 256 per device and host cursor materialization is capped at 256×256,
+with explicit diagnostics for rejected counts and dimensions. Protocol tests
+cover the full command-size table and both resource ceilings; physical guest
+workload and long-soak validation remain release gates.
+
 ## Shared UX work
 
 The five journeys should feel like one product rather than five framework

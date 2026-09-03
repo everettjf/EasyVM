@@ -20,10 +20,15 @@ enum VirtioGPU {
         static let maxResourceTexels: UInt64 = 256 * 1024 * 1024
         static let maxBufferBytes: UInt32 = 256 * 1024 * 1024
         static let maxResources = 4_096
+        static let maxContexts = 256
         static let maxResourcePixelBytes = 256 * 1024 * 1024
         static let maxTotalPixelBytes = 512 * 1024 * 1024
         static let maxBackingEntries = 4_096
         static let maxBackingBytes = 1024 * 1024 * 1024
+        // The virtio-gpu ABI standardizes a 64x64 cursor. Leave headroom for
+        // guests that use larger HiDPI cursor planes without allowing a
+        // general scanout-sized resource to become an AppKit cursor image.
+        static let maxCursorDimension: UInt32 = 256
     }
 
     static func clampedDisplaySize(width: UInt32, height: UInt32) -> (width: UInt32, height: UInt32) {
@@ -131,6 +136,12 @@ enum VirtioGPU {
         let bytes = pixels * 4
         guard bytes <= UInt64(Limits.maxResourcePixelBytes), bytes <= UInt64(Int.max) else { return nil }
         return Int(bytes)
+    }
+
+    static func cursorResourceIsSupported(width: Int, height: Int) -> Bool {
+        guard width > 0, height > 0 else { return false }
+        return width <= Int(Limits.maxCursorDimension)
+            && height <= Int(Limits.maxCursorDimension)
     }
 
     static func valid3DResourceDimensions(
