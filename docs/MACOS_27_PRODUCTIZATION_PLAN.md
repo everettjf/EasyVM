@@ -139,6 +139,13 @@ specific recovery action. A detach `DeviceNotFound` result now reconciles the
 device as disconnected instead of leaving machine-state saving blocked by a
 stale attachment.
 
+Machine-state saving is now unavailable for the entire USB transition, not
+only after an attachment has completed. This closes the interval in which an
+asynchronous controller attach could finish while a save was starting. The USB
+menu is also disabled once the VM enters pausing, saving, or stopping, and the
+unavailability reason tells the user to wait for the current connection or
+disconnection rather than incorrectly claiming a device is already attached.
+
 After the initial system selection, users can reopen Accessory Access to choose
 additional devices. Because Apple rejects registering the same listener twice,
 EZVM unregisters and registers it again only when no device is attached and no

@@ -888,10 +888,14 @@ enum VMMachineStateSupport {
     static func unavailabilityReason(
         backendSupportsSaveRestore: Bool,
         configurationValidationFailure: String?,
-        attachedAccessoryCount: Int
+        attachedAccessoryCount: Int,
+        usbOperationInProgress: Bool = false
     ) -> String? {
         if !backendSupportsSaveRestore {
             return "Custom VirGL state cannot be saved."
+        }
+        if usbOperationInProgress {
+            return "Wait for the USB connection or disconnection to finish before saving machine state."
         }
         if attachedAccessoryCount > 0 {
             return "Disconnect USB accessories before saving machine state."

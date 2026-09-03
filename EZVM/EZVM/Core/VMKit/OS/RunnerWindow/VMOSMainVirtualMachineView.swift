@@ -188,6 +188,7 @@ struct VMOSMainVirtualMachineView: View {
                 Menu("USB", systemImage: "cable.connector") {
                     usbPassthroughContent
                 }
+                .disabled(!runtimeState.canManageUSBPassthrough)
                 .help("Choose USB accessories to attach directly to this virtual machine")
 
                 if let target = runtimeState.balloonMemoryTarget,

@@ -85,6 +85,10 @@ final class VMRuntimeState {
         guard case let .ready(snapshot) = usbPassthroughState else { return false }
         return snapshot.hasAttachedDevices
     }
+    var hasUSBPassthroughOperation: Bool {
+        guard case let .ready(snapshot) = usbPassthroughState else { return false }
+        return !snapshot.operations.isEmpty
+    }
     var canPersistMachineState: Bool {
         machineStateUnavailabilityReason == nil
     }
@@ -92,7 +96,8 @@ final class VMRuntimeState {
         VMMachineStateSupport.unavailabilityReason(
             backendSupportsSaveRestore: supportsMachineSaveRestore,
             configurationValidationFailure: machineStateConfigurationFailure,
-            attachedAccessoryCount: hasAttachedUSBAccessories ? 1 : 0
+            attachedAccessoryCount: hasAttachedUSBAccessories ? 1 : 0,
+            usbOperationInProgress: hasUSBPassthroughOperation
         )
     }
     var canForceStop: Bool {
@@ -103,6 +108,10 @@ final class VMRuntimeState {
     }
     var canManageBalloon: Bool {
         balloonMemoryMaximum != nil && (phase == .running || phase == .paused)
+    }
+
+    var canManageUSBPassthrough: Bool {
+        phase == .running || phase == .paused
     }
 
     var needsCloseConfirmation: Bool {

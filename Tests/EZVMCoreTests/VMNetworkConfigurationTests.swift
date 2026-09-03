@@ -371,6 +371,27 @@ final class VMNetworkConfigurationTests: XCTestCase {
         )
     }
 
+    func testUSBOperationBlocksMachineStateBeforeAttachmentCompletes() {
+        XCTAssertEqual(
+            VMMachineStateSupport.unavailabilityReason(
+                backendSupportsSaveRestore: true,
+                configurationValidationFailure: nil,
+                attachedAccessoryCount: 0,
+                usbOperationInProgress: true
+            ),
+            "Wait for the USB connection or disconnection to finish before saving machine state."
+        )
+        XCTAssertEqual(
+            VMMachineStateSupport.unavailabilityReason(
+                backendSupportsSaveRestore: true,
+                configurationValidationFailure: nil,
+                attachedAccessoryCount: 1,
+                usbOperationInProgress: true
+            ),
+            "Wait for the USB connection or disconnection to finish before saving machine state."
+        )
+    }
+
     func testUSBListenerRejectsRegistrationCompletionAfterStop() {
         var lifecycle = VMUSBListenerLifecycle()
         let token = try! XCTUnwrap(lifecycle.beginRegistration())
