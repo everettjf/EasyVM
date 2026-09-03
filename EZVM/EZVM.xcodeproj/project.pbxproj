@@ -659,6 +659,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = F2C5DC952866F7C800B2F41F;
@@ -670,7 +671,6 @@
 			projectRoot = "";
 			targets = (
 				F2C5DC9D2866F7C800B2F41F /* EZVM */,
-				D1CCB1D4290DB92D00B1F563 /* EZVM Intel */,
 			);
 		};
 /* End PBXProject section */
