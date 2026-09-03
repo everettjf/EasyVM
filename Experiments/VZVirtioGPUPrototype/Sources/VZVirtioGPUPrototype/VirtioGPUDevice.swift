@@ -2,7 +2,6 @@ import AppKit
 import CVirGLBridge
 import Darwin
 import Foundation
-import ImageIO
 import OSLog
 import Virtualization
 
@@ -93,7 +92,6 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var assertedDisplayEventGeneration: Int?
     private var displayInfoRequestCount: UInt64 = 0
     private var borrowedScanoutResources: Set<UInt32> = []
-    private var savedEvidenceFrame = false
     private lazy var frameScheduler = LatestFrameScheduler<ScanoutFrame> { [weak self] frame, completed in
         guard let self else {
             completed()
@@ -1102,21 +1100,6 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             )
         }
         guard let image = makeImage(resource) else { return }
-        if !savedEvidenceFrame, sampledNonzeroBytes > 0 {
-            let evidenceURL = URL(fileURLWithPath: "/tmp/ezvm-vz-gpu-scanout.png")
-            if let destination = CGImageDestinationCreateWithURL(
-                evidenceURL as CFURL,
-                "public.png" as CFString,
-                1,
-                nil
-            ) {
-                CGImageDestinationAddImage(destination, image, nil)
-                if CGImageDestinationFinalize(destination) {
-                    savedEvidenceFrame = true
-                    print("[stage2] saved nonzero scanout evidence: \(evidenceURL.path)")
-                }
-            }
-        }
         Task { @MainActor in
             onFrame(image)
         }

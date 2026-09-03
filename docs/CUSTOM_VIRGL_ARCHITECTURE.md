@@ -142,6 +142,12 @@ to a degraded state and place actionable guidance in the VM window's Graphics
 menu. The VM remains running so the guest is not corrupted or abruptly stopped;
 a successful frame clears the degradation automatically.
 
+Diagnostics never persist guest pixels. The production runtime records bounded
+frame counts, dimensions, timing, renderer errors, and content-change
+signatures, but it does not write an automatic scanout image to `/tmp` or a
+support bundle. User-requested VM thumbnails remain a separate, explicit
+product feature stored inside that VM's bundle.
+
 ### Reset and stop have distinct ownership boundaries
 
 Both transitions cancel scheduled frames and fences, invalidate the scanout,

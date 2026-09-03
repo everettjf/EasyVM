@@ -297,6 +297,11 @@ failures. Three consecutive renderer failures mark Custom VirGL as degraded in
 the Graphics menu with recovery guidance; the next successful frame clears the
 condition automatically while the VM continues running.
 
+The legacy prototype scanout-evidence writer has been removed from the linked
+runtime. VirGL diagnostics retain only bounded counters, dimensions, timings,
+errors, and content-change signatures; they never persist guest pixels. The
+normal user-visible thumbnail workflow remains separate and explicit.
+
 Custom GPU reset now clears all guest-visible display state, including the
 scanout rectangle, cursor position, and pending display event. Terminal stop
 also releases the framework device reference, preventing late resize work from
