@@ -270,7 +270,7 @@
 
     },
     "Copy Error" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制错误信息" } } }
     },
     "Couldn’t export diagnostics" : {
 
@@ -416,10 +416,10 @@
       }
     },
     "Export Diagnostics" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导出诊断信息" } } }
     },
     "Export Diagnostics…" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导出诊断信息…" } } }
     },
     "Export Guest Agent Enrollment..." : {
 
@@ -596,6 +596,48 @@
     },
     "Storage" : {
       "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "存储空间" } } }
+    },
+    "Preparing the macOS account" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备 macOS 账户" } } }
+    },
+    "Keep Password" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保留密码" } } }
+    },
+    "Remove Password" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除密码" } } }
+    },
+    "Keep Automatic Setup" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保留自动设置" } } }
+    },
+    "Remove the pending credential and stop automatic account setup" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除待处理的凭据，并停止自动账户设置" } } }
+    },
+    "Keep the temporary credential and submit provisioning again on the next VM start" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保留临时凭据，并在虚拟机下次启动时重新提交配置" } } }
+    },
+    "Remove the temporary provisioning credential after verifying the account in the guest" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "确认客体账户后，移除临时配置凭据" } } }
+    },
+    "macOS setup confirmed — temporary password removed" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已确认 macOS 设置 — 临时密码已移除" } } }
+    },
+    "Reconnect" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新连接" } } }
+    },
+    "Network" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络" } } }
+    },
+    "Virtual machine network" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "虚拟机网络" } } }
+    },
+    "Saved Session Status" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已保存会话状态" } } }
+    },
+    "Dismiss the saved-session status message" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭已保存会话的状态信息" } } }
+    },
+    "Saved session status" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已保存会话状态" } } }
     },
     "Guest Agent" : {
 
@@ -832,7 +874,7 @@
 
     },
     "Pause" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂停" } } }
     },
     "Pause this virtual machine" : {
 
@@ -943,7 +985,7 @@
 
     },
     "Resume" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "继续运行" } } }
     },
     "Resume this virtual machine" : {
 
@@ -996,7 +1038,7 @@
 
     },
     "Save State and Stop" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存状态并停止" } } }
     },
     "Saving Virtual Machine State…" : {
 
@@ -1043,7 +1085,7 @@
 
     },
     "Shut Down" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关机" } } }
     },
     "Shut Down and Close" : {
 
@@ -1187,7 +1229,7 @@
 
     },
     "Virtual Machine Error" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "虚拟机错误" } } }
     },
     "Virtualization capabilities" : {
 
