@@ -163,6 +163,15 @@ The latter preserves standard 64×64 and HiDPI cursor planes while preventing a
 guest from turning a scanout-sized resource into an unbounded host cursor image.
 Limit rejections record dimensions or active counts, never guest pixels.
 
+The device also enforces a 2 GiB aggregate renderer-resource budget before any
+resource creation crosses into C. Buffers contribute their declared byte size;
+textures use a conservative 16-byte-per-texel estimate scaled for arrays,
+depth, mipmaps, and multisampling with overflow-checked arithmetic. A failed
+renderer creation returns its reservation immediately, while `RESOURCE_UNREF`,
+device reset, and stop release committed reservations. This closes the gap where
+thousands of individually valid resources could exhaust host memory despite the
+per-resource and resource-count ceilings.
+
 `TRANSFER_TO_HOST_3D` and `TRANSFER_FROM_HOST_3D` are screened again before
 crossing into virglrenderer. EZVM retains each resource's last mip level and
 rejects empty regions, unavailable mip levels, X/Y regions outside the selected

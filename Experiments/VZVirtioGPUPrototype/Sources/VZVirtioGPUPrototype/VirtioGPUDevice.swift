@@ -47,6 +47,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         var backing: [BackingEntry] = []
         var virglBacking: VirGLBacking?
         var isRendererResource = false
+        var estimatedRendererBytes: UInt64 = 0
         var pixels = Data()
     }
 
@@ -71,6 +72,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private(set) var device: VZCustomVirtioDevice?
     private var resources: [UInt32: Resource] = [:]
     private var totalPixelBytes = 0
+    private var rendererResourceBudget = VirtioGPU.RendererResourceBudget()
     private var contexts: Set<UInt32> = []
     private var contextResources: [UInt32: Set<UInt32>] = [:]
     private var scanoutResourceID: UInt32?
@@ -293,6 +295,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         resources.removeAll()
         totalPixelBytes = 0
+        rendererResourceBudget.reset()
         contexts.removeAll()
         contextResources.removeAll()
         scanoutResourceID = nil
@@ -394,6 +397,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             }
             resources.removeValue(forKey: resourceID)
             totalPixelBytes -= resource.pixels.count
+            rendererResourceBudget.release(resource.estimatedRendererBytes)
             let wasActiveScanout = scanoutResourceID == resourceID
             let wasPublishedScanout = lastPublishedScanoutResourceID == resourceID
             if wasActiveScanout {
@@ -581,6 +585,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
               totalPixelBytes <= VirtioGPU.Limits.maxTotalPixelBytes - byteCount else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
+        let estimatedRendererBytes = UInt64(byteCount)
+        guard rendererResourceBudget.reserve(estimatedRendererBytes) else {
+            return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
+        }
         let width = Int(wireWidth)
         let height = Int(wireHeight)
         var resource = Resource(
@@ -588,6 +596,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             format: format,
             width: width,
             height: height,
+            estimatedRendererBytes: estimatedRendererBytes,
             pixels: Data(count: byteCount)
         )
         resource.isRendererResource = renderer.createResource(.init(
@@ -596,6 +605,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             arraySize: 1, lastLevel: 0, sampleCount: 0, flags: 0
         ))
         guard resource.isRendererResource else {
+            rendererResourceBudget.release(estimatedRendererBytes)
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
         resources[resourceID] = resource
@@ -621,6 +631,15 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 width: width, height: height, depth: depth, arraySize: arraySize,
                 lastLevel: lastLevel, sampleCount: sampleCount
               )
+        let estimatedRendererBytes = VirtioGPU.estimatedRendererResourceBytes(
+            target: target,
+            width: width,
+            height: height,
+            depth: depth,
+            arraySize: arraySize,
+            lastLevel: lastLevel,
+            sampleCount: sampleCount
+        )
         guard resourceID != 0, resources[resourceID] == nil,
               resources.count < VirtioGPU.Limits.maxResources,
               hasValidDimensions else {
@@ -638,6 +657,18 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             )
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
+        guard let estimatedRendererBytes else {
+            return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
+        }
+        guard rendererResourceBudget.reserve(estimatedRendererBytes) else {
+            diagnosticLog(
+                "RESOURCE_CREATE_3D rejected-by-budget resource=\(resourceID) "
+                    + "estimated=\(estimatedRendererBytes) "
+                    + "allocated=\(rendererResourceBudget.allocatedBytes) "
+                    + "limit=\(VirtioGPU.Limits.maxRendererResourceBytes)"
+            )
+            return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
+        }
         let arguments = VirGLRenderer.ResourceArguments(
             id: resourceID,
             target: target,
@@ -652,6 +683,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             flags: request.littleEndianUInt32(at: 64)
         )
         guard renderer.createResource(arguments) else {
+            rendererResourceBudget.release(estimatedRendererBytes)
             print(
                 "[stage3] rejected 3D resource \(resourceID): "
                 + "target=\(arguments.target), format=\(arguments.format), bind=\(arguments.bind), "
@@ -664,7 +696,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             id: resourceID, format: arguments.format,
             width: Int(width), height: Int(height),
             lastLevel: lastLevel,
-            isRendererResource: true
+            isRendererResource: true,
+            estimatedRendererBytes: estimatedRendererBytes
         )
         diagnosticLog(
             "RESOURCE_CREATE_3D resource=\(resourceID) target=\(arguments.target) "

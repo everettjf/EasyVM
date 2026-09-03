@@ -291,6 +291,59 @@ import Testing
     ))
 }
 
+@Test func rendererResourceEstimatesAccountForBuffersTexturesMipmapsAndSamples() {
+    #expect(VirtioGPU.estimatedRendererResourceBytes(
+        target: 0,
+        width: 64 * 1024, height: 1, depth: 1, arraySize: 1,
+        lastLevel: 0, sampleCount: 0
+    ) == 64 * 1024)
+
+    let baseTexture = UInt64(1280 * 720 * 16)
+    #expect(VirtioGPU.estimatedRendererResourceBytes(
+        target: 2,
+        width: 1280, height: 720, depth: 1, arraySize: 1,
+        lastLevel: 0, sampleCount: 0
+    ) == baseTexture)
+    #expect(VirtioGPU.estimatedRendererResourceBytes(
+        target: 2,
+        width: 1280, height: 720, depth: 1, arraySize: 1,
+        lastLevel: 4, sampleCount: 4
+    ) == baseTexture * 2 * 4)
+    #expect(VirtioGPU.estimatedRendererResourceBytes(
+        target: 2,
+        width: UInt32.max, height: UInt32.max, depth: UInt32.max,
+        arraySize: UInt32.max, lastLevel: UInt32.max, sampleCount: UInt32.max
+    ) == nil)
+}
+
+@Test func rendererResourceBudgetIsAggregateReversibleAndOverflowSafe() {
+    var budget = VirtioGPU.RendererResourceBudget(limit: 100)
+
+    let firstReservation = budget.reserve(60)
+    #expect(firstReservation)
+    #expect(budget.allocatedBytes == 60)
+    let overBudgetReservation = budget.reserve(41)
+    #expect(!overBudgetReservation)
+    #expect(budget.allocatedBytes == 60)
+    let overflowReservation = budget.reserve(UInt64.max)
+    #expect(!overflowReservation)
+    let emptyReservation = budget.reserve(0)
+    #expect(!emptyReservation)
+
+    budget.release(20)
+    #expect(budget.allocatedBytes == 40)
+    let finalReservation = budget.reserve(60)
+    #expect(finalReservation)
+    #expect(budget.allocatedBytes == 100)
+    budget.release(UInt64.max)
+    #expect(budget.allocatedBytes == 0)
+
+    let fullReservation = budget.reserve(100)
+    #expect(fullReservation)
+    budget.reset()
+    #expect(budget.allocatedBytes == 0)
+}
+
 @Test func transferRegionsRespectMipEdgesAndCannotOverflow() {
     #expect(VirtioGPU.transferRegionIsValid(
         resourceWidth: 1024, resourceHeight: 512, resourceLastLevel: 4,

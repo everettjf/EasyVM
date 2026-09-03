@@ -551,6 +551,14 @@ with explicit diagnostics for rejected counts and dimensions. Protocol tests
 cover the full command-size table and both resource ceilings; physical guest
 workload and long-soak validation remain release gates.
 
+Renderer allocations now have a 2 GiB aggregate per-device safety budget in
+addition to per-resource dimensions and counts. Buffers are charged by declared
+bytes; textures are conservatively estimated using dimensions, array/depth,
+mipmap, multisample, and worst-case texel size before virglrenderer is called.
+Reservations roll back on renderer rejection and are released by resource
+unreference, reset, and stop. This prevents a guest from exhausting the host by
+creating many resources that are each individually legal.
+
 Three-dimensional transfers now retain and validate resource mip metadata at
 the Swift boundary. Empty, overflowing, unavailable-mip, and out-of-mip X/Y
 regions are rejected before entering the C renderer, while Gallium continues to

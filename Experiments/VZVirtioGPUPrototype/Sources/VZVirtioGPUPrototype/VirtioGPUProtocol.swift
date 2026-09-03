@@ -19,6 +19,7 @@ enum VirtioGPU {
         static let maxSampleCount: UInt32 = 16
         static let maxResourceTexels: UInt64 = 256 * 1024 * 1024
         static let maxBufferBytes: UInt32 = 256 * 1024 * 1024
+        static let maxRendererResourceBytes: UInt64 = 2 * 1024 * 1024 * 1024
         static let maxResources = 4_096
         static let maxContexts = 256
         static let maxResourcePixelBytes = 256 * 1024 * 1024
@@ -29,6 +30,30 @@ enum VirtioGPU {
         // guests that use larger HiDPI cursor planes without allowing a
         // general scanout-sized resource to become an AppKit cursor image.
         static let maxCursorDimension: UInt32 = 256
+    }
+
+    struct RendererResourceBudget: Equatable {
+        let limit: UInt64
+        private(set) var allocatedBytes: UInt64 = 0
+
+        init(limit: UInt64 = Limits.maxRendererResourceBytes) {
+            self.limit = limit
+        }
+
+        mutating func reserve(_ bytes: UInt64) -> Bool {
+            guard bytes > 0, bytes <= limit,
+                  allocatedBytes <= limit - bytes else { return false }
+            allocatedBytes += bytes
+            return true
+        }
+
+        mutating func release(_ bytes: UInt64) {
+            allocatedBytes = bytes <= allocatedBytes ? allocatedBytes - bytes : 0
+        }
+
+        mutating func reset() {
+            allocatedBytes = 0
+        }
     }
 
     static func clampedDisplaySize(width: UInt32, height: UInt32) -> (width: UInt32, height: UInt32) {
@@ -197,6 +222,49 @@ enum VirtioGPU {
               sampleCount <= Limits.maxSampleCount else { return false }
         let texels = UInt64(width) * UInt64(height) * UInt64(depth) * UInt64(arraySize)
         return texels <= Limits.maxResourceTexels
+    }
+
+    /// Conservative host-allocation estimate used before crossing into
+    /// virglrenderer. Texture formats can occupy up to 16 bytes per texel;
+    /// mip chains are bounded by twice the base allocation, and multisampling
+    /// scales storage by the declared sample count. PIPE_BUFFER width is
+    /// already a byte count.
+    static func estimatedRendererResourceBytes(
+        target: UInt32,
+        width: UInt32,
+        height: UInt32,
+        depth: UInt32,
+        arraySize: UInt32,
+        lastLevel: UInt32,
+        sampleCount: UInt32
+    ) -> UInt64? {
+        guard valid3DResourceDimensions(
+            target: target,
+            width: width,
+            height: height,
+            depth: depth,
+            arraySize: arraySize,
+            lastLevel: lastLevel,
+            sampleCount: sampleCount
+        ) else { return nil }
+        if target == 0 { return UInt64(width) }
+
+        var estimate = UInt64(width)
+        for factor in [UInt64(height), UInt64(depth), UInt64(arraySize), 16] {
+            let result = estimate.multipliedReportingOverflow(by: factor)
+            guard !result.overflow else { return nil }
+            estimate = result.partialValue
+        }
+        let samples = max(UInt64(sampleCount), 1)
+        let sampled = estimate.multipliedReportingOverflow(by: samples)
+        guard !sampled.overflow else { return nil }
+        estimate = sampled.partialValue
+        if lastLevel > 0 {
+            let mipmapped = estimate.multipliedReportingOverflow(by: 2)
+            guard !mipmapped.overflow else { return nil }
+            estimate = mipmapped.partialValue
+        }
+        return estimate
     }
 
     static func rectIsContained(
