@@ -48,10 +48,13 @@ enum OmarchyAcceptanceObservationReporter {
 
     private struct LifecycleObservation: Codable {
         let schemaVersion: Int
-        var firstInactiveObservedAt: Date?
+        var firstProvisioningPendingObservedAt: Date?
+        var firstLockedObservedAt: Date?
         var firstActiveObservedAt: Date?
+        var firstActiveAfterLockedObservedAt: Date?
         var lastObservedAt: Date
         var lastDesktopSessionActive: Bool
+        var lastProvisioningPending: Bool
         var guestAgentVersion: String
     }
 
@@ -68,20 +71,32 @@ enum OmarchyAcceptanceObservationReporter {
         var observation = (try? Data(contentsOf: file)).flatMap {
             try? decoder.decode(LifecycleObservation.self, from: $0)
         } ?? LifecycleObservation(
-            schemaVersion: 1,
-            firstInactiveObservedAt: nil,
+            schemaVersion: 2,
+            firstProvisioningPendingObservedAt: nil,
+            firstLockedObservedAt: nil,
             firstActiveObservedAt: nil,
+            firstActiveAfterLockedObservedAt: nil,
             lastObservedAt: observedAt,
             lastDesktopSessionActive: status.desktopSessionActive,
+            lastProvisioningPending: status.provisioningPending,
             guestAgentVersion: status.agentVersion
         )
+        if status.provisioningPending {
+            observation.firstProvisioningPendingObservedAt =
+                observation.firstProvisioningPendingObservedAt ?? observedAt
+        }
         if status.desktopSessionActive {
             observation.firstActiveObservedAt = observation.firstActiveObservedAt ?? observedAt
-        } else {
-            observation.firstInactiveObservedAt = observation.firstInactiveObservedAt ?? observedAt
+            if observation.firstLockedObservedAt != nil {
+                observation.firstActiveAfterLockedObservedAt =
+                    observation.firstActiveAfterLockedObservedAt ?? observedAt
+            }
+        } else if !status.provisioningPending {
+            observation.firstLockedObservedAt = observation.firstLockedObservedAt ?? observedAt
         }
         observation.lastObservedAt = observedAt
         observation.lastDesktopSessionActive = status.desktopSessionActive
+        observation.lastProvisioningPending = status.provisioningPending
         observation.guestAgentVersion = status.agentVersion
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

@@ -243,8 +243,17 @@ final class EZVMOmarchyTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
         let environment = [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"]
+        let provisioningAt = Date(timeIntervalSince1970: 1_699_999_990)
         let lockedAt = Date(timeIntervalSince1970: 1_700_000_000)
         let unlockedAt = lockedAt.addingTimeInterval(10)
+        let provisioning = VMOmarchyGuestStatus(
+            agentVersion: "agent-commit",
+            hostName: "omarchy",
+            addresses: [],
+            capabilities: [],
+            desktopSessionActive: false,
+            provisioningPending: true
+        )
         let locked = VMOmarchyGuestStatus(
             agentVersion: "agent-commit",
             hostName: "omarchy",
@@ -263,6 +272,12 @@ final class EZVMOmarchyTests: XCTestCase {
         )
 
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: provisioning,
+            layout: layout,
+            environment: environment,
+            observedAt: provisioningAt
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: locked, layout: layout, environment: environment, observedAt: lockedAt
         )
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
@@ -273,10 +288,13 @@ final class EZVMOmarchyTests: XCTestCase {
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 1)
-        XCTAssertNotNil(json["firstInactiveObservedAt"])
+        XCTAssertEqual(json["schemaVersion"] as? Int, 2)
+        XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
+        XCTAssertNotNil(json["firstLockedObservedAt"])
         XCTAssertNotNil(json["firstActiveObservedAt"])
+        XCTAssertNotNil(json["firstActiveAfterLockedObservedAt"])
         XCTAssertEqual(json["lastDesktopSessionActive"] as? Bool, true)
+        XCTAssertEqual(json["lastProvisioningPending"] as? Bool, false)
         XCTAssertEqual(json["guestAgentVersion"] as? String, "agent-commit")
     }
 
