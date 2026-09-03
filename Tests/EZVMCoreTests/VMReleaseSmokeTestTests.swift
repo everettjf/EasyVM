@@ -10,6 +10,39 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         ]))
     }
 
+    func testSnapshotConfigurationRequiresValidActionPathsAndID() throws {
+        XCTAssertNil(VMReleaseSnapshotTestConfiguration.configuration(environment: [:]))
+        XCTAssertNil(VMReleaseSnapshotTestConfiguration.configuration(environment: [
+            VMReleaseSnapshotTestConfiguration.actionEnvironmentKey: "unknown",
+            VMReleaseSnapshotTestConfiguration.vmPathEnvironmentKey: "/tmp/vm.ezvm",
+            VMReleaseSnapshotTestConfiguration.resultPathEnvironmentKey: "/tmp/result"
+        ]))
+        XCTAssertNil(VMReleaseSnapshotTestConfiguration.configuration(environment: [
+            VMReleaseSnapshotTestConfiguration.actionEnvironmentKey: "audit",
+            VMReleaseSnapshotTestConfiguration.vmPathEnvironmentKey: "/tmp/vm.ezvm",
+            VMReleaseSnapshotTestConfiguration.resultPathEnvironmentKey: "/tmp/result"
+        ]))
+
+        let created = try XCTUnwrap(VMReleaseSnapshotTestConfiguration.configuration(environment: [
+            VMReleaseSnapshotTestConfiguration.actionEnvironmentKey: "create",
+            VMReleaseSnapshotTestConfiguration.vmPathEnvironmentKey: "/tmp/parent/../vm.ezvm",
+            VMReleaseSnapshotTestConfiguration.resultPathEnvironmentKey: "/tmp/out/../result"
+        ]))
+        XCTAssertEqual(created.action, .create)
+        XCTAssertEqual(created.vmRootPath.path, "/tmp/vm.ezvm")
+        XCTAssertEqual(created.resultPath.path, "/tmp/result")
+        XCTAssertNil(created.snapshotID)
+
+        let id = UUID().uuidString
+        let restored = try XCTUnwrap(VMReleaseSnapshotTestConfiguration.configuration(environment: [
+            VMReleaseSnapshotTestConfiguration.actionEnvironmentKey: "restore",
+            VMReleaseSnapshotTestConfiguration.vmPathEnvironmentKey: "/tmp/vm.ezvm",
+            VMReleaseSnapshotTestConfiguration.resultPathEnvironmentKey: "/tmp/result",
+            VMReleaseSnapshotTestConfiguration.snapshotIDEnvironmentKey: id
+        ]))
+        XCTAssertEqual(restored.snapshotID, id)
+    }
+
     func testConfigurationStandardizesPaths() throws {
         let configuration = try XCTUnwrap(VMReleaseSmokeTest.configuration(environment: [
             VMReleaseSmokeTest.vmPathEnvironmentKey: "/tmp/parent/../smoke.ezvm",

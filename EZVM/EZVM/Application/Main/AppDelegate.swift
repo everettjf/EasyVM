@@ -29,6 +29,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 #if arch(arm64)
+        if let snapshotTest = VMReleaseSnapshotTestConfiguration.configuration() {
+            runReleaseSnapshotTest(snapshotTest)
+            return
+        }
         if let fixture = ReleaseFixtureCreationConfiguration.current {
             createReleaseFixture(fixture)
             return
@@ -121,6 +125,63 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
 #if arch(arm64)
+    private func runReleaseSnapshotTest(_ test: VMReleaseSnapshotTestConfiguration) {
+        NSApp.setActivationPolicy(.prohibited)
+        for window in NSApp.windows { window.orderOut(nil) }
+
+        let fail: (String) -> Never = { message in
+            test.report("failed: \(message)")
+            exit(72)
+        }
+        guard FileManager.default.fileExists(atPath: test.vmRootPath.appending(path: "config.json").path) else {
+            fail("snapshot fixture has no config.json")
+        }
+        guard VMSnapshotManager.selectedBackend(vmRootPath: test.vmRootPath) == .diskImageKitLayered else {
+            fail("snapshot fixture does not use DiskImageKit layered ASIF storage")
+        }
+
+        switch test.action {
+        case .create:
+            if case let .failure(message) = VMSnapshotManager.recoverInterruptedRestore(vmRootPath: test.vmRootPath) {
+                fail(message)
+            }
+            switch VMSnapshotManager.createSnapshot(
+                vmRootPath: test.vmRootPath,
+                name: "EZVM signed release validation"
+            ) {
+            case .success(let snapshot):
+                guard snapshot.backend == .diskImageKitLayered else {
+                    fail("snapshot unexpectedly used \(snapshot.backend.rawValue)")
+                }
+                test.report("created:\(snapshot.id)")
+                exit(0)
+            case .failure(let message):
+                fail(message)
+            }
+        case .audit, .restore:
+            guard let snapshotID = test.snapshotID,
+                  let snapshot = VMSnapshotManager.listSnapshots(vmRootPath: test.vmRootPath)
+                    .first(where: { $0.id == snapshotID }) else {
+                fail("snapshot is missing after process restart")
+            }
+            let audit = VMSnapshotManager.auditSnapshot(vmRootPath: test.vmRootPath, snapshot: snapshot)
+            guard audit.isValid else {
+                fail("snapshot audit failed: \(audit.errors.joined(separator: "; "))")
+            }
+            if test.action == .audit {
+                test.report("audited")
+                exit(0)
+            }
+            switch VMSnapshotManager.restoreSnapshot(vmRootPath: test.vmRootPath, snapshot: snapshot) {
+            case .success:
+                test.report("restored")
+                exit(0)
+            case .failure(let message):
+                fail(message)
+            }
+        }
+    }
+
     private func createReleaseFixture(_ fixture: ReleaseFixtureCreationConfiguration) {
         NSApp.setActivationPolicy(.prohibited)
         for window in NSApp.windows { window.orderOut(nil) }

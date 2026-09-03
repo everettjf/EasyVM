@@ -89,7 +89,9 @@ Gatekeeper, entitlements, GUI readiness, and then exercises CLI lifecycle,
 concurrent ownership, forced-exit recovery, saved-state recovery, Linux EFI
 recovery, Guest Agent authentication, byte-exact transfer, ASIF attachment,
 VMNet Shared guest connectivity, and clean shutdown. The VMNet gate creates and
-removes its own clone of the Ubuntu fixture; it never changes the source VM. Set
+removes its own clone of the Ubuntu fixture. The ASIF gate separately creates a
+layered snapshot, audits and restores it from fresh app processes, then boots the
+restored clone. Neither gate changes the source VM. Set
 `EZVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
 gate. Fixtures are cloned before destructive recovery checks; the originals
 remain unchanged.

@@ -544,6 +544,53 @@ enum VMReleaseSmokeTest {
     }
 }
 
+enum VMReleaseSnapshotAction: String, Equatable {
+    case create, audit, restore
+}
+
+struct VMReleaseSnapshotTestConfiguration: Equatable {
+    let action: VMReleaseSnapshotAction
+    let vmRootPath: URL
+    let resultPath: URL
+    let snapshotID: String?
+
+    static let actionEnvironmentKey = "EZVM_RELEASE_SNAPSHOT_ACTION"
+    static let vmPathEnvironmentKey = "EZVM_RELEASE_SNAPSHOT_VM"
+    static let resultPathEnvironmentKey = "EZVM_RELEASE_SNAPSHOT_RESULT"
+    static let snapshotIDEnvironmentKey = "EZVM_RELEASE_SNAPSHOT_ID"
+
+    static func configuration(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Self? {
+        guard let actionValue = environment[actionEnvironmentKey],
+              let action = VMReleaseSnapshotAction(rawValue: actionValue),
+              let vmPath = environment[vmPathEnvironmentKey], !vmPath.isEmpty,
+              let resultPath = environment[resultPathEnvironmentKey], !resultPath.isEmpty else {
+            return nil
+        }
+        let snapshotID = environment[snapshotIDEnvironmentKey].flatMap { value in
+            UUID(uuidString: value) == nil ? nil : value
+        }
+        guard action == .create || snapshotID != nil else { return nil }
+        return Self(
+            action: action,
+            vmRootPath: URL(filePath: vmPath).standardizedFileURL,
+            resultPath: URL(filePath: resultPath).standardizedFileURL,
+            snapshotID: snapshotID
+        )
+    }
+
+    func report(_ value: String) {
+        do {
+            try (value + "\n").write(to: resultPath, atomically: true, encoding: .utf8)
+        } catch {
+            FileHandle.standardError.write(
+                Data("Could not write snapshot release result: \(error.localizedDescription)\n".utf8)
+            )
+        }
+    }
+}
+
 enum VirtualizationCapability: String, CaseIterable, Identifiable {
     case savedState, automaticDisplayResize, asifStorage
     case guestProvisioning, diskImageKitSnapshots, customVirtio, efiSecureBoot
