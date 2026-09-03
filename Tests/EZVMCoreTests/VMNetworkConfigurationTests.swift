@@ -1069,6 +1069,83 @@ final class VMNetworkConfigurationTests: XCTestCase {
         close(secondReservation)
     }
 
+    func testNetworkModeCardsExposeDistinctOutcomeOrientedCopy() {
+        let modes = VMModelFieldNetworkDevice.DeviceType.userSelectableCases
+
+        XCTAssertEqual(modes, [.NAT, .VMNetShared, .VMNetHost])
+        XCTAssertEqual(Set(modes.map(\.shortDisplayName)).count, modes.count)
+        XCTAssertTrue(modes.allSatisfy { !$0.outcomeDescription.isEmpty })
+        XCTAssertTrue(modes.allSatisfy { !$0.reachabilitySummary.isEmpty })
+        XCTAssertFalse(VMModelFieldNetworkDevice.DeviceType.NAT.usesVMNet)
+        XCTAssertTrue(VMModelFieldNetworkDevice.DeviceType.VMNetShared.usesVMNet)
+        XCTAssertTrue(VMModelFieldNetworkDevice.DeviceType.VMNetHost.usesVMNet)
+    }
+
+    func testNATDraftDropsHiddenVMNetFields() {
+        let draft = VMNetworkDeviceDraft(
+            type: .NAT,
+            networkIdentifier: "unused",
+            ipv4Subnet: "192.168.70.0",
+            ipv4SubnetMask: "255.255.255.0",
+            externalInterface: "en0",
+            mtu: "invalid",
+            portForwardingRules: []
+        )
+
+        guard case let .success(model) = draft.build(vmnetEntitlementGranted: false) else {
+            return XCTFail("NAT must not depend on VMNet-only draft fields or entitlement")
+        }
+        XCTAssertEqual(model.type, .NAT)
+        XCTAssertNil(model.networkIdentifier)
+        XCTAssertNil(model.ipv4Subnet)
+        XCTAssertNil(model.mtu)
+    }
+
+    func testHostOnlyDraftDropsSharedOnlyFields() {
+        let rule = VMModelFieldNetworkDevice.PortForwardingRule(
+            transport: .tcp,
+            externalPort: 2222,
+            internalAddress: "192.168.70.10",
+            internalPort: 22
+        )
+        let draft = VMNetworkDeviceDraft(
+            type: .VMNetHost,
+            networkIdentifier: "private-lab",
+            ipv4Subnet: "192.168.70.0",
+            ipv4SubnetMask: "255.255.255.0",
+            externalInterface: "en0",
+            mtu: "1500",
+            portForwardingRules: [rule]
+        )
+
+        guard case let .success(model) = draft.build(vmnetEntitlementGranted: true) else {
+            return XCTFail("A valid host-only draft should build")
+        }
+        XCTAssertEqual(model.type, .VMNetHost)
+        XCTAssertNil(model.externalInterface)
+        XCTAssertTrue(model.portForwardingRules.isEmpty)
+        XCTAssertTrue(model.configurationSummary.contains("private-lab"))
+    }
+
+    func testSharedDraftPreservesAdvancedFieldsAndValidatesMTU() {
+        var draft = VMNetworkDeviceDraft(type: .VMNetShared)
+        draft.networkIdentifier = "shared-lab"
+        draft.externalInterface = "en0"
+        draft.mtu = "not-a-number"
+        guard case let .failure(error) = draft.build(vmnetEntitlementGranted: true) else {
+            return XCTFail("An invalid MTU must fail before a device is added")
+        }
+        XCTAssertTrue(error.contains("MTU"))
+
+        draft.mtu = "1500"
+        guard case let .success(model) = draft.build(vmnetEntitlementGranted: true) else {
+            return XCTFail("The corrected shared draft should build")
+        }
+        XCTAssertEqual(model.networkIdentifier, "shared-lab")
+        XCTAssertEqual(model.externalInterface, "en0")
+        XCTAssertEqual(model.mtu, 1500)
+    }
+
     private func reserveLoopbackPort(
         transport: VMModelFieldNetworkDevice.PortForwardingRule.Transport
     ) throws -> (descriptor: Int32, port: UInt16) {

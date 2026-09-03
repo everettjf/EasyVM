@@ -23,7 +23,20 @@ struct VMConfigurationNetworkDevicesView: View {
         LabeledContent("Network") {
             VStack(alignment: .trailing, spacing: 10) {
                 ForEach(configData.networkDevices) { item in
-                    Label(item.data.description, systemImage: "network")
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Label(item.data.type.shortDisplayName, systemImage: item.data.type.symbolName)
+                            .fontWeight(.medium)
+                        Text(item.data.configurationSummary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                if configData.networkDevices.isEmpty {
+                    Label("No connection", systemImage: "network.slash")
+                        .foregroundStyle(.secondary)
                 }
                 Button("Manage Network…", systemImage: "slider.horizontal.3") { showingEditView = true }
                     .accessibilityHint("Choose NAT or VMNet networking")

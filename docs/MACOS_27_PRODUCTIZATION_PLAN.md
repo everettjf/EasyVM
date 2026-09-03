@@ -187,6 +187,18 @@ creation remains authoritative if another process claims the port afterward;
 cross-process ownership and runtime interface/VPN transitions remain in the
 real-system verification backlog below.
 
+The settings UI now starts with three outcome-oriented choices: ordinary NAT,
+VMNet Shared, and VMNet Host-only. It explains host, guest, VM-to-VM, and
+internet reachability before showing implementation details. Logical-network
+name, subnet, MTU, external interface, and port forwarding remain in an
+advanced disclosure; the saved adapter list shows both its outcome and the
+effective configuration. NAT deliberately discards hidden VMNet-only fields,
+and Host-only discards Shared-only interface and forwarding fields. Bridged
+networking is not presented as a fourth choice. Apple documents it under the
+same restricted `com.apple.vm.networking` entitlement, but EZVM has not built
+or validated that distinct attachment path and does not claim it as part of
+the current Homebrew product surface.
+
 The signed release gate now runs the same VMNet Shared Ubuntu fixture through
 two successive, independent EZVM processes. Both runs must authenticate the
 Guest Agent, round-trip file bytes, and stop cleanly. This proves that app
@@ -245,15 +257,15 @@ user's filesystem layout.
 
 ### Product outcome
 
-The default remains simple NAT. Advanced users can deliberately choose bridged,
-host-only, or shared topology and understand reachability, security exposure,
+The default remains simple NAT. Advanced users can deliberately choose
+host-only or shared topology and understand reachability, security exposure,
 and failure recovery without learning VMNet implementation details.
 
 ### Work plan
 
 | Area | Required refinement | Acceptance evidence |
 | --- | --- | --- |
-| Presets | Present NAT, Bridged, Host-only, and Shared network as outcome-oriented cards; hide subnet, MTU, interface, and forwarding details until requested. | Default creation needs no networking knowledge; advanced review states host/guest/LAN reachability. |
+| Presets | Present NAT, Host-only, and Shared network as outcome-oriented cards; hide subnet, MTU, interface, and forwarding details until requested. Keep unimplemented Bridged networking out of the supported surface even though Apple documents it under the same restricted networking entitlement. | Default creation needs no networking knowledge; advanced review states host/guest/internet reachability, and hidden fields never leak into another mode. |
 | Preflight | Validate entitlement, external interface, subnet overlap, malformed masks, duplicate logical networks, occupied TCP/UDP host endpoints, and conflicting forwarding rules before VM start. | Structural failures perform no host-port probe; each unique valid endpoint is probed once before any VMNet object exists, and known conflicts fail synchronously with the conflicting value and recovery action. |
 | Ownership | Reuse one reserved logical network for matching adapters inside the app, release it at process teardown, and verify that a fresh process can recreate the same topology. Treat simultaneous independent-process sharing as a separate XPC-broker feature: VMNet serialization transfers a live XPC object and is not a persistent network identifier. | Multiple VMs in one app reuse a matching network; two successive signed-app processes acquire the same configuration without stale ownership. A simultaneous second process fails clearly unless a future broker explicitly transfers the live network object. |
 | Runtime recovery | Continue hardening Wi-Fi/Ethernet changes, VPN routes, sleep/wake, and interface removal around the implemented per-adapter disconnect/reconnect state. Host sleep now cancels stale reconnect completions and moves the runtime out of “Connected”; wake retries only adapters with authoritative disconnect callbacks, including callbacks that arrive just after wake. | UI distinguishes preparing, connected, host sleeping, reconnecting, and failed without stale “Connected” state; signed-fixture runs must now prove recovery and clearly identify cases that require settings changes or restart. |

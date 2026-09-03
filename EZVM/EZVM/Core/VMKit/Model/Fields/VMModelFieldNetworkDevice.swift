@@ -118,6 +118,44 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
             case .FileHandle: "Legacy FileHandle"
             }
         }
+
+        var shortDisplayName: String {
+            switch self {
+            case .NAT: "NAT"
+            case .VMNetShared: "Shared Network"
+            case .VMNetHost: "Host-only"
+            case .FileHandle: "Legacy FileHandle"
+            }
+        }
+
+        var outcomeDescription: String {
+            switch self {
+            case .NAT: "Simple internet access through this Mac. Best for most virtual machines."
+            case .VMNetShared: "Internet access plus a reusable VMNet network for host access and port forwarding."
+            case .VMNetHost: "A private VMNet network between this Mac and participating virtual machines, without internet access."
+            case .FileHandle: "A legacy file-descriptor connection that cannot be restored from saved configuration."
+            }
+        }
+
+        var reachabilitySummary: String {
+            switch self {
+            case .NAT: "Guest → Internet"
+            case .VMNetShared: "Guest → Internet · Mac ↔ Guest"
+            case .VMNetHost: "Mac ↔ Guest · VM ↔ VM"
+            case .FileHandle: "Custom endpoint"
+            }
+        }
+
+        var symbolName: String {
+            switch self {
+            case .NAT: "network"
+            case .VMNetShared: "point.3.connected.trianglepath.dotted"
+            case .VMNetHost: "lock.shield"
+            case .FileHandle: "cable.connector"
+            }
+        }
+
+        var usesVMNet: Bool { self == .VMNetShared || self == .VMNetHost }
     }
 
     let type: DeviceType
@@ -170,6 +208,19 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
     var description: String {
         guard type == .VMNetShared || type == .VMNetHost else { return type.displayName }
         return "\(type.displayName) · \(networkIdentifier ?? "isolated")"
+    }
+
+    var configurationSummary: String {
+        guard type.usesVMNet else { return "Automatic addressing and routing" }
+        var details = [networkIdentifier.map { "Network \($0)" } ?? "macOS-managed network"]
+        if let ipv4Subnet, let ipv4SubnetMask {
+            details.append("\(ipv4Subnet) / \(ipv4SubnetMask)")
+        }
+        if let mtu { details.append("MTU \(mtu)") }
+        if type == .VMNetShared, !portForwardingRules.isEmpty {
+            details.append("\(portForwardingRules.count) port rule\(portForwardingRules.count == 1 ? "" : "s")")
+        }
+        return details.joined(separator: " · ")
     }
 
     static func `default`() -> VMModelFieldNetworkDevice {
@@ -491,6 +542,38 @@ struct VMModelFieldNetworkDevice: Codable, CustomStringConvertible {
             mtu.map(String.init) ?? "",
             rules,
         ].joined(separator: "|")
+    }
+}
+
+struct VMNetworkDeviceDraft: Equatable {
+    var type: VMModelFieldNetworkDevice.DeviceType = .NAT
+    var networkIdentifier = ""
+    var ipv4Subnet = ""
+    var ipv4SubnetMask = ""
+    var externalInterface = ""
+    var mtu = "1500"
+    var portForwardingRules: [VMModelFieldNetworkDevice.PortForwardingRule] = []
+
+    func build(vmnetEntitlementGranted: Bool = VMHostCapability.vmnet.isGranted) -> VMOSResult<VMModelFieldNetworkDevice, String> {
+        if type == .NAT {
+            return .success(VMModelFieldNetworkDevice(type: .NAT))
+        }
+        guard let mtuValue = UInt32(mtu.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return .failure("MTU must be a whole number between 576 and 9000.")
+        }
+        let model = VMModelFieldNetworkDevice(
+            type: type,
+            networkIdentifier: networkIdentifier,
+            ipv4Subnet: ipv4Subnet,
+            ipv4SubnetMask: ipv4SubnetMask,
+            externalInterface: type == .VMNetShared ? externalInterface : nil,
+            mtu: mtuValue,
+            portForwardingRules: type == .VMNetShared ? portForwardingRules : []
+        )
+        if let error = model.validationError(vmnetEntitlementGranted: vmnetEntitlementGranted) {
+            return .failure(error)
+        }
+        return .success(model)
     }
 }
 
