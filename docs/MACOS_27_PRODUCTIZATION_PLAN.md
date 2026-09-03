@@ -690,6 +690,12 @@ detach, or revoke a real USB accessory.
 
 ## Execution order
 
+The remaining hardware- and host-transition work is specified as a repeatable
+field runbook in [MACOS_27_FIELD_ACCEPTANCE_CHECKLIST.md](MACOS_27_FIELD_ACCEPTANCE_CHECKLIST.md).
+It defines safety exclusions, exact expected states, stop conditions, and
+evidence retention for physical USB, fresh provisioning, VMNet transitions,
+interactive VirGL A/B, and the final notarized Homebrew candidate.
+
 ### Latest signed-artifact evidence
 
 On September 3, 2026, commit `0b848f5` was rebuilt as EZVM 2.0.0 through the
