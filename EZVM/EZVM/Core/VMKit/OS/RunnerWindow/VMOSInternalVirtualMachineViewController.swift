@@ -549,8 +549,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                         Task { @MainActor in
                             guard let self else { return }
                             if let error {
-                                let retryResult = VMGuestProvisioningCredentialStore.save(
-                                    credential.withAttemptState(.prepared),
+                                let retryResult = VMGuestProvisioningRetryRecovery.prepare(
+                                    credential: credential,
                                     vmRootPath: rootPath
                                 )
                                 let retryWasPrepared: Bool
@@ -592,16 +592,29 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     }
                     return
                 } catch {
-                    _ = VMGuestProvisioningCredentialStore.save(
-                        credential.withAttemptState(.prepared),
+                    let retryResult = VMGuestProvisioningRetryRecovery.prepare(
+                        credential: credential,
                         vmRootPath: rootPath
                     )
+                    let retryWasPrepared: Bool
+                    switch retryResult {
+                    case .success:
+                        retryWasPrepared = true
+                    case .failure(let keychainError):
+                        retryWasPrepared = false
+                        EZVMLog.error(keychainError, logger: EZVMLog.lifecycle)
+                    }
                     let error = error as NSError
                     EZVMLog.error(
-                        "Guest provisioning validation failed before VM start: \(error.domain) (\(error.code)).",
+                        "Guest provisioning validation failed before VM start: \(error.domain) (\(error.code)); safe retry prepared: \(retryWasPrepared).",
                         logger: EZVMLog.lifecycle
                     )
-                    let guidance = VMGuestProvisioningValidationGuidance.message(for: error)
+                    let guidance = [
+                        VMGuestProvisioningValidationGuidance.message(for: error),
+                        VMGuestProvisioningStartFailureGuidance.message(
+                            retryWasPrepared: retryWasPrepared
+                        ),
+                    ].joined(separator: " ")
                     runtimeState?.updateMacGuestProvisioning(.failed(guidance))
                     fail(guidance)
                     return

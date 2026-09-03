@@ -244,6 +244,55 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
         XCTAssertFalse(message.contains("try again automatically"))
     }
 
+    func testRetryRecoveryRestoresPreparedStateWithoutChangingAttemptOrSecret() {
+        let root = URL(fileURLWithPath: "/tmp/Provisioning-Retry.ezvm")
+        let attemptID = UUID()
+        let applying = VMGuestProvisioningCredential(
+            fullName: "Test User",
+            username: "testuser",
+            password: "secret",
+            logsInAutomatically: true,
+            enablesRemoteLogin: true,
+            attemptID: attemptID,
+            attemptState: .applying
+        )
+        var savedCredential: VMGuestProvisioningCredential?
+
+        assertSuccess(VMGuestProvisioningRetryRecovery.prepare(
+            credential: applying,
+            vmRootPath: root
+        ) { credential, url in
+            savedCredential = credential
+            XCTAssertEqual(url, root)
+            return .success
+        })
+
+        XCTAssertEqual(savedCredential?.attemptState, .prepared)
+        XCTAssertEqual(savedCredential?.attemptID, attemptID)
+        XCTAssertEqual(savedCredential?.password, "secret")
+    }
+
+    func testRetryRecoveryReportsKeychainFailureInsteadOfClaimingPreparedState() {
+        let credential = VMGuestProvisioningCredential(
+            fullName: "Test User",
+            username: "testuser",
+            password: "secret",
+            logsInAutomatically: false,
+            enablesRemoteLogin: false,
+            attemptState: .applying
+        )
+
+        guard case let .failure(message) = VMGuestProvisioningRetryRecovery.prepare(
+            credential: credential,
+            vmRootPath: URL(fileURLWithPath: "/tmp/Provisioning-Retry-Failure.ezvm"),
+            save: { _, _ in .failure("Keychain unavailable") }
+        ) else {
+            return XCTFail("Expected retry recovery failure")
+        }
+
+        XCTAssertEqual(message, "Keychain unavailable")
+    }
+
     func testProvisioningRequiresMacOS27OrLaterGuest() {
         XCTAssertFalse(VMGuestProvisioningCompatibility.supportsGuest(version: "26.6.2"))
         XCTAssertTrue(VMGuestProvisioningCompatibility.supportsGuest(version: "27.0"))

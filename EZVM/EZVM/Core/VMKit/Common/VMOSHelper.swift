@@ -1301,6 +1301,18 @@ enum VMGuestProvisioningStartFailureGuidance {
     }
 }
 
+enum VMGuestProvisioningRetryRecovery {
+    static func prepare(
+        credential: VMGuestProvisioningCredential,
+        vmRootPath: URL,
+        save: (VMGuestProvisioningCredential, URL) -> VMOSResultVoid = {
+            VMGuestProvisioningCredentialStore.save($0, vmRootPath: $1)
+        }
+    ) -> VMOSResultVoid {
+        save(credential.withAttemptState(.prepared), vmRootPath)
+    }
+}
+
 enum VMGuestProvisioningCompatibility {
     static let minimumGuestMajorVersion = 27
 

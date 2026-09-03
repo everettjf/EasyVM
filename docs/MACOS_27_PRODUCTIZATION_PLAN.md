@@ -108,6 +108,14 @@ fails, EZVM retains the identifier-bearing incomplete bundle and reports both
 failures, rather than leaving an unreachable secret or presenting an installed
 VM as a failed, unregistered result.
 
+Both failures that can occur after the attempt is durably marked `applying`
+now use one checked recovery transition back to `prepared`: a framework start
+failure and local `VZMacGuestProvisioningOptions` validation failure. A
+Keychain write failure is no longer ignored. The runtime reports whether the
+next start is a safe retry or whether the user must reopen the VM and inspect
+the retained uncertain state, while diagnostic logs contain only error
+identifiers and the recovery outcome.
+
 ### Product outcome
 
 A user can create a macOS 27 VM, choose whether to automate the initial account
