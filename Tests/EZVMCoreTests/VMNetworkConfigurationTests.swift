@@ -844,7 +844,23 @@ final class VMNetworkConfigurationTests: XCTestCase {
         let label = VMConfigurationIdentity.label(for: String(repeating: "虚", count: 80))
 
         XCTAssertEqual(label?.count, VMConfigurationIdentity.maximumLabelLength)
+        XCTAssertEqual(label?.utf16.count, VMConfigurationIdentity.maximumLabelLength)
         XCTAssertEqual(label, String(repeating: "虚", count: 64))
+    }
+
+    func testVirtualMachineLabelUsesNSStringLengthWithoutSplittingEmoji() {
+        let label = VMConfigurationIdentity.label(for: String(repeating: "🖥️", count: 64))
+
+        XCTAssertNotNil(label)
+        XCTAssertLessThanOrEqual(label?.utf16.count ?? .max, VMConfigurationIdentity.maximumLabelLength)
+        XCTAssertTrue(label?.allSatisfy { $0 == "🖥️" } == true)
+    }
+
+    func testVirtualMachineLabelCollapsesWhitespaceAndControlCharactersForSystemServices() {
+        XCTAssertEqual(
+            VMConfigurationIdentity.label(for: "  Build\n\tVM\u{0000}  27  "),
+            "Build VM 27"
+        )
     }
 
     func testHostCapabilitiesRecognizeExpectedEntitlements() {

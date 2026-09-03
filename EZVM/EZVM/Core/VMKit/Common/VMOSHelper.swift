@@ -403,12 +403,34 @@ enum VMUSBControllerSupport {
 }
 
 enum VMConfigurationIdentity {
+    /// `VZVirtualMachineConfiguration.label` is backed by NSString. Keep the
+    /// value within the framework's 64-character limit as UTF-16 code units,
+    /// while never cutting a Swift grapheme cluster in half.
     static let maximumLabelLength = 64
 
     static func label(for machineName: String) -> String? {
-        let trimmed = machineName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return String(trimmed.prefix(maximumLabelLength))
+        let systemServiceSafeName = machineName.unicodeScalars.reduce(into: "") { result, scalar in
+            if CharacterSet.whitespacesAndNewlines.contains(scalar)
+                || CharacterSet.controlCharacters.contains(scalar) {
+                result.append(" ")
+            } else {
+                result.unicodeScalars.append(scalar)
+            }
+        }
+        let normalized = systemServiceSafeName
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+        guard !normalized.isEmpty else { return nil }
+
+        var label = ""
+        var utf16Length = 0
+        for character in normalized {
+            let characterLength = String(character).utf16.count
+            guard utf16Length + characterLength <= maximumLabelLength else { break }
+            label.append(character)
+            utf16Length += characterLength
+        }
+        return label.isEmpty ? nil : label
     }
 
     static func apply(machineName: String, to configuration: VZVirtualMachineConfiguration) {

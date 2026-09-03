@@ -28,6 +28,11 @@ final class VMPortabilityManagerTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("MachineIdentifier")), newID)
         let config = try json(destination.appendingPathComponent("config.json"))
         XCTAssertEqual(config["name"] as? String, "Clone")
+        XCTAssertEqual(
+            VMConfigurationIdentity.label(for: try XCTUnwrap(config["name"] as? String)),
+            "Clone",
+            "The next launch must derive its framework label from the clone's rewritten name"
+        )
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent("MachineState.vzvmsave").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent("MachineState.vzvmsave.manifest.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: destination.appendingPathComponent("Snapshots").path))
@@ -91,7 +96,13 @@ final class VMPortabilityManagerTests: XCTestCase {
         ))
         XCTAssertEqual(try Data(contentsOf: imported.appendingPathComponent("Disk.img")), Data("disk data".utf8))
         XCTAssertEqual(try Data(contentsOf: imported.appendingPathComponent("MachineIdentifier")), importedID)
-        XCTAssertEqual(try json(imported.appendingPathComponent("config.json"))["name"] as? String, "Imported")
+        let importedConfig = try json(imported.appendingPathComponent("config.json"))
+        XCTAssertEqual(importedConfig["name"] as? String, "Imported")
+        XCTAssertEqual(
+            VMConfigurationIdentity.label(for: try XCTUnwrap(importedConfig["name"] as? String)),
+            "Imported",
+            "The next launch must derive its framework label from the imported copy's rewritten name"
+        )
     }
 
     func testValidationDetectsSameSizeCorruptionAndImportCreatesNothing() throws {
