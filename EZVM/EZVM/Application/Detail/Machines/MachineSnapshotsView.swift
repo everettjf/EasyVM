@@ -35,6 +35,7 @@ class MachineSnapshotsViewStateObject {
     var workingDetail: String = ""
     var operationProgress: VMSnapshotOperationProgress?
     var isCancellationRequested = false
+    var cleanupPreview: VMSnapshotMaintenanceReport?
     var messageTone: MachineSnapshotMessageTone = .neutral
     var searchText: String = ""
     @ObservationIgnored private var operationControl: VMSnapshotOperationControl?
@@ -302,6 +303,58 @@ class MachineSnapshotsViewStateObject {
         }
     }
 
+    func previewLayerCleanup() {
+        cleanupPreview = nil
+        begin(
+            "Inspecting snapshot storage…",
+            detail: "Building a read-only reference map before offering any cleanup."
+        )
+        let rootPath = self.rootPath
+        Task.detached {
+            let report = VMSnapshotManager.snapshotMaintenanceReport(vmRootPath: rootPath)
+            await MainActor.run {
+                if !report.issues.isEmpty {
+                    self.fail(report.issues.joined(separator: " "))
+                } else if report.removableLayers.isEmpty {
+                    self.succeed("No unreferenced ASIF layers were found")
+                } else {
+                    self.succeed(
+                        "Found \(report.removableLayers.count) unreferenced layer(s) using \(self.displaySize(report.removableAllocatedSize))"
+                    )
+                    self.cleanupPreview = report
+                }
+            }
+        }
+    }
+
+    func cleanupUnreferencedLayers() {
+        cleanupPreview = nil
+        begin(
+            "Cleaning snapshot storage…",
+            detail: "Moving verified orphan layers through a recoverable cleanup transaction."
+        )
+        let rootPath = self.rootPath
+        Task.detached {
+            let result = VMSnapshotManager.cleanupUnreferencedLayers(vmRootPath: rootPath)
+            await MainActor.run {
+                switch result {
+                case .success(let cleanup):
+                    if cleanup.removedLayerCount == 0 {
+                        self.succeed("Snapshot storage is already clean")
+                    } else {
+                        self.succeed(
+                            "Removed \(cleanup.removedLayerCount) unreferenced layer(s) and reclaimed \(self.displaySize(cleanup.reclaimedAllocatedSize))"
+                        )
+                        self.notifySnapshotsChanged()
+                    }
+                case .failure(let error):
+                    self.fail(error)
+                }
+                self.reload()
+            }
+        }
+    }
+
     @discardableResult
     private func begin(_ message: String, detail: String) -> VMSnapshotOperationControl {
         let control = VMSnapshotOperationControl()
@@ -396,6 +449,10 @@ class MachineSnapshotsViewStateObject {
         case .items:
             return "\(phase) · \(update.completedUnitCount) of \(update.totalUnitCount) snapshots"
         }
+    }
+
+    private func displaySize(_ bytes: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file)
     }
 }
 
@@ -641,6 +698,11 @@ struct MachineSnapshotsView: View {
                     state.auditSnapshots()
                 } label: { Label("Audit", systemImage: "checkmark.shield") }
                 .disabled(state.isWorking || state.snapshots.isEmpty)
+                Button {
+                    state.previewLayerCleanup()
+                } label: { Label("Clean Up…", systemImage: "sparkles") }
+                .disabled(state.isWorking || isMachineRunning)
+                .help("Preview unreferenced ASIF layers before removing anything.")
             }
 
             if state.snapshots.isEmpty {
@@ -761,6 +823,34 @@ struct MachineSnapshotsView: View {
         .padding()
         .frame(minWidth: 680, idealWidth: 760, minHeight: 520, idealHeight: 600)
         .interactiveDismissDisabled(state.isWorking)
+        .confirmationDialog(
+            "Clean up unreferenced snapshot layers?",
+            isPresented: Binding(
+                get: { state.cleanupPreview != nil },
+                set: { if !$0 { state.cleanupPreview = nil } }
+            )
+        ) {
+            if let preview = state.cleanupPreview {
+                Button(
+                    "Remove \(preview.removableLayers.count) Layer(s)",
+                    role: .destructive
+                ) {
+                    state.cleanupUnreferencedLayers()
+                }
+                .disabled(isMachineRunning || state.isWorking)
+            }
+            Button("Cancel", role: .cancel) {
+                state.cleanupPreview = nil
+            }
+        } message: {
+            if let preview = state.cleanupPreview {
+                Text(
+                    "EZVM verified that no active branch or saved snapshot references these layers. " +
+                    "This will reclaim \(ByteCountFormatter.string(fromByteCount: Int64(clamping: preview.removableAllocatedSize), countStyle: .file)). " +
+                    "Unknown files and \(preview.retainedLayerCount) referenced or unmanaged item(s) will remain untouched."
+                )
+            }
+        }
         .confirmationDialog(
             "Restore snapshot \"\(restoringSnapshot?.name ?? "")\" ?",
             isPresented: Binding(get: { restoringSnapshot != nil }, set: { if !$0 { restoringSnapshot = nil } })

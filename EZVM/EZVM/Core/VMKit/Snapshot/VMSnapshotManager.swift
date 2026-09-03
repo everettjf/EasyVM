@@ -37,6 +37,32 @@ struct VMSnapshotIntegrityReport: Equatable {
     var isValid: Bool { errors.isEmpty }
 }
 
+struct VMSnapshotMaintenanceCandidate: Identifiable, Equatable {
+    let relativePath: String
+    let allocatedSize: UInt64
+
+    var id: String { relativePath }
+}
+
+struct VMSnapshotMaintenanceReport: Equatable {
+    let removableLayers: [VMSnapshotMaintenanceCandidate]
+    let retainedLayerCount: Int
+    let issues: [String]
+
+    var canClean: Bool { issues.isEmpty && !removableLayers.isEmpty }
+    var removableAllocatedSize: UInt64 {
+        removableLayers.reduce(0) { total, candidate in
+            let (sum, overflow) = total.addingReportingOverflow(candidate.allocatedSize)
+            return overflow ? UInt64.max : sum
+        }
+    }
+}
+
+struct VMSnapshotMaintenanceCleanupResult: Equatable {
+    let removedLayerCount: Int
+    let reclaimedAllocatedSize: UInt64
+}
+
 /*
  File level snapshots for a virtual machine bundle.
 
@@ -235,6 +261,8 @@ class VMSnapshotManager {
     private static let restoreStagingDirectoryName = ".restore-staging"
     private static let restoreBackupDirectoryName = ".restore-backup"
     private static let restoreTransactionFileName = ".restore-transaction.json"
+    private static let cleanupTransactionFileName = ".layer-cleanup-transaction.json"
+    private static let cleanupQuarantineDirectoryName = ".layer-cleanup-quarantine"
     private static let maximumHashedFileSize: UInt64 = 16 * 1024 * 1024
 
     private struct RestoreTransaction: Codable {
@@ -275,6 +303,11 @@ class VMSnapshotManager {
             previousState = try container.decodeIfPresent(VMSnapshotStoreState.self, forKey: .previousState)
             createdLayerPaths = try container.decodeIfPresent([String].self, forKey: .createdLayerPaths) ?? []
         }
+    }
+
+    private struct LayerCleanupTransaction: Codable {
+        var phase: String
+        let layerNames: [String]
     }
 
     static func snapshotsRootURL(vmRootPath: URL) -> URL {
@@ -337,6 +370,9 @@ class VMSnapshotManager {
     /// It is safe and idempotent to call before every VM start.
     @discardableResult
     static func recoverInterruptedRestore(vmRootPath: URL) -> VMOSResultVoid {
+        if case let .failure(error) = recoverInterruptedLayerCleanup(vmRootPath: vmRootPath) {
+            return .failure(error)
+        }
         let fm = FileManager.default
         let stagingDir = vmRootPath.appending(path: restoreStagingDirectoryName)
         let backupDir = vmRootPath.appending(path: restoreBackupDirectoryName)
@@ -1376,7 +1412,10 @@ class VMSnapshotManager {
             // files are safe to destroy.
             return
         }
-        var referenced = Set(readState(vmRootPath: vmRootPath).activeDiskLayers.values.flatMap { $0 })
+        guard let state = strictlyDecodedState(vmRootPath: vmRootPath) else {
+            return
+        }
+        var referenced = Set(state.activeDiskLayers.values.flatMap { $0 })
         for snapshot in listSnapshots(vmRootPath: vmRootPath) {
             referenced.formUnion(snapshot.diskLayers.flatMap(\.layerPaths))
         }
@@ -1389,8 +1428,221 @@ class VMSnapshotManager {
         }
     }
 
+    /// Produces a read-only cleanup preview. A layer becomes removable only
+    /// when the complete snapshot index and active state can both be decoded,
+    /// no restore transaction is in flight, and the file is in EZVM's UUID
+    /// layer namespace directly below `Snapshots/Layers`.
+    static func snapshotMaintenanceReport(vmRootPath: URL) -> VMSnapshotMaintenanceReport {
+        let fm = FileManager.default
+        let layersRoot = snapshotsRootURL(vmRootPath: vmRootPath)
+            .appending(path: "Layers")
+            .standardizedFileURL
+        var issues: [String] = []
+
+        let workingArtifacts = [
+            restoreTransactionFileName,
+            restoreStagingDirectoryName,
+            restoreBackupDirectoryName
+        ]
+        if workingArtifacts.contains(where: {
+            fm.fileExists(atPath: vmRootPath.appending(path: $0).path(percentEncoded: false))
+        }) {
+            issues.append("Finish or recover the pending snapshot restore before cleaning up layers.")
+        }
+        let snapshotsRoot = snapshotsRootURL(vmRootPath: vmRootPath)
+        if fm.fileExists(atPath: snapshotsRoot.appending(path: cleanupTransactionFileName).path(percentEncoded: false)) ||
+            fm.fileExists(atPath: snapshotsRoot.appending(path: cleanupQuarantineDirectoryName).path(percentEncoded: false)) {
+            issues.append("A previous layer cleanup needs recovery before another cleanup can start.")
+        }
+
+        guard snapshotMetadataIndexIsComplete(vmRootPath: vmRootPath) else {
+            issues.append("Snapshot metadata is incomplete or unreadable. Repair it before cleaning up layers.")
+            return VMSnapshotMaintenanceReport(removableLayers: [], retainedLayerCount: 0, issues: issues)
+        }
+
+        guard let state = strictlyDecodedState(vmRootPath: vmRootPath) else {
+            issues.append("The active snapshot state is unreadable. Repair it before cleaning up layers.")
+            return VMSnapshotMaintenanceReport(removableLayers: [], retainedLayerCount: 0, issues: issues)
+        }
+
+        var referenced = Set(state.activeDiskLayers.values.flatMap { $0 })
+        for snapshot in listSnapshots(vmRootPath: vmRootPath) {
+            referenced.formUnion(snapshot.diskLayers.flatMap(\.layerPaths))
+        }
+
+        for path in referenced.sorted() {
+            let layerURL = vmRootPath.appending(path: path).standardizedFileURL
+            guard sameFileSystemLocation(layerURL.deletingLastPathComponent(), layersRoot) else {
+                issues.append("A snapshot contains a layer reference outside the managed layer store.")
+                continue
+            }
+            guard fm.fileExists(atPath: layerURL.path(percentEncoded: false)) else {
+                issues.append("A referenced ASIF layer is missing. Restore it before running cleanup.")
+                continue
+            }
+        }
+
+        guard let entries = try? fm.contentsOfDirectory(
+            at: layersRoot,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .totalFileAllocatedSizeKey, .fileSizeKey],
+            options: []
+        ) else {
+            return VMSnapshotMaintenanceReport(
+                removableLayers: [],
+                retainedLayerCount: referenced.count,
+                issues: Array(Set(issues)).sorted()
+            )
+        }
+
+        var removable: [VMSnapshotMaintenanceCandidate] = []
+        var retainedCount = 0
+        for entry in entries.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            let stem = entry.deletingPathExtension().lastPathComponent
+            let isOwnedLayer = entry.pathExtension.lowercased() == "asif" && UUID(uuidString: stem) != nil
+            guard values?.isRegularFile == true, values?.isSymbolicLink != true, isOwnedLayer else {
+                retainedCount += 1
+                continue
+            }
+            let path = relativePathForPruning(entry, under: vmRootPath)
+            if referenced.contains(path) {
+                retainedCount += 1
+            } else {
+                removable.append(VMSnapshotMaintenanceCandidate(
+                    relativePath: path,
+                    allocatedSize: allocatedSize(of: entry)
+                ))
+            }
+        }
+
+        if !issues.isEmpty {
+            removable.removeAll()
+        }
+        return VMSnapshotMaintenanceReport(
+            removableLayers: removable,
+            retainedLayerCount: retainedCount,
+            issues: Array(Set(issues)).sorted()
+        )
+    }
+
+    static func cleanupUnreferencedLayers(
+        vmRootPath: URL
+    ) -> VMOSResult<VMSnapshotMaintenanceCleanupResult, String> {
+        if case let .failure(error) = recoverInterruptedLayerCleanup(vmRootPath: vmRootPath) {
+            return .failure(error)
+        }
+        let report = snapshotMaintenanceReport(vmRootPath: vmRootPath)
+        guard report.issues.isEmpty else {
+            return .failure(report.issues.joined(separator: " "))
+        }
+        guard !report.removableLayers.isEmpty else {
+            return .success(VMSnapshotMaintenanceCleanupResult(removedLayerCount: 0, reclaimedAllocatedSize: 0))
+        }
+
+        let fm = FileManager.default
+        let snapshotsRoot = snapshotsRootURL(vmRootPath: vmRootPath)
+        let layersRoot = snapshotsRoot.appending(path: "Layers").standardizedFileURL
+        let quarantine = snapshotsRoot.appending(path: cleanupQuarantineDirectoryName).standardizedFileURL
+        let transactionURL = snapshotsRoot.appending(path: cleanupTransactionFileName)
+        let layerNames = report.removableLayers.map { URL(filePath: $0.relativePath).lastPathComponent }
+        var transaction = LayerCleanupTransaction(phase: "preparing", layerNames: layerNames)
+
+        do {
+            try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+            try fm.createDirectory(at: quarantine, withIntermediateDirectories: false)
+            for layerName in layerNames {
+                let source = layersRoot.appending(path: layerName).standardizedFileURL
+                guard sameFileSystemLocation(source.deletingLastPathComponent(), layersRoot) else {
+                    throw VMSnapshotError.message("A cleanup candidate escaped the managed layer store.")
+                }
+                try fm.moveItem(at: source, to: quarantine.appending(path: layerName))
+            }
+            transaction.phase = "committed"
+            try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
+            try fm.removeItem(at: quarantine)
+            try fm.removeItem(at: transactionURL)
+            return .success(VMSnapshotMaintenanceCleanupResult(
+                removedLayerCount: report.removableLayers.count,
+                reclaimedAllocatedSize: report.removableAllocatedSize
+            ))
+        } catch {
+            switch recoverInterruptedLayerCleanup(vmRootPath: vmRootPath) {
+            case .success:
+                if transaction.phase == "committed" {
+                    return .success(VMSnapshotMaintenanceCleanupResult(
+                        removedLayerCount: report.removableLayers.count,
+                        reclaimedAllocatedSize: report.removableAllocatedSize
+                    ))
+                }
+                return .failure("Layer cleanup did not complete; all uncommitted layers were restored: \(error.localizedDescription)")
+            case .failure(let recoveryError):
+                return .failure("Layer cleanup needs recovery: \(recoveryError)")
+            }
+        }
+    }
+
+    private static func recoverInterruptedLayerCleanup(vmRootPath: URL) -> VMOSResultVoid {
+        let fm = FileManager.default
+        let snapshotsRoot = snapshotsRootURL(vmRootPath: vmRootPath)
+        let layersRoot = snapshotsRoot.appending(path: "Layers").standardizedFileURL
+        let quarantine = snapshotsRoot.appending(path: cleanupQuarantineDirectoryName).standardizedFileURL
+        let transactionURL = snapshotsRoot.appending(path: cleanupTransactionFileName)
+        let hasQuarantine = fm.fileExists(atPath: quarantine.path(percentEncoded: false))
+        let hasTransaction = fm.fileExists(atPath: transactionURL.path(percentEncoded: false))
+        guard hasQuarantine || hasTransaction else { return .success }
+
+        do {
+            let transaction = (try? Data(contentsOf: transactionURL))
+                .flatMap { try? jsonDecoder().decode(LayerCleanupTransaction.self, from: $0) }
+            let quarantinedNames = hasQuarantine
+                ? try fm.contentsOfDirectory(atPath: quarantine.path(percentEncoded: false))
+                : []
+            for name in quarantinedNames {
+                let item = quarantine.appending(path: name).standardizedFileURL
+                let values = try item.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                guard sameFileSystemLocation(item.deletingLastPathComponent(), quarantine),
+                      values.isRegularFile == true,
+                      values.isSymbolicLink != true,
+                      item.pathExtension.lowercased() == "asif",
+                      UUID(uuidString: item.deletingPathExtension().lastPathComponent) != nil else {
+                    throw VMSnapshotError.message("The cleanup quarantine contains an unmanaged item; EZVM left it untouched.")
+                }
+            }
+            if transaction?.phase == "committed" {
+                guard Set(quarantinedNames).isSubset(of: Set(transaction?.layerNames ?? [])) else {
+                    throw VMSnapshotError.message("The cleanup quarantine does not match its committed journal; EZVM left it untouched.")
+                }
+                if hasQuarantine { try fm.removeItem(at: quarantine) }
+                if hasTransaction { try fm.removeItem(at: transactionURL) }
+                return .success
+            }
+
+            if hasQuarantine {
+                try fm.createDirectory(at: layersRoot, withIntermediateDirectories: true)
+                for name in quarantinedNames {
+                    let source = quarantine.appending(path: name).standardizedFileURL
+                    let destination = layersRoot.appending(path: name).standardizedFileURL
+                    guard sameFileSystemLocation(source.deletingLastPathComponent(), quarantine),
+                          sameFileSystemLocation(destination.deletingLastPathComponent(), layersRoot),
+                          !fm.fileExists(atPath: destination.path(percentEncoded: false)) else {
+                        throw VMSnapshotError.message("A quarantined layer could not be restored without overwriting another file.")
+                    }
+                    try fm.moveItem(at: source, to: destination)
+                }
+                try fm.removeItem(at: quarantine)
+            }
+            if hasTransaction { try fm.removeItem(at: transactionURL) }
+            return .success
+        } catch {
+            return .failure("An interrupted layer cleanup needs repair: \(error.localizedDescription)")
+        }
+    }
+
     private static func snapshotMetadataIndexIsComplete(vmRootPath: URL) -> Bool {
         let rootURL = snapshotsRootURL(vmRootPath: vmRootPath)
+        if !FileManager.default.fileExists(atPath: rootURL.path(percentEncoded: false)) {
+            return true
+        }
         guard let entries = try? FileManager.default.contentsOfDirectory(
             atPath: rootURL.path(percentEncoded: false)
         ) else {
@@ -1405,6 +1657,15 @@ class VMSnapshotManager {
             }
         }
         return true
+    }
+
+    private static func strictlyDecodedState(vmRootPath: URL) -> VMSnapshotStoreState? {
+        let url = stateURL(vmRootPath: vmRootPath)
+        guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
+            return VMSnapshotStoreState()
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? jsonDecoder().decode(VMSnapshotStoreState.self, from: data)
     }
 
     private static func relativePathForPruning(_ url: URL, under root: URL) -> String {

@@ -816,6 +816,165 @@ final class VMSnapshotManagerTests: XCTestCase {
         )
     }
 
+    func testASIFLayerPruningStopsWhenActiveStateIsUnreadable() throws {
+        try write("disk", to: "Disk.img")
+        let snapshot = try unwrapSuccess(
+            VMSnapshotManager.createSnapshot(vmRootPath: temporaryRoot, name: "Delete me")
+        )
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let layersRoot = snapshotsRoot.appendingPathComponent("Layers", isDirectory: true)
+        try FileManager.default.createDirectory(at: layersRoot, withIntermediateDirectories: true)
+        let preservedLayer = layersRoot.appendingPathComponent("\(UUID().uuidString).asif")
+        try Data("possibly active".utf8).write(to: preservedLayer)
+        try Data("damaged state".utf8).write(to: snapshotsRoot.appendingPathComponent("state.json"))
+
+        try unwrapSuccess(VMSnapshotManager.deleteSnapshot(vmRootPath: temporaryRoot, snapshot: snapshot))
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: preservedLayer.path),
+            "Automatic pruning must preserve all layers when active state cannot be decoded"
+        )
+    }
+
+    func testSnapshotMaintenancePreviewFindsOnlyUnreferencedOwnedLayers() throws {
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let layersRoot = snapshotsRoot.appendingPathComponent("Layers", isDirectory: true)
+        try FileManager.default.createDirectory(at: layersRoot, withIntermediateDirectories: true)
+        let referencedName = "\(UUID().uuidString).asif"
+        let orphanName = "\(UUID().uuidString).asif"
+        try Data(repeating: 0x61, count: 8192).write(to: layersRoot.appendingPathComponent(referencedName))
+        try Data(repeating: 0x62, count: 8192).write(to: layersRoot.appendingPathComponent(orphanName))
+        try Data("leave unknown files alone".utf8).write(to: layersRoot.appendingPathComponent("manual.asif"))
+        let state = #"{"activeDiskLayers":{"Disk.asif":["Snapshots/Layers/\#(referencedName)"]}}"#
+        try Data(state.utf8).write(to: snapshotsRoot.appendingPathComponent("state.json"))
+
+        let report = VMSnapshotManager.snapshotMaintenanceReport(vmRootPath: temporaryRoot)
+
+        XCTAssertTrue(report.issues.isEmpty, report.issues.joined(separator: "; "))
+        XCTAssertEqual(report.removableLayers.map(\.relativePath), ["Snapshots/Layers/\(orphanName)"])
+        XCTAssertGreaterThan(report.removableAllocatedSize, 0)
+        XCTAssertEqual(report.retainedLayerCount, 2)
+        XCTAssertTrue(report.canClean)
+    }
+
+    func testSnapshotMaintenancePreviewTreatsMissingStoreAsAlreadyClean() {
+        let report = VMSnapshotManager.snapshotMaintenanceReport(vmRootPath: temporaryRoot)
+
+        XCTAssertTrue(report.issues.isEmpty)
+        XCTAssertTrue(report.removableLayers.isEmpty)
+        XCTAssertFalse(report.canClean)
+    }
+
+    func testSnapshotMaintenancePreviewBlocksWhenActiveStateIsUnreadable() throws {
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let layersRoot = snapshotsRoot.appendingPathComponent("Layers", isDirectory: true)
+        try FileManager.default.createDirectory(at: layersRoot, withIntermediateDirectories: true)
+        try Data("orphan".utf8).write(to: layersRoot.appendingPathComponent("\(UUID().uuidString).asif"))
+        try Data("damaged state".utf8).write(to: snapshotsRoot.appendingPathComponent("state.json"))
+
+        let report = VMSnapshotManager.snapshotMaintenanceReport(vmRootPath: temporaryRoot)
+
+        XCTAssertFalse(report.issues.isEmpty)
+        XCTAssertTrue(report.removableLayers.isEmpty)
+        XCTAssertFalse(report.canClean)
+    }
+
+    func testSnapshotMaintenancePreviewBlocksDuringRestoreOrIncompleteMetadata() throws {
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let layersRoot = snapshotsRoot.appendingPathComponent("Layers", isDirectory: true)
+        try FileManager.default.createDirectory(at: layersRoot, withIntermediateDirectories: true)
+        try Data("orphan".utf8).write(to: layersRoot.appendingPathComponent("\(UUID().uuidString).asif"))
+        let damagedSnapshot = snapshotsRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: damagedSnapshot, withIntermediateDirectories: true)
+        try Data("damaged metadata".utf8).write(to: damagedSnapshot.appendingPathComponent("snapshot.json"))
+        try Data(#"{"snapshotID":"target","phase":"preparing"}"#.utf8)
+            .write(to: temporaryRoot.appendingPathComponent(".restore-transaction.json"))
+
+        let report = VMSnapshotManager.snapshotMaintenanceReport(vmRootPath: temporaryRoot)
+
+        XCTAssertGreaterThanOrEqual(report.issues.count, 2)
+        XCTAssertTrue(report.removableLayers.isEmpty)
+        XCTAssertFalse(report.canClean)
+    }
+
+    func testSnapshotLayerCleanupRemovesOnlyPreviewedOwnedOrphans() throws {
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let layersRoot = snapshotsRoot.appendingPathComponent("Layers", isDirectory: true)
+        try FileManager.default.createDirectory(at: layersRoot, withIntermediateDirectories: true)
+        let referencedName = "\(UUID().uuidString).asif"
+        let orphanName = "\(UUID().uuidString).asif"
+        try Data("referenced".utf8).write(to: layersRoot.appendingPathComponent(referencedName))
+        try Data("orphan".utf8).write(to: layersRoot.appendingPathComponent(orphanName))
+        try Data("unknown".utf8).write(to: layersRoot.appendingPathComponent("manual.asif"))
+        let state = #"{"activeDiskLayers":{"Disk.asif":["Snapshots/Layers/\#(referencedName)"]}}"#
+        try Data(state.utf8).write(to: snapshotsRoot.appendingPathComponent("state.json"))
+
+        let result = try unwrapSuccess(VMSnapshotManager.cleanupUnreferencedLayers(vmRootPath: temporaryRoot))
+
+        XCTAssertEqual(result.removedLayerCount, 1)
+        XCTAssertGreaterThan(result.reclaimedAllocatedSize, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: layersRoot.appendingPathComponent(orphanName).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layersRoot.appendingPathComponent(referencedName).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layersRoot.appendingPathComponent("manual.asif").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: snapshotsRoot.appendingPathComponent(".layer-cleanup-transaction.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: snapshotsRoot.appendingPathComponent(".layer-cleanup-quarantine").path))
+    }
+
+    func testInterruptedUncommittedLayerCleanupRestoresQuarantinedFilesBeforeStartup() throws {
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let layersRoot = snapshotsRoot.appendingPathComponent("Layers", isDirectory: true)
+        let quarantine = snapshotsRoot.appendingPathComponent(".layer-cleanup-quarantine", isDirectory: true)
+        try FileManager.default.createDirectory(at: layersRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: quarantine, withIntermediateDirectories: true)
+        let layerName = "\(UUID().uuidString).asif"
+        try Data("must return".utf8).write(to: quarantine.appendingPathComponent(layerName))
+        let journal = #"{"phase":"preparing","layerNames":["\#(layerName)"]}"#
+        try Data(journal.utf8).write(to: snapshotsRoot.appendingPathComponent(".layer-cleanup-transaction.json"))
+
+        try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
+
+        XCTAssertEqual(
+            try Data(contentsOf: layersRoot.appendingPathComponent(layerName)),
+            Data("must return".utf8)
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: quarantine.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: snapshotsRoot.appendingPathComponent(".layer-cleanup-transaction.json").path))
+    }
+
+    func testInterruptedCommittedLayerCleanupFinishesReclamationBeforeStartup() throws {
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let quarantine = snapshotsRoot.appendingPathComponent(".layer-cleanup-quarantine", isDirectory: true)
+        try FileManager.default.createDirectory(at: quarantine, withIntermediateDirectories: true)
+        let layerName = "\(UUID().uuidString).asif"
+        try Data("remove me".utf8).write(to: quarantine.appendingPathComponent(layerName))
+        let journal = #"{"phase":"committed","layerNames":["\#(layerName)"]}"#
+        try Data(journal.utf8).write(to: snapshotsRoot.appendingPathComponent(".layer-cleanup-transaction.json"))
+
+        try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: quarantine.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: snapshotsRoot.appendingPathComponent(".layer-cleanup-transaction.json").path))
+    }
+
+    func testInterruptedLayerCleanupLeavesUnmanagedQuarantineUntouched() throws {
+        let snapshotsRoot = VMSnapshotManager.snapshotsRootURL(vmRootPath: temporaryRoot)
+        let quarantine = snapshotsRoot.appendingPathComponent(".layer-cleanup-quarantine", isDirectory: true)
+        try FileManager.default.createDirectory(at: quarantine, withIntermediateDirectories: true)
+        let unmanaged = quarantine.appendingPathComponent("notes.txt")
+        try Data("do not delete".utf8).write(to: unmanaged)
+        let journal = #"{"phase":"committed","layerNames":["notes.txt"]}"#
+        let journalURL = snapshotsRoot.appendingPathComponent(".layer-cleanup-transaction.json")
+        try Data(journal.utf8).write(to: journalURL)
+
+        if case .success = VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot) {
+            XCTFail("Recovery must fail closed when quarantine contains an unmanaged file")
+        }
+
+        XCTAssertEqual(try Data(contentsOf: unmanaged), Data("do not delete".utf8))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: quarantine.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: journalURL.path))
+    }
+
     func testInterruptedRestoreRollsBackOriginalBundleAndIsIdempotent() throws {
         try write("partially restored", to: "config.json")
         let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)

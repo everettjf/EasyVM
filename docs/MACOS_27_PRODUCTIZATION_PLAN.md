@@ -351,6 +351,17 @@ accepted across that atomic commit boundary. Foundation does not expose
 sub-file copy progress here, so a single very large disk can still advance in
 one truthful jump rather than showing a synthetic percentage.
 
+Snapshot storage maintenance now starts with a read-only reference-map preview.
+Cleanup is offered only when both the complete snapshot metadata index and the
+active ASIF state decode successfully, no restore is pending, and an
+unreferenced file belongs to EZVM's UUID-named layer namespace. Unknown files,
+directories, symbolic links, referenced layers, and all candidates encountered
+while metadata is damaged remain untouched. Confirmed cleanup atomically moves
+candidates into a private quarantine and journals the commit: startup restores
+them after a pre-commit interruption or finishes reclamation after a committed
+interruption. The sheet shows candidate count, allocated bytes to reclaim, and
+retained-item count before the destructive action.
+
 Long-chain validation now creates and opens a real 32-layer ASIF history. Audit
 does not stop at file signatures: it asks DiskImageKit to assemble each complete
 stack read-only, which rejects reordered layers and broken parent relationships.
@@ -389,7 +400,7 @@ exported or retired.
 | Progress | Expose real byte/phase progress, cancellation boundaries, and “finishing safely” states for long operations. | Closing the UI does not abandon work; cancellation resolves to complete-or-absent output. |
 | Integrity | Record base/layer identity, checksums where appropriate, current head, referenced branches, and saved-state compatibility. Validate the active chain before disk creation or VM startup. | Audit accounts for every layer and refuses missing, reordered, foreign, or corrupted chains; a missing base is never silently replaced. |
 | Recovery | Use journaled transaction stages and startup recovery for every layer mutation. | Process kills at each commit point preserve the old head or atomically install the new one. |
-| Maintenance | Add dry-run orphan cleanup and a transactional replacement-image consolidation workflow; retain protected snapshots, chain-depth warnings, and explicit export behavior. | Cleanup never removes referenced data; long chains have a measured, reversible maintenance path without claiming unsupported in-place compaction. |
+| Maintenance | Keep the implemented dry-run orphan preview and journaled quarantine cleanup; add a transactional replacement-image consolidation workflow while retaining protected snapshots, chain-depth warnings, and explicit export behavior. | Cleanup never removes referenced or unmanaged data and recovers across interruption; long chains have a measured, reversible maintenance path without claiming unsupported in-place compaction. |
 
 ### Stress matrix
 
