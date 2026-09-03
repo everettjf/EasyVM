@@ -15,7 +15,7 @@ fail() { echo "verify-omarchy-integration-observation: $*" >&2; exit 1; }
 
 ruby -rjson -rtime -e '
   value = JSON.parse(File.read(ARGV.fetch(0)))
-  abort "wrong observation schema" unless value["schemaVersion"] == 3
+  abort "wrong observation schema" unless value["schemaVersion"] == 4
   abort "wrong source revision" unless value["sourceRevision"] == ARGV.fetch(1)
   abort "wrong factory image version" unless value["factoryImageVersion"] == ARGV.fetch(2)
   expected_agent = ARGV.fetch(3)
@@ -66,6 +66,18 @@ ruby -rjson -rtime -e '
   ].each do |field|
     abort "invalid #{field}" unless value[field].is_a?(String) && value[field].match?(/\A[0-9a-f]{64}\z/)
   end
+  abort "dynamic-display round trip did not pass" unless value["dynamicDisplayRoundTripPassed"] == true
+  display_at = Time.iso8601(value.fetch("dynamicDisplayRoundTripObservedAt"))
+  abort "display result predates observation window" if display_at < observed - 300
+  abort "display result is in the future" if display_at > Time.now.utc + 300
+  sizes = %w[guestDisplayBefore guestDisplayAfter hostViewAfter].to_h do |field|
+    size = value.fetch(field)
+    abort "invalid #{field}" unless size.is_a?(Hash) && size["width"].is_a?(Integer) &&
+      size["height"].is_a?(Integer) && size["width"] > 0 && size["height"] > 0
+    [field, size]
+  end
+  abort "guest display did not resize" if sizes["guestDisplayBefore"] == sizes["guestDisplayAfter"]
+  abort "guest display does not match Host view" unless sizes["guestDisplayAfter"] == sizes["hostViewAfter"]
 ' "$observation" "$expected_revision" "$expected_factory_version" "$expected_agent_version"
 
 echo "Verified EZVM Omarchy integration readiness observation."

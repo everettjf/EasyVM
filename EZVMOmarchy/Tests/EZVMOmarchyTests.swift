@@ -193,10 +193,16 @@ final class EZVMOmarchyTests: XCTestCase {
                 hostToGuestImageSHA256: String(repeating: "e", count: 64),
                 guestToHostImageSHA256: String(repeating: "f", count: 64)
             ),
+            dynamicDisplayRoundTrip: OmarchyDynamicDisplayRoundTrip(
+                observedAt: observedAt,
+                guestBefore: .init(width: 1920, height: 1200),
+                guestAfter: .init(width: 880, height: 560),
+                hostViewAfter: .init(width: 880, height: 560)
+            ),
             observedAt: observedAt
         )
 
-        XCTAssertEqual(observation.schemaVersion, 3)
+        XCTAssertEqual(observation.schemaVersion, 4)
         XCTAssertEqual(observation.observedAt, observedAt)
         XCTAssertEqual(observation.sourceRevision, "source-commit")
         XCTAssertEqual(observation.factoryImageVersion, "factory-version")
@@ -219,11 +225,26 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(observation.guestToHostTextSHA256, String(repeating: "d", count: 64))
         XCTAssertEqual(observation.hostToGuestImageSHA256, String(repeating: "e", count: 64))
         XCTAssertEqual(observation.guestToHostImageSHA256, String(repeating: "f", count: 64))
+        XCTAssertTrue(observation.dynamicDisplayRoundTripPassed)
+        XCTAssertEqual(observation.dynamicDisplayRoundTripObservedAt, observedAt)
+        XCTAssertEqual(observation.guestDisplayBefore, .init(width: 1920, height: 1200))
+        XCTAssertEqual(observation.guestDisplayAfter, .init(width: 880, height: 560))
+        XCTAssertEqual(observation.hostViewAfter, .init(width: 880, height: 560))
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         XCTAssertNoThrow(try decoder.decode(
             OmarchyIntegrationObservation.self, from: observation.encoded()
         ))
+    }
+
+    @MainActor
+    func testDynamicDisplayProbeDecodesActiveHyprlandMonitor() throws {
+        let data = Data(#"[{"disabled":true,"width":1,"height":1},{"disabled":false,"width":1440,"height":900}]"#.utf8)
+        XCTAssertEqual(
+            try OmarchyDynamicDisplayAcceptanceProbe.decodeDisplay(data),
+            OmarchyDisplaySize(width: 1440, height: 900)
+        )
+        XCTAssertThrowsError(try OmarchyDynamicDisplayAcceptanceProbe.decodeDisplay(Data("[]".utf8)))
     }
 
     private func runningLifecycle() -> OmarchyMachineLifecycle {

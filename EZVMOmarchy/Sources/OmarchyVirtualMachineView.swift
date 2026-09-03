@@ -22,6 +22,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var recordedIntegrationSignature = ""
     @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
     @State private var clipboardProbe: OmarchyClipboardProbeState = .notRun
+    @State private var dynamicDisplayProbe: OmarchyDynamicDisplayProbeState = .notRun
 
     private var phase: Phase { lifecycle.phase }
 
@@ -35,6 +36,7 @@ struct OmarchyVirtualMachineView: View {
                 integrationChanged: handleIntegrationChange,
                 sharedFolderProbeChanged: handleSharedFolderProbeChange,
                 clipboardProbeChanged: handleClipboardProbeChange,
+                dynamicDisplayProbeChanged: handleDynamicDisplayProbeChange,
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
@@ -287,7 +289,8 @@ struct OmarchyVirtualMachineView: View {
             requiredCapabilities: profile.requiredGuestCapabilities,
             layout: layout,
             sharedFolderRoundTrip: sharedFolderRoundTrip,
-            clipboardRoundTrip: clipboardRoundTrip
+            clipboardRoundTrip: clipboardRoundTrip,
+            dynamicDisplayRoundTrip: dynamicDisplayRoundTrip
         )
         let signature = ([status.omarchyRevision ?? "", status.agentVersion]
             + status.capabilities.sorted()).joined(separator: "\u{1f}")
@@ -320,7 +323,8 @@ struct OmarchyVirtualMachineView: View {
             requiredCapabilities: profile.requiredGuestCapabilities,
             layout: layout,
             sharedFolderRoundTrip: sharedFolderRoundTrip,
-            clipboardRoundTrip: clipboardRoundTrip
+            clipboardRoundTrip: clipboardRoundTrip,
+            dynamicDisplayRoundTrip: dynamicDisplayRoundTrip
         )
     }
 
@@ -337,7 +341,26 @@ struct OmarchyVirtualMachineView: View {
             requiredCapabilities: profile.requiredGuestCapabilities,
             layout: layout,
             sharedFolderRoundTrip: sharedFolderRoundTrip,
-            clipboardRoundTrip: clipboardRoundTrip
+            clipboardRoundTrip: clipboardRoundTrip,
+            dynamicDisplayRoundTrip: dynamicDisplayRoundTrip
+        )
+    }
+
+    private var dynamicDisplayRoundTrip: OmarchyDynamicDisplayRoundTrip? {
+        guard case .passed(let result) = dynamicDisplayProbe else { return nil }
+        return result
+    }
+
+    private func handleDynamicDisplayProbeChange(_ state: OmarchyDynamicDisplayProbeState) {
+        dynamicDisplayProbe = state
+        guard case .ready(let status) = integration else { return }
+        OmarchyAcceptanceObservationReporter.reportIfEnabled(
+            status: status,
+            requiredCapabilities: profile.requiredGuestCapabilities,
+            layout: layout,
+            sharedFolderRoundTrip: sharedFolderRoundTrip,
+            clipboardRoundTrip: clipboardRoundTrip,
+            dynamicDisplayRoundTrip: dynamicDisplayRoundTrip
         )
     }
 
@@ -638,6 +661,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let integrationChanged: (VMOmarchyIntegrationState) -> Void
     let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
     let clipboardProbeChanged: (OmarchyClipboardProbeState) -> Void
+    let dynamicDisplayProbeChanged: (OmarchyDynamicDisplayProbeState) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -647,6 +671,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             integrationChanged: integrationChanged,
             sharedFolderProbeChanged: sharedFolderProbeChanged,
             clipboardProbeChanged: clipboardProbeChanged,
+            dynamicDisplayProbeChanged: dynamicDisplayProbeChanged,
             phaseChanged: phaseChanged
         )
     }
@@ -663,6 +688,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             let machine = VZVirtualMachine(configuration: configuration)
             machine.delegate = context.coordinator
             context.coordinator.machine = machine
+            context.coordinator.machineView = view
             OmarchyApplicationTerminationController.shared.register(machine)
             context.coordinator.beginObservingCommands()
             view.virtualMachine = machine
@@ -699,6 +725,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let integrationChanged: (VMOmarchyIntegrationState) -> Void
         let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
         let clipboardProbeChanged: (OmarchyClipboardProbeState) -> Void
+        let dynamicDisplayProbeChanged: (OmarchyDynamicDisplayProbeState) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
         private var keyboardPermissionObserver: NSObjectProtocol?
@@ -709,6 +736,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var sharedFolderProbePassed = false
         private var clipboardProbeTask: Task<Void, Never>?
         private var clipboardProbePassed = false
+        weak var machineView: VZVirtualMachineView?
+        private var dynamicDisplayProbeTask: Task<Void, Never>?
+        private var dynamicDisplayProbePassed = false
 
         init(
             sessionID: UUID,
@@ -716,6 +746,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
             sharedFolderProbeChanged: @escaping (VMOmarchySharedFolderProbeState) -> Void,
             clipboardProbeChanged: @escaping (OmarchyClipboardProbeState) -> Void,
+            dynamicDisplayProbeChanged: @escaping (OmarchyDynamicDisplayProbeState) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
@@ -723,6 +754,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.integrationChanged = integrationChanged
             self.sharedFolderProbeChanged = sharedFolderProbeChanged
             self.clipboardProbeChanged = clipboardProbeChanged
+            self.dynamicDisplayProbeChanged = dynamicDisplayProbeChanged
             self.phaseChanged = phaseChanged
         }
 
@@ -851,11 +883,43 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         result.guestToHostImageSHA256
                     )
                     self.clipboardProbeChanged(.passed(result))
+                    self.startDynamicDisplayProbeIfNeeded(layout: layout)
                 } catch {
                     NSLog("Omarchy clipboard round trip failed: %@", error.localizedDescription)
                     self.clipboardProbeChanged(.failed(error.localizedDescription))
                 }
                 self.clipboardProbeTask = nil
+            }
+        }
+
+        private func startDynamicDisplayProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
+            guard ProcessInfo.processInfo.environment[
+                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+            ] == "1", clipboardProbePassed, !dynamicDisplayProbePassed,
+                  dynamicDisplayProbeTask == nil, let integrationClient,
+                  let machineView else { return }
+            dynamicDisplayProbeChanged(.running)
+            dynamicDisplayProbeTask = Task { @MainActor [weak self, weak machineView] in
+                guard let self, let machineView else { return }
+                do {
+                    let result = try await OmarchyDynamicDisplayAcceptanceProbe.run(
+                        client: integrationClient,
+                        view: machineView,
+                        sharedDirectory: layout.shared
+                    )
+                    self.dynamicDisplayProbePassed = true
+                    NSLog(
+                        "Omarchy dynamic display round trip passed (%dx%d -> %dx%d; host %dx%d)",
+                        result.guestBefore.width, result.guestBefore.height,
+                        result.guestAfter.width, result.guestAfter.height,
+                        result.hostViewAfter.width, result.hostViewAfter.height
+                    )
+                    self.dynamicDisplayProbeChanged(.passed(result))
+                } catch {
+                    NSLog("Omarchy dynamic display round trip failed: %@", error.localizedDescription)
+                    self.dynamicDisplayProbeChanged(.failed(error.localizedDescription))
+                }
+                self.dynamicDisplayProbeTask = nil
             }
         }
 
@@ -889,6 +953,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             sharedFolderProbeTask = nil
             clipboardProbeTask?.cancel()
             clipboardProbeTask = nil
+            dynamicDisplayProbeTask?.cancel()
+            dynamicDisplayProbeTask = nil
             keyboardBridge?.stop()
             keyboardBridge = nil
             stopIntegration()
@@ -923,6 +989,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             clipboardProbeTask?.cancel()
             clipboardProbeTask = nil
             clipboardProbePassed = false
+            dynamicDisplayProbeTask?.cancel()
+            dynamicDisplayProbeTask = nil
+            dynamicDisplayProbePassed = false
             let client = integrationClient
             integrationClient = nil
             Task { @MainActor in client?.stop() }

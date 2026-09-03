@@ -28,6 +28,11 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
     let guestToHostTextSHA256: String?
     let hostToGuestImageSHA256: String?
     let guestToHostImageSHA256: String?
+    let dynamicDisplayRoundTripPassed: Bool
+    let dynamicDisplayRoundTripObservedAt: Date?
+    let guestDisplayBefore: OmarchyDisplaySize?
+    let guestDisplayAfter: OmarchyDisplaySize?
+    let hostViewAfter: OmarchyDisplaySize?
 
     func encoded() throws -> Data {
         let encoder = JSONEncoder()
@@ -46,6 +51,7 @@ enum OmarchyAcceptanceObservationReporter {
         layout: VMOmarchyWorkspaceLayout,
         sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip?,
         clipboardRoundTrip: OmarchyClipboardRoundTrip?,
+        dynamicDisplayRoundTrip: OmarchyDynamicDisplayRoundTrip?,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         observedAt: Date = Date()
@@ -64,6 +70,7 @@ enum OmarchyAcceptanceObservationReporter {
             sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
             sharedFolderRoundTrip: sharedFolderRoundTrip,
             clipboardRoundTrip: clipboardRoundTrip,
+            dynamicDisplayRoundTrip: dynamicDisplayRoundTrip,
             observedAt: observedAt
         )
         do {
@@ -84,11 +91,12 @@ enum OmarchyAcceptanceObservationReporter {
         sourceRevision: String,
         sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip?,
         clipboardRoundTrip: OmarchyClipboardRoundTrip?,
+        dynamicDisplayRoundTrip: OmarchyDynamicDisplayRoundTrip?,
         observedAt: Date
     ) -> OmarchyIntegrationObservation {
         let capabilities = status.capabilities
         return OmarchyIntegrationObservation(
-            schemaVersion: 3,
+            schemaVersion: 4,
             observedAt: observedAt,
             sourceRevision: sourceRevision,
             factoryImageVersion: factoryImageVersion,
@@ -113,7 +121,12 @@ enum OmarchyAcceptanceObservationReporter {
             hostToGuestTextSHA256: clipboardRoundTrip?.hostToGuestTextSHA256,
             guestToHostTextSHA256: clipboardRoundTrip?.guestToHostTextSHA256,
             hostToGuestImageSHA256: clipboardRoundTrip?.hostToGuestImageSHA256,
-            guestToHostImageSHA256: clipboardRoundTrip?.guestToHostImageSHA256
+            guestToHostImageSHA256: clipboardRoundTrip?.guestToHostImageSHA256,
+            dynamicDisplayRoundTripPassed: dynamicDisplayRoundTrip != nil,
+            dynamicDisplayRoundTripObservedAt: dynamicDisplayRoundTrip?.observedAt,
+            guestDisplayBefore: dynamicDisplayRoundTrip?.guestBefore,
+            guestDisplayAfter: dynamicDisplayRoundTrip?.guestAfter,
+            hostViewAfter: dynamicDisplayRoundTrip?.hostViewAfter
         )
     }
 }

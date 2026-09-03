@@ -17,7 +17,7 @@ write_observation() {
       shared-folders-v1 shutdown-v1
     ]
     value = {
-      schemaVersion: 3, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
+      schemaVersion: 4, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
       factoryImageVersion: ARGV.fetch(2), omarchyRevision: "omarchy-test-1",
       guestAgentVersion: ARGV.fetch(3), guestHostName: "omarchy",
       guestAddresses: ["192.0.2.2"], guestCapabilities: capabilities,
@@ -32,7 +32,12 @@ write_observation() {
       clipboardRoundTripPassed: true,
       clipboardRoundTripObservedAt: ARGV.fetch(0),
       hostToGuestTextSHA256: "c" * 64, guestToHostTextSHA256: "d" * 64,
-      hostToGuestImageSHA256: "e" * 64, guestToHostImageSHA256: "f" * 64
+      hostToGuestImageSHA256: "e" * 64, guestToHostImageSHA256: "f" * 64,
+      dynamicDisplayRoundTripPassed: true,
+      dynamicDisplayRoundTripObservedAt: ARGV.fetch(0),
+      guestDisplayBefore: {width: 1920, height: 1200},
+      guestDisplayAfter: {width: 880, height: 560},
+      hostViewAfter: {width: 880, height: 560}
     }
     File.write(ARGV.fetch(4), JSON.pretty_generate(value))
   ' "$observed" "$revision" "$factory_version" "$agent_version" "$work/observation.json"
@@ -70,6 +75,14 @@ expect_rejection "observation without a real clipboard round trip was accepted"
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v.delete("guestToHostImageSHA256"); File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
 expect_rejection "observation without clipboard image evidence was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["dynamicDisplayRoundTripPassed"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+expect_rejection "observation without a real dynamic-display round trip was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["guestDisplayAfter"]["width"]+=1; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+expect_rejection "observation with mismatched Host and Guest display sizes was accepted"
 
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["guestCapabilities"].delete("clipboard-image-v1"); File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
