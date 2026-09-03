@@ -1380,9 +1380,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                                 stateURL: stateURL,
                                 vmRootPath: rootPath
                             )
-                            self.releaseVirtualMachineAfterStop()
-                            self.runtimeState?.update(.stopped)
-                            self.releaseRunLease()
+                            self.stopAfterSavedStateCommit(stateURL: stateURL)
                         } catch {
                             VMSavedStateStore.discardPending(stateURL: stateURL)
                             self.recoverFromLifecycleOperationFailure(
@@ -1391,7 +1389,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                             )
                         }
                     }
-                    self.shutdownRetainer = nil
                 }
             }
         }
@@ -1414,7 +1411,39 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 }
             }
         } else {
-            shutdownRetainer = nil
+            recoverFromLifecycleOperationFailure(
+                "The virtual machine changed state before it could be paused for saving.",
+                fallback: fallbackPhase
+            )
+        }
+    }
+
+    private func stopAfterSavedStateCommit(stateURL: URL) {
+        runtimeState?.update(.stopping)
+        virtualMachine.stop { [weak self] error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let error {
+                    // Save-and-stop is one product transaction. A state file
+                    // for a VM that remained live becomes stale as soon as the
+                    // guest resumes or a runtime device changes, so roll it
+                    // back instead of leaving a future cold launch to consume
+                    // an ambiguous checkpoint.
+                    VMSavedStateStore.discardCommitted(stateURL: stateURL)
+                    self.recoverFromLifecycleOperationFailure(
+                        "The virtual machine state was saved, but the machine could not stop: \(error.localizedDescription)",
+                        fallback: .paused
+                    )
+                    self.runtimeState?.updateMachineStateNotice(
+                        "The virtual machine is still paused. EZVM removed the incomplete saved-session result; try Save & Stop again."
+                    )
+                    return
+                }
+                self.releaseVirtualMachineAfterStop()
+                self.runtimeState?.update(.stopped)
+                self.releaseRunLease()
+                self.shutdownRetainer = nil
+            }
         }
     }
 

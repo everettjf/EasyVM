@@ -208,6 +208,16 @@ re-enabling USB actions. A late completion from the cancelled stop boundary is
 therefore either reflected from controller truth or detached, never promoted
 from stale UI state.
 
+Saved-state completion follows Apple's actual lifecycle contract: a successful
+`saveMachineStateTo` leaves the VM paused. EZVM commits the pending state file
+atomically, then explicitly calls `VZVirtualMachine.stop`, and releases the VM
+and run lease only after that stop succeeds. If it fails, the committed state
+is rolled back because it would become stale as soon as the still-live guest
+resumes or changes a runtime device. The paused VM remains controllable and the
+user is asked to retry Save & Stop. A race that removes `canPause` before the
+save begins also returns to framework truth instead of leaving a permanent
+Saving/Stopping overlay.
+
 ### Product outcome
 
 USB passthrough feels like connecting a device to a physical computer: devices
