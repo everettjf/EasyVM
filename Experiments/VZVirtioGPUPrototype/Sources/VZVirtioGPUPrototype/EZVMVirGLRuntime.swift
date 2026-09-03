@@ -74,8 +74,8 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
 
     public init(
         configuration: Configuration,
-        onScanout: @escaping @MainActor @Sendable (UInt32, Int, Int, Int, Int) -> Void,
-        onScanoutInvalidated: @escaping @MainActor @Sendable () -> Void = {},
+        onScanout: @escaping @MainActor @Sendable (UInt32, Int, Int, Int, Int, UInt64) -> Void,
+        onScanoutInvalidated: @escaping @MainActor @Sendable (UInt64) -> Void = { _ in },
         onCursor: @escaping @MainActor @Sendable (CursorUpdate) -> Void = { _ in },
         onFallbackFrame: @escaping @MainActor @Sendable (CGImage) -> Void = { _ in }
     ) throws {
@@ -88,7 +88,10 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
                 renderer: renderer,
                 zeroCopyPresentationEnabled: configuration.zeroCopyPresentationEnabled,
                 onZeroCopyFrame: { frame in
-                    onScanout(frame.resourceID, frame.x, frame.y, frame.width, frame.height)
+                    onScanout(
+                        frame.resourceID, frame.x, frame.y, frame.width, frame.height,
+                        frame.eventSequence
+                    )
                 },
                 onScanoutInvalidated: onScanoutInvalidated,
                 onCursor: onCursor,
@@ -141,6 +144,11 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         sourceX: Int, sourceY: Int, sourceWidth: Int, sourceHeight: Int,
         into texture: any MTLTexture
     ) throws -> Bool {
+        guard let source = VirtioGPU.presentationRegion(
+            x: sourceX, y: sourceY, width: sourceWidth, height: sourceHeight
+        ), let destinationWidth = UInt32(exactly: texture.width),
+           let destinationHeight = UInt32(exactly: texture.height),
+           destinationWidth > 0, destinationHeight > 0 else { return false }
         stateLock.lock()
         guard let renderer else {
             stateLock.unlock()
@@ -150,10 +158,10 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         return renderer.present(
             resourceID: resourceID,
             into: texture,
-            sourceX: UInt32(sourceX), sourceY: UInt32(sourceY),
-            sourceWidth: UInt32(sourceWidth), sourceHeight: UInt32(sourceHeight),
-            width: UInt32(texture.width),
-            height: UInt32(texture.height)
+            sourceX: source.x, sourceY: source.y,
+            sourceWidth: source.width, sourceHeight: source.height,
+            width: destinationWidth,
+            height: destinationHeight
         )
     }
 
@@ -163,6 +171,14 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         into texture: any MTLTexture,
         completion: @escaping (Bool) -> Void
     ) {
+        guard let source = VirtioGPU.presentationRegion(
+            x: sourceX, y: sourceY, width: sourceWidth, height: sourceHeight
+        ), let destinationWidth = UInt32(exactly: texture.width),
+           let destinationHeight = UInt32(exactly: texture.height),
+           destinationWidth > 0, destinationHeight > 0 else {
+            completion(false)
+            return
+        }
         stateLock.lock()
         guard let renderer else {
             stateLock.unlock()
@@ -173,10 +189,10 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
         renderer.presentAsync(
             resourceID: resourceID,
             into: texture,
-            sourceX: UInt32(sourceX), sourceY: UInt32(sourceY),
-            sourceWidth: UInt32(sourceWidth), sourceHeight: UInt32(sourceHeight),
-            width: UInt32(texture.width),
-            height: UInt32(texture.height),
+            sourceX: source.x, sourceY: source.y,
+            sourceWidth: source.width, sourceHeight: source.height,
+            width: destinationWidth,
+            height: destinationHeight,
             completion: completion
         )
     }
@@ -186,11 +202,15 @@ public final class EZVMVirGLRuntime: @unchecked Sendable {
     /// dropping the renderer then cleans ANGLE/VirGL on its dedicated thread.
     public func shutdown() {
         stateLock.lock()
-        gpuDevice = nil
+        let gpuDevice = self.gpuDevice
+        self.gpuDevice = nil
         inputProbeDevice = nil
         let renderer = self.renderer
         self.renderer = nil
         stateLock.unlock()
+        // Drain the delegate queue and install a terminal fence before making
+        // the process-global renderer available to a later VM session.
+        gpuDevice?.shutdown()
         // virglrenderer is process-global. VZVirtualMachine may retain its
         // custom-device delegate past the VM stop callback, so ARC alone is not
         // a deterministic cleanup boundary. Tear the singleton down explicitly

@@ -26,6 +26,7 @@ enum VirtioGPU {
         static let maxTotalPixelBytes = 512 * 1024 * 1024
         static let maxBackingEntries = 4_096
         static let maxBackingBytes = 1024 * 1024 * 1024
+        static let maxTotalBackingBytes: UInt64 = 4 * 1024 * 1024 * 1024
         // The virtio-gpu ABI standardizes a 64x64 cursor. Leave headroom for
         // guests that use larger HiDPI cursor planes without allowing a
         // general scanout-sized resource to become an AppKit cursor image.
@@ -61,6 +62,22 @@ enum VirtioGPU {
             max(640, min(Limits.maxDimension, width)),
             max(480, min(Limits.maxDimension, height))
         )
+    }
+
+    static func presentationRegion(
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int
+    ) -> (x: UInt32, y: UInt32, width: UInt32, height: UInt32)? {
+        guard let x = UInt32(exactly: x),
+              let y = UInt32(exactly: y),
+              let width = UInt32(exactly: width),
+              let height = UInt32(exactly: height),
+              width > 0, height > 0,
+              UInt64(x) + UInt64(width) <= UInt64(UInt32.max),
+              UInt64(y) + UInt64(height) <= UInt64(UInt32.max) else { return nil }
+        return (x, y, width, height)
     }
 
     static func deviceConfigurationData(displayEvent: Bool) -> Data {

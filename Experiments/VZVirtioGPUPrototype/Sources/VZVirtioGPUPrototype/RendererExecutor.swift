@@ -9,6 +9,7 @@ final class RendererExecutor: @unchecked Sendable {
     private let ready = DispatchSemaphore(value: 0)
     private var jobs: [() -> Void] = []
     private var stopping = false
+    private var hasStopped = false
     private var pollOperation: (() -> Void)?
     private var pollingEnabled = false
     private var thread: Thread!
@@ -21,11 +22,14 @@ final class RendererExecutor: @unchecked Sendable {
         ready.wait()
     }
 
+    deinit { stop() }
+
     func sync<Value>(_ operation: @escaping () -> Value) -> Value {
         if Thread.current === thread { return operation() }
         let completion = DispatchSemaphore(value: 0)
         let result = RendererResultBox<Value>()
         condition.lock()
+        precondition(!stopping, "RendererExecutor cannot accept work after stop")
         jobs.append {
             result.value = operation()
             completion.signal()
@@ -64,6 +68,13 @@ final class RendererExecutor: @unchecked Sendable {
         condition.lock()
         stopping = true
         condition.signal()
+        if Thread.current === thread {
+            condition.unlock()
+            return
+        }
+        while !hasStopped {
+            condition.wait()
+        }
         condition.unlock()
     }
 
@@ -79,6 +90,8 @@ final class RendererExecutor: @unchecked Sendable {
                 condition.wait()
             }
             if stopping && jobs.isEmpty {
+                hasStopped = true
+                condition.broadcast()
                 condition.unlock()
                 return
             }

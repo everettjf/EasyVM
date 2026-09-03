@@ -61,18 +61,24 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let y: Int
         let width: Int
         let height: Int
+        let eventSequence: UInt64
     }
 
     let onZeroCopyFrame: @MainActor (ScanoutFrame) -> Void
-    let onScanoutInvalidated: @MainActor () -> Void
+    let onScanoutInvalidated: @MainActor (UInt64) -> Void
     let onCursor: @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void
     let zeroCopyPresentationEnabled: Bool
     let deviceQueue = DispatchQueue(label: "com.everettjf.ezvm.prototype.virtio-gpu")
+    private let deviceQueueKey = DispatchSpecificKey<UInt8>()
 
     private(set) var device: VZCustomVirtioDevice?
+    private var isStopped = false
     private var resources: [UInt32: Resource] = [:]
     private var totalPixelBytes = 0
     private var rendererResourceBudget = VirtioGPU.RendererResourceBudget()
+    private var backingBudget = VirtioGPU.RendererResourceBudget(
+        limit: VirtioGPU.Limits.maxTotalBackingBytes
+    )
     private var contexts: Set<UInt32> = []
     private var contextResources: [UInt32: Set<UInt32>] = [:]
     private var scanoutResourceID: UInt32?
@@ -95,6 +101,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var assertedDisplayEventGeneration: Int?
     private var displayInfoRequestCount: UInt64 = 0
     private var borrowedScanoutResources: Set<UInt32> = []
+    private var presentationEventSequence: UInt64 = 0
     private lazy var frameScheduler = LatestFrameScheduler<ScanoutFrame> { [weak self] frame, completed in
         guard let self else {
             completed()
@@ -112,7 +119,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         renderer: VirGLRenderer,
         zeroCopyPresentationEnabled: Bool = true,
         onZeroCopyFrame: @escaping @MainActor (ScanoutFrame) -> Void,
-        onScanoutInvalidated: @escaping @MainActor () -> Void = {},
+        onScanoutInvalidated: @escaping @MainActor (UInt64) -> Void = { _ in },
         onCursor: @escaping @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void = { _ in },
         onFrame: @escaping @MainActor (CGImage) -> Void
     ) {
@@ -124,6 +131,21 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         self.onScanoutInvalidated = onScanoutInvalidated
         self.onCursor = onCursor
         self.onFrame = onFrame
+        deviceQueue.setSpecific(key: deviceQueueKey, value: 1)
+    }
+
+    func shutdown() {
+        let stop = {
+            guard !self.isStopped else { return }
+            self.isStopped = true
+            self.releaseDeviceState(reason: "runtime shutdown")
+            self.device = nil
+        }
+        if DispatchQueue.getSpecific(key: deviceQueueKey) != nil {
+            stop()
+        } else {
+            deviceQueue.sync(execute: stop)
+        }
     }
 
     func makeConfiguration() -> VZCustomVirtioDeviceConfiguration {
@@ -153,6 +175,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let requestedHeight = requested.height
         deviceQueue.async { [weak self] in
             guard let self,
+                  !self.isStopped,
                   self.width != requestedWidth || self.height != requestedHeight else { return }
             self.width = requestedWidth
             self.height = requestedHeight
@@ -238,17 +261,21 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         _ deviceConfiguration: VZCustomVirtioDeviceConfiguration,
         didCreateDevice device: VZCustomVirtioDevice
     ) {
+        guard !isStopped else { return }
         self.device = device
         device.delegate = self
         print("[stage1] Virtualization created custom virtio device id=\(deviceConfiguration.deviceID)")
     }
 
     func customVirtioDeviceDidAcceptDriverOk(_ device: VZCustomVirtioDevice) {
+        guard !isStopped, self.device === device else { return }
         print("[stage1] Linux driver accepted DRIVER_OK; standard virtio-gpu identity is viable")
         print("[stage1] queues: control=\(device.queue(at: 0) != nil), cursor=\(device.queue(at: 1) != nil)")
     }
 
     func customVirtioDeviceWillStop(_ device: VZCustomVirtioDevice) {
+        guard !isStopped else { return }
+        isStopped = true
         releaseDeviceState(reason: "stop")
         // A late display-size request must not call update(_:) on a device
         // after Virtualization.framework has begun stopping it. Reset keeps
@@ -257,14 +284,18 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     func customVirtioDeviceWillPause(_ device: VZCustomVirtioDevice) {
+        guard !isStopped, self.device === device else { return }
         // Presentation callbacks are host UI work and must not outlive the
         // point at which Virtualization has paused the device. Renderer and
         // guest resource state remain intact for resume.
         frameScheduler.cancel()
+        let sequence = nextPresentationEventSequence()
+        Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated(sequence) }
         print("[stage6] custom Virtio GPU paused")
     }
 
     func customVirtioDeviceWillResume(_ device: VZCustomVirtioDevice) {
+        guard !isStopped, self.device === device else { return }
         print("[stage6] custom Virtio GPU resumed")
     }
 
@@ -272,6 +303,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         _ device: VZCustomVirtioDevice,
         didReceiveNotificationFor queue: VZVirtioQueue
     ) {
+        guard !isStopped, self.device === device else { return }
         while let element = queue.nextElement() {
             let returnSynchronously = autoreleasepool {
                 process(element: element, queueIndex: queue.queueIndex, device: device)
@@ -281,12 +313,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     func customVirtioDeviceWillReset(_ device: VZCustomVirtioDevice) {
+        guard !isStopped, self.device === device else { return }
         releaseDeviceState(reason: "reset")
     }
 
     private func releaseDeviceState(reason: String) {
         frameScheduler.cancel()
-        Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated() }
+        let sequence = nextPresentationEventSequence()
+        Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated(sequence) }
         renderer.cancelFences()
         for contextID in contexts { renderer.destroyContext(id: contextID) }
         for resource in resources.values where resource.isRendererResource {
@@ -296,6 +330,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         resources.removeAll()
         totalPixelBytes = 0
         rendererResourceBudget.reset()
+        backingBudget.reset()
         contexts.removeAll()
         contextResources.removeAll()
         scanoutResourceID = nil
@@ -398,6 +433,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             resources.removeValue(forKey: resourceID)
             totalPixelBytes -= resource.pixels.count
             rendererResourceBudget.release(resource.estimatedRendererBytes)
+            backingBudget.release(UInt64(resource.backing.reduce(0) { $0 + $1.length }))
             let wasActiveScanout = scanoutResourceID == resourceID
             let wasPublishedScanout = lastPublishedScanoutResourceID == resourceID
             if wasActiveScanout {
@@ -417,8 +453,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 // CAMetalLayer drawable visible until the replacement's first
                 // successful flush arrives.
                 if wasActiveScanout || wasPublishedScanout {
+                    let sequence = nextPresentationEventSequence()
                     Task { @MainActor [onScanoutInvalidated] in
-                        onScanoutInvalidated()
+                        onScanoutInvalidated(sequence)
                     }
                 }
                 diagnosticLog(
@@ -443,6 +480,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 break
             }
             if resource.isRendererResource { renderer.detach(resourceID: resourceID) }
+            backingBudget.release(UInt64(resource.backing.reduce(0) { $0 + $1.length }))
             resource.backing.removeAll()
             resource.virglBacking = nil
             resources[resourceID] = resource
@@ -741,8 +779,18 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         resource.backing = entries
         let virglBacking = VirGLBacking(entries: entries)
+        let backingBytes = UInt64(totalBackingBytes)
+        guard backingBudget.reserve(backingBytes) else {
+            diagnosticLog(
+                "RESOURCE_ATTACH_BACKING rejected-by-budget resource=\(resourceID) "
+                    + "requested=\(backingBytes) allocated=\(backingBudget.allocatedBytes) "
+                    + "limit=\(VirtioGPU.Limits.maxTotalBackingBytes)"
+            )
+            return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
+        }
         guard !resource.isRendererResource
                 || renderer.attach(resourceID: resourceID, iovecs: virglBacking.iovecs, count: entries.count) else {
+            backingBudget.release(backingBytes)
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         resource.virglBacking = virglBacking
@@ -1101,7 +1149,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             frameScheduler.submit(ScanoutFrame(
                 resourceID: resourceID,
                 x: Int(scanoutRect.x), y: Int(scanoutRect.y),
-                width: Int(scanoutRect.width), height: Int(scanoutRect.height)
+                width: Int(scanoutRect.width), height: Int(scanoutRect.height),
+                eventSequence: nextPresentationEventSequence()
             ))
             let submitted = frameScheduler.submittedCount
             if submitted == 1 || submitted.isMultiple(of: 600) {
@@ -1158,6 +1207,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         resource.pixels = Data(count: byteCount)
         totalPixelBytes += byteCount
         return true
+    }
+
+    private func nextPresentationEventSequence() -> UInt64 {
+        presentationEventSequence &+= 1
+        return presentationEventSequence
     }
 
     private func publish(_ resource: Resource) {

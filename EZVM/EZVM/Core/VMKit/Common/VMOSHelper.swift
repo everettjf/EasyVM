@@ -1079,6 +1079,16 @@ struct VMGraphicsPresentationLifecycle: Equatable {
     }
 }
 
+struct VMGraphicsPresentationEventFence: Equatable {
+    private(set) var latestAcceptedSequence: UInt64 = 0
+
+    mutating func accept(_ sequence: UInt64) -> Bool {
+        guard sequence > latestAcceptedSequence else { return false }
+        latestAcceptedSequence = sequence
+        return true
+    }
+}
+
 struct VMLinuxFeatureConfiguration: Codable, Equatable {
     var rosettaEnabled: Bool
     var rosettaCachingEnabled: Bool

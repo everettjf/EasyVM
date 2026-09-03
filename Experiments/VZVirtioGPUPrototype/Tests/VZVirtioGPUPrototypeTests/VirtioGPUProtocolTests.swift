@@ -94,6 +94,16 @@ import Testing
     #expect(maximum.height == VirtioGPU.Limits.maxDimension)
 }
 
+@Test func presentationRegionRejectsValuesThatWouldTrapOrWrap() {
+    let valid = VirtioGPU.presentationRegion(x: 10, y: 20, width: 1280, height: 720)
+    #expect(valid?.x == 10)
+    #expect(valid?.height == 720)
+    #expect(VirtioGPU.presentationRegion(x: -1, y: 0, width: 1, height: 1) == nil)
+    #expect(VirtioGPU.presentationRegion(x: 0, y: 0, width: 0, height: 1) == nil)
+    #expect(VirtioGPU.presentationRegion(x: Int(UInt32.max), y: 0, width: 1, height: 1) == nil)
+    #expect(VirtioGPU.presentationRegion(x: Int.max, y: 0, width: 1, height: 1) == nil)
+}
+
 @Test func edidResponseAdvertisesRequestedPreferredModeAndValidChecksum() throws {
     var request = Data()
     request.appendLittleEndian(VirtioGPU.Command.getEDID.rawValue)
@@ -342,6 +352,39 @@ import Testing
     #expect(fullReservation)
     budget.reset()
     #expect(budget.allocatedBytes == 0)
+}
+
+@Test func aggregateBackingBudgetIsBoundedAcrossGuestResources() {
+    var budget = VirtioGPU.RendererResourceBudget(limit: VirtioGPU.Limits.maxTotalBackingBytes)
+    let oneResource = UInt64(VirtioGPU.Limits.maxBackingBytes)
+    for _ in 0..<4 {
+        let admitted = budget.reserve(oneResource)
+        #expect(admitted)
+    }
+    let overBudget = budget.reserve(1)
+    #expect(!overBudget)
+    budget.release(oneResource)
+    let admittedAfterRelease = budget.reserve(oneResource)
+    #expect(admittedAfterRelease)
+}
+
+@Test func rendererExecutorStopDrainsQueuedWorkBeforeReturning() {
+    let executor = RendererExecutor()
+    let workStarted = DispatchSemaphore(value: 0)
+    let finishWork = DispatchSemaphore(value: 0)
+    let stopReturned = DispatchSemaphore(value: 0)
+    executor.async {
+        workStarted.signal()
+        _ = finishWork.wait(timeout: .now() + 2)
+    }
+    #expect(workStarted.wait(timeout: .now() + 1) == .success)
+    DispatchQueue.global().async {
+        executor.stop()
+        stopReturned.signal()
+    }
+    #expect(stopReturned.wait(timeout: .now() + 0.05) == .timedOut)
+    finishWork.signal()
+    #expect(stopReturned.wait(timeout: .now() + 1) == .success)
 }
 
 @Test func transferRegionsRespectMipEdgesAndCannotOverflow() {

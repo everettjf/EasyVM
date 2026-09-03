@@ -4,6 +4,15 @@ import XCTest
 @testable import EZVMCore
 
 final class VMLinuxFeatureConfigurationTests: XCTestCase {
+    func testVirGLPresentationEventFenceRejectsLateInvalidation() {
+        var fence = VMGraphicsPresentationEventFence()
+        XCTAssertTrue(fence.accept(1))
+        XCTAssertTrue(fence.accept(3))
+        XCTAssertFalse(fence.accept(2))
+        XCTAssertFalse(fence.accept(3))
+        XCTAssertEqual(fence.latestAcceptedSequence, 3)
+    }
+
     func testVirGLPresentationHealthRequiresConsecutiveFailuresAndRecovers() {
         var health = VMGraphicsPresentationHealthTracker(failureThreshold: 3)
 

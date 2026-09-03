@@ -161,6 +161,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var presentationInFlight = false
     private var presentationHealth = VMGraphicsPresentationHealthTracker()
     private var presentationLifecycle = VMGraphicsPresentationLifecycle()
+    private var presentationEventFence = VMGraphicsPresentationEventFence()
     // Input falls back to Virtualization.framework until the authenticated
     // guest agent advertises uinput. Custom VirGL has no VZ graphics device,
     // so its reliable desktop input path is the agent once userspace starts.
@@ -230,8 +231,11 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         releaseInputCapture()
     }
 
-    func invalidateScanout() {
+    func invalidateScanout(eventSequence: UInt64) {
+        guard presentationEventFence.accept(eventSequence) else { return }
         latestScanout = nil
+        displayRefreshTimer?.invalidate()
+        displayRefreshTimer = nil
     }
 
     override var acceptsFirstResponder: Bool { true }
@@ -542,8 +546,16 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         updateCursorGeometry()
     }
 
-    func present(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
+    func present(
+        resourceID: UInt32,
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+        eventSequence: UInt64
+    ) {
         guard presentationLifecycle.tokenForPresentation() != nil else { return }
+        guard presentationEventFence.accept(eventSequence) else { return }
         latestScanout = (resourceID, x, y, width, height)
         ensureDisplayRefreshTimer()
         presentFrame(resourceID: resourceID, x: x, y: y, width: width, height: height)
@@ -737,11 +749,15 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
                     "EZVM_EXPERIMENTAL_STATIC_VIRTIO_INPUT"
                 ] == "1"
             ),
-            onScanout: { [weak view] resourceID, x, y, width, height in
-                view?.present(resourceID: resourceID, x: x, y: y, width: width, height: height)
+            onScanout: { [weak view] resourceID, x, y, width, height, eventSequence in
+                view?.present(
+                    resourceID: resourceID,
+                    x: x, y: y, width: width, height: height,
+                    eventSequence: eventSequence
+                )
             },
-            onScanoutInvalidated: { [weak view] in
-                view?.invalidateScanout()
+            onScanoutInvalidated: { [weak view] eventSequence in
+                view?.invalidateScanout(eventSequence: eventSequence)
             },
             onCursor: { [weak view] update in
                 view?.updateCursor(update)

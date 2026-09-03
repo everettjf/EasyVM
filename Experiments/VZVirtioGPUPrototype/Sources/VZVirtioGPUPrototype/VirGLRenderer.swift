@@ -124,7 +124,8 @@ final class VirGLRenderer {
         let version = initialization.version
         let size = initialization.size
         guard version > 0, size > 0 else {
-            vzvg_renderer_cleanup()
+            executor.sync { vzvg_renderer_cleanup() }
+            executor.stop()
             throw RendererError.initialize("VirGL capset 1 is unavailable")
         }
         virglCapset = Capset(id: 1, maxVersion: version, maxSize: size)
