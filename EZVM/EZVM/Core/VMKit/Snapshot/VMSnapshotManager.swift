@@ -295,15 +295,21 @@ class VMSnapshotManager {
             case diskImageKitLayered
         }
 
+        enum Phase: String, Codable {
+            case preparing
+            case installing
+            case committed
+        }
+
         let snapshotID: String
-        var phase: String
+        var phase: Phase
         let kind: Kind
         let previousState: VMSnapshotStoreState?
         var createdLayerPaths: [String]
 
         init(
             snapshotID: String,
-            phase: String,
+            phase: Phase,
             kind: Kind = .apfsClone,
             previousState: VMSnapshotStoreState? = nil,
             createdLayerPaths: [String] = []
@@ -322,7 +328,7 @@ class VMSnapshotManager {
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             snapshotID = try container.decode(String.self, forKey: .snapshotID)
-            phase = try container.decode(String.self, forKey: .phase)
+            phase = try container.decode(Phase.self, forKey: .phase)
             kind = try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .apfsClone
             previousState = try container.decodeIfPresent(VMSnapshotStoreState.self, forKey: .previousState)
             createdLayerPaths = try container.decodeIfPresent([String].self, forKey: .createdLayerPaths) ?? []
@@ -407,10 +413,23 @@ class VMSnapshotManager {
             return .success
         }
 
+        let transaction: RestoreTransaction?
+        if fm.fileExists(atPath: transactionURL.path(percentEncoded: false)) {
+            do {
+                let data = try Data(contentsOf: transactionURL)
+                transaction = try jsonDecoder().decode(RestoreTransaction.self, from: data)
+            } catch {
+                return .failure(
+                    "The interrupted snapshot restore journal is unreadable. "
+                        + "EZVM preserved the current machine, recovery backup, and journal to avoid guessing which state is authoritative."
+                )
+            }
+        } else {
+            transaction = nil
+        }
+
         do {
-            let transaction = (try? Data(contentsOf: transactionURL))
-                .flatMap { try? jsonDecoder().decode(RestoreTransaction.self, from: $0) }
-            if transaction?.phase == "committed" {
+            if transaction?.phase == .committed {
                 try? fm.removeItem(at: stagingDir)
                 try? fm.removeItem(at: backupDir)
                 try? fm.removeItem(at: transactionURL)
@@ -773,7 +792,7 @@ class VMSnapshotManager {
         // so a failure here is harmless
         do {
             try operationControl?.checkCancellation()
-            let transaction = RestoreTransaction(snapshotID: snapshot.id, phase: "preparing")
+            let transaction = RestoreTransaction(snapshotID: snapshot.id, phase: .preparing)
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             try fm.createDirectory(at: stagingDir, withIntermediateDirectories: true)
             let totalBytes = UInt64(max(0, requiredBytes))
@@ -826,7 +845,7 @@ class VMSnapshotManager {
                 movedToBackup.append(fileName)
             }
 
-            let transaction = RestoreTransaction(snapshotID: snapshot.id, phase: "installing")
+            let transaction = RestoreTransaction(snapshotID: snapshot.id, phase: .installing)
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
 
             for fileName in snapshotFileNames {
@@ -1303,7 +1322,7 @@ class VMSnapshotManager {
             try operationControl?.checkCancellation()
             var transaction = RestoreTransaction(
                 snapshotID: snapshot.id,
-                phase: "preparing",
+                phase: .preparing,
                 kind: .diskImageKitLayered,
                 previousState: previousState
             )
@@ -1363,7 +1382,7 @@ class VMSnapshotManager {
                 try fm.moveItem(at: vmRootPath.appending(path: fileName), to: backupDir.appending(path: fileName))
             }
             try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .backupMoved)
-            transaction.phase = "installing"
+            transaction.phase = .installing
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .journalInstalling)
             for fileName in snapshotFileNames {
@@ -1374,7 +1393,7 @@ class VMSnapshotManager {
             state.currentSnapshotID = snapshot.id
             try writeState(state, vmRootPath: vmRootPath)
             try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .stateWritten)
-            transaction.phase = "committed"
+            transaction.phase = .committed
             try jsonEncoder().encode(transaction).write(to: transactionURL, options: .atomic)
             try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .journalCommitted)
             pruneUnreferencedLayers(vmRootPath: vmRootPath)
@@ -1394,7 +1413,7 @@ class VMSnapshotManager {
             }
             let transactionCommitted = (try? Data(contentsOf: transactionURL))
                 .flatMap { try? jsonDecoder().decode(RestoreTransaction.self, from: $0) }
-                .map { $0.phase == "committed" } ?? false
+                .map { $0.phase == .committed } ?? false
             if !transactionCommitted {
                 // A layer may exist before its path can be durably added to the
                 // journal. Remove the local list as well as letting recovery

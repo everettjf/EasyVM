@@ -1078,6 +1078,80 @@ final class VMSnapshotManagerTests: XCTestCase {
         try unwrapSuccess(VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot))
     }
 
+    func testUnreadableRestoreJournalPreservesEveryOrdinaryRecoveryArtifact() throws {
+        try write("current config", to: "config.json")
+        let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)
+        let staging = temporaryRoot.appendingPathComponent(".restore-staging", isDirectory: true)
+        let journal = temporaryRoot.appendingPathComponent(".restore-transaction.json")
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        try Data("original config".utf8).write(to: backup.appendingPathComponent("config.json"))
+        try Data("original disk".utf8).write(to: backup.appendingPathComponent("Disk.img"))
+        try Data("staged config".utf8).write(to: staging.appendingPathComponent("config.json"))
+        try Data("not a restore journal".utf8).write(to: journal)
+
+        guard case let .failure(message) = VMSnapshotManager.recoverInterruptedRestore(
+            vmRootPath: temporaryRoot
+        ) else {
+            return XCTFail("Recovery must fail closed when its journal exists but is unreadable")
+        }
+
+        XCTAssertTrue(message.contains("journal is unreadable"))
+        XCTAssertEqual(try read("config.json"), "current config")
+        XCTAssertEqual(
+            try Data(contentsOf: backup.appendingPathComponent("config.json")),
+            Data("original config".utf8)
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: backup.appendingPathComponent("Disk.img")),
+            Data("original disk".utf8)
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: staging.appendingPathComponent("config.json")),
+            Data("staged config".utf8)
+        )
+        XCTAssertEqual(try Data(contentsOf: journal), Data("not a restore journal".utf8))
+    }
+
+    func testUnreadableLayeredRestoreJournalDoesNotGuessTheActiveASIFBranch() throws {
+        let base = temporaryRoot.appendingPathComponent("Disk.asif")
+        let snapshots = temporaryRoot.appendingPathComponent("Snapshots", isDirectory: true)
+        let layers = snapshots.appendingPathComponent("Layers", isDirectory: true)
+        let backup = temporaryRoot.appendingPathComponent(".restore-backup", isDirectory: true)
+        let journal = temporaryRoot.appendingPathComponent(".restore-transaction.json")
+        try FileManager.default.createDirectory(at: layers, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: true)
+        try Data("base".utf8).write(to: base)
+        try Data("new layer".utf8).write(to: layers.appendingPathComponent("new.asif"))
+        try write("current config", to: "config.json")
+        let originalConfig = #"{"storageDevices":[{"type":"Block","imagePath":"Disk.asif","format":"asif"}]}"#
+        try Data(originalConfig.utf8).write(to: backup.appendingPathComponent("config.json"))
+        let currentState = #"{"currentSnapshotID":"new","activeDiskLayers":{"Disk.asif":["Snapshots/Layers/new.asif"]}}"#
+        try Data(currentState.utf8).write(to: snapshots.appendingPathComponent("state.json"))
+        let unknownPhaseJournal = #"{"snapshotID":"target","phase":"future"}"#
+        try Data(unknownPhaseJournal.utf8).write(to: journal)
+
+        guard case .failure = VMSnapshotManager.recoverInterruptedRestore(vmRootPath: temporaryRoot) else {
+            return XCTFail("Layered recovery must not infer the previous branch without its journal")
+        }
+
+        XCTAssertEqual(try read("config.json"), "current config")
+        XCTAssertEqual(try Data(contentsOf: base), Data("base".utf8))
+        XCTAssertEqual(
+            try Data(contentsOf: layers.appendingPathComponent("new.asif")),
+            Data("new layer".utf8)
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: snapshots.appendingPathComponent("state.json")),
+            Data(currentState.utf8)
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: backup.appendingPathComponent("config.json")),
+            Data(originalConfig.utf8)
+        )
+        XCTAssertEqual(try Data(contentsOf: journal), Data(unknownPhaseJournal.utf8))
+    }
+
     func testInterruptedLayeredRestorePreservesBaseAndRollsBackStateAndFiles() throws {
         let base = temporaryRoot.appendingPathComponent("Disk.asif")
         try Data([0x73, 0x68, 0x64, 0x77, 0x01]).write(to: base)

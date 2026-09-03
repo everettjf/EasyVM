@@ -358,6 +358,13 @@ unwinding, in-memory cleanup, or the original process surviving. The production
 module exposes only an internal checkpoint observer; process termination lives
 entirely in the test target.
 
+Startup recovery also fails closed when a restore journal exists but cannot be
+decoded. It preserves the current machine, backup, staging directory, and the
+damaged journal without moving any file. In particular, EZVM never infers an
+ASIF branch from the backup configuration when the journal's previous
+`activeDiskLayers` state is unavailable; guessing there could pair a restored
+configuration with the wrong writable overlay while reporting success.
+
 Capacity preflight now uses allocated bytes rather than a sparse image's logical
 size and runs before the first mutation in RAW-to-ASIF conversion, snapshot
 creation, and APFS or layered restore. Deterministic zero-capacity tests prove
