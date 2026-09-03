@@ -12,9 +12,12 @@ import Virtualization
 #if arch(arm64)
 @MainActor
 final class VMOSCreatorForLinux: VMOSCreator {
-    
-    
+    private let allowedExistingRootItems: Set<String>?
     private var virtualMachine: VZVirtualMachine!
+
+    init(allowedExistingRootItems: Set<String>? = nil) {
+        self.allowedExistingRootItems = allowedExistingRootItems
+    }
 
     
     func create(model: VMModel, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async -> VMOSResultVoid {
@@ -26,7 +29,10 @@ final class VMOSCreatorForLinux: VMOSCreator {
             // create bundle
             let rootPath = model.getRootPath()
             progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
-            try await VMOSCreatorUtil.createVMBundle(path: rootPath)
+            try await VMOSCreatorUtil.createVMBundle(
+                transaction: transaction,
+                allowedExistingItemNames: allowedExistingRootItems
+            )
             progress(.info("Succeed create bundle path"))
             
             // write json
@@ -51,8 +57,8 @@ final class VMOSCreatorForLinux: VMOSCreator {
             } catch {
                 progress(.error("Could not remove the incomplete virtual machine bundle: \(error.localizedDescription)"))
             }
-            progress(.error("\(error)"))
-            return .failure("\(error)")
+            progress(.error(error.localizedDescription))
+            return .failure(error.localizedDescription)
         }
         
         progress(.info("Succeed created virtual machine"))

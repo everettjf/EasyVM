@@ -381,7 +381,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             state: VMStateModel(imagePath: diskURL),
             config: config
         )
-        let result = await VMOSCreatorForLinux().create(model: model) { progress in
+        let result = await VMOSCreatorForLinux(allowedExistingRootItems: ["Disk.img"]).create(model: model) { progress in
             switch progress {
             case .info(let message): print(message)
             case .error(let message): FileHandle.standardError.write(Data((message + "\n").utf8))
@@ -799,7 +799,7 @@ struct VMPreinstalledImageInstaller {
             linuxFeatures: defaults.linuxFeatures ?? .recommended
         )
         let model = VMModel(rootPath: stagingURL, state: VMStateModel(imagePath: diskURL), config: config)
-        let result = await VMOSCreatorForLinux().create(model: model, progress: progress)
+        let result = await VMOSCreatorForLinux(allowedExistingRootItems: ["Disk.img"]).create(model: model, progress: progress)
         guard case .success = result else { return result }
 
         if let thumbnailURL = install.thumbnailURL {

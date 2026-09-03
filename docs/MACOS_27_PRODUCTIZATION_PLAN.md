@@ -86,6 +86,18 @@ guest will. After the guard was added, the signed EZVM 2.0.0 build rejected that
 same image before creating a destination bundle. A macOS 27 IPSW is still
 required to complete the positive first-boot and interruption matrix.
 
+The installation destination is now claimed atomically by the creation
+transaction. A normal macOS or Linux creation refuses every pre-existing
+destination, including an empty directory created between review and install;
+rollback removes only a directory whose successful `mkdir` belongs to that
+exact attempt. This closes the prior time-of-check/time-of-use window where a
+failed installer could delete another process's newly created folder. It also
+removes a legacy bug that treated `mkdir`'s success status as a file descriptor
+and closed standard input. The separate preinstalled-image pipeline can reuse
+its own staging directory only when its contents exactly match the declared
+`Disk.img` whitelist, so the stricter user-destination rule does not weaken the
+verified image workflow.
+
 ### Product outcome
 
 A user can create a macOS 27 VM, choose whether to automate the initial account
@@ -98,7 +110,7 @@ boot is interrupted.
 | --- | --- | --- |
 | Wizard | Keep provisioning behind an explicit choice; preview account identity, auto-login, SSH, and secret lifetime before Create. The macOS 27 API has no computer-name field, so EZVM must not imply that it controls one. | A new user can explain the result from the review page; opting out creates an ordinary Setup Assistant flow. |
 | Secrets | Keep passwords in a ThisDeviceOnly Keychain item, never in the VM bundle, model JSON, logs, crash metadata, or export. Delete only after provisioning completion is confirmed—not merely after the VM starts. | Log/export scans contain no secret; interrupted first boot can retry; successful provisioning removes the temporary item. |
-| State model | Persist the attempt identifier and `prepared / applying / awaiting confirmation` alongside the ThisDeviceOnly credential; represent unavailable, retry-prepared, completed, and failed states explicitly in runtime UI. | Only `prepared` is submitted. An interrupted or accepted attempt requires verification or an explicit next-start retry, so EZVM cannot silently report success or create duplicate accounts. |
+| State model | Persist the attempt identifier and `prepared / applying / awaiting confirmation` alongside the ThisDeviceOnly credential; represent unavailable, retry-prepared, completed, and failed states explicitly in runtime UI. Claim the installation destination atomically and roll back only files owned by that attempt. | Only `prepared` is submitted. An interrupted or accepted attempt requires verification or an explicit next-start retry, so EZVM cannot silently report success or create duplicate accounts. Concurrent destination creation is rejected without deleting the other owner's files. |
 | Feedback | Show first-boot status and an actionable failure card; explain when manual Setup Assistant is the safe fallback. | Permission denial, invalid account data, guest rejection, reboot, and timeout each produce a distinct next action. |
 | Validation | Inspect the resulting guest for expected account, login, SSH, hostname, and absence of temporary credentials. | Signed-artifact tests pass for automated and manual provisioning, including cancel and retry. |
 

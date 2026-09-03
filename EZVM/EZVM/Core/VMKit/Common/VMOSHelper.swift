@@ -406,21 +406,59 @@ enum VMConfigurationIdentity {
     }
 }
 
-/// Tracks whether a VM bundle belongs to the current creation attempt so a
-/// failed install can remove its partial files without ever deleting a folder
-/// that existed before the user clicked Create.
-struct VMCreationDirectoryTransaction {
+/// Atomically claims a VM bundle for one creation attempt. Rollback removes
+/// only a directory whose successful `mkdir` belongs to this transaction.
+final class VMCreationDirectoryTransaction {
     let rootURL: URL
-    let existedBeforeCreation: Bool
+    private(set) var ownsRoot = false
 
-    init(rootURL: URL, fileManager: FileManager = .default) {
+    init(rootURL: URL) {
         self.rootURL = rootURL
-        existedBeforeCreation = fileManager.fileExists(atPath: rootURL.path)
+    }
+
+    func createRoot(
+        allowedExistingItemNames: Set<String>? = nil,
+        fileManager: FileManager = .default
+    ) throws {
+        guard !ownsRoot else { return }
+        var rootPath = rootURL.path(percentEncoded: false)
+        while rootPath.count > 1, rootPath.hasSuffix("/") { rootPath.removeLast() }
+        do {
+            try fileManager.createDirectory(
+                at: rootURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        } catch {
+            throw VMOSError.regularFailure(
+                "Could not prepare the virtual machine location: \(error.localizedDescription)"
+            )
+        }
+        let status = mkdir(rootPath, S_IRWXU | S_IRWXG | S_IRWXO)
+        if status == 0 {
+            ownsRoot = true
+            return
+        }
+        guard errno == EEXIST, let allowedExistingItemNames else {
+            let detail = errno == EEXIST
+                ? "The destination already exists. Choose a new virtual machine location."
+                : "Could not create the virtual machine directory: \(String(cString: strerror(errno)))."
+            throw VMOSError.regularFailure(detail)
+        }
+        var metadata = stat()
+        guard lstat(rootPath, &metadata) == 0,
+              metadata.st_mode & S_IFMT == S_IFDIR else {
+            throw VMOSError.regularFailure("The controlled staging path is not a directory.")
+        }
+        let actualItems = Set(try fileManager.contentsOfDirectory(atPath: rootURL.path))
+        guard actualItems == allowedExistingItemNames else {
+            throw VMOSError.regularFailure("The controlled staging directory contains unexpected files.")
+        }
     }
 
     func rollback(fileManager: FileManager = .default) throws {
-        guard !existedBeforeCreation, fileManager.fileExists(atPath: rootURL.path) else { return }
+        guard ownsRoot, fileManager.fileExists(atPath: rootURL.path) else { return }
         try fileManager.removeItem(at: rootURL)
+        ownsRoot = false
     }
 }
 

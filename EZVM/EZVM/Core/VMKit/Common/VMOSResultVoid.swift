@@ -20,6 +20,12 @@ enum VMOSResultVoid {
 }
 
 
-enum VMOSError: Error {
+enum VMOSError: Error, LocalizedError {
     case regularFailure(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .regularFailure(let message): message
+        }
+    }
 }

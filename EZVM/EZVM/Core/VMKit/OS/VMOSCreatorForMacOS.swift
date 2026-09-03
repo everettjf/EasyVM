@@ -26,7 +26,7 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             // create bundle
             let rootPath = model.getRootPath()
             progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
-            try await VMOSCreatorUtil.createVMBundle(path: rootPath)
+            try await VMOSCreatorUtil.createVMBundle(transaction: transaction)
             progress(.info("Succeed create bundle path"))
             
             // write json
@@ -64,8 +64,8 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             } catch {
                 progress(.error("Could not remove the incomplete virtual machine bundle: \(error.localizedDescription)"))
             }
-            progress(.error("\(error)"))
-            return .failure("\(error)")
+            progress(.error(error.localizedDescription))
+            return .failure(error.localizedDescription)
         }
         
         progress(.info("Succeed created virtual machine"))
