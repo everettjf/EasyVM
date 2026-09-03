@@ -15,6 +15,8 @@ final class VMOSCreatorForMacOS: VMOSCreator {
     
     
     private var installationObserver: NSKeyValueObservation?
+    private var installationProgress: Progress?
+    private var installationCancellationRequested = false
     private var virtualMachine: VZVirtualMachine!
     
     deinit {
@@ -25,6 +27,8 @@ final class VMOSCreatorForMacOS: VMOSCreator {
         provisioningCredential: VMGuestProvisioningCredential?,
         progress: @escaping (VMOSCreatorProgressInfo) -> Void
     ) async -> VMOSResultVoid {
+        installationCancellationRequested = false
+        progress(.cancellationAvailability(nil))
         let transaction = VMCreationDirectoryTransaction(rootURL: model.getRootPath())
         var credentialTransaction = VMGuestProvisioningCreationCredentialTransaction(
             vmRootPath: model.getRootPath()
@@ -74,7 +78,12 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             installationObserver?.invalidate()
             installationObserver = nil
             virtualMachine = nil
-            var reportedError = error.localizedDescription
+            let wasCancelled = installationCancellationRequested
+            var reportedError = wasCancelled
+                ? "macOS installation was cancelled."
+                : error.localizedDescription
+            progress(.cancellationAvailability(nil))
+            installationProgress = nil
             if case let .failure(cleanupError) = credentialTransaction.rollback() {
                 // Keep the identifier-bearing bundle so the failed Keychain
                 // item remains addressable for retry or explicit cleanup.
@@ -96,6 +105,13 @@ final class VMOSCreatorForMacOS: VMOSCreator {
         
         return .success
     }
+
+    func cancelCreation() {
+        guard let installationProgress,
+              !installationCancellationRequested else { return }
+        installationCancellationRequested = true
+        installationProgress.cancel()
+    }
     
     
     private func startInstallation(restoreImageURL: URL, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
@@ -103,15 +119,23 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             let installer = VZMacOSInstaller(virtualMachine: virtualMachine, restoringFromImageAt: restoreImageURL)
 
             progress(.info("Begin real install, please wait..."))
-            installer.install { result in
-                if case let .failure(error) = result {
-                    continuation.resume(throwing: error)
-                    return
-                }
+            installationProgress = installer.progress
+            installer.install { [weak self] result in
+                Task { @MainActor [weak self] in
+                    self?.installationObserver?.invalidate()
+                    self?.installationObserver = nil
+                    self?.installationProgress = nil
+                    progress(.cancellationAvailability(nil))
+                    if case let .failure(error) = result {
+                        continuation.resume(throwing: error)
+                        return
+                    }
 
-                progress(.info("Succeed install"))
-                continuation.resume(returning: ())
+                    progress(.info("Succeed install"))
+                    continuation.resume(returning: ())
+                }
             }
+            progress(.cancellationAvailability(.installation))
 
             installationObserver = installer.progress.observe(\.fractionCompleted, options: [.initial, .new]) { _, change in
                 guard let newValue = change.newValue else { return }

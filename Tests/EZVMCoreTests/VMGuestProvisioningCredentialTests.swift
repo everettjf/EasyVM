@@ -4,6 +4,27 @@ import Virtualization
 @testable import EZVMCore
 
 final class VMGuestProvisioningCredentialTests: XCTestCase {
+    func testMacOSInstallationCancellationStaysVisibleUntilFrameworkCompletion() {
+        XCTAssertEqual(
+            VMCreationCancellationPolicy.buttonTitle(for: .installation),
+            "Cancel Installation"
+        )
+        XCTAssertFalse(
+            VMCreationCancellationPolicy.shouldDismissGuideAfterRequest(.installation)
+        )
+    }
+
+    func testDownloadCancellationCanCloseTheGuideImmediately() {
+        XCTAssertEqual(
+            VMCreationCancellationPolicy.buttonTitle(for: .download),
+            "Cancel Download"
+        )
+        XCTAssertTrue(
+            VMCreationCancellationPolicy.shouldDismissGuideAfterRequest(.download)
+        )
+        XCTAssertEqual(VMCreationCancellationPolicy.buttonTitle(for: nil), "Close")
+    }
+
     func testKeychainAccountIgnoresDirectoryHintAndTrailingSlash() {
         let plain = URL(fileURLWithPath: "/tmp/Provisioned.ezvm")
         let directory = URL(filePath: "/tmp/Provisioned.ezvm/", directoryHint: .isDirectory)

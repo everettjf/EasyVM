@@ -265,12 +265,20 @@ struct VMCreateStepperGuideView: View {
     }
 
     private var closeButtonTitle: String {
-        formData.canCancelCreation ? "Cancel Download" : "Close"
+        VMCreationCancellationPolicy.buttonTitle(
+            for: formData.creationCancellationKind
+        )
     }
 
     private func closeGuide() {
+        let cancellationKind = formData.creationCancellationKind
         if formData.canCancelCreation {
             cancelCurrentOperation()
+        }
+        if !VMCreationCancellationPolicy.shouldDismissGuideAfterRequest(
+            cancellationKind
+        ) {
+            return
         }
         dismiss()
     }

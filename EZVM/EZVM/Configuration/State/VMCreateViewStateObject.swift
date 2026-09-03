@@ -108,6 +108,7 @@ class VMCreateViewStateObject {
     // creating phase status
     var isCreating = false
     var canCancelCreation = false
+    var creationCancellationKind: VMCreationCancellationKind?
     var statusText: String = ""
     var creationStage: String = "Preparing"
 

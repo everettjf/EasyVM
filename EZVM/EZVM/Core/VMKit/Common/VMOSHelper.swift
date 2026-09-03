@@ -10,6 +10,27 @@ import CryptoKit
 import Security
 import Virtualization
 
+enum VMCreationCancellationKind: Equatable {
+    case download
+    case installation
+}
+
+enum VMCreationCancellationPolicy {
+    static func buttonTitle(for kind: VMCreationCancellationKind?) -> String {
+        switch kind {
+        case .download: "Cancel Download"
+        case .installation: "Cancel Installation"
+        case nil: "Close"
+        }
+    }
+
+    static func shouldDismissGuideAfterRequest(
+        _ kind: VMCreationCancellationKind?
+    ) -> Bool {
+        kind != .installation
+    }
+}
+
 enum VMDiagnosticSanitizer {
     private static let removedKeys: Set<String> = [
         "id", "imagepath", "name", "path", "remark"

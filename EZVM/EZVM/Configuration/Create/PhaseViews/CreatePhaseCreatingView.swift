@@ -13,6 +13,7 @@ import CryptoKit
 class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
     private var downloader: (any VMOSDownloader)?
     private var preinstalledDownloader: VMPreinstalledImageDownloadCoordinator?
+    private var activeCreator: (any VMOSCreator)?
 
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         return .success
@@ -20,11 +21,22 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
 
     func cancel(context: VMCreateStepperGuidePhaseContext) {
         guard context.formData.canCancelCreation else { return }
+        let cancellationKind = context.formData.creationCancellationKind
         context.formData.canCancelCreation = false
-        downloader?.cancelDownload()
-        downloader = nil
-        preinstalledDownloader?.cancel()
-        preinstalledDownloader = nil
+        context.formData.creationCancellationKind = nil
+        switch cancellationKind {
+        case .download:
+            downloader?.cancelDownload()
+            downloader = nil
+            preinstalledDownloader?.cancel()
+            preinstalledDownloader = nil
+        case .installation:
+            context.formData.creationStage = "Cancelling macOS installation safely"
+            context.formData.addLog("Cancellation requested; waiting for the macOS installer to stop safely")
+            activeCreator?.cancelCreation()
+        case nil:
+            break
+        }
     }
 
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
@@ -33,6 +45,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         context.formData.creationStage = "Preparing"
         context.formData.isCreating = true
         context.formData.canCancelCreation = false
+        context.formData.creationCancellationKind = nil
 
         if case .preinstalled(let item) = context.formData.systemImageSelection {
             let result = await createPreinstalledImage(item, context: context)
@@ -94,6 +107,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         context.formData.creationStage = context.configData.osType == .macOS ? "Installing macOS" : "Creating virtual machine"
         context.formData.addLog("System image is ready")
         let creator = VMOSCreateFactory.getCreator(configModel.type)
+        activeCreator = creator
         let result = await creator.create(
             model: vmModel,
             provisioningCredential: provisioningCredential,
@@ -107,9 +121,15 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                     context.formData.addLog("❌ ERROR : \(log)")
                 case .progress(let percent):
                     context.formData.changeProgress(0.35 + (percent * 0.65))
+                case .cancellationAvailability(let kind):
+                    context.formData.creationCancellationKind = kind
+                    context.formData.canCancelCreation = kind != nil
                 }
             }
         )
+        activeCreator = nil
+        context.formData.creationCancellationKind = nil
+        context.formData.canCancelCreation = false
         EZVMLog.info("Virtual machine creation finished", logger: EZVMLog.lifecycle)
         context.formData.isCreating = false
 
@@ -230,6 +250,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         let coordinator = VMPreinstalledImageDownloadCoordinator()
         preinstalledDownloader = coordinator
         context.formData.canCancelCreation = true
+        context.formData.creationCancellationKind = .download
         context.formData.creationStage = "Downloading \(item.name)"
         context.formData.addLog("Fetching the verified \(item.name) release manifest")
 
@@ -240,6 +261,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             }
         }
         context.formData.canCancelCreation = false
+        context.formData.creationCancellationKind = nil
         preinstalledDownloader = nil
         guard case .success(let assets) = prepared else {
             let message: String
@@ -266,6 +288,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             case .info(let message): context.formData.addLog(message)
             case .error(let message): context.formData.addLog("❌ \(message)")
             case .progress(let fraction): context.formData.changeProgress(0.72 + fraction * 0.28)
+            case .cancellationAvailability: break
             }
         }
         if case .failure(let error) = result {
@@ -289,6 +312,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         let activeDownloader = VMOSDownloaderFactory.getDownloader(osType)
         downloader = activeDownloader
         context.formData.canCancelCreation = true
+        context.formData.creationCancellationKind = .download
 
         let result: VMOSResultVoid = await withCheckedContinuation { continuation in
             let completion: (VMOSResultVoid) -> Void = { result in
@@ -316,6 +340,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             }
         }
         context.formData.canCancelCreation = false
+        context.formData.creationCancellationKind = nil
         downloader = nil
 
         switch result {

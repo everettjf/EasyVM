@@ -108,6 +108,12 @@ fails, EZVM retains the identifier-bearing incomplete bundle and reports both
 failures, rather than leaving an unreachable secret or presenting an installed
 VM as a failed, unregistered result.
 
+The creation guide exposes installation cancellation only after
+`VZMacOSInstaller.install` has started, matching the framework's documented
+boundary. Cancelling keeps the guide visible while the installer finishes its
+callback, then rolls back the owned VM bundle and temporary Keychain credential;
+the UI never claims cancellation is complete merely because it was requested.
+
 Both failures that can occur after the attempt is durably marked `applying`
 now use one checked recovery transition back to `prepared`: a framework start
 failure and local `VZMacGuestProvisioningOptions` validation failure. A

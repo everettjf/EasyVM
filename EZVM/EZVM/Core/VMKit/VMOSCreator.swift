@@ -12,6 +12,7 @@ enum VMOSCreatorProgressInfo {
     case info(String)
     case error(String)
     case progress(Double)
+    case cancellationAvailability(VMCreationCancellationKind?)
 }
 
 @MainActor
@@ -21,9 +22,12 @@ protocol VMOSCreator {
         provisioningCredential: VMGuestProvisioningCredential?,
         progress: @escaping (VMOSCreatorProgressInfo) -> Void
     ) async -> VMOSResultVoid
+    func cancelCreation()
 }
 
 extension VMOSCreator {
+    func cancelCreation() {}
+
     func create(
         model: VMModel,
         progress: @escaping (VMOSCreatorProgressInfo) -> Void

@@ -245,6 +245,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 case .info(let message): print(message)
                 case .error(let message): FileHandle.standardError.write(Data((message + "\n").utf8))
                 case .progress(let fraction): print("fixture-progress \(Int(fraction * 100))%")
+                case .cancellationAvailability: break
                 }
                 fflush(stdout)
             }
@@ -386,6 +387,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case .info(let message): print(message)
             case .error(let message): FileHandle.standardError.write(Data((message + "\n").utf8))
             case .progress: break
+            case .cancellationAvailability: break
             }
         }
         guard case .success = result else {
