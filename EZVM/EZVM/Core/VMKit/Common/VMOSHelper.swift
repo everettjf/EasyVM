@@ -407,6 +407,28 @@ enum VMUSBPassthroughState: Equatable {
         case .unavailable(let message), .failed(let message): message
         }
     }
+
+    var accessibilityValue: String {
+        switch self {
+        case .idle:
+            return "Not configured"
+        case .discovering:
+            return "Waiting for Accessory Access"
+        case .ready(let snapshot) where !snapshot.attachedRegistryIDs.isEmpty:
+            let count = snapshot.attachedRegistryIDs.count
+            return count == 1 ? "1 accessory connected" : "\(count) accessories connected"
+        case .ready(let snapshot) where snapshot.devices.isEmpty:
+            return "No approved accessories connected"
+        case .ready(let snapshot):
+            return snapshot.devices.count == 1
+                ? "1 accessory available, none connected"
+                : "\(snapshot.devices.count) accessories available, none connected"
+        case .unavailable(let message):
+            return "Unavailable. \(message)"
+        case .failed(let message):
+            return "Needs attention. \(message)"
+        }
+    }
 }
 
 enum VMUSBControllerSupport {

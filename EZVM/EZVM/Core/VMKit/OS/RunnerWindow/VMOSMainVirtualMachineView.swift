@@ -193,6 +193,9 @@ struct VMOSMainVirtualMachineView: View {
                 }
                 .disabled(!runtimeState.canManageUSBPassthrough)
                 .help(runtimeState.usbPassthroughState.menuHelp)
+                .accessibilityLabel("USB accessories")
+                .accessibilityValue(runtimeState.usbPassthroughState.accessibilityValue)
+                .accessibilityHint("Open USB accessory controls")
 
                 if let target = runtimeState.balloonMemoryTarget,
                    let maximum = runtimeState.balloonMemoryMaximum {

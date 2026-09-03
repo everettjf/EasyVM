@@ -893,6 +893,36 @@ final class VMNetworkConfigurationTests: XCTestCase {
             VMUSBPassthroughState.failed("Registration failed").menuHelp,
             "Registration failed"
         )
+        XCTAssertEqual(oneAttached.accessibilityValue, "1 accessory connected")
+        XCTAssertEqual(twoAttached.accessibilityValue, "2 accessories connected")
+        XCTAssertEqual(
+            VMUSBPassthroughState.ready(VMUSBPassthroughSnapshot(
+                devices: [],
+                attachedRegistryIDs: []
+            )).accessibilityValue,
+            "No approved accessories connected"
+        )
+        XCTAssertEqual(
+            VMUSBPassthroughState.ready(VMUSBPassthroughSnapshot(
+                devices: [VMUSBDeviceDescriptorSummary(
+                    registryID: 9,
+                    vendorID: 0x1234,
+                    productID: 0x5678,
+                    manufacturerName: "Example",
+                    productName: "Device"
+                )],
+                attachedRegistryIDs: []
+            )).accessibilityValue,
+            "1 accessory available, none connected"
+        )
+        XCTAssertTrue(
+            VMUSBPassthroughState.unavailable("Missing entitlement")
+                .accessibilityValue.contains("Unavailable")
+        )
+        XCTAssertTrue(
+            VMUSBPassthroughState.failed("Registration failed")
+                .accessibilityValue.contains("Needs attention")
+        )
     }
 
     func testRuntimePhaseRecoveryUsesAuthoritativeFrameworkState() {

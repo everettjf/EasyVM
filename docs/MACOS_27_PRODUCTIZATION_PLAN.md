@@ -170,6 +170,8 @@ Again” action; listener-registration failures retain an explicit retry.
 Its toolbar label shows the number of attached accessories, and its icon/help
 reflect discovery, connected, unavailable, and retryable-failure states, so the
 user does not have to open the menu to learn whether USB needs attention.
+VoiceOver receives the same state as an explicit value, including approved
+accessory availability and connected count, without relying on the icon.
 
 Machine-state saving is now unavailable for the entire USB transition, not
 only after an attachment has completed. This closes the interval in which an
