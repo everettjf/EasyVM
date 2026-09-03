@@ -22,6 +22,7 @@ struct VMOSMainVirtualMachineView: View {
     @State private var sharedFolderResult = ""
     @State private var isSharedFolderDropTargeted = false
     @State private var provisioningConfirmationUsername: String?
+    @State private var isShowingManualSetupConfirmation = false
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     
     var body: some View {
@@ -360,6 +361,14 @@ struct VMOSMainVirtualMachineView: View {
         } message: {
             Text("Confirm that you can sign in as “\(provisioningConfirmationUsername ?? "the new account")”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone.")
         }
+        .alert("Use macOS Setup Assistant Instead?", isPresented: $isShowingManualSetupConfirmation) {
+            Button("Keep Automatic Setup", role: .cancel) {}
+            Button("Use Setup Assistant", role: .destructive) {
+                runtimeState.useManualMacSetup()
+            }
+        } message: {
+            Text("EZVM will permanently remove the pending password from this Mac’s Keychain and will not submit automatic account setup again. Continue in Setup Assistant if the VM is running; otherwise close this window and run the VM again.")
+        }
         .sheet(item: $settingsModel) { model in
             VMEditConfigurationView(model: model, appliesSharedFoldersImmediately: true)
         }
@@ -437,6 +446,16 @@ struct VMOSMainVirtualMachineView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(.regularMaterial, in: .rect(cornerRadius: 12))
+        case .manualSetup:
+            Label(
+                "Automatic account setup is off. Continue in macOS Setup Assistant, or close and run this VM again if it is not currently running.",
+                systemImage: "person.crop.circle"
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: .rect(cornerRadius: 12))
         case .completed:
             Label("macOS setup confirmed — temporary password removed", systemImage: "checkmark.circle.fill")
                 .font(.callout.weight(.medium))
@@ -445,13 +464,20 @@ struct VMOSMainVirtualMachineView: View {
                 .padding(.vertical, 10)
                 .background(.regularMaterial, in: Capsule())
         case .failed(let message):
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .font(.callout)
-                .foregroundStyle(.orange)
-                .textSelection(.enabled)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(.regularMaterial, in: .rect(cornerRadius: 12))
+            HStack(spacing: 12) {
+                Label(message, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .textSelection(.enabled)
+                Spacer(minLength: 12)
+                Button("Use Setup Assistant") {
+                    isShowingManualSetupConfirmation = true
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: .rect(cornerRadius: 12))
         }
     }
 
@@ -460,29 +486,38 @@ struct VMOSMainVirtualMachineView: View {
         title: String,
         detail: String
     ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "person.crop.circle.badge.questionmark")
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.headline)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
-            Spacer(minLength: 12)
-            Button("Retry Next Start") {
-                runtimeState.retryMacGuestProvisioningOnNextStart()
+            HStack(spacing: 8) {
+                Spacer()
+                Button("Use Setup Assistant") {
+                    isShowingManualSetupConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .help("Remove the pending credential and stop automatic account setup")
+                Button("Retry Next Start") {
+                    runtimeState.retryMacGuestProvisioningOnNextStart()
+                }
+                .buttonStyle(.bordered)
+                .help("Keep the temporary credential and submit provisioning again on the next VM start")
+                Button("Setup Complete") {
+                    provisioningConfirmationUsername = username
+                }
+                .buttonStyle(.borderedProminent)
+                .help("Remove the temporary provisioning credential after verifying the account in the guest")
             }
-            .buttonStyle(.bordered)
-            .help("Keep the temporary credential and submit provisioning again on the next VM start")
-            Button("Setup Complete") {
-                provisioningConfirmationUsername = username
-            }
-            .buttonStyle(.borderedProminent)
-            .help("Remove the temporary provisioning credential after verifying the account in the guest")
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("macOS guest provisioning for \(username)")

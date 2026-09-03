@@ -43,6 +43,7 @@ enum VMMacGuestProvisioningState: Equatable {
     case needsVerification(username: String)
     case awaitingConfirmation(username: String)
     case retryPrepared(username: String)
+    case manualSetup
     case completed
     case failed(String)
 }
@@ -182,6 +183,7 @@ final class VMRuntimeState {
     func dismissUSBPassthroughNotice() { controller?.dismissUSBPassthroughNotice() }
     func confirmMacGuestProvisioningCompleted() { controller?.confirmMacGuestProvisioningCompleted() }
     func retryMacGuestProvisioningOnNextStart() { controller?.retryMacGuestProvisioningOnNextStart() }
+    func useManualMacSetup() { controller?.useManualMacSetup() }
     func reconnectNetworkDevice(deviceIndex: Int) { controller?.reconnectNetworkDevice(deviceIndex: deviceIndex) }
     func updateSharedFolders(_ devices: [VMModelFieldDirectorySharingDevice]) -> String? {
         controller?.updateRuntimeSharedFolders(devices)

@@ -52,6 +52,13 @@ VM start or replaying an uncertain attempt. The signed macOS 27 first-boot,
 interruption, and recovery matrix below is still required before this capability
 leaves Beta.
 
+Provisioning verification and failure cards also provide a confirmed exit to
+macOS Setup Assistant. Choosing it permanently removes the pending
+ThisDeviceOnly Keychain credential and prevents another automatic submission;
+the UI explains whether to continue in the running guest or reopen the VM. This
+avoids trapping an invalid credential in a repeat-failure loop and does not
+mislabel abandoning automation as successful account creation.
+
 Provisioning credentials are now keyed by the SHA-256 identity of the VM's
 `MachineIdentifier`, rather than by its absolute bundle path. Moving or
 renaming a VM before first boot therefore retains its pending credential, while

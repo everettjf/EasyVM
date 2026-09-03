@@ -122,6 +122,11 @@ final class VMGuestProvisioningCredentialTests: XCTestCase {
                 after: .userConfirmedSetupCompleted
             )
         )
+        XCTAssertTrue(
+            VMGuestProvisioningCredentialPolicy.shouldDeleteCredential(
+                after: .userChoseManualSetup
+            )
+        )
     }
 
     func testProvisioningValidationCodesMapToSpecificFields() {

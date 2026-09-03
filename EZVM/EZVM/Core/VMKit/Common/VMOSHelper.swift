@@ -1168,13 +1168,14 @@ enum VMGuestProvisioningCredentialPolicy {
     enum Event {
         case virtualMachineStarted
         case userConfirmedSetupCompleted
+        case userChoseManualSetup
     }
 
     static func shouldDeleteCredential(after event: Event) -> Bool {
         switch event {
         case .virtualMachineStarted:
             false
-        case .userConfirmedSetupCompleted:
+        case .userConfirmedSetupCompleted, .userChoseManualSetup:
             true
         }
     }

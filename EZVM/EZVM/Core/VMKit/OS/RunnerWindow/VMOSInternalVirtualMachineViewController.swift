@@ -642,6 +642,23 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
+    func useManualMacSetup() {
+        guard VMGuestProvisioningCredentialPolicy.shouldDeleteCredential(
+            after: .userChoseManualSetup
+        ), let rootPath else { return }
+        switch VMGuestProvisioningCredentialStore.delete(vmRootPath: rootPath) {
+        case .success:
+            runtimeState?.updateMacGuestProvisioning(.manualSetup)
+            EZVMLog.info(
+                "Removed the temporary macOS guest provisioning credential after the user chose Setup Assistant.",
+                logger: EZVMLog.lifecycle
+            )
+        case .failure(let error):
+            runtimeState?.updateMacGuestProvisioning(.failed(error))
+            EZVMLog.error(error, logger: EZVMLog.lifecycle)
+        }
+    }
+
     private func didStart(rootPath: URL, model: VMModel) {
         runtimeState?.update(.running)
         markNetworkRuntimeStarted()
