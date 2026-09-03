@@ -696,10 +696,16 @@ Services startup, and the visible/responsive SwiftUI-window readiness gate.
 The same checkout also passed the disposable real-APFS low-space rejection
 gate before mutation and the 64 GiB sparse-ASIF snapshot, audit, restore,
 reopen, and logical-capacity-preservation gate.
-The candidate does not have a notarization ticket stapled to it, and no local
-macOS 27, Ubuntu, or Omarchy fixture or claimable physical USB accessory was
-present, so this evidence does not replace notarization or the guest/hardware
-matrix.
+That exact candidate then passed the 390-second signed guest matrix against
+macOS 27, Omarchy, and Ubuntu. The versioned mode-`0600` report recorded CLI
+JSON, concurrent VMs, SIGKILL restart, EFI recovery, macOS saved-state
+cross-process restore, authenticated Agent transfer, VirGL on both Linux
+guests, Ubuntu ASIF, VMNet Shared guest IPv4 and fresh-process reacquisition,
+ASIF cross-process snapshot restore, and ASIF export/validate/import/boot. The
+candidate still does not have a notarization ticket stapled to it, and no
+claimable physical USB accessory was present. Fresh macOS provisioning,
+physical USB, host sleep/network transitions, and representative VirGL A/B
+workloads therefore remain separate real-environment gates.
 
 On September 2, 2026, commit `929dd38` was built as EZVM 2.0.0 through the
 Developer ID archive/export path. The app, CLI helper, and bundled VirGL
