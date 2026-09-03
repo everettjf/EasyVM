@@ -125,7 +125,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | --- | --- | --- | --- |
 | Single-directory VirtioFS | Stable | Shares selected host directories using a guest mount tag. | Improve guest-specific setup instructions. |
 | Multiple-directory VirtioFS | Stable | Supports named directory collections. | Improve collision validation and editing. |
-| Runtime share updates | Partial | Core framework permits share changes; UX is still restart-oriented in places. | Add explicit live/restart-required state. |
+| Runtime share updates | Stable | A running VM keeps one stable EZVM VirtioFS device. Adding, removing, or changing read-only access updates that device immediately after Settings is saved; stopped-VM entry points explicitly say the change applies at the next start. | Extend the signed guest matrix with mounted-file read/write and removal checks. |
 | Linux Rosetta | Stable | Configures a Rosetta directory share when available. | Add guided guest-side `binfmt_misc` setup. |
 | Rosetta translation cache | Stable | Supports caching options on compatible hosts. | Measure impact and document guest requirements. |
 | macOS guest provisioning | Beta | Uses the macOS 27 per-VM opt-in API. The password enters the Keychain only after installation, is device-only, and remains available until the user confirms setup. A stable attempt ID and persisted prepared/applying/awaiting state prevent automatic replay after an ambiguous process interruption; the VM window offers verification or an explicit next-start retry. | Complete the signed macOS release-candidate account-creation, interruption, confirmation, and retry matrix. |

@@ -107,7 +107,12 @@ struct VMEditConfigurationView: View {
             }
         case .sharing:
             settingsPage("Sharing", subtitle: "Folders from this Mac available inside the guest", symbol: "folder") {
-                Form { VMConfigurationDirectorySharingDevicesView() }.formStyle(.grouped)
+                Form {
+                    VMConfigurationDirectorySharingDevicesView(
+                        appliesSharedFoldersImmediately: appliesSharedFoldersImmediately
+                    )
+                }
+                .formStyle(.grouped)
             }
         case .linux:
             settingsPage("Linux Integration", subtitle: "Translation, memory and platform features", symbol: "terminal") {

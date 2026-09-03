@@ -195,12 +195,19 @@ struct VMConfigurationDirectorySharingDevicesView: View {
     @State private var showingEditView = false
     @State private var isDropTargeted = false
     @State private var dropFeedback: String?
+    let appliesSharedFoldersImmediately: Bool
+
+    init(appliesSharedFoldersImmediately: Bool = false) {
+        self.appliesSharedFoldersImmediately = appliesSharedFoldersImmediately
+    }
     
     
     var body: some View {
         content
             .sheet(isPresented: $showingEditView) {
-                VMConfigurationDirectorySharingDevicesEditView()
+                VMConfigurationDirectorySharingDevicesEditView(
+                    appliesSharedFoldersImmediately: appliesSharedFoldersImmediately
+                )
             }
     }
     

@@ -13,6 +13,11 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isDropTargeted = false
     @State private var dropFeedback: String?
+    let appliesSharedFoldersImmediately: Bool
+
+    init(appliesSharedFoldersImmediately: Bool = false) {
+        self.appliesSharedFoldersImmediately = appliesSharedFoldersImmediately
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -66,9 +71,15 @@ struct VMConfigurationDirectorySharingDevicesEditView: View {
                 } header: {
                     Text("Shared Folders")
                 } footer: {
-                    Text(configData.osType == .macOS
-                         ? "Folders are mounted automatically in macOS after the next start."
-                         : "Linux shares become available through VirtioFS after the next start.")
+                    if appliesSharedFoldersImmediately {
+                        Text(configData.osType == .macOS
+                             ? "Choose OK in Settings to update the running VM. macOS mounts the shared folders automatically."
+                             : "Choose OK in Settings to update the running VM through VirtioFS.")
+                    } else {
+                        Text(configData.osType == .macOS
+                             ? "Choose OK in Settings to share these folders at the next start. macOS mounts them automatically."
+                             : "Choose OK in Settings to make these folders available through VirtioFS at the next start.")
+                    }
                 }
             }
             .formStyle(.grouped)
