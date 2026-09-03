@@ -765,7 +765,7 @@ struct MachineSnapshotsView: View {
                         )
                         .help(
                             state.maximumASIFLayerDepth >= VMSnapshotManager.recommendedMaximumASIFLayerDepth
-                                ? "This snapshot chain is deep. Consolidate the machine before creating many more snapshots."
+                                ? "This snapshot chain is deep. Audit it before adding more snapshots, keep an exported backup, and remove unneeded leaf branches. EZVM does not compact layered ASIF disks in place."
                                 : "Maximum ASIF overlay depth across the active machine and saved snapshots."
                         )
                 }

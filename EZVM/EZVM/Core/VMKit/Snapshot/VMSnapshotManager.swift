@@ -1157,7 +1157,8 @@ class VMSnapshotManager {
                 if disk.layerPaths.count >= recommendedMaximumASIFLayerDepth {
                     warnings.append(
                         "The ASIF stack for \(disk.baseImageName) is \(disk.layerPaths.count) layers deep; " +
-                        "consider consolidating the machine before adding many more snapshots."
+                        "audit it before adding more snapshots, keep an exported backup, and remove unneeded " +
+                        "leaf branches. EZVM does not compact layered ASIF disks in place."
                     )
                 }
 #if canImport(DiskImageKit)

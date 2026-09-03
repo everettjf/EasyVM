@@ -774,6 +774,8 @@ final class VMSnapshotManagerTests: XCTestCase {
 
         XCTAssertTrue(report.isValid, report.errors.joined(separator: "; "))
         XCTAssertTrue(report.warnings.contains { $0.contains("32 layers deep") })
+        XCTAssertTrue(report.warnings.contains { $0.contains("does not compact layered ASIF disks in place") })
+        XCTAssertFalse(report.warnings.contains { $0.localizedCaseInsensitiveContains("consolidat") })
         XCTAssertEqual(
             VMSnapshotManager.maximumASIFLayerDepth(vmRootPath: root),
             VMSnapshotManager.recommendedMaximumASIFLayerDepth + 1

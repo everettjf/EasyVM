@@ -562,6 +562,11 @@ workflow must create a replacement image transactionally, verify it, preserve
 the source until commit, and explicitly define how snapshot branches are
 exported or retired.
 
+The 32-layer advisory follows the same rule: it no longer tells users to invoke
+an unavailable “Consolidate” command. It recommends an integrity audit, an
+exported backup, and removal of genuinely unneeded leaf branches, while stating
+that EZVM cannot compact a layered ASIF disk in place.
+
 ### Work plan
 
 | Area | Required refinement | Acceptance evidence |
