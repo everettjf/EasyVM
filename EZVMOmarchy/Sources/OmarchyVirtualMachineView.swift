@@ -671,6 +671,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             sessionID: sessionID,
+            requiredGuestCapabilities: profile.requiredGuestCapabilities,
             keyboardIntegrationChanged: keyboardIntegrationChanged,
             integrationChanged: integrationChanged,
             sharedFolderProbeChanged: sharedFolderProbeChanged,
@@ -725,6 +726,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     final class Coordinator: NSObject, VZVirtualMachineDelegate {
         var machine: VZVirtualMachine?
         let sessionID: UUID
+        let requiredGuestCapabilities: [String]
         let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
         let integrationChanged: (VMOmarchyIntegrationState) -> Void
         let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
@@ -746,6 +748,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         init(
             sessionID: UUID,
+            requiredGuestCapabilities: [String],
             keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
             integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
             sharedFolderProbeChanged: @escaping (VMOmarchySharedFolderProbeState) -> Void,
@@ -754,6 +757,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
+            self.requiredGuestCapabilities = requiredGuestCapabilities
             self.keyboardIntegrationChanged = keyboardIntegrationChanged
             self.integrationChanged = integrationChanged
             self.sharedFolderProbeChanged = sharedFolderProbeChanged
@@ -827,7 +831,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             if case .ready(let status) = state,
                                VMOmarchyIntegrationAssessment.evaluate(
                                 status: status,
-                                requiredCapabilities: profile.requiredGuestCapabilities
+                                requiredCapabilities: self.requiredGuestCapabilities
                                ).isReady {
                                 self.startSharedFolderProbeIfNeeded(layout: layout)
                             }
