@@ -3,22 +3,27 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-version=${1:-}
-evidence=${2:-}
-factory_manifest=${3:-}
-factory_image=${4:-}
+mode=${1:-}
+version=${2:-}
+evidence=${3:-}
+factory_manifest=${4:-}
+factory_image=${5:-}
 release_branch=${EZVM_OMARCHY_RELEASE_BRANCH:-main}
 
 fail() { echo "publish-omarchy-release: $*" >&2; exit "${2:-1}"; }
 require_environment() { [[ -n ${!1:-} ]] || fail "required environment variable is missing: $1" 78; }
 require_command() { command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1" 69; }
 
-[[ -n $version ]] || fail "usage: $0 <version> <acceptance-evidence.json> <factory-manifest.json> <factory-image.asif>" 64
+[[ $mode == prepare || $mode == publish ]] || \
+  fail "usage: $0 prepare <version> | publish <version> <acceptance-evidence.json> <factory-manifest.json> <factory-image.asif>" 64
+[[ -n $version ]] || fail "release version is required" 64
 version=${version#v}
 [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || fail "invalid version: $version" 64
-for path in "$evidence" "$factory_manifest" "$factory_image"; do
-  [[ -f $path && ! -L $path ]] || fail "required release input is missing or unsafe: ${path:-<empty>}" 66
-done
+if [[ $mode == publish ]]; then
+  for path in "$evidence" "$factory_manifest" "$factory_image"; do
+    [[ -f $path && ! -L $path ]] || fail "required release input is missing or unsafe: ${path:-<empty>}" 66
+  done
+fi
 for command in cmp codesign ditto gh git open ruby security shasum spctl xattr xcrun; do require_command "$command"; done
 for variable in APPLE_ID APPLE_TEAM_ID APPLE_SPECIFIC_PASSWORD EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64; do
   require_environment "$variable"
@@ -71,6 +76,13 @@ xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");EZVMOmarchyRele
 EZVM_OMARCHY_LAUNCH_TIMEOUT=${EZVM_OMARCHY_LAUNCH_TIMEOUT:-10} \
   "$project_root/scripts/verify-omarchy-release-gui.sh" \
     "$install_check/EZVM Omarchy.app" "$version" "$source_revision"
+
+if [[ $mode == prepare ]]; then
+  echo "Prepared notarized EZVM Omarchy candidate: $archive"
+  echo "Archive SHA-256: $archive_sha"
+  echo "Run real-guest acceptance against this exact archive, then invoke publish mode."
+  exit 0
+fi
 
 "$project_root/scripts/verify-omarchy-release-evidence.sh" \
   "$evidence" "$archive" "$factory_manifest" "$factory_image" "$source_revision"

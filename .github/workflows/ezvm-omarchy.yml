@@ -24,6 +24,7 @@ on:
       - "scripts/verify-omarchy-release-evidence.sh"
       - "scripts/test-omarchy-release-evidence.sh"
       - "scripts/publish-omarchy-release.sh"
+      - "scripts/test-omarchy-publish-preflight.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   pull_request:
     paths:
@@ -45,6 +46,7 @@ on:
       - "scripts/verify-omarchy-release-evidence.sh"
       - "scripts/test-omarchy-release-evidence.sh"
       - "scripts/publish-omarchy-release.sh"
+      - "scripts/test-omarchy-publish-preflight.sh"
       - ".github/workflows/ezvm-omarchy.yml"
   workflow_dispatch:
 
@@ -101,3 +103,5 @@ jobs:
         run: scripts/test-omarchy-release-gates.sh
       - name: Test real-guest evidence binding gates
         run: scripts/test-omarchy-release-evidence.sh
+      - name: Test two-phase publish preflight
+        run: scripts/test-omarchy-publish-preflight.sh

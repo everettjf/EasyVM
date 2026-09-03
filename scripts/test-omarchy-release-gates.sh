@@ -43,6 +43,13 @@ make_fixture
 "$project_root/scripts/verify-omarchy-release-app.sh" \
   "$app" 0.1.0 "$revision" clean >/dev/null
 
+if EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' \
+  "$project_root/scripts/verify-omarchy-release-app.sh" \
+    "$app" 0.1.0 "$revision" clean >/dev/null 2>&1; then
+  echo "release verifier accepted a candidate from another factory trust root" >&2
+  exit 1
+fi
+
 plutil -replace CFBundleIdentifier -string com.everettjf.ezvm "$info"
 expect_rejection 'the general EZVM bundle identifier'
 

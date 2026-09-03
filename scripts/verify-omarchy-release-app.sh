@@ -23,6 +23,10 @@ product_name=$(plutil -extract CFBundleName raw "$info")
 factory_public_key=$(plutil -extract EZVMOmarchyFactoryPublicKeyBase64 raw "$info") || \
   fail "factory signing public key is missing"
 [[ $factory_public_key =~ ^[A-Za-z0-9+/]{43}=$ ]] || fail "factory signing public key is malformed"
+if [[ -n ${EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64:-} ]]; then
+  [[ $factory_public_key == "$EZVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64" ]] || \
+    fail "embedded factory signing key does not match the selected release channel"
+fi
 decoded_key=$(mktemp "${TMPDIR:-/tmp}/ezvm-omarchy-verify-key.XXXXXX")
 trap 'rm -f "$decoded_key"' EXIT
 printf '%s' "$factory_public_key" | base64 -D >"$decoded_key" 2>/dev/null || \
