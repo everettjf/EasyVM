@@ -8,6 +8,11 @@ output_dir="${2:-$project_root/dist}"
 derived_data="${EZVM_DERIVED_DATA:-}"
 archive_name="EZVM-${version}.zip"
 
+if [[ -n "${EASYVM_SIGNING_IDENTITY:-}" ]]; then
+  echo "EASYVM_SIGNING_IDENTITY is obsolete and is not used for signing. Set EZVM_SIGNING_IDENTITY instead." >&2
+  exit 64
+fi
+
 if [[ -z "$version" ]]; then
   echo "usage: $0 <version> [output-directory]" >&2
   exit 64

@@ -399,6 +399,9 @@ fresh macOS provisioning, real host sleep/network transitions, representative
 VirGL A/B workloads, notarization, and Homebrew installation remain required.
 The release build environment variable is `EZVM_SIGNING_IDENTITY`; similarly
 named legacy variables do not select the Developer ID archive/export path.
+The build now rejects the obsolete `EASYVM_SIGNING_IDENTITY` spelling before
+creating an output directory, preventing a release operator from silently
+producing an ad-hoc archive.
 
 ### Gate 0 — Establish release evidence
 
