@@ -824,7 +824,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         stateChanged: { [weak self] state in
                             guard let self else { return }
                             self.integrationChanged(state)
-                            if case .ready = state {
+                            if case .ready(let status) = state,
+                               VMOmarchyIntegrationAssessment.evaluate(
+                                status: status,
+                                requiredCapabilities: profile.requiredGuestCapabilities
+                               ).isReady {
                                 self.startSharedFolderProbeIfNeeded(layout: layout)
                             }
                         }
