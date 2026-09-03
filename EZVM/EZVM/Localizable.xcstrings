@@ -1,12 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "" : {
-
-    },
-    "-1GB" : {
-
-    },
     "·" : {
 
     },
@@ -20,8 +14,28 @@
         }
       }
     },
-    "%@" : {
+    "· %lld-layer depth" : {
 
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · Host :%u → %@:%u" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · Host :%2$u → %3$@:%4$u"
+          }
+        }
+      }
     },
     "%@ %@: %@" : {
       "localizations" : {
@@ -33,7 +47,16 @@
         }
       }
     },
+    "%@ EZVM will ask the guest to shut down, force stop only if it does not respond, and then close this window." : {
+
+    },
+    "%@ GB" : {
+
+    },
     "%@ is ready" : {
+
+    },
+    "%@ settings" : {
 
     },
     "%@, %@" : {
@@ -45,6 +68,19 @@
           }
         }
       }
+    },
+    "%@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@. Choose another folder or remove this share." : {
+
     },
     "%@%%" : {
 
@@ -62,6 +98,12 @@
         }
       }
     },
+    "%lld network adapters need attention" : {
+
+    },
+    "%lld unavailable" : {
+
+    },
     "%lld%% — %@" : {
       "localizations" : {
         "en" : {
@@ -72,19 +114,40 @@
         }
       }
     },
-    "+1GB" : {
+    "%llu gigabytes" : {
+
+    },
+    "×" : {
 
     },
     "$ ezvm run" : {
 
     },
-    "2GB" : {
+    "80" : {
 
     },
-    "6GB" : {
+    "1280 × 720" : {
+
+    },
+    "1500" : {
+
+    },
+    "1920 × 1080" : {
+
+    },
+    "1920 × 1200" : {
+
+    },
+    "2560 × 1440" : {
+
+    },
+    "8080" : {
 
     },
     "A simple, native virtual machine app for Apple silicon Macs, built on Apple's Virtualization framework." : {
+
+    },
+    "A USB accessory is connected. EZVM will shut down the guest instead of saving machine state so the accessory is released safely." : {
 
     },
     "About" : {
@@ -100,7 +163,13 @@
     "About - EZVM" : {
 
     },
-    "Add" : {
+    "Access" : {
+
+    },
+    "Add %@ Adapter" : {
+
+    },
+    "Add an Adapter" : {
 
     },
     "Add an existing virtual machine" : {
@@ -109,40 +178,75 @@
     "Add Audio Device" : {
 
     },
+    "Add Display" : {
+
+    },
     "Add Existing" : {
 
     },
-    "Add Graphic Device" : {
+    "Add NAT for ordinary internet access, or choose a VMNet mode for an intentional topology." : {
 
     },
-    "Add NAT Device" : {
-
-    },
-    "Add Network Device" : {
+    "Add or remove virtual disks and installation media" : {
 
     },
     "Add Pointing Device" : {
 
     },
+    "Add Rule" : {
+
+    },
     "Add Shared Folder" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加共享文件夹" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加共享文件夹"
+          }
+        }
+      }
     },
     "Add Shared Folder…" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加共享文件夹…" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加共享文件夹…"
+          }
+        }
+      }
     },
     "Add Storage Device" : {
+
+    },
+    "Add this port-forwarding rule" : {
 
     },
     "Addresses: %@" : {
 
     },
+    "Advanced hardware" : {
+
+    },
+    "Advanced VMNet Settings" : {
+
+    },
     "All available releases (%lld)" : {
+
+    },
+    "All systems" : {
 
     },
     "APFS clone" : {
 
     },
+    "App Default" : {
+
+    },
     "Apple Virtio active" : {
+
+    },
+    "ASIF is optimized for macOS 27 and supports efficient snapshots." : {
 
     },
     "ASIF layered" : {
@@ -151,16 +255,51 @@
     "ASIF layers" : {
 
     },
-    "Audio Devices" : {
+    "ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ASIF 虚拟机会自动使用 DiskImageKit 分层快照。Linux 虚拟机默认使用自定义 Virtio GPU；关闭此选项即可回退到 Apple 图形。macOS 虚拟机始终使用 Apple 图形栈。"
+          }
+        }
+      }
+    },
+    "At least one display is required." : {
+
+    },
+    "At least one pointing device is required." : {
+
+    },
+    "At least one virtual disk is required." : {
+
+    },
+    "Audio" : {
 
     },
     "Audit" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "审计" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "审计"
+          }
+        }
+      }
+    },
+    "Automatic" : {
+
+    },
+    "Automatic account setup is off. Continue in macOS Setup Assistant, or close and run this VM again if it is not currently running." : {
+
+    },
+    "Automatic, or interface such as en0" : {
+
     },
     "Basic" : {
 
     },
-    "Block Size" : {
+    "Begin the verified restore transaction." : {
 
     },
     "Browse this Mac or an external drive" : {
@@ -182,28 +321,85 @@
     "Cancel Transfer" : {
 
     },
+    "Cancelling…" : {
+
+    },
+    "Capacity" : {
+
+    },
     "Capture the virtual machine display" : {
 
     },
     "Change" : {
 
     },
+    "Changes take effect the next time the virtual machine starts." : {
+
+    },
+    "Changes take effect the next time this virtual machine starts." : {
+
+    },
     "Chat with other users, report problems, or suggest improvements. Links open in your browser." : {
 
     },
-    "Choose a folder once. EZVM configures the share automatically." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "只需选择一次文件夹，EZVM 会自动配置共享。" } } }
+    "Check the macOS account" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查 macOS 账户"
+          }
+        }
+      }
     },
-    "Choose a folder to share" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择要共享的文件夹" } } }
-    },
-    "Choose a folder to share with this virtual machine" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择要与此虚拟机共享的文件夹" } } }
-    },
-    "Choose a host folder to share after the next start" : {
+    "Choose a compatible restore image. Downloading starts only after you click Create." : {
 
     },
+    "Choose a folder once. EZVM configures the share automatically." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只需选择一次文件夹，EZVM 会自动配置共享。"
+          }
+        }
+      }
+    },
+    "Choose a folder to share" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择要共享的文件夹"
+          }
+        }
+      }
+    },
+    "Choose a folder to share with this virtual machine" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择要与此虚拟机共享的文件夹"
+          }
+        }
+      }
+    },
+    "Choose a host folder to share with the running virtual machine" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择要与正在运行的虚拟机共享的 Mac 文件夹"
+          }
+        }
+      }
+    },
     "Choose a local %@ file" : {
+
+    },
+    "Choose a memorable name and where its files should live." : {
 
     },
     "Choose a system" : {
@@ -216,11 +412,75 @@
         }
       }
     },
-    "Choose an image now. Downloading starts only after you click Create." : {
+    "Choose Folder…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择文件夹…"
+          }
+        }
+      }
+    },
+    "Choose More USB Accessories…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择更多 USB 配件…"
+          }
+        }
+      }
+    },
+    "Choose NAT or VMNet networking" : {
+
+    },
+    "Choose OK in Settings to make these folders available through VirtioFS at the next start." : {
+
+    },
+    "Choose OK in Settings to share these folders at the next start. macOS mounts them automatically." : {
+
+    },
+    "Choose OK in Settings to update the running VM through VirtioFS." : {
+
+    },
+    "Choose OK in Settings to update the running VM. macOS mounts the shared folders automatically." : {
+
+    },
+    "Choose resources" : {
+
+    },
+    "Choose the connection outcome first. Most virtual machines only need NAT; VMNet details stay optional until you need a deliberate topology." : {
 
     },
     "Choose Thumbnail Image…" : {
 
+    },
+    "Choose USB Accessories…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择 USB 配件…"
+          }
+        }
+      }
+    },
+    "Choose…" : {
+
+    },
+    "Clean up unreferenced snapshot layers?" : {
+
+    },
+    "Clean Up…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清理…"
+          }
+        }
+      }
     },
     "Clone..." : {
 
@@ -235,6 +495,9 @@
         }
       }
     },
+    "Close Snapshots" : {
+
+    },
     "Community & Feedback" : {
       "localizations" : {
         "zh-Hans" : {
@@ -248,13 +511,28 @@
     "Community & Feedback - EZVM" : {
 
     },
-    "Completed" : {
+    "Compute" : {
 
     },
-    "Config Virtual Hardwares" : {
+    "Configure guest display type and resolution" : {
+
+    },
+    "Configure guest microphone and speaker access" : {
+
+    },
+    "Configure the guest pointing device" : {
 
     },
     "Confirm" : {
+
+    },
+    "Confirm that you can sign in as “%@”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone." : {
+
+    },
+    "Connect %@" : {
+
+    },
+    "Connecting %@…" : {
 
     },
     "Control Center" : {
@@ -266,19 +544,36 @@
     "Copied" : {
 
     },
+    "Copies the Linux VirtioFS mount command" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制 Linux VirtioFS 挂载命令"
+          }
+        }
+      }
+    },
     "Copy" : {
 
     },
     "Copy Error" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制错误信息" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制错误信息"
+          }
+        }
+      }
     },
     "Couldn’t export diagnostics" : {
 
     },
-    "CPU / Memory" : {
+    "Cover Style" : {
 
     },
-    "CPU Count" : {
+    "CPU / Memory" : {
 
     },
     "Create a new virtual machine" : {
@@ -310,10 +605,16 @@
     "Create Virtual Machine Guide" : {
 
     },
+    "Create virtual machine progress" : {
+
+    },
     "Create your first machine, or add an existing .ezvm bundle." : {
 
     },
     "Creates a report containing system information and virtual machine configuration" : {
+
+    },
+    "Current Adapters" : {
 
     },
     "Current branch" : {
@@ -322,13 +623,13 @@
     "Current Devices" : {
 
     },
-    "Current step" : {
+    "Custom" : {
 
     },
     "Custom VirGL active" : {
 
     },
-    "Custom VirGL state cannot be saved. EZVM will ask the guest to shut down, force stop only if it does not respond, and then close this window." : {
+    "Custom VirGL needs attention" : {
 
     },
     "Delete" : {
@@ -337,10 +638,13 @@
     "Delete child snapshots first" : {
 
     },
-    "Delete snapshot \"%@\" ? This can not be undone." : {
+    "Delete snapshot \"%@\"? This cannot be undone." : {
 
     },
     "Description" : {
+
+    },
+    "Device" : {
 
     },
     "Direct Apple IPSW URL" : {
@@ -349,16 +653,76 @@
     "Direct ARM64 ISO URL" : {
 
     },
+    "Disconnect %@" : {
+
+    },
+    "Disconnect USB accessories before choosing others" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择其他配件前，请先断开当前 USB 配件"
+          }
+        }
+      }
+    },
+    "Disconnecting %@…" : {
+
+    },
     "Disk Format" : {
+
+    },
+    "DiskImageKit snapshots for ASIF disks" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用于 ASIF 磁盘的 DiskImageKit 快照"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭提示"
+          }
+        }
+      }
+    },
+    "Dismiss the saved-session status message" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭已保存会话的状态信息"
+          }
+        }
+      }
+    },
+    "Display" : {
 
     },
     "Display / Storage / Network" : {
 
     },
+    "Display and Storage" : {
+
+    },
     "Done" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "完成" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        }
+      }
     },
     "Download failed" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -378,11 +742,55 @@
 
     },
     "Downloading" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在下载"
+          }
+        }
+      }
+    },
+    "Drop folders here" : {
+
+    },
+    "Drop folders to share" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖入要共享的文件夹"
+          }
+        }
+      }
+    },
+    "Drop folders to share now" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖入文件夹以立即共享"
+          }
+        }
+      }
+    },
+    "Drop one or more folders from Finder, or choose a folder" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从访达拖入一个或多个文件夹，或者选择文件夹"
+          }
+        }
+      }
+    },
+    "Drop to share" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖放以共享"
           }
         }
       }
@@ -402,9 +810,6 @@
     "Enabled by you. macOS requires Screen & System Audio Recording permission. Turn this off to stop EZVM from capturing VM windows." : {
 
     },
-    "Experimental macOS 27 features" : {
-
-    },
     "Export Diagnostic Report" : {
       "localizations" : {
         "zh-Hans" : {
@@ -416,15 +821,32 @@
       }
     },
     "Export Diagnostics" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导出诊断信息" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出诊断信息"
+          }
+        }
+      }
     },
     "Export Diagnostics…" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "导出诊断信息…" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出诊断信息…"
+          }
+        }
+      }
     },
     "Export Guest Agent Enrollment..." : {
 
     },
     "Export..." : {
+
+    },
+    "External interface" : {
 
     },
     "ezvm" : {
@@ -433,20 +855,37 @@
     "EZVM" : {
 
     },
-    "EZVM currently uses standard NAT networking." : {
-
-    },
     "EZVM User" : {
 
     },
     "EZVM will download the selected image if needed, then create and install your virtual machine. You can leave this window open and wait once." : {
 
     },
+    "EZVM will permanently remove the pending password from this Mac’s Keychain and will not submit automatic account setup again. Continue in Setup Assistant if the VM is running; otherwise close this window and run the VM again." : {
+
+    },
     "EZVM will save the virtual machine’s current state, stop it, and then close this window. You can resume from the same state next time." : {
 
     },
-    "Folders are mounted automatically in macOS after the next start." : {
-
+    "Finishing safely" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在安全完成"
+          }
+        }
+      }
+    },
+    "Folders remain on your Mac. Nothing is copied into the virtual disk." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件夹仍保留在 Mac 上，不会复制到虚拟磁盘中。"
+          }
+        }
+      }
     },
     "Force Stop" : {
       "localizations" : {
@@ -457,6 +896,12 @@
           }
         }
       }
+    },
+    "Forwards to" : {
+
+    },
+    "Free disk space before restoring." : {
+
     },
     "From %@" : {
 
@@ -483,220 +928,13 @@
         }
       }
     },
-    "Network adapter needs attention" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "网络适配器需要处理"
-          }
-        }
-      }
-    },
-    "Check the macOS account" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "检查 macOS 账户"
-          }
-        }
-      }
-    },
-    "Retry Next Start" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下次启动时重试"
-          }
-        }
-      }
-    },
-    "Setup Complete" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置已完成"
-          }
-        }
-      }
-    },
-    "Use Setup Assistant" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用设置助理"
-          }
-        }
-      }
-    },
-    "This snapshot chain is deep. Audit it before adding more snapshots, keep an exported backup, and remove unneeded leaf branches. EZVM does not compact layered ASIF disks in place." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此快照链层数较深。继续添加快照前请先审计完整性、保留导出备份，并删除不再需要的叶子分支。EZVM 目前不能原地压缩分层 ASIF 磁盘。"
-          }
-        }
-      }
-    },
-    "Graphics Devices" : {
+    "Guest Agent" : {
 
     },
-    "USB accessories" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "USB 配件" } } }
+    "Guest IPv4" : {
+
     },
-    "Open USB accessory controls" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开 USB 配件控制" } } }
-    },
-    "No USB accessories requested" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未请求 USB 配件" } } }
-    },
-    "Choose USB Accessories…" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择 USB 配件…" } } }
-    },
-    "Waiting for Accessory Access…" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在等待配件访问…" } } }
-    },
-    "Try Again" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重试" } } }
-    },
-    "Dismiss" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭提示" } } }
-    },
-    "No approved USB accessories are connected" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有已获准的 USB 配件连接" } } }
-    },
-    "Choose More USB Accessories…" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择更多 USB 配件…" } } }
-    },
-    "Disconnect USB accessories before choosing others" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择其他配件前，请先断开当前 USB 配件" } } }
-    },
-    "Clean Up…" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "清理…" } } }
-    },
-    "Preview unreferenced ASIF layers before removing anything." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除任何内容前，先预览未被引用的 ASIF 层。" } } }
-    },
-    "Stop at the next safe boundary before machine files are replaced." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在替换虚拟机文件前，于下一个安全边界停止。" } } }
-    },
-    "Finishing safely" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在安全完成" } } }
-    },
-    "The snapshot transaction is finishing and can no longer be cancelled" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "快照事务正在安全完成，现已无法取消" } } }
-    },
-    "Review Restore" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "检查恢复操作" } } }
-    },
-    "Storage" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "存储空间" } } }
-    },
-    "High-performance VirGL graphics for Linux" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Linux 高性能 VirGL 图形" } } }
-    },
-    "DiskImageKit snapshots for ASIF disks" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用于 ASIF 磁盘的 DiskImageKit 快照" } } }
-    },
-    "Per-VM EFI Secure Boot" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "每台虚拟机独立的 EFI 安全启动" } } }
-    },
-    "macOS 27 features" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "macOS 27 功能" } } }
-    },
-    "ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "ASIF 虚拟机会自动使用 DiskImageKit 分层快照。Linux 虚拟机默认使用自定义 Virtio GPU；关闭此选项即可回退到 Apple 图形。macOS 虚拟机始终使用 Apple 图形栈。" } } }
-    },
-    "Copies the Linux VirtioFS mount command" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "复制 Linux VirtioFS 挂载命令" } } }
-    },
-    "Mount in Linux" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在 Linux 中挂载" } } }
-    },
-    "Run once after the guest starts. With one shared folder, its contents appear directly at /mnt/ezvm; with several, each appears as a named folder." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "客体启动后运行一次。只有一个共享文件夹时，其内容会直接显示在 /mnt/ezvm；有多个时，每个共享文件夹会以单独命名的目录显示。" } } }
-    },
-    "Drop folders to share" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖入要共享的文件夹" } } }
-    },
-    "Share folders" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "共享文件夹" } } }
-    },
-    "Make files from your Mac available inside the virtual machine. You can also do this later." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "让虚拟机访问 Mac 上的文件。也可以稍后再设置。" } } }
-    },
-    "No folders selected. Choose Not Now or Continue to skip sharing." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未选择文件夹。选择“暂不共享”或“继续”即可跳过。" } } }
-    },
-    "Folders remain on your Mac. Nothing is copied into the virtual disk." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "文件夹仍保留在 Mac 上，不会复制到虚拟磁盘中。" } } }
-    },
-    "Choose Folder…" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择文件夹…" } } }
-    },
-    "Shared folder drop area" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "共享文件夹拖放区域" } } }
-    },
-    "Drop one or more folders from Finder, or choose a folder" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "从访达拖入一个或多个文件夹，或者选择文件夹" } } }
-    },
-    "Drop to share" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖放以共享" } } }
-    },
-    "Drop folders to share now" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "拖入文件夹以立即共享" } } }
-    },
-    "Choose a host folder to share with the running virtual machine" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择要与正在运行的虚拟机共享的 Mac 文件夹" } } }
-    },
-    "Preparing the macOS account" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在准备 macOS 账户" } } }
-    },
-    "Keep Password" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保留密码" } } }
-    },
-    "Remove Password" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除密码" } } }
-    },
-    "Keep Automatic Setup" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保留自动设置" } } }
-    },
-    "Remove the pending credential and stop automatic account setup" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除待处理的凭据，并停止自动账户设置" } } }
-    },
-    "Keep the temporary credential and submit provisioning again on the next VM start" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保留临时凭据，并在虚拟机下次启动时重新提交配置" } } }
-    },
-    "Remove the temporary provisioning credential after verifying the account in the guest" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "确认客体账户后，移除临时配置凭据" } } }
-    },
-    "macOS setup confirmed — temporary password removed" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已确认 macOS 设置 — 临时密码已移除" } } }
-    },
-    "Reconnect" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重新连接" } } }
-    },
-    "Network" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络" } } }
-    },
-    "Virtual machine network" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "虚拟机网络" } } }
-    },
-    "Saved Session Status" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已保存会话状态" } } }
-    },
-    "Dismiss the saved-session status message" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭已保存会话的状态信息" } } }
-    },
-    "Saved session status" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已保存会话状态" } } }
-    },
-    "Guest Agent" : {
+    "Guest port" : {
 
     },
     "Guest target: %@ of %@" : {
@@ -709,16 +947,35 @@
         }
       }
     },
-    "Guided setup for macOS and Linux" : {
-
-    },
     "Has child snapshots" : {
 
     },
     "Height" : {
 
     },
+    "High-performance VirGL graphics for Linux" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux 高性能 VirGL 图形"
+          }
+        }
+      }
+    },
+    "Host port" : {
+
+    },
+    "Host-port availability is checked when the virtual machine starts; another process can still claim a port after this preflight." : {
+
+    },
     "Host: %@" : {
+
+    },
+    "Host: %@ GB" : {
+
+    },
+    "Host: %lld logical processors" : {
 
     },
     "https://example.com/image.iso" : {
@@ -739,6 +996,9 @@
     "In the guest, mount the VirtioFS tag ‘rosetta’ and configure binfmt_misc. EZVM installs the host Rosetta component when the VM is created." : {
 
     },
+    "Input and Audio" : {
+
+    },
     "Input: %@" : {
 
     },
@@ -751,13 +1011,57 @@
     "Invalid , just close" : {
 
     },
-    "ISO Image Path" : {
+    "IPv4 subnet" : {
 
     },
+    "ISO image" : {
+
+    },
+    "Keep Automatic Setup" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留自动设置"
+          }
+        }
+      }
+    },
+    "Keep Password" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留密码"
+          }
+        }
+      }
+    },
     "Keep the current state as a snapshot before restoring" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复前将当前状态保留为快照" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复前将当前状态保留为快照"
+          }
+        }
+      }
+    },
+    "Keep the temporary credential and submit provisioning again on the next VM start" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留临时凭据，并在虚拟机下次启动时重新提交配置"
+          }
+        }
+      }
+    },
+    "Kind" : {
+
     },
     "Latest compatible macOS" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -767,13 +1071,16 @@
         }
       }
     },
-    "Linux" : {
+    "Leave the network name and subnet blank to let macOS reserve an isolated logical network automatically. Reuse the same name only when adapters should join the same topology." : {
+
+    },
+    "Leaving processors for macOS keeps the VM and host responsive." : {
+
+    },
+    "LINUX" : {
 
     },
     "Linux Integration" : {
-
-    },
-    "Linux shares become available through VirtioFS after the next start." : {
 
     },
     "Linux virtual machine" : {
@@ -788,6 +1095,12 @@
     "Log in automatically" : {
 
     },
+    "Logical network" : {
+
+    },
+    "Mac displays are intended for macOS guests." : {
+
+    },
     "MAC VIRTUAL MACHINE" : {
 
     },
@@ -797,63 +1110,117 @@
     "Machine Not Found" : {
 
     },
-    "macOS" : {
+    "MACOS" : {
 
     },
     "macOS %lld+" : {
 
     },
+    "macOS 27 features" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 27 功能"
+          }
+        }
+      }
+    },
     "macOS 27 First-Boot Provisioning" : {
 
+    },
+    "macOS guest iCloud identity is automatic for VMs created from a supported macOS restore image; upgrading an older VM does not add that identity. Metal improvements are supplied automatically by the supported host, guest, and Mac hardware model. Neither requires an additional EZVM entitlement." : {
+
+    },
+    "macOS guest provisioning for %@" : {
+
+    },
+    "macOS is applying the first-boot settings for “%@”." : {
+
+    },
+    "macOS setup confirmed — temporary password removed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已确认 macOS 设置 — 临时密码已移除"
+          }
+        }
+      }
     },
     "macOS virtual machine" : {
 
     },
+    "Make files from your Mac available inside the virtual machine. You can also do this later." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让虚拟机访问 Mac 上的文件。也可以稍后再设置。"
+          }
+        }
+      }
+    },
+    "Manage Audio…" : {
+
+    },
+    "Manage Displays…" : {
+
+    },
+    "Manage Network…" : {
+
+    },
+    "Manage Pointer…" : {
+
+    },
     "Manage shared folders" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "管理共享文件夹" } } }
-    },
-    "MAX: %lld MIN: %lld" : {
       "localizations" : {
-        "en" : {
+        "zh-Hans" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "MAX: %1$lld MIN: %2$lld"
+            "state" : "translated",
+            "value" : "管理共享文件夹"
           }
         }
       }
     },
-    "MAX:%lluGB MIN:%lluGB" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "MAX:%1$lluGB MIN:%2$lluGB"
-          }
-        }
-      }
+    "Manage Storage…" : {
+
+    },
+    "Maximum ASIF overlay depth across the active machine and saved snapshots." : {
+
     },
     "Memory" : {
 
     },
-    "Memory Size" : {
+    "Microphone access still requires permission in System Settings. Speakers do not require additional permission." : {
 
     },
     "Missing" : {
 
     },
-    "Mode" : {
-
-    },
     "More" : {
 
     },
+    "Mount in Linux" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Linux 中挂载"
+          }
+        }
+      }
+    },
     "Move to Trash" : {
+
+    },
+    "MTU" : {
 
     },
     "Name" : {
 
     },
-    "Name the virtual machine :" : {
+    "Name your virtual machine" : {
 
     },
     "Nested virtualization" : {
@@ -862,10 +1229,68 @@
     "Nested virtualization requires an M3 or newer Mac. The VM remains portable and can run with this option disabled on older hosts." : {
 
     },
-    "Network Devices" : {
+    "Network" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络"
+          }
+        }
+      }
+    },
+    "Network adapter needs attention" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络适配器需要处理"
+          }
+        }
+      }
+    },
+    "Network Adapters" : {
 
     },
-    "New Virtual Machine" : {
+    "Network configuration error: %@" : {
+
+    },
+    "New Audio Device" : {
+
+    },
+    "New Display" : {
+
+    },
+    "New Pointing Device" : {
+
+    },
+    "New Storage Device" : {
+
+    },
+    "No approved USB accessories are connected" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有已获准的 USB 配件连接"
+          }
+        }
+      }
+    },
+    "No connection" : {
+
+    },
+    "No folders selected. Choose Not Now or Continue to skip sharing." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未选择文件夹。选择“暂不共享”或“继续”即可跳过。"
+          }
+        }
+      }
+    },
+    "No Network Adapters" : {
 
     },
     "No Shared Folders" : {
@@ -881,10 +1306,20 @@
         }
       }
     },
+    "No USB accessories requested" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未请求 USB 配件"
+          }
+        }
+      }
+    },
     "No virtual machines found" : {
 
     },
-    "Not started" : {
+    "Not selected" : {
 
     },
     "Off by default. EZVM uses a generated title cover and never requests screen recording permission." : {
@@ -893,13 +1328,13 @@
     "OK" : {
 
     },
-    "On macOS 27 or later, Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack. These features use beta system APIs." : {
-
-    },
     "Open" : {
 
     },
     "Open settings for this virtual machine" : {
+
+    },
+    "Open settings to select Apple Virtio graphics for the next start" : {
 
     },
     "Open source under the MIT license" : {
@@ -908,6 +1343,16 @@
     "Open SSH" : {
 
     },
+    "Open USB accessory controls" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 USB 配件控制"
+          }
+        }
+      }
+    },
     "Open Window" : {
 
     },
@@ -915,6 +1360,7 @@
 
     },
     "Operating system" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -924,6 +1370,12 @@
         }
       }
     },
+    "Operating System" : {
+
+    },
+    "Optional shared name" : {
+
+    },
     "OS: %@" : {
 
     },
@@ -931,18 +1383,38 @@
 
     },
     "Pause" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂停" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂停"
+          }
+        }
+      }
     },
     "Pause this virtual machine" : {
 
     },
-    "Pixels PerInch" : {
+    "Per-VM EFI Secure Boot" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每台虚拟机独立的 EFI 安全启动"
+          }
+        }
+      }
+    },
+    "Pixel density: %lld ppi" : {
+
+    },
+    "Pointer" : {
 
     },
     "Pointing / Audio" : {
 
     },
-    "Pointing Devices" : {
+    "Port Forwarding" : {
 
     },
     "Power" : {
@@ -951,7 +1423,30 @@
     "Preparing %@..." : {
 
     },
+    "Preparing the macOS account" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备 macOS 账户"
+          }
+        }
+      }
+    },
+    "Preview unreferenced ASIF layers before removing anything." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除任何内容前，先预览未被引用的 ASIF 层。"
+          }
+        }
+      }
+    },
     "Previous" : {
+
+    },
+    "Processors" : {
 
     },
     "Protect" : {
@@ -973,13 +1468,47 @@
     "Protected from deletion" : {
 
     },
+    "Protocol" : {
+
+    },
+    "Provisioning for “%@” is ready to retry once. If this VM is running, shut it down; then close this window and run the VM again." : {
+
+    },
+    "RAW is broadly compatible but uses more host storage." : {
+
+    },
+    "Reachability" : {
+
+    },
     "Read Only" : {
 
     },
     "Ready" : {
 
     },
+    "Ready to create %@" : {
+
+    },
     "Recommended releases" : {
+
+    },
+    "Recommended values are already selected for this Mac." : {
+
+    },
+    "Reconnect" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新连接"
+          }
+        }
+      }
+    },
+    "Reconnect %@" : {
+
+    },
+    "Recovering %@…" : {
 
     },
     "Refresh" : {
@@ -996,16 +1525,78 @@
 
     },
     "Remove" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除"
+          }
+        }
+      }
+    },
+    "Remove %@" : {
+
+    },
+    "Remove %lld Layer(s)" : {
+
+    },
+    "Remove Adapter" : {
+
     },
     "Remove from List" : {
 
     },
-    "Remove network device" : {
+    "Remove Password" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除密码"
+          }
+        }
+      }
+    },
+    "Remove Rule" : {
 
     },
     "Remove shared folder" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除共享文件夹" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除共享文件夹"
+          }
+        }
+      }
+    },
+    "Remove Temporary Password?" : {
+
+    },
+    "Remove the pending credential and stop automatic account setup" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除待处理的凭据，并停止自动账户设置"
+          }
+        }
+      }
+    },
+    "Remove the temporary provisioning credential after verifying the account in the guest" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认客体账户后，移除临时配置凭据"
+          }
+        }
+      }
+    },
+    "Remove this adapter after confirmation" : {
+
+    },
+    "Remove this network adapter?" : {
+
     },
     "Rename" : {
 
@@ -1025,6 +1616,15 @@
     "Required" : {
 
     },
+    "Requires a macOS 27 host." : {
+
+    },
+    "Requires both a macOS 27 host and a macOS 27 or later restore image. EZVM verifies the IPSW before installation." : {
+
+    },
+    "Resolution" : {
+
+    },
     "Restart Guest" : {
 
     },
@@ -1038,16 +1638,21 @@
         }
       }
     },
-    "Restore snapshot \"%@\" ?" : {
-
-    },
     "Resume" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "继续运行" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续运行"
+          }
+        }
+      }
     },
     "Resume this virtual machine" : {
 
     },
     "Retry Download" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1057,7 +1662,33 @@
         }
       }
     },
+    "Retry Next Start" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次启动时重试"
+          }
+        }
+      }
+    },
     "Reveal in Finder" : {
+
+    },
+    "Review Restore" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查恢复操作"
+          }
+        }
+      }
+    },
+    "Review your choices. Nothing downloads until you click Create." : {
+
+    },
+    "Right-click to choose this virtual machine’s cover style" : {
 
     },
     "Root snapshot" : {
@@ -1082,10 +1713,23 @@
     "Run into Recovery Mode" : {
 
     },
+    "Run once after the guest starts. With one shared folder, its contents appear directly at /mnt/ezvm; with several, each appears as a named folder." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "客体启动后运行一次。只有一个共享文件夹时，其内容会直接显示在 /mnt/ezvm；有多个时，每个共享文件夹会以单独命名的目录显示。"
+          }
+        }
+      }
+    },
     "Run Virtual Machine" : {
 
     },
     "Save" : {
+
+    },
+    "Save changes and close settings" : {
 
     },
     "Save State and Close" : {
@@ -1095,7 +1739,34 @@
 
     },
     "Save State and Stop" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存状态并停止" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存状态并停止"
+          }
+        }
+      }
+    },
+    "Saved session status" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存会话状态"
+          }
+        }
+      }
+    },
+    "Saved Session Status" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存会话状态"
+          }
+        }
+      }
     },
     "Saving Virtual Machine State…" : {
 
@@ -1113,7 +1784,10 @@
         }
       }
     },
-    "Select" : {
+    "Secure Boot requires macOS 27." : {
+
+    },
+    "Selected" : {
 
     },
     "Settings" : {
@@ -1126,13 +1800,53 @@
         }
       }
     },
+    "Settings Could Not Be Saved" : {
+
+    },
+    "Setup Complete" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置已完成"
+          }
+        }
+      }
+    },
+    "Share folders" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享文件夹"
+          }
+        }
+      }
+    },
     "Shared Folder" : {
 
     },
-    "Shared Folders" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "共享文件夹" } } }
+    "Shared folder drop area" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享文件夹拖放区域"
+          }
+        }
+      }
     },
-    "Sharing Directory" : {
+    "Shared Folders" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享文件夹"
+          }
+        }
+      }
+    },
+    "Shared-folder changes apply now. Other changes apply the next time the virtual machine starts." : {
 
     },
     "Show Control Center" : {
@@ -1142,7 +1856,14 @@
 
     },
     "Shut Down" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关机" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关机"
+          }
+        }
+      }
     },
     "Shut Down and Close" : {
 
@@ -1156,10 +1877,10 @@
     "Signed capabilities" : {
 
     },
-    "Snapshots" : {
+    "Snapshot name" : {
 
     },
-    "Snapshots - %@" : {
+    "Snapshots" : {
 
     },
     "Snapshots are stored inside the machine bundle and use APFS copy-on-write when available." : {
@@ -1175,6 +1896,7 @@
 
     },
     "Start Download" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1184,10 +1906,40 @@
         }
       }
     },
+    "Step %lld of %lld: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld: %3$@"
+          }
+        }
+      }
+    },
+    "Stop at the next safe boundary before machine files are replaced." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在替换虚拟机文件前，于下一个安全边界停止。"
+          }
+        }
+      }
+    },
     "Stopping Virtual Machine…" : {
 
     },
-    "Storage Devices" : {
+    "Storage" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存储空间"
+          }
+        }
+      }
+    },
+    "Subnet mask" : {
 
     },
     "Suggest another astronomical name" : {
@@ -1199,26 +1951,50 @@
     "Take Snapshot Now" : {
 
     },
-    "The current machine state will be replaced and lost." : {
-
-    },
-    "The current state will be kept as a new snapshot first." : {
-
-    },
     "The image will be saved and reused for future virtual machines." : {
 
     },
-    "The password is stored in this Mac’s Keychain until the VM’s first successful start." : {
+    "The password stays in this Mac’s Keychain until you confirm that macOS setup completed. It is never stored in the virtual machine bundle." : {
 
     },
     "The signed-release list updates automatically via IPSW.me. Downloads come directly from Apple; EZVM performs the final host compatibility check before installation." : {
 
     },
+    "The snapshot transaction is finishing and can no longer be cancelled" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快照事务正在安全完成，现已无法取消"
+          }
+        }
+      }
+    },
     "The virtual machine is running. Shut it down before creating or restoring snapshots." : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "虚拟机正在运行。请先将其关机，再创建或恢复快照。" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "虚拟机正在运行。请先将其关机，再创建或恢复快照。"
+          }
+        }
+      }
     },
     "These values come from the macOS 27 entitlements in the running EZVM process." : {
 
+    },
+    "This leaves little memory for macOS and may cause heavy swapping." : {
+
+    },
+    "This snapshot chain is deep. Audit it before adding more snapshots, keep an exported backup, and remove unneeded leaf branches. EZVM does not compact layered ASIF disks in place." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此快照链层数较深。继续添加快照前请先审计完整性、保留导出备份，并删除不再需要的叶子分支。EZVM 目前不能原地压缩分层 ASIF 磁盘。"
+          }
+        }
+      }
     },
     "This window will close automatically when it is safe." : {
 
@@ -1228,6 +2004,19 @@
     },
     "Transfer cancelled" : {
 
+    },
+    "Transport" : {
+
+    },
+    "Try Again" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        }
+      }
     },
     "Type" : {
 
@@ -1260,8 +2049,31 @@
     "Upload File to Guest..." : {
 
     },
+    "USB accessories" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "USB 配件"
+          }
+        }
+      }
+    },
     "Use Current Display as Thumbnail" : {
 
+    },
+    "Use macOS Setup Assistant Instead?" : {
+
+    },
+    "Use Setup Assistant" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用设置助理"
+          }
+        }
+      }
     },
     "Use URL" : {
 
@@ -1279,6 +2091,9 @@
         }
       }
     },
+    "Virtio displays are intended for Linux guests and can use Apple graphics or VirGL." : {
+
+    },
     "Virtio entropy source" : {
 
     },
@@ -1286,9 +2101,42 @@
 
     },
     "Virtual Machine Error" : {
-      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "虚拟机错误" } } }
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "虚拟机错误"
+          }
+        }
+      }
+    },
+    "Virtual machine network" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "虚拟机网络"
+          }
+        }
+      }
     },
     "Virtualization capabilities" : {
+
+    },
+    "Wait until the snapshot transaction finishes safely before closing this window." : {
+
+    },
+    "Waiting for Accessory Access…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待配件访问…"
+          }
+        }
+      }
+    },
+    "What would you like to run?" : {
 
     },
     "Width" : {
