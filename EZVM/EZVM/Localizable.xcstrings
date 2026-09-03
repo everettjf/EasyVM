@@ -155,7 +155,7 @@
 
     },
     "Audit" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "审计" } } }
     },
     "Basic" : {
 
@@ -546,6 +546,57 @@
     "Graphics Devices" : {
 
     },
+    "USB accessories" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "USB 配件" } } }
+    },
+    "Open USB accessory controls" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开 USB 配件控制" } } }
+    },
+    "No USB accessories requested" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "尚未请求 USB 配件" } } }
+    },
+    "Choose USB Accessories…" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择 USB 配件…" } } }
+    },
+    "Waiting for Accessory Access…" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在等待配件访问…" } } }
+    },
+    "Try Again" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重试" } } }
+    },
+    "Dismiss" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭提示" } } }
+    },
+    "No approved USB accessories are connected" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "没有已获准的 USB 配件连接" } } }
+    },
+    "Choose More USB Accessories…" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择更多 USB 配件…" } } }
+    },
+    "Disconnect USB accessories before choosing others" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择其他配件前，请先断开当前 USB 配件" } } }
+    },
+    "Clean Up…" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "清理…" } } }
+    },
+    "Preview unreferenced ASIF layers before removing anything." : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "移除任何内容前，先预览未被引用的 ASIF 层。" } } }
+    },
+    "Stop at the next safe boundary before machine files are replaced." : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在替换虚拟机文件前，于下一个安全边界停止。" } } }
+    },
+    "Finishing safely" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在安全完成" } } }
+    },
+    "The snapshot transaction is finishing and can no longer be cancelled" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "快照事务正在安全完成，现已无法取消" } } }
+    },
+    "Review Restore" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "检查恢复操作" } } }
+    },
+    "Storage" : {
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "存储空间" } } }
+    },
     "Guest Agent" : {
 
     },
@@ -605,7 +656,7 @@
 
     },
     "Keep the current state as a snapshot before restoring" : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复前将当前状态保留为快照" } } }
     },
     "Latest compatible macOS" : {
       "localizations" : {
@@ -1065,7 +1116,7 @@
 
     },
     "The virtual machine is running. Shut it down before creating or restoring snapshots." : {
-
+      "localizations" : { "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "虚拟机正在运行。请先将其关机，再创建或恢复快照。" } } }
     },
     "These values come from the macOS 27 entitlements in the running EZVM process." : {
 
