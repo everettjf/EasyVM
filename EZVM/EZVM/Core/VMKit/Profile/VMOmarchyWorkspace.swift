@@ -77,6 +77,7 @@ public enum VMOmarchyWorkspaceError: Error, Equatable {
     case recoveryFailed(String)
     case invalidWorkspaceMetadata
     case migrationFailed(String)
+    case metadataUpdateFailed(String)
 }
 
 extension VMOmarchyWorkspaceError: LocalizedError {
@@ -102,6 +103,8 @@ extension VMOmarchyWorkspaceError: LocalizedError {
             "The Omarchy workspace metadata is invalid or unsupported."
         case .migrationFailed(let reason):
             "The Omarchy workspace could not be migrated: \(reason)"
+        case .metadataUpdateFailed(let reason):
+            "The Omarchy integration metadata could not be recorded: \(reason)"
         }
     }
 }
@@ -153,6 +156,41 @@ public struct VMOmarchyWorkspaceManager {
     public func migrateWorkspace(availableCapacityBytes: Int64? = nil) throws {
         try migrateWorkspace(availableCapacityBytes: availableCapacityBytes) { data, destination in
             try data.write(to: destination, options: .atomic)
+        }
+    }
+
+    public func recordGuestIntegration(
+        omarchyRevision: String?,
+        agentVersion: String,
+        capabilities: Set<String>
+    ) throws {
+        guard !agentVersion.isEmpty, agentVersion.utf8.count <= 128,
+              (omarchyRevision?.utf8.count ?? 0) <= 256,
+              capabilities.count <= 64,
+              capabilities.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 128 }) else {
+            throw VMOmarchyWorkspaceError.metadataUpdateFailed("The Guest Agent returned invalid version metadata.")
+        }
+        guard inspect() == .ready else {
+            throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
+        }
+        let old = try metadata()
+        let revision = omarchyRevision.flatMap { $0.isEmpty ? nil : $0 } ?? old.omarchyRevision
+        let sortedCapabilities = capabilities.sorted()
+        guard old.omarchyRevision != revision
+                || old.guestAgentVersion != agentVersion
+                || old.guestCapabilities != sortedCapabilities else { return }
+        let updated = VMOmarchyWorkspaceMetadata(
+            productID: old.productID,
+            createdAt: old.createdAt,
+            factoryImageVersion: old.factoryImageVersion,
+            omarchyRevision: revision,
+            guestAgentVersion: agentVersion,
+            guestCapabilities: sortedCapabilities
+        )
+        do {
+            try JSONEncoder().encode(updated).write(to: layout.configuration, options: .atomic)
+        } catch {
+            throw VMOmarchyWorkspaceError.metadataUpdateFailed(error.localizedDescription)
         }
     }
 

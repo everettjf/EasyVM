@@ -62,6 +62,7 @@ type envelope struct {
 
 type status struct {
 	AgentVersion         string   `json:"agentVersion"`
+	OmarchyRevision      string   `json:"omarchyRevision,omitempty"`
 	OperatingSystem      string   `json:"operatingSystem"`
 	KernelVersion        string   `json:"kernelVersion"`
 	HostName             string   `json:"hostName"`
@@ -327,7 +328,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
 	_, provisioningErr := os.Stat("/var/lib/omarchy/provisioning/pending")
-	return status{AgentVersion: version, OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	return status{AgentVersion: version, OmarchyRevision: readTrimmed("/usr/share/omarchy/version"), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func sharedFolderMounted() bool {

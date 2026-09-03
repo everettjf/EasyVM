@@ -4,6 +4,7 @@ import Virtualization
 
 public struct VMOmarchyGuestStatus: Equatable, Sendable {
     public let agentVersion: String
+    public let omarchyRevision: String?
     public let hostName: String
     public let addresses: [String]
     public let capabilities: Set<String>
@@ -12,6 +13,7 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
 
     public init(
         agentVersion: String,
+        omarchyRevision: String? = nil,
         hostName: String,
         addresses: [String],
         capabilities: Set<String>,
@@ -19,6 +21,7 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
         provisioningPending: Bool
     ) {
         self.agentVersion = agentVersion
+        self.omarchyRevision = omarchyRevision
         self.hostName = hostName
         self.addresses = addresses
         self.capabilities = capabilities
@@ -225,6 +228,7 @@ public final class VMOmarchyGuestAgentClient {
         lastResponseAt = Date()
         stateChanged(.ready(VMOmarchyGuestStatus(
             agentVersion: status.agentVersion,
+            omarchyRevision: status.omarchyRevision,
             hostName: status.hostName,
             addresses: status.addresses,
             capabilities: Set(status.capabilities ?? []),

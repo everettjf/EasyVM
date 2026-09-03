@@ -610,6 +610,7 @@ struct VMGuestAgentEnvelope: Codable, Equatable {
 
 struct VMGuestAgentStatus: Codable, Equatable {
     let agentVersion: String
+    let omarchyRevision: String?
     let operatingSystem: String
     let kernelVersion: String
     let hostName: String
@@ -624,13 +625,15 @@ struct VMGuestAgentStatus: Codable, Equatable {
     let kvmAPIVersion: Int?
     let kvmError: String?
 
-    init(agentVersion: String, operatingSystem: String, kernelVersion: String, hostName: String,
+    init(agentVersion: String, omarchyRevision: String? = nil,
+         operatingSystem: String, kernelVersion: String, hostName: String,
          addresses: [String], bootID: String, uptimeSeconds: UInt64, capabilities: [String]?,
          inputDevices: [String]? = nil,
          desktopSessionActive: Bool? = nil,
          provisioningPending: Bool? = nil,
          kvmAvailable: Bool? = nil, kvmAPIVersion: Int? = nil, kvmError: String? = nil) {
         self.agentVersion = agentVersion
+        self.omarchyRevision = omarchyRevision
         self.operatingSystem = operatingSystem
         self.kernelVersion = kernelVersion
         self.hostName = hostName

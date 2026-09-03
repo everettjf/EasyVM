@@ -55,6 +55,49 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
             .contains(where: { $0.hasPrefix(".Workspace.preparing.") }))
     }
 
+    func testRuntimeGuestIntegrationMetadataIsRecordedWithoutChangingFactoryIdentity() throws {
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory".utf8).write(to: factory)
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+
+        try manager.recordGuestIntegration(
+            omarchyRevision: "omarchy-2",
+            agentVersion: "agent-3",
+            capabilities: ["shutdown-v1", "clipboard-text-v1"]
+        )
+
+        let recorded = try manager.metadata()
+        XCTAssertEqual(recorded.factoryImageVersion, "test")
+        XCTAssertEqual(recorded.omarchyRevision, "omarchy-2")
+        XCTAssertEqual(recorded.guestAgentVersion, "agent-3")
+        XCTAssertEqual(recorded.guestCapabilities, ["clipboard-text-v1", "shutdown-v1"])
+    }
+
+    func testRuntimeGuestIntegrationMetadataRejectsUnboundedValues() throws {
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory".utf8).write(to: factory)
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+        )
+
+        XCTAssertThrowsError(try manager.recordGuestIntegration(
+            omarchyRevision: nil,
+            agentVersion: String(repeating: "a", count: 129),
+            capabilities: []
+        ))
+        XCTAssertNil(try manager.metadata().guestAgentVersion)
+    }
+
     func testInvalidMetadataAndMachineIdentityRequireRecovery() throws {
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: temporaryRoot.appending(path: "support"))
         try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)

@@ -2,6 +2,8 @@ import EZVMCore
 import SwiftUI
 import Virtualization
 
+private let omarchyMetadataQueue = DispatchQueue(label: "com.everettjf.ezvm.omarchy.metadata")
+
 struct OmarchyVirtualMachineView: View {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
@@ -16,6 +18,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
     @State private var importNotice: ImportNotice?
+    @State private var recordedIntegrationSignature = ""
 
     private var phase: Phase { lifecycle.phase }
 
@@ -26,7 +29,7 @@ struct OmarchyVirtualMachineView: View {
                 profile: profile,
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
-                integrationChanged: { integration = $0 },
+                integrationChanged: handleIntegrationChange,
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
@@ -263,6 +266,27 @@ struct OmarchyVirtualMachineView: View {
                 }
             } catch {
                 factoryChannel = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func handleIntegrationChange(_ state: VMOmarchyIntegrationState) {
+        integration = state
+        guard case .ready(let status) = state else { return }
+        let signature = ([status.omarchyRevision ?? "", status.agentVersion]
+            + status.capabilities.sorted()).joined(separator: "\u{1f}")
+        guard signature != recordedIntegrationSignature else { return }
+        recordedIntegrationSignature = signature
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        omarchyMetadataQueue.async {
+            do {
+                try manager.recordGuestIntegration(
+                    omarchyRevision: status.omarchyRevision,
+                    agentVersion: status.agentVersion,
+                    capabilities: status.capabilities
+                )
+            } catch {
+                NSLog("Could not record Omarchy integration metadata: %@", error.localizedDescription)
             }
         }
     }
