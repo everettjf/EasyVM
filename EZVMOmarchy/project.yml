@@ -46,5 +46,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.everettjf.ezvm.omarchy.tests
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: YPV49M8592
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: 5.0

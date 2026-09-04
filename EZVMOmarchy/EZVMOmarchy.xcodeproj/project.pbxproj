@@ -186,6 +186,10 @@
 						DevelopmentTeam = YPV49M8592;
 						ProvisioningStyle = Automatic;
 					};
+					7300730E1AD9CA1DD5FFA42D = {
+						DevelopmentTeam = YPV49M8592;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = F6C75C330AD2D17E6C6404D6 /* Build configuration list for PBXProject "EZVMOmarchy" */;
@@ -266,7 +270,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = YPV49M8592;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -455,7 +461,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = YPV49M8592;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

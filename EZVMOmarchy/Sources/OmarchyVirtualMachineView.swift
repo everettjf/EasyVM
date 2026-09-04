@@ -1166,6 +1166,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             clipboardProbeChanged(.running)
             clipboardProbeTask = Task { @MainActor [weak self] in
                 guard let self else { return }
+                // The continuous clipboard bridge is another legitimate
+                // writer. Pause it while acceptance performs ordered native
+                // and Agent round trips, otherwise a concurrent host
+                // pasteboard change can overwrite the selection under test.
+                let clipboardController = self.agentClipboardController
+                clipboardController?.stop()
+                defer { clipboardController?.start() }
                 do {
                     NSApp.activate(ignoringOtherApps: true)
                     if let machineView = self.machineView,
