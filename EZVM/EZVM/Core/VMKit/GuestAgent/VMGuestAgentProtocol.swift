@@ -163,6 +163,7 @@ enum VMGuestAgentOperation: String, Codable, CaseIterable {
     case downloadInfo
     case downloadChunk
     case input
+    case ownerProvisioning
 }
 
 struct VMGuestAgentInputEvent: Codable, Equatable {

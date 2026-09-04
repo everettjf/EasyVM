@@ -44,6 +44,7 @@ Protocol v1 operations are:
 - `downloadInfo`, `downloadChunk`: bounded, checksum-verified guest-to-host transfer
 - `transferCancel`: explicit cleanup of either transfer direction
 - `input`: bounded Linux `input_event` batches for the Custom VirGL display
+- `ownerProvisioning`: one-shot delivery of validated Omarchy owner setup data
 
 Status responses advertise additive capabilities. `file-transfer-v1` enables the
 transfer UI. `ssh-addresses-v1` enables validated `ssh://` links and is advertised
@@ -80,6 +81,21 @@ continue to use the relative-input fallback.
 A host that
 connects to an older v1 agent receives no capability list and keeps these newer
 actions hidden, while heartbeat and power operations continue to work.
+
+`owner-provisioning-v1` is advertised only while Omarchy's provisioning marker
+is a regular file. The authenticated `ownerProvisioning` operation accepts one
+schema-v1 request containing username, password, keyboard layout, optional
+identity fields, hostname, and timezone. The host validates password
+confirmation locally and transmits the password once; confirmation is not a
+wire field. The agent independently validates all bounds and formats, rejects
+Omarchy's reserved system usernames, verifies the timezone resolves to a
+regular file inside `/usr/share/zoneinfo`, and atomically stages a mode-`0600`
+one-shot file at `/run/ezvm-owner-provisioning.json`. It never overwrites an
+existing request and never logs the payload. A factory-image provisioning
+consumer must remove the staged file after loading it and feed the values into
+the same provisioning functions used by Omarchy's interactive first-boot form.
+The capability disappears when provisioning finishes, so this operation is not
+a general-purpose guest account management interface.
 
 Transfers are limited to 64 GiB and 512 KiB chunks. Both sides require absolute,
 clean paths and reject symbolic links. Uploads use a mode-`0600` temporary file

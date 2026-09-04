@@ -533,7 +533,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [
             .heartbeat, .status, .shutdown, .restart, .restartAgent,
             .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,
-            .downloadInfo, .downloadChunk, .input,
+            .downloadInfo, .downloadChunk, .input, .ownerProvisioning,
         ])
 
         let legacyJSON = Data(#"{"agentVersion":"1.0","operatingSystem":"Linux","kernelVersion":"6","hostName":"legacy","addresses":[],"bootID":"old","uptimeSeconds":1}"#.utf8)
@@ -548,6 +548,24 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertTrue(status.supportsSSH)
         XCTAssertTrue(status.supportsFileTransfer)
         XCTAssertTrue(status.supportsGuestInput)
+    }
+
+    func testOwnerProvisioningRequestRoundTripsWithoutDuplicatePassword() throws {
+        let request = VMOmarchyOwnerProvisioningRequest(
+            username: "omarchy",
+            password: "temporary-password",
+            keyboard: "us",
+            fullName: "Omarchy Owner",
+            emailAddress: "owner@example.com",
+            hostname: "omarchy",
+            timezone: "America/Los_Angeles"
+        )
+        let data = try JSONEncoder().encode(request)
+        XCTAssertEqual(try JSONDecoder().decode(VMOmarchyOwnerProvisioningRequest.self, from: data), request)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["schemaVersion"] as? Int, 1)
+        XCTAssertEqual(object["password"] as? String, "temporary-password")
+        XCTAssertNil(object["passwordConfirmation"])
     }
 
     func testGuestIPv4EvidenceRejectsIPv6AndMalformedAddresses() {

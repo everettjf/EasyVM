@@ -230,6 +230,17 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 			if err := writeFrame(stream, response); err != nil {
 				return err
 			}
+		case "ownerProvisioning":
+			result := handleOwnerProvisioning(request.Payload)
+			payload, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			sentSequence++
+			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
+			if err := writeFrame(stream, response); err != nil {
+				return err
+			}
 		default:
 			return errors.New("unsupported operation")
 		}
@@ -332,6 +343,9 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	sort.Strings(addresses)
 	kvmAvailable, kvmVersion, kvmError := kvmStatus()
 	capabilities := []string{"file-transfer-v1", "kvm-diagnostics-v1", "shutdown-v1", "agent-restart-v1"}
+	if ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending") {
+		capabilities = append(capabilities, ownerProvisioningCapability)
+	}
 	if sshListening() {
 		capabilities = append(capabilities, "ssh-addresses-v1")
 	}
@@ -354,8 +368,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	if absolutePointerAvailable {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
-	_, provisioningErr := os.Stat("/var/lib/omarchy/provisioning/pending")
-	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: readTrimmed("/usr/share/omarchy/version"), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: readTrimmed("/usr/share/omarchy/version"), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending"), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func sshListening() bool {

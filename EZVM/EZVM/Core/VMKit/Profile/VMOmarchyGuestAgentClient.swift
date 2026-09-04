@@ -70,6 +70,37 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
     }
 }
 
+public struct VMOmarchyOwnerProvisioningRequest: Codable, Equatable, Sendable {
+    public let schemaVersion: Int
+    public let username: String
+    public let password: String
+    public let keyboard: String
+    public let fullName: String
+    public let emailAddress: String
+    public let hostname: String
+    public let timezone: String
+
+    public init(
+        schemaVersion: Int = 1,
+        username: String,
+        password: String,
+        keyboard: String,
+        fullName: String,
+        emailAddress: String,
+        hostname: String,
+        timezone: String
+    ) {
+        self.schemaVersion = schemaVersion
+        self.username = username
+        self.password = password
+        self.keyboard = keyboard
+        self.fullName = fullName
+        self.emailAddress = emailAddress
+        self.hostname = hostname
+        self.timezone = timezone
+    }
+}
+
 public struct VMOmarchyIntegrationAssessment: Equatable, Sendable {
     public let isReady: Bool
     public let missingCapabilities: [String]
@@ -205,6 +236,23 @@ public final class VMOmarchyGuestAgentClient {
 
     public func requestShutdown() { send(.shutdown) }
     public func requestRestart() { send(.restart) }
+
+    public func provisionOwner(_ request: VMOmarchyOwnerProvisioningRequest) async throws {
+        guard capabilities.contains("owner-provisioning-v1") else {
+            throw CocoaError(.featureUnsupported)
+        }
+        let result: VMGuestAgentInputResult = try await self.request(
+            .ownerProvisioning,
+            payload: request
+        )
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMOmarchyOwnerProvisioning",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+    }
 
     public func requestAgentRestart() async throws {
         let result: VMGuestAgentInputResult = try await request(
