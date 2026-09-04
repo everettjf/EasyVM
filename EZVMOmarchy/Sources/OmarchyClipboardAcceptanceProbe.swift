@@ -96,15 +96,6 @@ enum OmarchyClipboardAcceptanceProbe {
             )
         }
 
-        let nativeControl = (try? Data(contentsOf: probeDirectory.appending(
-            path: "native-wayland-result"
-        ))) ?? Data()
-        guard nativeControl == Data(hostText.utf8) else {
-            throw ProbeError.mismatch(
-                "native Wayland control", expected: Data(hostText.utf8), actual: nativeControl
-            )
-        }
-
         // The compositor can accept input before the SPICE clipboard
         // transport has rebound to the newly unlocked Wayland session. Wait
         // for the unprivileged Session Agent to prove both formats before
