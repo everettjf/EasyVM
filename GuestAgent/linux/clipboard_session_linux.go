@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -102,15 +103,12 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		file.Close()
 		return clipboardResult{Message: "clipboard staging input is invalid"}
 	}
-	hasher := sha256.New()
-	byteCount, err := io.Copy(hasher, io.LimitReader(file, maximumClipboardBytes+1))
-	if err != nil || uint64(byteCount) != request.ByteCount || uint64(byteCount) > maximumClipboardBytes {
-		file.Close()
+	payload, byteCount, digestText, err := readClipboardPayload(file, maximumClipboardBytes)
+	closeError := file.Close()
+	if err != nil || closeError != nil || byteCount != request.ByteCount || byteCount > maximumClipboardBytes {
 		return clipboardResult{Message: "clipboard staging size mismatch"}
 	}
-	digestText := hex.EncodeToString(hasher.Sum(nil))
 	if request.SHA256 != digestText {
-		file.Close()
 		return clipboardResult{Message: "clipboard staging digest mismatch"}
 	}
 	clipboardOwner.Lock()
@@ -118,14 +116,13 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		_ = clipboardOwner.command.Process.Kill()
 	}
 	command := exec.Command("wl-copy", "--foreground", "--type", request.MIMEType)
-	// Hashing leaves the shared file descriptor at EOF. Feed wl-copy through a
-	// SectionReader so its input always starts at byte zero and is bounded to the
-	// exact payload that was authenticated above. Using the *os.File directly
-	// makes the child inherit the descriptor's mutable offset and can publish an
-	// empty Wayland selection even though the digest check succeeded.
-	command.Stdin = clipboardInputReader(file, byteCount)
+	// Keep the authenticated bytes independent of the VirtioFS descriptor.
+	// Rewinding or pread on that descriptor can still present EOF to wl-copy on
+	// a real Guest even after the digest pass. The clipboard limit bounds this
+	// allocation, and wl-copy receives exactly the bytes verified above.
+	command.Stdin = bytes.NewReader(payload)
+	command.Stderr = os.Stderr
 	if err := command.Start(); err != nil {
-		file.Close()
 		clipboardOwner.Unlock()
 		return clipboardResult{Message: err.Error()}
 	}
@@ -133,18 +130,20 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 	clipboardOwner.Unlock()
 	go func() {
 		_ = command.Wait()
-		_ = file.Close()
 		clipboardOwner.Lock()
 		if clipboardOwner.command == command {
 			clipboardOwner.command = nil
 		}
 		clipboardOwner.Unlock()
 	}()
-	return clipboardResult{Success: true, Message: "Guest clipboard updated.", ByteCount: uint64(byteCount), SHA256: digestText}
+	return clipboardResult{Success: true, Message: "Guest clipboard updated.", ByteCount: byteCount, SHA256: digestText}
 }
 
-func clipboardInputReader(file *os.File, byteCount int64) io.Reader {
-	return io.NewSectionReader(file, 0, byteCount)
+func readClipboardPayload(reader io.Reader, limit uint64) ([]byte, uint64, string, error) {
+	payload, err := io.ReadAll(io.LimitReader(reader, int64(limit+1)))
+	byteCount := uint64(len(payload))
+	digest := sha256.Sum256(payload)
+	return payload, byteCount, hex.EncodeToString(digest[:]), err
 }
 
 func getSessionClipboard(path string, request clipboardRequest) clipboardResult {

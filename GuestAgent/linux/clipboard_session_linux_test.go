@@ -4,35 +4,32 @@ package main
 
 import (
 	"bytes"
-	"io"
-	"os"
+	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 )
 
-func TestClipboardInputReaderStartsAtBeginningAfterDigestRead(t *testing.T) {
-	file, err := os.CreateTemp(t.TempDir(), "clipboard-input-*")
+func TestReadClipboardPayloadRetainsAuthenticatedBytes(t *testing.T) {
+	want := []byte("EZVM clipboard payload\nwith unicode: 你好")
+	payload, byteCount, digest, err := readClipboardPayload(bytes.NewReader(want), maximumClipboardBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	wantDigest := sha256.Sum256(want)
+	if !bytes.Equal(payload, want) || byteCount != uint64(len(want)) ||
+		digest != hex.EncodeToString(wantDigest[:]) {
+		t.Fatalf("payload=%q byteCount=%d digest=%s", payload, byteCount, digest)
+	}
+}
 
-	payload := []byte("EZVM clipboard payload\nwith unicode: 你好")
-	if _, err := file.Write(payload); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := io.Copy(io.Discard, file); err != nil {
-		t.Fatal(err)
-	}
-
-	actual, err := io.ReadAll(clipboardInputReader(file, int64(len(payload))))
+func TestReadClipboardPayloadStopsOneBytePastLimit(t *testing.T) {
+	reader := bytes.NewReader(make([]byte, 6))
+	payload, byteCount, _, err := readClipboardPayload(reader, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(actual, payload) {
-		t.Fatalf("clipboard input = %q, want %q", actual, payload)
+	if byteCount != 5 || len(payload) != 5 {
+		t.Fatalf("payload bytes=%d count=%d", len(payload), byteCount)
 	}
 }
 
