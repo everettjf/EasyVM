@@ -3,6 +3,29 @@ import EZVMCore
 @testable import EZVM_Omarchy
 
 final class EZVMOmarchyTests: XCTestCase {
+    @MainActor
+    func testClipboardProbeWaitsForGuestScriptAndMatchingPasteboardPayloads() {
+        let script = OmarchyClipboardAcceptanceProbe.probeScript(
+            guestDirectory: "/mnt/ezvm-shared/probe"
+        )
+
+        XCTAssertTrue(script.contains("touch \"$d/script-ready\""))
+        XCTAssertTrue(script.contains("copy_until_matches \"$d/host-text-input\""))
+        XCTAssertTrue(script.contains("copy_until_matches \"$d/host-image-input\""))
+        XCTAssertTrue(script.contains("cmp -s \"$expected\" \"$output.part\""))
+        XCTAssertTrue(script.contains("guest-clipboard-types"))
+    }
+
+    func testAcceptanceUnlockCredentialRequiresAcceptanceMode() {
+        XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey: "123456"
+        ]))
+        XCTAssertEqual(OmarchyAcceptanceUnlockCredential(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey: "123456"
+        ])?.password, "123456")
+    }
+
     func testOwnerSetupBuildsOnePasswordRequestAndClearsSecrets() throws {
         var form = OmarchyOwnerSetupForm()
         form.password = "temporary-密碼"

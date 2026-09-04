@@ -25,39 +25,114 @@ enum OmarchyClipboardAcceptanceProbe {
     static func run(
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
+        unlockCredential: OmarchyAcceptanceUnlockCredential? = nil,
         pasteboard: NSPasteboard = .general
     ) async throws -> OmarchyClipboardRoundTrip {
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".ezvm-clipboard-\(nonce)")
         let guestDirectory = "/mnt/ezvm-shared/\(probeDirectory.lastPathComponent)"
+        let agentStagingDirectory = sharedDirectory
+            .appending(path: ".ezvm-integration/clipboard")
+        let agentHostText = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).txt")
+        let agentHostImage = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).png")
+        let agentGuestText = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).txt")
+        let agentGuestImage = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).png")
+        let agentURLs = [agentHostText, agentHostImage, agentGuestText, agentGuestImage]
         let snapshot = PasteboardSnapshot.capture(pasteboard)
+        var completed = false
         defer {
             snapshot.restore(pasteboard)
-            try? FileManager.default.removeItem(at: probeDirectory)
+            if completed {
+                try? FileManager.default.removeItem(at: probeDirectory)
+            } else {
+                NSLog("Omarchy clipboard probe retained failure evidence at %@", probeDirectory.path)
+            }
+            agentURLs.forEach { try? FileManager.default.removeItem(at: $0) }
         }
 
         try FileManager.default.createDirectory(
             at: probeDirectory,
             withIntermediateDirectories: false
         )
+        try FileManager.default.createDirectory(
+            at: agentStagingDirectory,
+            withIntermediateDirectories: true
+        )
         let hostText = "EZVM host → Omarchy 文本 \(nonce)"
         let guestText = "Omarchy guest → macOS 文本 \(nonce)"
         let image = try pngFixture()
+        try Data(hostText.utf8).write(to: probeDirectory.appending(path: "host-text-input"))
+        try image.write(to: probeDirectory.appending(path: "host-image-input"))
+        try Data(hostText.utf8).write(to: agentHostText)
+        try image.write(to: agentHostImage)
         try Data(guestText.utf8).write(to: probeDirectory.appending(path: "guest-text-input"))
         try image.write(to: probeDirectory.appending(path: "guest-image-input"))
         let script = probeScript(guestDirectory: guestDirectory)
         try Data(script.utf8).write(to: probeDirectory.appending(path: "probe.sh"))
 
-        // Omarchy's documented Super-Return shortcut opens a terminal. The
-        // command itself is typed through the authenticated uinput channel.
-        NSLog("Omarchy clipboard probe opening Guest terminal")
-        try await client.injectKeyChord(modifiers: [125], key: 28)
+        do {
+            try await launchGuestScript(
+                client: client,
+                guestDirectory: guestDirectory,
+                readyFile: probeDirectory.appending(path: "script-ready")
+            )
+        } catch ProbeError.timeout(let operation)
+                    where operation == "script-ready" && unlockCredential != nil {
+            // A freshly booted persistent workspace may be at hyprlock even
+            // while the compositor and Agent are already ready. The first
+            // launch attempt will then have landed in the password field.
+            // This recovery is acceptance-only: clear that field, submit the
+            // ephemeral fixture secret, and retry the observable script gate.
+            guard let unlockCredential else { throw ProbeError.timeout(operation) }
+            NSLog("Omarchy clipboard probe recovering from a boot lock screen")
+            try await client.injectKeyChord(modifiers: [29], key: 30)
+            try await client.typeUSASCII(unlockCredential.password)
+            try await client.injectKeyChord(modifiers: [], key: 28)
+            try await Task.sleep(for: .seconds(3))
+            try await launchGuestScript(
+                client: client,
+                guestDirectory: guestDirectory,
+                readyFile: probeDirectory.appending(path: "script-ready")
+            )
+        }
+
+        // The compositor can accept input before the SPICE clipboard
+        // transport has rebound to the newly unlocked Wayland session. Wait
+        // for the unprivileged Session Agent to prove both formats before
+        // changing the Host pasteboard; otherwise that first change can be
+        // lost during boot even though spice-vdagent appears moments later.
+        try await waitUntil("Guest clipboard capabilities") {
+            let capabilities = client.currentCapabilities
+            return (capabilities.contains("clipboard-agent-text-v1")
+                    && capabilities.contains("clipboard-agent-image-v1"))
+                || (capabilities.contains("clipboard-text-v1")
+                    && capabilities.contains("clipboard-image-v1"))
+        }
         try await Task.sleep(for: .seconds(2))
-        NSLog("Omarchy clipboard probe typing Guest script path %@", guestDirectory)
-        try await client.typeUSASCII("bash \(guestDirectory)/probe.sh\n")
+
+        if client.currentCapabilities.contains("clipboard-agent-text-v1"),
+           client.currentCapabilities.contains("clipboard-agent-image-v1") {
+            let result = try await runAgentRoundTrip(
+                client: client,
+                sharedDirectory: sharedDirectory,
+                probeDirectory: probeDirectory,
+                hostText: hostText,
+                guestText: guestText,
+                image: image,
+                hostTextURL: agentHostText,
+                hostImageURL: agentHostImage,
+                guestTextURL: agentGuestText,
+                guestImageURL: agentGuestImage
+            )
+            completed = true
+            return result
+        }
 
         NSLog("Omarchy clipboard probe starting Host-to-Guest text")
-        try setText(hostText, on: pasteboard)
+        try publishTextFromExternalProcess(hostText)
+        try await waitUntil("Host text pasteboard publication") {
+            pasteboard.string(forType: .string) == hostText
+        }
         try touch(probeDirectory.appending(path: "host-text-go"))
         let hostTextResult = try await waitForData(
             at: probeDirectory.appending(path: "host-text-result")
@@ -71,7 +146,12 @@ enum OmarchyClipboardAcceptanceProbe {
         }
 
         NSLog("Omarchy clipboard probe starting Host-to-Guest PNG")
-        try setPNG(image, on: pasteboard)
+        try publishPNGFromExternalProcess(
+            at: probeDirectory.appending(path: "host-image-input")
+        )
+        try await waitUntil("Host PNG pasteboard publication") {
+            pasteboard.data(forType: .png) == image
+        }
         try touch(probeDirectory.appending(path: "host-image-go"))
         let hostImageResult = try await waitForData(
             at: probeDirectory.appending(path: "host-image-result")
@@ -97,26 +177,42 @@ enum OmarchyClipboardAcceptanceProbe {
         try await waitForFile(at: probeDirectory.appending(path: "script-done"))
         try await Task.sleep(for: .milliseconds(250))
 
-        return OmarchyClipboardRoundTrip(
+        let result = OmarchyClipboardRoundTrip(
             observedAt: Date(),
             hostToGuestTextSHA256: sha256(Data(hostText.utf8)),
             guestToHostTextSHA256: sha256(Data(guestText.utf8)),
             hostToGuestImageSHA256: sha256(image),
             guestToHostImageSHA256: sha256(image)
         )
+        completed = true
+        return result
     }
 
-    private static func probeScript(guestDirectory: String) -> String {
+    static func probeScript(guestDirectory: String) -> String {
         """
         #!/usr/bin/env bash
         set -eu
         d='\(guestDirectory)'
+        copy_until_matches() {
+          expected="$1"
+          output="$2"
+          shift 2
+          for _ in $(seq 1 150); do
+            if wl-paste "$@" > "$output.part" 2>/dev/null && cmp -s "$expected" "$output.part"; then
+              mv "$output.part" "$output"
+              return 0
+            fi
+            sleep 0.1
+          done
+          wl-paste --list-types > "$d/guest-clipboard-types" 2>&1 || true
+          mv -f "$output.part" "$output.last" 2>/dev/null || true
+          return 1
+        }
+        touch "$d/script-ready"
         while [ ! -f "$d/host-text-go" ]; do sleep 0.1; done
-        sleep 1
-        wl-paste --no-newline > "$d/host-text-result"
+        copy_until_matches "$d/host-text-input" "$d/host-text-result" --no-newline
         while [ ! -f "$d/host-image-go" ]; do sleep 0.1; done
-        sleep 1
-        wl-paste --type image/png > "$d/host-image-result"
+        copy_until_matches "$d/host-image-input" "$d/host-image-result" --type image/png
         while [ ! -f "$d/guest-text-go" ]; do sleep 0.1; done
         wl-copy --type 'text/plain;charset=utf-8' < "$d/guest-text-input" &
         text_pid=$!
@@ -134,16 +230,166 @@ enum OmarchyClipboardAcceptanceProbe {
         """
     }
 
-    private static func setText(_ text: String, on pasteboard: NSPasteboard) throws {
-        pasteboard.clearContents()
-        guard pasteboard.setString(text, forType: .string) else {
+    private static func launchGuestScript(
+        client: VMOmarchyGuestAgentClient,
+        guestDirectory: String,
+        readyFile: URL
+    ) async throws {
+        // Omarchy's documented Super-Return shortcut opens a terminal. The
+        // command itself is typed through the authenticated uinput channel.
+        NSLog("Omarchy clipboard probe opening Guest terminal")
+        try await client.injectKeyChord(modifiers: [125], key: 28)
+        try await Task.sleep(for: .seconds(2))
+        NSLog("Omarchy clipboard probe typing Guest script path %@", guestDirectory)
+        try await client.typeUSASCII("bash \(guestDirectory)/probe.sh\n")
+        try await waitForFile(at: readyFile)
+    }
+
+    private static func runAgentRoundTrip(
+        client: VMOmarchyGuestAgentClient,
+        sharedDirectory: URL,
+        probeDirectory: URL,
+        hostText: String,
+        guestText: String,
+        image: Data,
+        hostTextURL: URL,
+        hostImageURL: URL,
+        guestTextURL: URL,
+        guestImageURL: URL
+    ) async throws -> OmarchyClipboardRoundTrip {
+        NSLog("Omarchy Agent clipboard probe starting Host-to-Guest text")
+        _ = try await client.setGuestClipboard(
+            try agentRequest(for: hostTextURL, sharedDirectory: sharedDirectory,
+                             mimeType: "text/plain;charset=utf-8")
+        )
+        try touch(probeDirectory.appending(path: "host-text-go"))
+        let hostTextResult = try await waitForData(
+            at: probeDirectory.appending(path: "host-text-result")
+        )
+        guard hostTextResult == Data(hostText.utf8) else {
+            throw ProbeError.mismatch(
+                "Agent host-to-guest text", expected: Data(hostText.utf8), actual: hostTextResult
+            )
+        }
+
+        NSLog("Omarchy Agent clipboard probe starting Host-to-Guest PNG")
+        _ = try await client.setGuestClipboard(
+            try agentRequest(for: hostImageURL, sharedDirectory: sharedDirectory,
+                             mimeType: "image/png")
+        )
+        try touch(probeDirectory.appending(path: "host-image-go"))
+        let hostImageResult = try await waitForData(
+            at: probeDirectory.appending(path: "host-image-result")
+        )
+        guard hostImageResult == image else {
+            throw ProbeError.mismatch(
+                "Agent host-to-guest PNG", expected: image, actual: hostImageResult
+            )
+        }
+
+        NSLog("Omarchy Agent clipboard probe starting Guest-to-Host text")
+        try touch(probeDirectory.appending(path: "guest-text-go"))
+        try await waitForFile(at: probeDirectory.appending(path: "guest-text-ready"))
+        let capturedText = try await client.captureGuestClipboard(
+            agentCaptureRequest(for: guestTextURL, sharedDirectory: sharedDirectory,
+                                mimeType: "text/plain;charset=utf-8")
+        )
+        let guestTextResult = try Data(contentsOf: guestTextURL)
+        guard guestTextResult == Data(guestText.utf8),
+              capturedText.byteCount == UInt64(guestTextResult.count),
+              capturedText.sha256 == sha256(guestTextResult) else {
+            throw ProbeError.mismatch(
+                "Agent guest-to-host text", expected: Data(guestText.utf8), actual: guestTextResult
+            )
+        }
+        try touch(probeDirectory.appending(path: "guest-text-consumed"))
+
+        NSLog("Omarchy Agent clipboard probe starting Guest-to-Host PNG")
+        try await waitForFile(at: probeDirectory.appending(path: "guest-image-ready"))
+        let capturedImage = try await client.captureGuestClipboard(
+            agentCaptureRequest(for: guestImageURL, sharedDirectory: sharedDirectory,
+                                mimeType: "image/png")
+        )
+        let guestImageResult = try Data(contentsOf: guestImageURL)
+        guard guestImageResult == image,
+              capturedImage.byteCount == UInt64(guestImageResult.count),
+              capturedImage.sha256 == sha256(guestImageResult) else {
+            throw ProbeError.mismatch(
+                "Agent guest-to-host PNG", expected: image, actual: guestImageResult
+            )
+        }
+        try touch(probeDirectory.appending(path: "guest-image-consumed"))
+        try await waitForFile(at: probeDirectory.appending(path: "script-done"))
+
+        return OmarchyClipboardRoundTrip(
+            observedAt: Date(),
+            hostToGuestTextSHA256: sha256(Data(hostText.utf8)),
+            guestToHostTextSHA256: sha256(guestTextResult),
+            hostToGuestImageSHA256: sha256(image),
+            guestToHostImageSHA256: sha256(guestImageResult)
+        )
+    }
+
+    private static func agentRequest(
+        for url: URL,
+        sharedDirectory: URL,
+        mimeType: String
+    ) throws -> VMOmarchyClipboardRequest {
+        let data = try Data(contentsOf: url)
+        return VMOmarchyClipboardRequest(
+            relativePath: relativeClipboardPath(for: url, sharedDirectory: sharedDirectory),
+            mimeType: mimeType,
+            byteCount: UInt64(data.count),
+            sha256: sha256(data)
+        )
+    }
+
+    private static func agentCaptureRequest(
+        for url: URL,
+        sharedDirectory: URL,
+        mimeType: String
+    ) -> VMOmarchyClipboardRequest {
+        VMOmarchyClipboardRequest(
+            relativePath: relativeClipboardPath(for: url, sharedDirectory: sharedDirectory),
+            mimeType: mimeType,
+            byteCount: 0,
+            sha256: ""
+        )
+    }
+
+    private static func relativeClipboardPath(for url: URL, sharedDirectory: URL) -> String {
+        String(url.path.dropFirst(sharedDirectory.path.count + 1))
+    }
+
+    private static func publishTextFromExternalProcess(_ text: String) throws {
+        let input = Pipe()
+        let process = Process()
+        process.executableURL = URL(filePath: "/usr/bin/pbcopy")
+        process.standardInput = input
+        try process.run()
+        input.fileHandleForWriting.write(Data(text.utf8))
+        try input.fileHandleForWriting.close()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
             throw ProbeError.pasteboardWrite("text")
         }
     }
 
-    private static func setPNG(_ data: Data, on pasteboard: NSPasteboard) throws {
-        pasteboard.clearContents()
-        guard pasteboard.setData(data, forType: .png) else {
+    private static func publishPNGFromExternalProcess(at url: URL) throws {
+        let process = Process()
+        process.executableURL = URL(filePath: "/usr/bin/osascript")
+        process.arguments = [
+            "-e",
+            "on run argv",
+            "-e",
+            "set the clipboard to (read POSIX file (item 1 of argv) as «class PNGf»)",
+            "-e",
+            "end run",
+            url.path
+        ]
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
             throw ProbeError.pasteboardWrite("PNG")
         }
     }

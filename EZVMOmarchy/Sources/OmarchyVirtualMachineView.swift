@@ -177,10 +177,14 @@ struct OmarchyVirtualMachineView: View {
                 } else {
                     Text("Shared folder is not mounted in Omarchy")
                 }
-                if status.capabilities.contains("clipboard-text-v1") {
+                if status.capabilities.contains("clipboard-agent-text-v1") {
+                    Text(status.capabilities.contains("clipboard-agent-image-v1")
+                        ? "Authenticated text and image clipboard ready"
+                        : "Authenticated text clipboard ready")
+                } else if status.capabilities.contains("clipboard-text-v1") {
                     Text(status.capabilities.contains("clipboard-image-v1")
-                        ? "Text and image clipboard ready"
-                        : "Text clipboard ready")
+                        ? "Text and image clipboard ready (compatibility mode)"
+                        : "Text clipboard ready (compatibility mode)")
                 } else {
                     Text("Clipboard session integration is not ready")
                 }
@@ -887,6 +891,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var forceStopObserver: NSObjectProtocol?
         private var keyboardBridge: OmarchyFocusedCommandBridge?
         private var integrationClient: VMOmarchyGuestAgentClient?
+        private var agentClipboardController: OmarchyAgentClipboardController?
         private var sharedFolderProbeTask: Task<Void, Never>?
         private var sharedFolderProbePassed = false
         private var clipboardProbeTask: Task<Void, Never>?
@@ -1072,11 +1077,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             switch state {
                             case .ready(let status):
                                 Task { @MainActor [weak self] in
+                                    self?.configureAgentClipboard(for: status)
                                     self?.handleAutomaticRecoveryReady(status)
                                     self?.refreshOwnerProvisioningProgressIfNeeded(status)
                                 }
                             case .disconnected:
                                 Task { @MainActor [weak self] in
+                                    self?.stopAgentClipboard()
                                     self?.handleAutomaticRecoveryDisconnect()
                                 }
                             case .connecting, .authenticating:
@@ -1097,6 +1104,30 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     self.integrationChanged(.disconnected(error.localizedDescription))
                 }
             }
+        }
+
+        @MainActor
+        private func configureAgentClipboard(for status: VMOmarchyGuestStatus) {
+            let required = Set(["clipboard-agent-text-v1", "clipboard-agent-image-v1"])
+            guard required.isSubset(of: Set(status.capabilities)),
+                  status.desktopSessionActive, !status.provisioningPending,
+                  let integrationClient else {
+                stopAgentClipboard()
+                return
+            }
+            guard agentClipboardController == nil else { return }
+            let controller = OmarchyAgentClipboardController(
+                client: integrationClient,
+                sharedDirectory: layout.shared
+            )
+            agentClipboardController = controller
+            controller.start()
+        }
+
+        @MainActor
+        private func stopAgentClipboard() {
+            agentClipboardController?.stop()
+            agentClipboardController = nil
         }
 
         private func startSharedFolderProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
@@ -1136,9 +1167,18 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             clipboardProbeTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 do {
+                    NSApp.activate(ignoringOtherApps: true)
+                    if let machineView = self.machineView,
+                       let window = machineView.window {
+                        window.makeKeyAndOrderFront(nil)
+                        window.makeFirstResponder(machineView)
+                    }
                     let result = try await OmarchyClipboardAcceptanceProbe.run(
                         client: integrationClient,
-                        sharedDirectory: layout.shared
+                        sharedDirectory: layout.shared,
+                        unlockCredential: OmarchyAcceptanceUnlockCredential(
+                            environment: ProcessInfo.processInfo.environment
+                        )
                     )
                     self.clipboardProbePassed = true
                     NSLog(
@@ -1380,6 +1420,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             layout: self.layout
                         )
                         self.keyboardBridge?.stop()
+                        self.stopAgentClipboard()
                         self.integrationClient?.virtualMachineDidPause()
                         self.phaseChanged(.paused)
                         if automaticResume {
@@ -1429,9 +1470,16 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 phaseChanged(.failed("Omarchy could not be stopped after the graceful shutdown timed out."))
                 return
             }
-            machine.stop { [weak self] error in
-                if let error {
-                    DispatchQueue.main.async { self?.phaseChanged(.failed(error.localizedDescription)) }
+            machine.stop { [weak self, weak machine] error in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if let error {
+                        self.phaseChanged(.failed(error.localizedDescription))
+                    } else if self.machine === machine {
+                        self.stopIntegration()
+                        self.machine = nil
+                        self.phaseChanged(.stopped)
+                    }
                 }
             }
         }
@@ -1471,6 +1519,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         private func stopIntegration() {
+            let clipboardController = agentClipboardController
+            agentClipboardController = nil
+            Task { @MainActor in clipboardController?.stop() }
             sharedFolderProbeTask?.cancel()
             sharedFolderProbeTask = nil
             sharedFolderProbePassed = false
