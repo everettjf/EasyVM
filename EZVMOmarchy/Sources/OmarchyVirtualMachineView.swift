@@ -1016,7 +1016,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 queue: .main
             ) { [weak self] notification in
                 guard let self, notification.object as? UUID == self.sessionID else { return }
-                self.keyboardBridge?.requestPermission()
+                if let keyboardBridge = self.keyboardBridge {
+                    keyboardBridge.requestPermission()
+                } else {
+                    OmarchyFocusedCommandBridge.requestAccessibilityAccess()
+                }
             }
             forceStopObserver = NotificationCenter.default.addObserver(
                 forName: .omarchyForceStop,

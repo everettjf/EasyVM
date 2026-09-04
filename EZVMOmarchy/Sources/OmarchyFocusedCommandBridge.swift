@@ -53,6 +53,17 @@ final class OmarchyFocusedCommandBridge {
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
     )!
 
+    @discardableResult
+    static func requestAccessibilityAccess() -> Bool {
+        let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        _ = AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary)
+        guard AXIsProcessTrusted() else {
+            NSWorkspace.shared.open(accessibilitySettingsURL)
+            return false
+        }
+        return true
+    }
+
     init(
         focusProbe: @escaping () -> Bool,
         stateChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
@@ -105,13 +116,10 @@ final class OmarchyFocusedCommandBridge {
     }
 
     func requestPermission() {
-        let prompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        _ = AXIsProcessTrustedWithOptions([prompt: true] as CFDictionary)
-        if AXIsProcessTrusted() {
+        if Self.requestAccessibilityAccess() {
             start()
             return
         }
-        NSWorkspace.shared.open(Self.accessibilitySettingsURL)
         permissionTimer?.invalidate()
         var attemptsRemaining = 40
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
