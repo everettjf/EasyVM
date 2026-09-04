@@ -236,29 +236,19 @@ enum OmarchyClipboardAcceptanceProbe {
           return 1
         }
         wl-copy --version > "$d/wl-copy-version" 2>&1 || true
-        native_local_input=$(mktemp)
-        trap 'rm -f "${native_local_input:-}"' EXIT
-        cp "$d/host-text-input" "$native_local_input"
-        wl-copy --foreground --type 'text/plain;charset=utf-8' < "$native_local_input" 2> "$d/native-wayland-stderr" &
-        native_pid=$!
-        copy_until_matches "$d/host-text-input" "$d/native-wayland-result" --no-newline || true
-        kill "$native_pid" 2>/dev/null || true
-        wait "$native_pid" 2>/dev/null || true
-        rm -f "$native_local_input"
-        native_local_input=
         touch "$d/script-ready"
         while [ ! -f "$d/host-text-go" ]; do sleep 0.1; done
         copy_until_matches "$d/host-text-input" "$d/host-text-result" --no-newline
         while [ ! -f "$d/host-image-go" ]; do sleep 0.1; done
         copy_until_matches "$d/host-image-input" "$d/host-image-result" --type image/png
         while [ ! -f "$d/guest-text-go" ]; do sleep 0.1; done
-        wl-copy --foreground --type 'text/plain;charset=utf-8' < "$d/guest-text-input" &
+        cat "$d/guest-text-input" | wl-copy --foreground --type 'text/plain;charset=utf-8' &
         text_pid=$!
         touch "$d/guest-text-ready"
         while [ ! -f "$d/guest-text-consumed" ]; do sleep 0.1; done
         kill "$text_pid" 2>/dev/null || true
         wait "$text_pid" 2>/dev/null || true
-        wl-copy --foreground --type image/png < "$d/guest-image-input" &
+        cat "$d/guest-image-input" | wl-copy --foreground --type image/png &
         image_pid=$!
         touch "$d/guest-image-ready"
         while [ ! -f "$d/guest-image-consumed" ]; do sleep 0.1; done

@@ -6,7 +6,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"os/exec"
 	"testing"
+	"time"
 )
 
 func TestReadClipboardPayloadRetainsAuthenticatedBytes(t *testing.T) {
@@ -19,6 +22,58 @@ func TestReadClipboardPayloadRetainsAuthenticatedBytes(t *testing.T) {
 	if !bytes.Equal(payload, want) || byteCount != uint64(len(want)) ||
 		digest != hex.EncodeToString(wantDigest[:]) {
 		t.Fatalf("payload=%q byteCount=%d digest=%s", payload, byteCount, digest)
+	}
+}
+
+func TestStartVerifiedClipboardOwnerRetriesRejectedPublications(t *testing.T) {
+	want := []byte("clipboard bytes")
+	starts := 0
+	reads := 0
+	command, err := startVerifiedClipboardOwner(
+		want,
+		clipboardTextMIME,
+		func(_ []byte, _ string) *exec.Cmd {
+			starts++
+			return exec.Command("sleep", "30")
+		},
+		func(_ string) ([]byte, error) {
+			reads++
+			if reads < 3 {
+				return nil, errors.New("selection rejected")
+			}
+			return append([]byte(nil), want...), nil
+		},
+		func(time.Duration) {},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+	}()
+	if starts != 3 || reads != 3 {
+		t.Fatalf("starts=%d reads=%d, want 3 retries", starts, reads)
+	}
+}
+
+func TestStartVerifiedClipboardOwnerRejectsPersistentMismatch(t *testing.T) {
+	starts := 0
+	command, err := startVerifiedClipboardOwner(
+		[]byte("expected"),
+		clipboardTextMIME,
+		func(_ []byte, _ string) *exec.Cmd {
+			starts++
+			return exec.Command("sleep", "30")
+		},
+		func(_ string) ([]byte, error) { return []byte("wrong"), nil },
+		func(time.Duration) {},
+	)
+	if err == nil || command != nil {
+		t.Fatalf("command=%v error=%v, want verified publication failure", command, err)
+	}
+	if starts != clipboardPublicationAttempts {
+		t.Fatalf("starts=%d, want %d", starts, clipboardPublicationAttempts)
 	}
 }
 

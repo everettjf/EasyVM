@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -115,14 +116,23 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 	if clipboardOwner.command != nil && clipboardOwner.command.Process != nil {
 		_ = clipboardOwner.command.Process.Kill()
 	}
-	command := exec.Command("wl-copy", "--foreground", "--type", request.MIMEType)
-	// Keep the authenticated bytes independent of the VirtioFS descriptor.
-	// Rewinding or pread on that descriptor can still present EOF to wl-copy on
-	// a real Guest even after the digest pass. The clipboard limit bounds this
-	// allocation, and wl-copy receives exactly the bytes verified above.
-	command.Stdin = bytes.NewReader(payload)
-	command.Stderr = os.Stderr
-	if err := command.Start(); err != nil {
+	command, err := startVerifiedClipboardOwner(
+		payload,
+		request.MIMEType,
+		func(payload []byte, mimeType string) *exec.Cmd {
+			command := exec.Command("wl-copy", "--foreground", "--type", mimeType)
+			// An io.Reader makes os/exec feed wl-copy through an OS pipe. This is
+			// intentional: the pinned wl-clipboard-rs frontend reliably serves
+			// binary payloads from a pipe, while a regular-file stdin can fail
+			// with EPIPE in the Omarchy data-control session.
+			command.Stdin = bytes.NewReader(payload)
+			command.Stderr = os.Stderr
+			return command
+		},
+		readSessionClipboardPayload,
+		time.Sleep,
+	)
+	if err != nil {
 		clipboardOwner.Unlock()
 		return clipboardResult{Message: err.Error()}
 	}
@@ -137,6 +147,68 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		clipboardOwner.Unlock()
 	}()
 	return clipboardResult{Success: true, Message: "Guest clipboard updated.", ByteCount: byteCount, SHA256: digestText}
+}
+
+const clipboardPublicationAttempts = 5
+
+func startVerifiedClipboardOwner(
+	payload []byte,
+	mimeType string,
+	makeCommand func([]byte, string) *exec.Cmd,
+	readBack func(string) ([]byte, error),
+	pause func(time.Duration),
+) (*exec.Cmd, error) {
+	var lastError error
+	for attempt := 0; attempt < clipboardPublicationAttempts; attempt++ {
+		command := makeCommand(payload, mimeType)
+		if err := command.Start(); err != nil {
+			lastError = err
+		} else {
+			// A freshly activated Hyprland data-control session can reject its
+			// first ownership request. Prove the exact bytes are serveable before
+			// acknowledging the authenticated Host request; a longer wait on the
+			// same rejected owner does not recover it.
+			pause(time.Duration(attempt+1) * 100 * time.Millisecond)
+			actual, err := readBack(mimeType)
+			if err == nil && bytes.Equal(actual, payload) {
+				return command, nil
+			}
+			if err != nil {
+				lastError = err
+			} else {
+				lastError = errors.New("Wayland clipboard readback did not match")
+			}
+			if command.Process != nil {
+				_ = command.Process.Kill()
+			}
+			_ = command.Wait()
+		}
+		if attempt+1 < clipboardPublicationAttempts {
+			pause(time.Duration(attempt+1) * 100 * time.Millisecond)
+		}
+	}
+	return nil, fmt.Errorf("could not publish verified Wayland clipboard: %w", lastError)
+}
+
+func readSessionClipboardPayload(mimeType string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	arguments := []string{"--type", mimeType}
+	if mimeType == clipboardTextMIME {
+		arguments = append(arguments, "--no-newline")
+	}
+	command := exec.CommandContext(ctx, "wl-paste", arguments...)
+	var output bytes.Buffer
+	writer := &clipboardCountingWriter{writer: &output, limit: maximumClipboardBytes}
+	command.Stdout = writer
+	command.Stderr = io.Discard
+	if err := command.Run(); err != nil {
+		return nil, err
+	}
+	if writer.byteCount > maximumClipboardBytes {
+		return nil, errors.New("clipboard readback exceeds limit")
+	}
+	return output.Bytes(), nil
 }
 
 func readClipboardPayload(reader io.Reader, limit uint64) ([]byte, uint64, string, error) {
