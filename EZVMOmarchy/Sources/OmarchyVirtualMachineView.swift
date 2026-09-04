@@ -806,6 +806,19 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var dynamicDisplayProbeTask: Task<Void, Never>?
         private var dynamicDisplayProbePassed = false
         private var automaticPauseResumeProbeStarted = false
+        private var automaticRecoveryAfterResume = false
+        private var automaticRecoveryStage = AutomaticRecoveryStage.idle
+        private var recoveryBaselineStatus: VMOmarchyGuestStatus?
+
+        private enum AutomaticRecoveryStage {
+            case idle
+            case waitingForPostResumeReady
+            case waitingForAgentDisconnect
+            case waitingForAgentReady
+            case waitingForGuestDisconnect
+            case waitingForGuestReady
+            case complete
+        }
 
         init(
             sessionID: UUID,
@@ -916,6 +929,18 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         stateChanged: { [weak self] state in
                             guard let self else { return }
                             self.integrationChanged(state)
+                            switch state {
+                            case .ready(let status):
+                                Task { @MainActor [weak self] in
+                                    self?.handleAutomaticRecoveryReady(status)
+                                }
+                            case .disconnected:
+                                Task { @MainActor [weak self] in
+                                    self?.handleAutomaticRecoveryDisconnect()
+                                }
+                            case .connecting, .authenticating:
+                                break
+                            }
                             if case .ready(let status) = state,
                                VMOmarchyIntegrationAssessment.evaluate(
                                 status: status,
@@ -1029,7 +1054,76 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 OmarchyWorkspaceConfiguration.acceptanceEnabledKey
             ] == "1", dynamicDisplayProbePassed, !automaticPauseResumeProbeStarted else { return }
             automaticPauseResumeProbeStarted = true
+            automaticRecoveryAfterResume = true
             pause(automaticResume: true)
+        }
+
+        @MainActor
+        private func handleAutomaticRecoveryReady(_ status: VMOmarchyGuestStatus) {
+            switch automaticRecoveryStage {
+            case .waitingForPostResumeReady:
+                guard status.capabilities.contains("agent-restart-v1"),
+                      !status.bootID.isEmpty,
+                      status.agentInstanceID?.isEmpty == false,
+                      let integrationClient else { return }
+                recoveryBaselineStatus = status
+                automaticRecoveryStage = .waitingForAgentDisconnect
+                OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+                    .agentRestartRequested(status),
+                    layout: layout
+                )
+                Task { @MainActor [weak self, weak integrationClient] in
+                    do {
+                        try await integrationClient?.requestAgentRestart()
+                    } catch {
+                        guard let self else { return }
+                        self.automaticRecoveryStage = .idle
+                        self.phaseChanged(.failed("Guest Agent restart probe failed: \(error.localizedDescription)"))
+                    }
+                }
+            case .waitingForAgentReady:
+                guard let baseline = recoveryBaselineStatus,
+                      status.bootID == baseline.bootID,
+                      let instanceID = status.agentInstanceID,
+                      instanceID != baseline.agentInstanceID,
+                      let integrationClient else { return }
+                OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+                    .guestRestartRequested(status),
+                    layout: layout
+                )
+                recoveryBaselineStatus = status
+                automaticRecoveryStage = .waitingForGuestDisconnect
+                integrationClient.requestRestart()
+            case .waitingForGuestReady:
+                guard let baseline = recoveryBaselineStatus,
+                      !status.bootID.isEmpty,
+                      status.bootID != baseline.bootID else { return }
+                automaticRecoveryStage = .complete
+                recoveryBaselineStatus = nil
+            case .idle, .waitingForAgentDisconnect, .waitingForGuestDisconnect, .complete:
+                break
+            }
+        }
+
+        @MainActor
+        private func handleAutomaticRecoveryDisconnect() {
+            switch automaticRecoveryStage {
+            case .waitingForAgentDisconnect:
+                OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+                    .disconnectedAfterAgentRestart,
+                    layout: layout
+                )
+                automaticRecoveryStage = .waitingForAgentReady
+            case .waitingForGuestDisconnect:
+                OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+                    .disconnectedAfterGuestRestart,
+                    layout: layout
+                )
+                automaticRecoveryStage = .waitingForGuestReady
+            case .idle, .waitingForPostResumeReady, .waitingForAgentReady,
+                 .waitingForGuestReady, .complete:
+                break
+            }
         }
 
         private func requestStop() {
@@ -1093,6 +1187,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             .resumed,
                             layout: self.layout
                         )
+                        if self.automaticRecoveryAfterResume {
+                            self.automaticRecoveryAfterResume = false
+                            self.automaticRecoveryStage = .waitingForPostResumeReady
+                        }
                         self.integrationClient?.virtualMachineDidResume()
                         self.keyboardBridge?.start()
                         self.phaseChanged(.running)

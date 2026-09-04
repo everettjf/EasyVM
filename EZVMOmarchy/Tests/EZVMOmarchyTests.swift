@@ -282,7 +282,13 @@ final class EZVMOmarchyTests: XCTestCase {
         let pausedAt = pauseRequestedAt.addingTimeInterval(1)
         let resumedAt = pausedAt.addingTimeInterval(2)
         let recoveredAt = resumedAt.addingTimeInterval(3)
-        let hostSleepAt = recoveredAt.addingTimeInterval(10)
+        let agentRestartAt = recoveredAt.addingTimeInterval(1)
+        let agentDisconnectedAt = agentRestartAt.addingTimeInterval(1)
+        let agentRecoveredAt = agentDisconnectedAt.addingTimeInterval(3)
+        let guestRestartAt = agentRecoveredAt.addingTimeInterval(1)
+        let guestDisconnectedAt = guestRestartAt.addingTimeInterval(1)
+        let guestRecoveredAt = guestDisconnectedAt.addingTimeInterval(8)
+        let hostSleepAt = guestRecoveredAt.addingTimeInterval(10)
         let hostWakeAt = hostSleepAt.addingTimeInterval(4)
         let hostRecoveredAt = hostWakeAt.addingTimeInterval(3)
         let provisioning = VMOmarchyGuestStatus(
@@ -303,11 +309,23 @@ final class EZVMOmarchyTests: XCTestCase {
         )
         let unlocked = VMOmarchyGuestStatus(
             agentVersion: "agent-commit",
+            agentInstanceID: "instance-before",
+            bootID: "boot-before",
             hostName: "omarchy",
             addresses: [],
             capabilities: [],
             desktopSessionActive: true,
             provisioningPending: false
+        )
+        let agentRecovered = VMOmarchyGuestStatus(
+            agentVersion: "agent-commit", agentInstanceID: "instance-after",
+            bootID: "boot-before", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let guestRecovered = VMOmarchyGuestStatus(
+            agentVersion: "agent-commit", agentInstanceID: "instance-after-boot",
+            bootID: "boot-after", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: true, provisioningPending: false
         )
 
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
@@ -334,6 +352,30 @@ final class EZVMOmarchyTests: XCTestCase {
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: unlocked, layout: layout, environment: environment, observedAt: recoveredAt
         )
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .agentRestartRequested(unlocked), layout: layout, environment: environment,
+            observedAt: agentRestartAt
+        )
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .disconnectedAfterAgentRestart, layout: layout, environment: environment,
+            observedAt: agentDisconnectedAt
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: agentRecovered, layout: layout, environment: environment,
+            observedAt: agentRecoveredAt
+        )
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .guestRestartRequested(agentRecovered), layout: layout, environment: environment,
+            observedAt: guestRestartAt
+        )
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .disconnectedAfterGuestRestart, layout: layout, environment: environment,
+            observedAt: guestDisconnectedAt
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: guestRecovered, layout: layout, environment: environment,
+            observedAt: guestRecoveredAt
+        )
         OmarchyAcceptanceObservationReporter.reportHostPowerEventIfEnabled(
             .willSleep, layout: layout, environment: environment, observedAt: hostSleepAt
         )
@@ -341,14 +383,14 @@ final class EZVMOmarchyTests: XCTestCase {
             .didWake, layout: layout, environment: environment, observedAt: hostWakeAt
         )
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
-            status: unlocked, layout: layout, environment: environment, observedAt: hostRecoveredAt
+            status: guestRecovered, layout: layout, environment: environment, observedAt: hostRecoveredAt
         )
 
         let data = try Data(contentsOf: layout.diagnostics.appending(
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 4)
+        XCTAssertEqual(json["schemaVersion"] as? Int, 5)
         XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
         XCTAssertNotNil(json["firstLockedObservedAt"])
         XCTAssertNotNil(json["firstActiveObservedAt"])
@@ -357,6 +399,18 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertNotNil(json["firstPausedAt"])
         XCTAssertNotNil(json["firstResumedAt"])
         XCTAssertNotNil(json["firstActiveAfterResumeObservedAt"])
+        XCTAssertNotNil(json["firstAgentRestartRequestedAt"])
+        XCTAssertNotNil(json["firstAgentDisconnectedAfterRestartAt"])
+        XCTAssertNotNil(json["firstAgentRecoveredAt"])
+        XCTAssertEqual(json["agentBootIDBeforeRestart"] as? String, "boot-before")
+        XCTAssertEqual(json["agentBootIDAfterRestart"] as? String, "boot-before")
+        XCTAssertEqual(json["agentInstanceIDBeforeRestart"] as? String, "instance-before")
+        XCTAssertEqual(json["agentInstanceIDAfterRestart"] as? String, "instance-after")
+        XCTAssertNotNil(json["firstGuestRestartRequestedAt"])
+        XCTAssertNotNil(json["firstGuestDisconnectedAfterRestartAt"])
+        XCTAssertNotNil(json["firstGuestRecoveredAt"])
+        XCTAssertEqual(json["guestBootIDBeforeRestart"] as? String, "boot-before")
+        XCTAssertEqual(json["guestBootIDAfterRestart"] as? String, "boot-after")
         XCTAssertNotNil(json["firstHostSleepObservedAt"])
         XCTAssertNotNil(json["firstHostWakeObservedAt"])
         XCTAssertNotNil(json["firstActiveAfterHostWakeObservedAt"])
@@ -395,7 +449,7 @@ final class EZVMOmarchyTests: XCTestCase {
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 4)
+        XCTAssertEqual(json["schemaVersion"] as? Int, 5)
         XCTAssertEqual(json["guestAgentVersion"] as? String, "current")
         XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
     }

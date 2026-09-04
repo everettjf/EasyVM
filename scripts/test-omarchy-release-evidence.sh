@@ -46,10 +46,16 @@ ruby -rjson -e '
 
 ruby -rjson -e '
   value = {
-    schemaVersion: 4, firstLockedObservedAt: ARGV.fetch(0),
+    schemaVersion: 5, firstLockedObservedAt: ARGV.fetch(0),
     firstActiveObservedAt: ARGV.fetch(0), firstActiveAfterLockedObservedAt: ARGV.fetch(0),
     firstPauseRequestedAt: ARGV.fetch(0), firstPausedAt: ARGV.fetch(0),
     firstResumedAt: ARGV.fetch(0), firstActiveAfterResumeObservedAt: ARGV.fetch(0),
+    firstAgentRestartRequestedAt: ARGV.fetch(0), firstAgentDisconnectedAfterRestartAt: ARGV.fetch(0),
+    firstAgentRecoveredAt: ARGV.fetch(0), agentBootIDBeforeRestart: "boot-before", agentBootIDAfterRestart: "boot-before",
+    agentInstanceIDBeforeRestart: "instance-before", agentInstanceIDAfterRestart: "instance-after",
+    firstGuestRestartRequestedAt: ARGV.fetch(0), firstGuestDisconnectedAfterRestartAt: ARGV.fetch(0),
+    firstGuestRecoveredAt: ARGV.fetch(0), guestBootIDBeforeRestart: "boot-before",
+    guestBootIDAfterRestart: "boot-after",
     firstHostSleepObservedAt: ARGV.fetch(0), firstHostWakeObservedAt: ARGV.fetch(0),
     firstActiveAfterHostWakeObservedAt: ARGV.fetch(0),
     lastObservedAt: ARGV.fetch(0), lastDesktopSessionActive: true,
@@ -67,7 +73,7 @@ write_evidence() {
   ruby -rjson -e '
     scenarios = %w[
       cleanInstall ownerProvisioning commandSuper clipboardText clipboardImage
-      fileImport guestRestart agentRestart
+      fileImport
       updateRollback continuousOperation
     ].to_h { |name| [name, true] }
     value = {

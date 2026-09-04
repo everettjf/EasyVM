@@ -57,6 +57,13 @@ enum OmarchyAcceptanceObservationReporter {
         case didWake
     }
 
+    enum RecoveryEvent {
+        case agentRestartRequested(VMOmarchyGuestStatus)
+        case disconnectedAfterAgentRestart
+        case guestRestartRequested(VMOmarchyGuestStatus)
+        case disconnectedAfterGuestRestart
+    }
+
     private struct LifecycleObservation: Codable {
         let schemaVersion: Int
         var firstProvisioningPendingObservedAt: Date?
@@ -67,6 +74,18 @@ enum OmarchyAcceptanceObservationReporter {
         var firstPausedAt: Date?
         var firstResumedAt: Date?
         var firstActiveAfterResumeObservedAt: Date?
+        var firstAgentRestartRequestedAt: Date?
+        var firstAgentDisconnectedAfterRestartAt: Date?
+        var firstAgentRecoveredAt: Date?
+        var agentBootIDBeforeRestart: String?
+        var agentBootIDAfterRestart: String?
+        var agentInstanceIDBeforeRestart: String?
+        var agentInstanceIDAfterRestart: String?
+        var firstGuestRestartRequestedAt: Date?
+        var firstGuestDisconnectedAfterRestartAt: Date?
+        var firstGuestRecoveredAt: Date?
+        var guestBootIDBeforeRestart: String?
+        var guestBootIDAfterRestart: String?
         var firstHostSleepObservedAt: Date?
         var firstHostWakeObservedAt: Date?
         var firstActiveAfterHostWakeObservedAt: Date?
@@ -88,8 +107,8 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         var observation = (try? Data(contentsOf: file)).flatMap {
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }.flatMap { $0.schemaVersion == 4 ? $0 : nil } ?? LifecycleObservation(
-            schemaVersion: 4,
+        }.flatMap { $0.schemaVersion == 5 ? $0 : nil } ?? LifecycleObservation(
+            schemaVersion: 5,
             firstProvisioningPendingObservedAt: nil,
             firstLockedObservedAt: nil,
             firstActiveObservedAt: nil,
@@ -98,6 +117,18 @@ enum OmarchyAcceptanceObservationReporter {
             firstPausedAt: nil,
             firstResumedAt: nil,
             firstActiveAfterResumeObservedAt: nil,
+            firstAgentRestartRequestedAt: nil,
+            firstAgentDisconnectedAfterRestartAt: nil,
+            firstAgentRecoveredAt: nil,
+            agentBootIDBeforeRestart: nil,
+            agentBootIDAfterRestart: nil,
+            agentInstanceIDBeforeRestart: nil,
+            agentInstanceIDAfterRestart: nil,
+            firstGuestRestartRequestedAt: nil,
+            firstGuestDisconnectedAfterRestartAt: nil,
+            firstGuestRecoveredAt: nil,
+            guestBootIDBeforeRestart: nil,
+            guestBootIDAfterRestart: nil,
             firstHostSleepObservedAt: nil,
             firstHostWakeObservedAt: nil,
             firstActiveAfterHostWakeObservedAt: nil,
@@ -123,6 +154,22 @@ enum OmarchyAcceptanceObservationReporter {
             if observation.firstHostWakeObservedAt != nil {
                 observation.firstActiveAfterHostWakeObservedAt =
                     observation.firstActiveAfterHostWakeObservedAt ?? observedAt
+            }
+            if observation.firstAgentDisconnectedAfterRestartAt != nil,
+               observation.firstAgentRecoveredAt == nil,
+               status.bootID == observation.agentBootIDBeforeRestart,
+               let currentInstanceID = status.agentInstanceID,
+               currentInstanceID != observation.agentInstanceIDBeforeRestart {
+                observation.firstAgentRecoveredAt = observedAt
+                observation.agentBootIDAfterRestart = status.bootID
+                observation.agentInstanceIDAfterRestart = currentInstanceID
+            }
+            if observation.firstGuestDisconnectedAfterRestartAt != nil,
+               observation.firstGuestRecoveredAt == nil,
+               !status.bootID.isEmpty,
+               status.bootID != observation.guestBootIDBeforeRestart {
+                observation.firstGuestRecoveredAt = observedAt
+                observation.guestBootIDAfterRestart = status.bootID
             }
         } else if !status.provisioningPending {
             observation.firstLockedObservedAt = observation.firstLockedObservedAt ?? observedAt
@@ -154,7 +201,7 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         guard var observation = (try? Data(contentsOf: file)).flatMap({
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }), observation.schemaVersion == 4 else {
+        }), observation.schemaVersion == 5 else {
             NSLog("Cannot record Omarchy VM lifecycle event before a Guest Agent status observation.")
             return
         }
@@ -189,7 +236,7 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         guard var observation = (try? Data(contentsOf: file)).flatMap({
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }), observation.schemaVersion == 4 else {
+        }), observation.schemaVersion == 5 else {
             NSLog("Cannot record Omarchy host power event before a Guest Agent status observation.")
             return
         }
@@ -207,6 +254,49 @@ enum OmarchyAcceptanceObservationReporter {
             try encoder.encode(observation).write(to: file, options: .atomic)
         } catch {
             NSLog("Could not write Omarchy host power event: %@", error.localizedDescription)
+        }
+    }
+
+    static func reportRecoveryEventIfEnabled(
+        _ event: RecoveryEvent,
+        layout: VMOmarchyWorkspaceLayout,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let file = layout.diagnostics.appending(path: lifecycleFileName)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var observation = (try? Data(contentsOf: file)).flatMap({
+            try? decoder.decode(LifecycleObservation.self, from: $0)
+        }), observation.schemaVersion == 5 else {
+            NSLog("Cannot record Omarchy recovery event before a Guest Agent status observation.")
+            return
+        }
+        switch event {
+        case .agentRestartRequested(let status):
+            observation.firstAgentRestartRequestedAt = observation.firstAgentRestartRequestedAt ?? observedAt
+            observation.agentBootIDBeforeRestart = observation.agentBootIDBeforeRestart ?? status.bootID
+            observation.agentInstanceIDBeforeRestart =
+                observation.agentInstanceIDBeforeRestart ?? status.agentInstanceID
+        case .disconnectedAfterAgentRestart:
+            observation.firstAgentDisconnectedAfterRestartAt =
+                observation.firstAgentDisconnectedAfterRestartAt ?? observedAt
+        case .guestRestartRequested(let status):
+            observation.firstGuestRestartRequestedAt = observation.firstGuestRestartRequestedAt ?? observedAt
+            observation.guestBootIDBeforeRestart = observation.guestBootIDBeforeRestart ?? status.bootID
+        case .disconnectedAfterGuestRestart:
+            observation.firstGuestDisconnectedAfterRestartAt =
+                observation.firstGuestDisconnectedAfterRestartAt ?? observedAt
+        }
+        observation.lastObservedAt = observedAt
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try encoder.encode(observation).write(to: file, options: .atomic)
+        } catch {
+            NSLog("Could not write Omarchy recovery event: %@", error.localizedDescription)
         }
     }
 

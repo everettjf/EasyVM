@@ -11,7 +11,7 @@ now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 write_observation() {
   ruby -rjson -e '
     value = {
-      schemaVersion: 4,
+      schemaVersion: 5,
       firstProvisioningPendingObservedAt: ARGV.fetch(0),
       firstLockedObservedAt: ARGV.fetch(0),
       firstActiveObservedAt: ARGV.fetch(0),
@@ -20,6 +20,18 @@ write_observation() {
       firstPausedAt: ARGV.fetch(0),
       firstResumedAt: ARGV.fetch(0),
       firstActiveAfterResumeObservedAt: ARGV.fetch(0),
+      firstAgentRestartRequestedAt: ARGV.fetch(0),
+      firstAgentDisconnectedAfterRestartAt: ARGV.fetch(0),
+      firstAgentRecoveredAt: ARGV.fetch(0),
+      agentBootIDBeforeRestart: "boot-before",
+      agentBootIDAfterRestart: "boot-before",
+      agentInstanceIDBeforeRestart: "instance-before",
+      agentInstanceIDAfterRestart: "instance-after",
+      firstGuestRestartRequestedAt: ARGV.fetch(0),
+      firstGuestDisconnectedAfterRestartAt: ARGV.fetch(0),
+      firstGuestRecoveredAt: ARGV.fetch(0),
+      guestBootIDBeforeRestart: "boot-before",
+      guestBootIDAfterRestart: "boot-after",
       firstHostSleepObservedAt: ARGV.fetch(0),
       firstHostWakeObservedAt: ARGV.fetch(0),
       firstActiveAfterHostWakeObservedAt: ARGV.fetch(0),
@@ -69,6 +81,14 @@ ruby -rjson -e '
   File.write(ARGV[0], JSON.generate(v))
 ' "$work/lifecycle.json"
 expect_rejection "lifecycle with resume preceding pause was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["agentInstanceIDAfterRestart"]=v["agentInstanceIDBeforeRestart"]; File.write(ARGV[0], JSON.generate(v))' "$work/lifecycle.json"
+expect_rejection "lifecycle without a changed Agent instance was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["guestBootIDAfterRestart"]=v["guestBootIDBeforeRestart"]; File.write(ARGV[0], JSON.generate(v))' "$work/lifecycle.json"
+expect_rejection "lifecycle without a changed Guest boot ID was accepted"
 
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v.delete("firstActiveAfterHostWakeObservedAt"); File.write(ARGV[0], JSON.generate(v))' "$work/lifecycle.json"
