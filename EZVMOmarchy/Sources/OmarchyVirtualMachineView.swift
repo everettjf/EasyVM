@@ -1175,7 +1175,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 // and Agent round trips, otherwise a concurrent host
                 // pasteboard change can overwrite the selection under test.
                 let clipboardController = self.agentClipboardController
-                clipboardController?.stop()
+                await clipboardController?.quiesce()
                 defer { clipboardController?.start() }
                 do {
                     NSApp.activate(ignoringOtherApps: true)

@@ -57,6 +57,18 @@ final class OmarchyAgentClipboardController {
         operationTask = nil
     }
 
+    /// Stops polling and waits until the in-flight Agent request can no
+    /// longer change the Guest selection. Acceptance uses this barrier before
+    /// beginning its ordered clipboard round trips.
+    func quiesce() async {
+        timer?.invalidate()
+        timer = nil
+        let task = operationTask
+        task?.cancel()
+        await task?.value
+        operationTask = nil
+    }
+
     private func tick() {
         guard operationTask == nil else { return }
         if pasteboard.changeCount != lastPasteboardChangeCount {
