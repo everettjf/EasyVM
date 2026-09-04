@@ -33,12 +33,7 @@ enum OmarchyRollbackAcceptanceTool {
             throw CocoaError(.validationMissingMandatoryProperty)
         }
         let root = URL(filePath: arguments[0]).standardizedFileURL.resolvingSymlinksInPath()
-        let temporaryRoots = [
-            FileManager.default.temporaryDirectory.standardizedFileURL.resolvingSymlinksInPath(),
-            URL(filePath: "/tmp").resolvingSymlinksInPath(),
-            URL(filePath: "/private/tmp").resolvingSymlinksInPath(),
-        ]
-        guard temporaryRoots.contains(where: { root.path.hasPrefix($0.path + "/") }) else {
+        guard VMOmarchyTemporaryPathPolicy.contains(root) else {
             throw CocoaError(.fileWriteNoPermission)
         }
         let revision = arguments[1]

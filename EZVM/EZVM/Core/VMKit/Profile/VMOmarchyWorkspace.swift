@@ -59,6 +59,57 @@ public struct VMOmarchyWorkspaceLayout: Equatable {
     public var recovery: URL { applicationSupportRoot.appending(path: "Recovery", directoryHint: .isDirectory) }
 }
 
+/// Restricts destructive acceptance operations to macOS temporary storage.
+/// Both `/tmp` and `/private/tmp` must remain explicit because URL
+/// standardization can preserve one spelling for a child while canonicalizing
+/// the directory itself to the other spelling.
+public enum VMOmarchyTemporaryPathPolicy {
+    public static func contains(
+        _ candidate: URL,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard let path = resolvedPath(
+            forPotentiallyMissing: candidate,
+            fileManager: fileManager
+        ) else { return false }
+        let allowedRootPaths = Set([
+            fileManager.temporaryDirectory.standardizedFileURL.resolvingSymlinksInPath().path,
+            "/tmp",
+            "/private/tmp",
+        ])
+        return allowedRootPaths.contains { root in
+            path == root || path.hasPrefix(root + "/")
+        }
+    }
+
+    private static func resolvedPath(
+        forPotentiallyMissing candidate: URL,
+        fileManager: FileManager
+    ) -> String? {
+        var cursor = candidate.standardizedFileURL
+        var missingComponents: [String] = []
+
+        while cursor.path != "/" {
+            let isSymbolicLink = (try? fileManager.destinationOfSymbolicLink(
+                atPath: cursor.path
+            )) != nil
+            if fileManager.fileExists(atPath: cursor.path) {
+                let resolved = cursor.resolvingSymlinksInPath()
+                return missingComponents.reduce(resolved) { partial, component in
+                    partial.appending(path: component)
+                }.standardizedFileURL.path
+            }
+            // A dangling link could later be redirected outside temporary
+            // storage, so it is never a valid acceptance root.
+            if isSymbolicLink { return nil }
+            missingComponents.insert(cursor.lastPathComponent, at: 0)
+            cursor.deleteLastPathComponent()
+        }
+
+        return nil
+    }
+}
+
 public enum VMOmarchyWorkspaceState: Equatable {
     case notPrepared
     case migrationRequired(fromVersion: Int)

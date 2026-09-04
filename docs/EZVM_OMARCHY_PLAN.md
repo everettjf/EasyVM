@@ -1060,6 +1060,43 @@ set. This candidate is an intermediate proof only: this documentation/verifier
 revision changes the source identity, so final real-guest evidence must use a
 new exact-source archive after the `.32` prerelease becomes downloadable.
 
+### 11.9 Public cold-install and lifecycle checkpoint (2026-09-04)
+
+The signed `1.0.0-alpha.40` archive built from Host revision
+`54fa460ea3a0653fa0515ff89601944bf5e9cbda` completed a genuinely empty-workspace
+installation from the public `.32` multipart prerelease. The installer crossed
+all three part boundaries, reproduced the declared complete-image SHA-256, and
+created a bootable persistent workspace without using a local Factory cache.
+This exercise exposed and corrected stale redirect-response caching: Factory
+requests now bypass local and remote URL caches and report the failing HTTP
+status directly instead of reducing it to an ambiguous invalid-response error.
+
+The resulting real Guest passed owner provisioning, authenticated integration
+readiness, shared-folder and file-import round trips, text and PNG clipboard in
+both directions, windowed dynamic display, focused Command-to-Super forwarding,
+lock/unlock, pause/resume, Agent restart, Guest restart, and full-screen
+enter/exit. Lifecycle evidence proves that an Agent restart changes the Agent
+instance identifier without changing the Guest boot identifier, while a Guest
+restart changes the boot identifier and returns to an interactive desktop.
+Agent-restart acceptance now waits for user-session capabilities before moving
+to the next lifecycle operation, rather than treating the root system Agent as
+proof that the desktop integration session has recovered.
+
+Acceptance workspaces may intentionally live below either spelling of the
+canonical macOS temporary root (`/tmp` or `/private/tmp`). Host and rollback
+tools now share one containment policy that resolves the nearest existing
+ancestor before accepting a not-yet-created path, rejects dangling symbolic
+links, and rejects symbolic-link escapes outside the temporary root. The policy
+is covered by focused workspace tests in addition to the complete Core, CLI,
+and native-App test suites.
+
+Alpha 40 remains an intermediate evidence candidate because the shared
+temporary-path hardening changes the source revision. The next signed candidate
+must be rebuilt from the frozen revision and repeat the public cold-install and
+release verification. Notification authorization, real host sleep/wake,
+protected update rollback, and the full 24-hour observation window remain open
+at this checkpoint.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests

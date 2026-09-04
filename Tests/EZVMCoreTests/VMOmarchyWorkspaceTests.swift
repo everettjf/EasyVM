@@ -3,6 +3,30 @@ import Virtualization
 @testable import EZVMCore
 
 final class VMOmarchyWorkspaceTests: XCTestCase {
+    func testTemporaryPathPolicyAcceptsBothMacOSTemporarySpellings() {
+        XCTAssertTrue(VMOmarchyTemporaryPathPolicy.contains(
+            URL(filePath: "/tmp/ezvm-acceptance")
+        ))
+        XCTAssertTrue(VMOmarchyTemporaryPathPolicy.contains(
+            URL(filePath: "/private/tmp/ezvm-acceptance")
+        ))
+        XCTAssertFalse(VMOmarchyTemporaryPathPolicy.contains(
+            URL(filePath: "/Users/Shared/ezvm-acceptance")
+        ))
+    }
+
+    func testTemporaryPathPolicyRejectsSymlinkEscape() throws {
+        let link = temporaryRoot.appending(path: "outside")
+        try FileManager.default.createSymbolicLink(
+            at: link,
+            withDestinationURL: URL(filePath: "/Users/Shared", directoryHint: .isDirectory)
+        )
+
+        XCTAssertFalse(VMOmarchyTemporaryPathPolicy.contains(
+            link.appending(path: "ezvm-acceptance")
+        ))
+    }
+
     private var temporaryRoot: URL!
 
     override func setUpWithError() throws {
