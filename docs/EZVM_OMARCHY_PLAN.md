@@ -667,6 +667,9 @@ pause completion, framework resume completion, and authenticated desktop
 recovery, followed by Host sleep, Host wake, and authenticated desktop recovery
 after wake. The release verifier rejects missing or reordered pause/resume or
 sleep/wake transitions, so neither scenario relies on a hand-authored boolean.
+The shared-folder scenario is likewise proven by the integration observation's
+bidirectional content-digest round trip and is therefore not duplicated as a
+manually asserted release-evidence boolean.
 Omarchy Edition tags use the separate
 `ezvm-omarchy-v<version>` namespace.
 

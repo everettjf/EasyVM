@@ -67,7 +67,7 @@ write_evidence() {
   ruby -rjson -e '
     scenarios = %w[
       cleanInstall ownerProvisioning commandSuper clipboardText clipboardImage
-      sharedFolder fileImport guestRestart agentRestart
+      fileImport guestRestart agentRestart
       updateRollback continuousOperation
     ].to_h { |name| [name, true] }
     value = {
