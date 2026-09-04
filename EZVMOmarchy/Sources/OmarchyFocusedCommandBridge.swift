@@ -87,8 +87,8 @@ enum OmarchyAcceptanceKeySequence {
 }
 
 final class OmarchyFocusedCommandBridge {
-    private static let syntheticMarker: Int64 = 0x455A_4F4D_4152_4348
-    private static let acceptanceMarker: Int64 = 0x455A_4143_4345_5054
+    static let syntheticMarker: Int64 = 0x455A_4F4D_4152_4348
+    static let acceptanceMarker: Int64 = 0x455A_4143_4345_5054
 
     private let focusProbe: () -> Bool
     private let stateChanged: (OmarchyKeyboardIntegrationState) -> Void

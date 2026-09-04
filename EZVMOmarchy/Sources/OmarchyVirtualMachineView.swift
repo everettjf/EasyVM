@@ -5,6 +5,41 @@ import Virtualization
 
 private let omarchyMetadataQueue = DispatchQueue(label: "com.everettjf.ezvm.omarchy.metadata")
 
+final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
+    private func recordAcceptanceRoute(_ route: String, event: NSEvent) {
+        guard ProcessInfo.processInfo.environment[
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+        ] == "1", let cgEvent = event.cgEvent else { return }
+        let marker = cgEvent.getIntegerValueField(.eventSourceUserData)
+        guard marker == OmarchyFocusedCommandBridge.acceptanceMarker
+                || marker == OmarchyFocusedCommandBridge.syntheticMarker else { return }
+        NSLog(
+            "Omarchy acceptance input route=%@ keyCode=%hu flags=%llu marker=%lld",
+            route, event.keyCode, event.modifierFlags.rawValue, marker
+        )
+    }
+
+    override func keyDown(with event: NSEvent) {
+        recordAcceptanceRoute("keyDown", event: event)
+        super.keyDown(with: event)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        recordAcceptanceRoute("keyUp", event: event)
+        super.keyUp(with: event)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        recordAcceptanceRoute("flagsChanged", event: event)
+        super.flagsChanged(with: event)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        recordAcceptanceRoute("performKeyEquivalent", event: event)
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 struct OmarchyVirtualMachineView: View {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
@@ -826,7 +861,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> VZVirtualMachineView {
-        let view = VZVirtualMachineView()
+        let view = OmarchyVirtualMachineInputView()
         view.capturesSystemKeys = true
         view.automaticallyReconfiguresDisplay = true
         do {
