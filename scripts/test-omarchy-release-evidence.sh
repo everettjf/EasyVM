@@ -24,7 +24,8 @@ ruby -rjson -e '
     shared-folders-v1 shutdown-v1
   ]
   value = {
-    schemaVersion: 5, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
+    schemaVersion: 5, observedAt: ARGV.fetch(0), workspaceCreatedAt: ARGV.fetch(0),
+    sourceRevision: ARGV.fetch(1),
     factoryImageVersion: ARGV.fetch(2), omarchyRevision: "omarchy-test-1",
     guestAgentVersion: ARGV.fetch(3), guestHostName: "omarchy",
     guestAddresses: ["192.0.2.2"], guestCapabilities: capabilities,
@@ -74,7 +75,7 @@ write_evidence() {
   local result=${1:-passed}
   ruby -rjson -e '
     scenarios = %w[
-      cleanInstall commandSuper
+      commandSuper
       updateRollback continuousOperation
     ].to_h { |name| [name, true] }
     value = {
@@ -95,6 +96,16 @@ verify=("$project_root/scripts/verify-omarchy-release-evidence.sh" "$work/eviden
   "$work/integration.json" "$work/lifecycle.json")
 write_evidence
 "${verify[@]}" >/dev/null
+
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["workspaceCreatedAt"]="2000-01-01T00:00:00Z"; File.write(ARGV[0], JSON.generate(v))' "$work/integration.json"
+integration_sha=$(shasum -a 256 "$work/integration.json" | awk '{print $1}')
+write_evidence
+if "${verify[@]}" >/dev/null 2>&1; then
+  echo "evidence from a reused workspace was accepted as a clean install" >&2
+  exit 1
+fi
+cp "$work/integration.valid.json" "$work/integration.json"
+integration_sha=$(shasum -a 256 "$work/integration.json" | awk '{print $1}')
 
 write_evidence failed
 if "${verify[@]}" >/dev/null 2>&1; then

@@ -17,7 +17,8 @@ write_observation() {
       shared-folders-v1 shutdown-v1
     ]
     value = {
-      schemaVersion: 5, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
+      schemaVersion: 5, observedAt: ARGV.fetch(0), workspaceCreatedAt: ARGV.fetch(0),
+      sourceRevision: ARGV.fetch(1),
       factoryImageVersion: ARGV.fetch(2), omarchyRevision: "omarchy-test-1",
       guestAgentVersion: ARGV.fetch(3), guestHostName: "omarchy",
       guestAddresses: ["192.0.2.2"], guestCapabilities: capabilities,
@@ -61,6 +62,10 @@ write_observation
 
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["schemaVersion"]=1; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
 expect_rejection "legacy observation schema was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["workspaceCreatedAt"]="2000-01-01T00:00:00Z"; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+expect_rejection "observation from a reused workspace was accepted as a clean install"
 
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["sharedFolderCapabilityAdvertised"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"

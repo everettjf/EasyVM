@@ -5,6 +5,7 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
     let schemaVersion: Int
     let observedAt: Date
     let sourceRevision: String
+    let workspaceCreatedAt: Date?
     let factoryImageVersion: String?
     let omarchyRevision: String?
     let guestAgentVersion: String
@@ -324,6 +325,7 @@ enum OmarchyAcceptanceObservationReporter {
         let observation = makeObservation(
             status: status,
             requiredCapabilities: requiredCapabilities,
+            workspaceCreatedAt: metadata?.createdAt,
             factoryImageVersion: metadata?.factoryImageVersion,
             sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
             sharedFolderRoundTrip: sharedFolderRoundTrip,
@@ -345,6 +347,7 @@ enum OmarchyAcceptanceObservationReporter {
     static func makeObservation(
         status: VMOmarchyGuestStatus,
         requiredCapabilities: [String],
+        workspaceCreatedAt: Date?,
         factoryImageVersion: String?,
         sourceRevision: String,
         sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip?,
@@ -357,6 +360,7 @@ enum OmarchyAcceptanceObservationReporter {
             schemaVersion: 5,
             observedAt: observedAt,
             sourceRevision: sourceRevision,
+            workspaceCreatedAt: workspaceCreatedAt,
             factoryImageVersion: factoryImageVersion,
             omarchyRevision: status.omarchyRevision,
             guestAgentVersion: status.agentVersion,

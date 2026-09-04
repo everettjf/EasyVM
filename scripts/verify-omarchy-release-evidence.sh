@@ -53,8 +53,16 @@ ruby -rjson -rtime -e '
   ended = Time.iso8601(value.fetch("endedAt"))
   abort "invalid acceptance interval" unless ended >= started
   abort "acceptance evidence is older than 14 days" if Time.now.utc - ended > 14 * 24 * 60 * 60
+  integration = JSON.parse(File.read(ARGV.fetch(7)))
+  lifecycle = JSON.parse(File.read(ARGV.fetch(8)))
+  workspace_created = Time.iso8601(integration.fetch("workspaceCreatedAt"))
+  provisioning = Time.iso8601(lifecycle.fetch("firstProvisioningPendingObservedAt"))
+  integration_observed = Time.iso8601(integration.fetch("observedAt"))
+  abort "workspace predates the acceptance interval" if workspace_created < started - 300
+  abort "owner provisioning predates workspace creation" if provisioning < workspace_created
+  abort "integration observation exceeds acceptance interval" if integration_observed > ended + 300
   required = %w[
-    cleanInstall commandSuper
+    commandSuper
     updateRollback continuousOperation
   ]
   scenarios = value.fetch("scenarios")
@@ -63,6 +71,6 @@ ruby -rjson -rtime -e '
   duration = value["continuousOperationSeconds"]
   abort "continuous operation was shorter than 24 hours" unless duration.is_a?(Integer) && duration >= 86_400
 ' "$evidence" "$expected_revision" "$app_sha" "$manifest_sha" "$image_sha" \
-  "$integration_sha" "$lifecycle_sha"
+  "$integration_sha" "$lifecycle_sha" "$integration_observation" "$lifecycle_observation"
 
 echo "Verified EZVM Omarchy real-guest release evidence."

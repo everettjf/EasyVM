@@ -673,6 +673,11 @@ The lifecycle's observed provisioning-pending-to-active transition also replaces
 the former `ownerProvisioning` assertion. Text and PNG clipboard checks and the
 file-import check are bound to content digests in the integration observation,
 so those former scenario booleans are removed as well.
+`cleanInstall` is also derived rather than asserted: the verifier requires the
+transactional workspace `createdAt` to fall inside the acceptance interval,
+the first provisioning-pending observation to follow workspace creation, and
+the integration-ready observation to complete before the acceptance interval
+ends.
 The shared-folder scenario is likewise proven by the integration observation's
 bidirectional content-digest round trip and is therefore not duplicated as a
 manually asserted release-evidence boolean.

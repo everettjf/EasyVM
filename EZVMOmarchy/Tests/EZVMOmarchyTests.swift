@@ -211,6 +211,7 @@ final class EZVMOmarchyTests: XCTestCase {
         let observation = OmarchyAcceptanceObservationReporter.makeObservation(
             status: status,
             requiredCapabilities: VMOmarchyProfile.production.requiredGuestCapabilities,
+            workspaceCreatedAt: observedAt.addingTimeInterval(-60),
             factoryImageVersion: "factory-version",
             sourceRevision: "source-commit",
             sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip(
@@ -240,6 +241,7 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(observation.observedAt, observedAt)
         XCTAssertEqual(observation.sourceRevision, "source-commit")
         XCTAssertEqual(observation.factoryImageVersion, "factory-version")
+        XCTAssertEqual(observation.workspaceCreatedAt, observedAt.addingTimeInterval(-60))
         XCTAssertEqual(observation.guestAgentVersion, "agent-commit")
         XCTAssertEqual(observation.omarchyRevision, "omarchy-commit")
         XCTAssertEqual(observation.guestAddresses, ["192.0.2.2", "2001:db8::2"])

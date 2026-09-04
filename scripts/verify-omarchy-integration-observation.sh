@@ -24,9 +24,12 @@ ruby -rjson -rtime -e '
   end
 
   observed = Time.iso8601(value.fetch("observedAt"))
+  workspace_created = Time.iso8601(value.fetch("workspaceCreatedAt"))
   age = Time.now.utc - observed
   abort "observation timestamp is in the future" if age < -300
   abort "observation is older than 24 hours" if age > 86_400
+  abort "workspace creation is in the future" if workspace_created > observed
+  abort "workspace was not created for this acceptance run" if observed - workspace_created > 86_400
   abort "guest hostname is missing" unless value["guestHostName"].is_a?(String) && !value["guestHostName"].empty?
   abort "guest address is missing" unless value["guestAddresses"].is_a?(Array) && !value["guestAddresses"].empty?
   abort "desktop session is not active" unless value["desktopSessionActive"] == true
