@@ -66,3 +66,49 @@ struct OmarchyLockAcceptanceState: Equatable {
         return true
     }
 }
+
+/// Tracks the portion of lifecycle acceptance that begins after the Guest
+/// restart request. A fresh boot can reconnect while Omarchy is still locked;
+/// that is not a recovered desktop and must be unlocked before the probe can
+/// complete.
+struct OmarchyGuestRestartAcceptanceState: Equatable {
+    enum Phase: Equatable {
+        case idle
+        case waitingForRestart(previousBootID: String)
+        case waitingForActive(bootID: String)
+        case complete
+    }
+
+    enum Action: Equatable {
+        case none
+        case submitUnlockSecret
+        case completed
+    }
+
+    private(set) var phase: Phase = .idle
+
+    mutating func begin(previousBootID: String) -> Bool {
+        guard phase == .idle, !previousBootID.isEmpty else { return false }
+        phase = .waitingForRestart(previousBootID: previousBootID)
+        return true
+    }
+
+    mutating func observe(_ status: VMOmarchyGuestStatus) -> Action {
+        guard !status.provisioningPending, !status.bootID.isEmpty else { return .none }
+        switch phase {
+        case .waitingForRestart(let previousBootID) where status.bootID != previousBootID:
+            if status.desktopSessionActive {
+                phase = .complete
+                return .completed
+            }
+            phase = .waitingForActive(bootID: status.bootID)
+            return .submitUnlockSecret
+        case .waitingForActive(let bootID)
+            where status.bootID == bootID && status.desktopSessionActive:
+            phase = .complete
+            return .completed
+        case .idle, .waitingForRestart, .waitingForActive, .complete:
+            return .none
+        }
+    }
+}

@@ -410,6 +410,42 @@ final class EZVMOmarchyTests: XCTestCase {
         )
     }
 
+    func testGuestRestartAcceptanceUnlocksBeforeCompleting() {
+        var state = OmarchyGuestRestartAcceptanceState()
+        XCTAssertTrue(state.begin(previousBootID: "boot-before"))
+
+        let before = VMOmarchyGuestStatus(
+            agentVersion: "agent", bootID: "boot-before", hostName: "omarchy",
+            addresses: [], capabilities: [], desktopSessionActive: true,
+            provisioningPending: false
+        )
+        let lockedAfter = VMOmarchyGuestStatus(
+            agentVersion: "agent", bootID: "boot-after", hostName: "omarchy",
+            addresses: [], capabilities: [], desktopSessionActive: false,
+            provisioningPending: false
+        )
+        let activeAfter = VMOmarchyGuestStatus(
+            agentVersion: "agent", bootID: "boot-after", hostName: "omarchy",
+            addresses: [], capabilities: [], desktopSessionActive: true,
+            provisioningPending: false
+        )
+        XCTAssertEqual(state.observe(before), .none)
+        XCTAssertEqual(state.observe(lockedAfter), .submitUnlockSecret)
+        XCTAssertEqual(state.observe(lockedAfter), .none)
+        XCTAssertEqual(state.observe(activeAfter), .completed)
+    }
+
+    func testGuestRestartAcceptanceCanCompleteWhenDesktopIsAlreadyActive() {
+        var state = OmarchyGuestRestartAcceptanceState()
+        XCTAssertTrue(state.begin(previousBootID: "boot-before"))
+        let activeAfter = VMOmarchyGuestStatus(
+            agentVersion: "agent", bootID: "boot-after", hostName: "omarchy",
+            addresses: [], capabilities: [], desktopSessionActive: true,
+            provisioningPending: false
+        )
+        XCTAssertEqual(state.observe(activeAfter), .completed)
+    }
+
     func testFullScreenObservationIsBoundToRuntimeState() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "ezvm-full-screen-\(UUID().uuidString)")

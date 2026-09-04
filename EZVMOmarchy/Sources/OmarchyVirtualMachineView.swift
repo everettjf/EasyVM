@@ -949,6 +949,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var automaticRecoveryAfterResume = false
         private var automaticRecoveryStage = AutomaticRecoveryStage.idle
         private var recoveryBaselineStatus: VMOmarchyGuestStatus?
+        private var guestRestartAcceptanceState = OmarchyGuestRestartAcceptanceState()
+        private var guestRestartUnlockTimeoutTask: Task<Void, Never>?
         private var automaticCommandSpaceProbeStarted = false
         private var automaticFullScreenProbeStarted = false
         private var fullScreenProbe: OmarchyFullScreenAcceptanceProbe?
@@ -1439,18 +1441,61 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     layout: layout
                 )
                 recoveryBaselineStatus = status
+                guard guestRestartAcceptanceState.begin(previousBootID: status.bootID) else {
+                    automaticRecoveryStage = .idle
+                    phaseChanged(.failed("Guest restart probe could not establish its boot baseline."))
+                    return
+                }
                 automaticRecoveryStage = .waitingForGuestDisconnect
                 integrationClient.requestRestart()
             case .waitingForGuestReady:
-                guard let baseline = recoveryBaselineStatus,
-                      !status.bootID.isEmpty,
-                      status.bootID != baseline.bootID else { return }
-                automaticRecoveryStage = .complete
-                recoveryBaselineStatus = nil
+                switch guestRestartAcceptanceState.observe(status) {
+                case .none:
+                    break
+                case .submitUnlockSecret:
+                    submitGuestRestartUnlockSecret()
+                case .completed:
+                    guestRestartUnlockTimeoutTask?.cancel()
+                    guestRestartUnlockTimeoutTask = nil
+                    automaticRecoveryStage = .complete
+                    recoveryBaselineStatus = nil
+                }
             case .idle, .waitingForAgentDisconnect, .waitingForGuestDisconnect, .complete:
                 break
             }
             startAutomaticFullScreenProbeIfNeeded(status)
+        }
+
+        @MainActor
+        private func submitGuestRestartUnlockSecret() {
+            guard let credential = OmarchyAcceptanceUnlockCredential(
+                environment: ProcessInfo.processInfo.environment
+            ), let integrationClient else {
+                automaticRecoveryStage = .idle
+                phaseChanged(.failed("The Guest restart unlock credential became unavailable."))
+                return
+            }
+            guestRestartUnlockTimeoutTask?.cancel()
+            guestRestartUnlockTimeoutTask = Task { @MainActor [weak self, weak integrationClient] in
+                do {
+                    try await integrationClient?.typeUSASCII(credential.password)
+                    try await integrationClient?.injectKeyChord(modifiers: [], key: 28)
+                    try await Task.sleep(for: .seconds(20))
+                    guard let self, self.automaticRecoveryStage == .waitingForGuestReady else { return }
+                    self.automaticRecoveryStage = .idle
+                    self.phaseChanged(.failed(
+                        "Omarchy did not return to the active desktop after Guest restart unlock input."
+                    ))
+                } catch is CancellationError {
+                    return
+                } catch {
+                    guard let self else { return }
+                    self.automaticRecoveryStage = .idle
+                    self.phaseChanged(.failed(
+                        "Guest restart unlock probe failed: \(error.localizedDescription)"
+                    ))
+                }
+            }
         }
 
         @MainActor
