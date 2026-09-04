@@ -273,7 +273,14 @@ enum VMLinuxKeyboardTextEncoder {
 
     private static let symbolCodes: [Character: (code: UInt16, shifted: Bool)] = [
         " ": (57, false), "\n": (28, false), "/": (53, false), ".": (52, false),
-        "-": (12, false), "_": (12, true), ":": (39, true), "=": (13, false),
+        "-": (12, false), "_": (12, true), "=": (13, false), "+": (13, true),
+        "[": (26, false), "{": (26, true), "]": (27, false), "}": (27, true),
+        ";": (39, false), ":": (39, true), "'": (40, false), "\"": (40, true),
+        "`": (41, false), "~": (41, true), "\\": (43, false), "|": (43, true),
+        ",": (51, false), "<": (51, true), ">": (52, true), "?": (53, true),
+        "!": (2, true), "@": (3, true), "#": (4, true), "$": (5, true),
+        "%": (6, true), "^": (7, true), "&": (8, true), "*": (9, true),
+        "(": (10, true), ")": (11, true),
     ]
 }
 

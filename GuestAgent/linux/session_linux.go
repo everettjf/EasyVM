@@ -84,17 +84,25 @@ func acceptSessionRegistration(connection *net.UnixConn) {
 	if !ok {
 		return
 	}
-	desktopSessions.Lock()
-	expectedSocketPath := filepath.Join("/run/user", strconv.FormatUint(uint64(uid), 10), "ezvm-agent-session.sock")
-	if registration.SocketPath != expectedSocketPath {
+	registration.Capabilities = capabilities
+	if !storeSessionRegistration(uid, registration, time.Now()) {
 		return
 	}
-	desktopSessions.byUID[uid] = registeredSession{
-		capabilities: capabilities,
-		socketPath:   registration.SocketPath,
-		updatedAt:    time.Now(),
+}
+
+func storeSessionRegistration(uid uint32, registration sessionRegistration, now time.Time) bool {
+	expectedSocketPath := filepath.Join("/run/user", strconv.FormatUint(uint64(uid), 10), "ezvm-agent-session.sock")
+	if registration.SocketPath != expectedSocketPath {
+		return false
 	}
-	desktopSessions.Unlock()
+	desktopSessions.Lock()
+	defer desktopSessions.Unlock()
+	desktopSessions.byUID[uid] = registeredSession{
+		capabilities: registration.Capabilities,
+		socketPath:   registration.SocketPath,
+		updatedAt:    now,
+	}
+	return true
 }
 
 func unixPeerUID(connection *net.UnixConn) (uint32, error) {

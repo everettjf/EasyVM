@@ -27,6 +27,7 @@ final class OmarchyAgentClipboardController {
     private var lastPasteboardChangeCount: Int
     private var lastSentToGuest: String?
     private var lastReceivedFromGuest: String?
+    private var pendingHostItem: Item?
 
     init(
         client: VMOmarchyGuestAgentClient,
@@ -60,14 +61,21 @@ final class OmarchyAgentClipboardController {
         guard operationTask == nil else { return }
         if pasteboard.changeCount != lastPasteboardChangeCount {
             lastPasteboardChangeCount = pasteboard.changeCount
+            pendingHostItem = nil
             guard let item = Self.item(from: pasteboard),
                   item.fingerprint != lastReceivedFromGuest else { return }
+            pendingHostItem = item
+        }
+        if let item = pendingHostItem {
             operationTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 defer { self.operationTask = nil }
                 do {
                     try await self.sendToGuest(item)
                     self.lastSentToGuest = item.fingerprint
+                    if self.pendingHostItem?.fingerprint == item.fingerprint {
+                        self.pendingHostItem = nil
+                    }
                 } catch is CancellationError {
                 } catch {
                     NSLog("Omarchy Agent Host-to-Guest clipboard failed: %@", error.localizedDescription)

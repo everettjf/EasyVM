@@ -29,6 +29,14 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         }
     }
 
+    func testLinuxKeyboardTextEncoderSupportsDiagnosticShellPunctuation() throws {
+        let command = "{ systemctl --user status ezvm-session-agent.service; ps -ef | grep '[e]zvm-agent'; } > /tmp/session.txt 2>&1\n"
+        let events = try VMLinuxKeyboardTextEncoder.events(for: command)
+        XCTAssertFalse(events.isEmpty)
+        XCTAssertEqual(events.filter { $0.type == 1 && $0.value == 1 }.count,
+                       events.filter { $0.type == 1 && $0.value == 0 }.count)
+    }
+
     func testRetryPolicyUsesBoundedExponentialBackoff() {
         let policy = VMGuestAgentRetryPolicy(maximumDelay: 30)
         XCTAssertEqual(policy.delay(afterFailureCount: 0), 0)

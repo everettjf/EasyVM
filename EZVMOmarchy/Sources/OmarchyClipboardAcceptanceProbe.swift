@@ -112,20 +112,29 @@ enum OmarchyClipboardAcceptanceProbe {
 
         if client.currentCapabilities.contains("clipboard-agent-text-v1"),
            client.currentCapabilities.contains("clipboard-agent-image-v1") {
-            let result = try await runAgentRoundTrip(
-                client: client,
-                sharedDirectory: sharedDirectory,
-                probeDirectory: probeDirectory,
-                hostText: hostText,
-                guestText: guestText,
-                image: image,
-                hostTextURL: agentHostText,
-                hostImageURL: agentHostImage,
-                guestTextURL: agentGuestText,
-                guestImageURL: agentGuestImage
-            )
-            completed = true
-            return result
+            do {
+                let result = try await runAgentRoundTrip(
+                    client: client,
+                    sharedDirectory: sharedDirectory,
+                    probeDirectory: probeDirectory,
+                    hostText: hostText,
+                    guestText: guestText,
+                    image: image,
+                    hostTextURL: agentHostText,
+                    hostImageURL: agentHostImage,
+                    guestTextURL: agentGuestText,
+                    guestImageURL: agentGuestImage
+                )
+                completed = true
+                return result
+            } catch {
+                await collectSessionDiagnostics(
+                    client: client,
+                    guestDirectory: guestDirectory,
+                    evidenceFile: probeDirectory.appending(path: "session-diagnostics.txt")
+                )
+                throw error
+            }
         }
 
         NSLog("Omarchy clipboard probe starting Host-to-Guest text")
@@ -258,10 +267,13 @@ enum OmarchyClipboardAcceptanceProbe {
         guestImageURL: URL
     ) async throws -> OmarchyClipboardRoundTrip {
         NSLog("Omarchy Agent clipboard probe starting Host-to-Guest text")
-        _ = try await client.setGuestClipboard(
-            try agentRequest(for: hostTextURL, sharedDirectory: sharedDirectory,
-                             mimeType: "text/plain;charset=utf-8")
+        let hostTextRequest = try agentRequest(
+            for: hostTextURL, sharedDirectory: sharedDirectory,
+            mimeType: "text/plain;charset=utf-8"
         )
+        _ = try await retryAgentOperation("Agent host-to-guest text") {
+            try await client.setGuestClipboard(hostTextRequest)
+        }
         try touch(probeDirectory.appending(path: "host-text-go"))
         let hostTextResult = try await waitForData(
             at: probeDirectory.appending(path: "host-text-result")
@@ -273,10 +285,13 @@ enum OmarchyClipboardAcceptanceProbe {
         }
 
         NSLog("Omarchy Agent clipboard probe starting Host-to-Guest PNG")
-        _ = try await client.setGuestClipboard(
-            try agentRequest(for: hostImageURL, sharedDirectory: sharedDirectory,
-                             mimeType: "image/png")
+        let hostImageRequest = try agentRequest(
+            for: hostImageURL, sharedDirectory: sharedDirectory,
+            mimeType: "image/png"
         )
+        _ = try await retryAgentOperation("Agent host-to-guest PNG") {
+            try await client.setGuestClipboard(hostImageRequest)
+        }
         try touch(probeDirectory.appending(path: "host-image-go"))
         let hostImageResult = try await waitForData(
             at: probeDirectory.appending(path: "host-image-result")
@@ -290,10 +305,12 @@ enum OmarchyClipboardAcceptanceProbe {
         NSLog("Omarchy Agent clipboard probe starting Guest-to-Host text")
         try touch(probeDirectory.appending(path: "guest-text-go"))
         try await waitForFile(at: probeDirectory.appending(path: "guest-text-ready"))
-        let capturedText = try await client.captureGuestClipboard(
-            agentCaptureRequest(for: guestTextURL, sharedDirectory: sharedDirectory,
-                                mimeType: "text/plain;charset=utf-8")
-        )
+        let capturedText = try await retryAgentOperation("Agent guest-to-host text") {
+            try await client.captureGuestClipboard(
+                agentCaptureRequest(for: guestTextURL, sharedDirectory: sharedDirectory,
+                                    mimeType: "text/plain;charset=utf-8")
+            )
+        }
         let guestTextResult = try Data(contentsOf: guestTextURL)
         guard guestTextResult == Data(guestText.utf8),
               capturedText.byteCount == UInt64(guestTextResult.count),
@@ -306,10 +323,12 @@ enum OmarchyClipboardAcceptanceProbe {
 
         NSLog("Omarchy Agent clipboard probe starting Guest-to-Host PNG")
         try await waitForFile(at: probeDirectory.appending(path: "guest-image-ready"))
-        let capturedImage = try await client.captureGuestClipboard(
-            agentCaptureRequest(for: guestImageURL, sharedDirectory: sharedDirectory,
-                                mimeType: "image/png")
-        )
+        let capturedImage = try await retryAgentOperation("Agent guest-to-host PNG") {
+            try await client.captureGuestClipboard(
+                agentCaptureRequest(for: guestImageURL, sharedDirectory: sharedDirectory,
+                                    mimeType: "image/png")
+            )
+        }
         let guestImageResult = try Data(contentsOf: guestImageURL)
         guard guestImageResult == image,
               capturedImage.byteCount == UInt64(guestImageResult.count),
@@ -342,6 +361,46 @@ enum OmarchyClipboardAcceptanceProbe {
             byteCount: UInt64(data.count),
             sha256: sha256(data)
         )
+    }
+
+    private static func retryAgentOperation<T>(
+        _ operation: String,
+        action: () async throws -> T
+    ) async throws -> T {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        var lastError: Error?
+        repeat {
+            do {
+                return try await action()
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+                try await Task.sleep(for: .milliseconds(250))
+            }
+        } while clock.now < deadline
+        throw ProbeError.timeout("\(operation): \(lastError?.localizedDescription ?? "unknown error")")
+    }
+
+    private static func collectSessionDiagnostics(
+        client: VMOmarchyGuestAgentClient,
+        guestDirectory: String,
+        evidenceFile: URL
+    ) async {
+        do {
+            // Stop the probe script that is waiting in the foreground, then
+            // collect only service/process/socket state. This acceptance-only
+            // path avoids taking over the developer's physical keyboard.
+            try await client.injectKeyChord(modifiers: [29], key: 46)
+            try await Task.sleep(for: .milliseconds(500))
+            let command = "{ systemctl --user status ezvm-session-agent.service --no-pager; journalctl --user -u ezvm-session-agent.service --no-pager -n 100; systemctl --user show ezvm-session-agent.service -p ActiveState -p SubState -p NRestarts -p ExecMainStatus; ps -ef | grep '[e]zvm-agent'; ls -l /run/user/1000/ezvm-agent-session.sock /run/ezvm-agent/session.sock; } > \(guestDirectory)/session-diagnostics.txt 2>&1\n"
+            try await client.typeUSASCII(command)
+            try await waitForFile(at: evidenceFile)
+            NSLog("Omarchy clipboard probe captured Guest session diagnostics at %@", evidenceFile.path)
+        } catch {
+            NSLog("Omarchy clipboard probe could not capture Guest session diagnostics: %@", error.localizedDescription)
+        }
     }
 
     private static func agentCaptureRequest(

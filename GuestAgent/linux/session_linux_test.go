@@ -56,6 +56,30 @@ func TestDesktopSessionRegistrationsExpire(t *testing.T) {
 	}
 }
 
+func TestInvalidDesktopSessionRegistrationDoesNotPoisonRegistry(t *testing.T) {
+	now := time.Now()
+	desktopSessions.Lock()
+	desktopSessions.byUID = map[uint32]registeredSession{}
+	desktopSessions.Unlock()
+
+	invalid := sessionRegistration{
+		UID:          1000,
+		Capabilities: []string{"clipboard-agent-text-v1"},
+		SocketPath:   "/tmp/untrusted-session.sock",
+	}
+	if storeSessionRegistration(1000, invalid, now) {
+		t.Fatal("accepted an untrusted session socket path")
+	}
+	valid := invalid
+	valid.SocketPath = "/run/user/1000/ezvm-agent-session.sock"
+	if !storeSessionRegistration(1000, valid, now) {
+		t.Fatal("valid session registration was rejected after invalid input")
+	}
+	if actual := activeSessionCapabilities(now); !reflect.DeepEqual(actual, []string{"clipboard-agent-text-v1"}) {
+		t.Fatalf("active capabilities = %#v", actual)
+	}
+}
+
 func TestActiveDesktopSessionRequiresCapabilityAndSocket(t *testing.T) {
 	now := time.Now()
 	desktopSessions.Lock()
