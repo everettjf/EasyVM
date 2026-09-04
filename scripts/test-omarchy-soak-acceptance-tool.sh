@@ -3,7 +3,10 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-soak.XXXXXX")
+# The production monitor intentionally accepts only system-temporary roots.
+# GitHub's RUNNER_TEMP lives under the runner account, so keep this security
+# boundary exercised instead of weakening it for CI.
+work=$(mktemp -d "/tmp/ezvm-omarchy-soak.XXXXXX")
 updater_pid=
 cleanup() {
   if [[ -n $updater_pid ]]; then kill "$updater_pid" >/dev/null 2>&1 || true; fi
