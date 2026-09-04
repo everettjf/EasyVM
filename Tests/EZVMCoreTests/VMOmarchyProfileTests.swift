@@ -49,4 +49,22 @@ final class VMOmarchyProfileTests: XCTestCase {
             XCTAssertEqual(error as? VMOmarchyProfile.ValidationError, .invalidFactoryImage)
         }
     }
+
+    func testOwnerProvisioningProgressUsesOnlyKnownPhaseAndSafeLastStep() {
+        let progress = VMOmarchyOwnerProvisioningProgress.parse(
+            state: Data("finalize\n".utf8),
+            log: Data("noise\n[2026-09-03 19:00:00] oem-setup: creating user omarchy\n[2026-09-03 19:00:01] oem-setup: finalizing user\n".utf8)
+        )
+        XCTAssertEqual(progress.phase, "finalize")
+        XCTAssertEqual(progress.lastStep, "finalizing user")
+        XCTAssertEqual(progress.displayMessage, "finalizing user")
+
+        let rejected = VMOmarchyOwnerProvisioningProgress.parse(
+            state: Data("arbitrary\n".utf8),
+            log: Data("[now] oem-setup: unsafe\u{1b}step\n".utf8)
+        )
+        XCTAssertNil(rejected.phase)
+        XCTAssertNil(rejected.lastStep)
+        XCTAssertEqual(rejected.displayMessage, "Omarchy is creating your workspace…")
+    }
 }

@@ -27,6 +27,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var ownerSetupPhase: OmarchyOwnerSetupPhase = .editing
     @State private var ownerProvisioningSubmission: OmarchyOwnerProvisioningSubmission?
     @State private var automaticOwnerProvisioningStarted = false
+    @State private var ownerProvisioningDetail: String?
 
     private var phase: Phase { lifecycle.phase }
 
@@ -43,6 +44,7 @@ struct OmarchyVirtualMachineView: View {
                 dynamicDisplayProbeChanged: handleDynamicDisplayProbeChange,
                 ownerProvisioningSubmission: ownerProvisioningSubmission,
                 ownerProvisioningCompleted: handleOwnerProvisioningCompletion,
+                ownerProvisioningProgressChanged: { ownerProvisioningDetail = $0.displayMessage },
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
@@ -53,6 +55,7 @@ struct OmarchyVirtualMachineView: View {
                 OmarchyOwnerSetupView(
                     form: $ownerSetupForm,
                     phase: ownerSetupPhase,
+                    provisioningDetail: ownerProvisioningDetail,
                     submit: submitOwnerSetup
                 )
             }
@@ -337,6 +340,7 @@ struct OmarchyVirtualMachineView: View {
             ownerSetupForm.clearSecrets()
             ownerProvisioningSubmission = nil
             ownerSetupPhase = .editing
+            ownerProvisioningDetail = nil
         }
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: status,
@@ -793,6 +797,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let dynamicDisplayProbeChanged: (OmarchyDynamicDisplayProbeState) -> Void
     let ownerProvisioningSubmission: OmarchyOwnerProvisioningSubmission?
     let ownerProvisioningCompleted: (UUID, String?) -> Void
+    let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -806,6 +811,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             clipboardProbeChanged: clipboardProbeChanged,
             dynamicDisplayProbeChanged: dynamicDisplayProbeChanged,
             ownerProvisioningCompleted: ownerProvisioningCompleted,
+            ownerProvisioningProgressChanged: ownerProvisioningProgressChanged,
             phaseChanged: phaseChanged
         )
     }
@@ -867,6 +873,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let clipboardProbeChanged: (OmarchyClipboardProbeState) -> Void
         let dynamicDisplayProbeChanged: (OmarchyDynamicDisplayProbeState) -> Void
         let ownerProvisioningCompleted: (UUID, String?) -> Void
+        let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
         private var pauseObserver: NSObjectProtocol?
@@ -891,6 +898,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var automaticFullScreenProbeStarted = false
         private var fullScreenProbe: OmarchyFullScreenAcceptanceProbe?
         private var lastOwnerProvisioningSubmissionID: UUID?
+        private var ownerProgressFetchInFlight = false
 
         private enum AutomaticRecoveryStage {
             case idle
@@ -912,6 +920,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             clipboardProbeChanged: @escaping (OmarchyClipboardProbeState) -> Void,
             dynamicDisplayProbeChanged: @escaping (OmarchyDynamicDisplayProbeState) -> Void,
             ownerProvisioningCompleted: @escaping (UUID, String?) -> Void,
+            ownerProvisioningProgressChanged: @escaping (VMOmarchyOwnerProvisioningProgress) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
@@ -923,6 +932,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.clipboardProbeChanged = clipboardProbeChanged
             self.dynamicDisplayProbeChanged = dynamicDisplayProbeChanged
             self.ownerProvisioningCompleted = ownerProvisioningCompleted
+            self.ownerProvisioningProgressChanged = ownerProvisioningProgressChanged
             self.phaseChanged = phaseChanged
         }
 
@@ -940,6 +950,19 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     ownerProvisioningCompleted(submission.id, nil)
                 } catch {
                     ownerProvisioningCompleted(submission.id, error.localizedDescription)
+                }
+            }
+        }
+
+        private func refreshOwnerProvisioningProgressIfNeeded(_ status: VMOmarchyGuestStatus) {
+            guard status.provisioningPending, !ownerProgressFetchInFlight,
+                  let integrationClient else { return }
+            ownerProgressFetchInFlight = true
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                defer { ownerProgressFetchInFlight = false }
+                if let progress = try? await integrationClient.ownerProvisioningProgress() {
+                    ownerProvisioningProgressChanged(progress)
                 }
             }
         }
@@ -1045,6 +1068,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             case .ready(let status):
                                 Task { @MainActor [weak self] in
                                     self?.handleAutomaticRecoveryReady(status)
+                                    self?.refreshOwnerProvisioningProgressIfNeeded(status)
                                 }
                             case .disconnected:
                                 Task { @MainActor [weak self] in

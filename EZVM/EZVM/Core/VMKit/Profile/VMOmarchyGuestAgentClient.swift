@@ -137,6 +137,46 @@ public enum VMOmarchyHostPowerEvent: Equatable, Sendable {
     case didWake
 }
 
+public struct VMOmarchyOwnerProvisioningProgress: Equatable, Sendable {
+    public let phase: String?
+    public let lastStep: String?
+
+    public var displayMessage: String {
+        if let lastStep, !lastStep.isEmpty { return lastStep }
+        switch phase {
+        case "account": return "Creating your Omarchy owner…"
+        case "finalize": return "Configuring the Omarchy desktop…"
+        case "rekey": return "Securing the system disk…"
+        case "boot": return "Preparing Omarchy to start…"
+        case "done": return "Starting the Omarchy desktop…"
+        default: return "Omarchy is creating your workspace…"
+        }
+    }
+
+    public static func parse(state: Data?, log: Data?) -> Self {
+        let allowedPhases = Set(["account", "finalize", "rekey", "boot", "done"])
+        let rawPhase = state.map {
+            String(decoding: $0, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let phase = rawPhase.flatMap { allowedPhases.contains($0) ? $0 : nil }
+        let lastStep = log.map { String(decoding: $0, as: UTF8.self) }
+            .flatMap { contents in
+                contents.split(whereSeparator: \Character.isNewline)
+                    .reversed()
+                    .compactMap { line -> String? in
+                        guard let marker = line.range(of: "] oem-setup: ") else { return nil }
+                        let value = String(line[marker.upperBound...]).trimmingCharacters(in: .whitespaces)
+                        guard !value.isEmpty, value.utf8.count <= 256,
+                              !value.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+                        else { return nil }
+                        return value
+                    }
+                    .first
+            }
+        return Self(phase: phase, lastStep: lastStep)
+    }
+}
+
 enum VMOmarchyConnectionSuspensionReason: Hashable {
     case hostSleeping
     case virtualMachinePaused
@@ -252,6 +292,16 @@ public final class VMOmarchyGuestAgentClient {
                 userInfo: [NSLocalizedDescriptionKey: result.message]
             )
         }
+    }
+
+    public func ownerProvisioningProgress() async throws -> VMOmarchyOwnerProvisioningProgress {
+        guard capabilities.contains("file-transfer-v1") else {
+            throw CocoaError(.featureUnsupported)
+        }
+        let state = try? await downloadData(guestPath: "/run/omarchy-provision-owner.state")
+        let log = try? await downloadData(guestPath: "/var/log/omarchy-provision-owner.log")
+        guard state != nil || log != nil else { throw CocoaError(.fileNoSuchFile) }
+        return .parse(state: state, log: log)
     }
 
     public func requestAgentRestart() async throws {

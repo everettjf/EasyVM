@@ -156,6 +156,7 @@ enum OmarchyOwnerSetupPhase: Equatable {
 struct OmarchyOwnerSetupView: View {
     @Binding var form: OmarchyOwnerSetupForm
     let phase: OmarchyOwnerSetupPhase
+    let provisioningDetail: String?
     let submit: () -> Void
     @FocusState private var focusedField: Field?
 
@@ -225,7 +226,7 @@ struct OmarchyOwnerSetupView: View {
             case .submitting:
                 ProgressView("Sending owner setup securely…")
             case .finishing:
-                ProgressView("Omarchy is creating your workspace…")
+                ProgressView(provisioningDetail ?? "Omarchy is creating your workspace…")
             }
         }
         .padding(32)
