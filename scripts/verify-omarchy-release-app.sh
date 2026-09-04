@@ -52,6 +52,18 @@ for representation in icon_16x16.png icon_16x16@2x.png icon_128x128.png icon_128
   [[ -s "$icon_probe/AppIcon.iconset/$representation" ]] || \
     fail "compiled AppIcon.icns is missing $representation"
 done
+compiled_assets="$app_path/Contents/Resources/Assets.car"
+[[ -f $compiled_assets && ! -L $compiled_assets ]] || fail "compiled Assets.car is missing or unsafe"
+xcrun assetutil --info "$compiled_assets" >"$icon_probe/assets.json" 2>/dev/null || \
+  fail "compiled Assets.car is invalid"
+ruby -rjson -e '
+  assets = JSON.parse(File.read(ARGV.fetch(0)))
+  widths = assets.each_with_object([]) do |asset, values|
+    values << asset["PixelWidth"] if asset["Name"] == "AppIcon" && asset["AssetType"] == "Icon Image"
+  end.compact.uniq
+  expected = [16, 32, 64, 128, 256, 512, 1024]
+  abort "compiled AppIcon lacks full-resolution representations" unless (expected - widths).empty?
+' "$icon_probe/assets.json" || fail "compiled AppIcon lacks a complete 16–1024 px asset set"
 
 "$(dirname -- "$0")/verify-release-metadata.sh" \
   "$app_path" "$expected_version" "$expected_revision" "$expected_tree_state" >/dev/null

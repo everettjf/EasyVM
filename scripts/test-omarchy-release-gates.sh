@@ -28,21 +28,13 @@ make_fixture() {
   plutil -insert EZVMOmarchyFactoryPublicKeyBase64 -string "$public_key" "$info"
   plutil -insert EZVMSourceRevision -string "$revision" "$info"
   plutil -insert EZVMSourceTreeState -string clean "$info"
-  iconset="$fixture/AppIcon.iconset"
-  rm -rf "$iconset"
-  mkdir -p "$iconset"
-  icon_source="$project_root/EZVMOmarchy/Resources/Assets.xcassets/AppIcon.appiconset/app-icon-1024.png"
-  sips -z 16 16 "$icon_source" --out "$iconset/icon_16x16.png" >/dev/null
-  sips -z 32 32 "$icon_source" --out "$iconset/icon_16x16@2x.png" >/dev/null
-  sips -z 32 32 "$icon_source" --out "$iconset/icon_32x32.png" >/dev/null
-  sips -z 64 64 "$icon_source" --out "$iconset/icon_32x32@2x.png" >/dev/null
-  sips -z 128 128 "$icon_source" --out "$iconset/icon_128x128.png" >/dev/null
-  sips -z 256 256 "$icon_source" --out "$iconset/icon_128x128@2x.png" >/dev/null
-  sips -z 256 256 "$icon_source" --out "$iconset/icon_256x256.png" >/dev/null
-  sips -z 512 512 "$icon_source" --out "$iconset/icon_256x256@2x.png" >/dev/null
-  sips -z 512 512 "$icon_source" --out "$iconset/icon_512x512.png" >/dev/null
-  cp "$icon_source" "$iconset/icon_512x512@2x.png"
-  iconutil -c icns "$iconset" -o "$app/Contents/Resources/AppIcon.icns" 2>/dev/null
+  xcrun actool "$project_root/EZVMOmarchy/Resources/Assets.xcassets" \
+    --compile "$app/Contents/Resources" \
+    --platform macosx \
+    --minimum-deployment-target 27.0 \
+    --app-icon AppIcon \
+    --output-partial-info-plist "$fixture/icon-info.plist" \
+    --warnings --errors --notices >/dev/null
   codesign --force --deep --sign - \
     --entitlements "$project_root/EZVMOmarchy/Resources/EZVMOmarchy.entitlements" \
     --timestamp=none "$app" >/dev/null
@@ -63,6 +55,10 @@ make_fixture
 
 rm "$app/Contents/Resources/AppIcon.icns"
 expect_rejection 'a missing compiled application icon'
+
+make_fixture
+rm "$app/Contents/Resources/Assets.car"
+expect_rejection 'a missing compiled application asset catalog'
 
 make_fixture
 plutil -replace CFBundleIconName -string WrongIcon "$info"

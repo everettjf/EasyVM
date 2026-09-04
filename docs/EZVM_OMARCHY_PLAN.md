@@ -1038,9 +1038,27 @@ The Factory signing tool independently hashes the ordered local parts and
 refuses to sign unless their concatenation exactly reproduces the source ASIF.
 The production profile pins the immutable
 `v4.0.0-alpha-ezvm.32/ezvm-omarchy-factory-manifest.json` path. Promotion remains
-open until the locally verified `.32` Factory parts are uploaded to that draft,
-their remote digests are checked, the release is made downloadable, and a new
-signed Host candidate completes a genuinely empty-workspace installation.
+open until a new signed Host candidate completes a genuinely empty-workspace
+installation from that public endpoint.
+
+The three real Factory parts, schema-2 manifest, and dedicated checksum file are
+published in the `.32` prerelease. The retry-safe publisher verified each GitHub
+asset digest against the local bytes after upload, and an anonymous public probe
+returned HTTP 200 with the exact declared size for the manifest and every image
+part. Publishing the prerelease left stable `latest` at `v4.0.1-ezvm.200`. Host revision
+`c6bb70fda2f32acbc1e300f2664b106a7071ff83` passed CI run `33917511580`; image
+revision `6aa7490b3cafa417dbb269e524d886fc4bfca29d` passed contract run
+`33918297602` and ensures Alpha, Beta, and RC tags publish as prereleases rather
+than replacing the stable `latest` channel.
+
+The signed `1.0.0-alpha.36` archive built from Host revision `c6bb70f` passed
+strict code-signing and Gatekeeper checks. Its compiled `Assets.car` contains
+the pixel-rally AppIcon at 16, 32, 64, 128, 256, 512, and 1024 pixels. Release
+verification now inspects that compiled catalog as well as the ICNS fallback and
+rejects either a missing catalog or any incomplete 16–1024 px representation
+set. This candidate is an intermediate proof only: this documentation/verifier
+revision changes the source identity, so final real-guest evidence must use a
+new exact-source archive after the `.32` prerelease becomes downloadable.
 
 ## 12. Test and measurement strategy
 
