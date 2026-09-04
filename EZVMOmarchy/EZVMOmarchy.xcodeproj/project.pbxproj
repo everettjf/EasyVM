@@ -15,6 +15,8 @@
 		1DE00F9AE38F4CB12162E9A8 /* OmarchyOwnerSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09386E69C69AA61229E5340D /* OmarchyOwnerSetupView.swift */; };
 		20E670A3AF3B256648F15181 /* EZVMOmarchyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */; };
 		4AF317238132CFFC331CA4F3 /* EZVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */; };
+		651ABAA9C61B622C90CE52BC /* OmarchyAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C8C57A53CD4D6C78B3390C /* OmarchyAccessibilityTests.swift */; };
+		7CF2ED5F980F7E3DC5A3C5F7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C41A9D0631166B6D50D197B0 /* Assets.xcassets */; };
 		7DD269A01154BD72BA3B039B /* OmarchyLockAcceptanceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93363B5A93F4C340BAE13537 /* OmarchyLockAcceptanceState.swift */; };
 		8BC700C151EBE4754A081274 /* OmarchyApplicationTermination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9000919C36387C899ED23370 /* OmarchyApplicationTermination.swift */; };
 		9B9BBDD231C0C70175C88AB3 /* EZVMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 88A9EBB2192A7177FE428C52 /* EZVMCore */; };
@@ -44,7 +46,9 @@
 		94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineView.swift; sourceTree = "<group>"; };
 		970A0F8BAF9DF5EC452BC1D0 /* EZVM Omarchy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZVM Omarchy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyFocusedCommandBridge.swift; sourceTree = "<group>"; };
+		A8C8C57A53CD4D6C78B3390C /* OmarchyAccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyAccessibilityTests.swift; sourceTree = "<group>"; };
 		B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EZVMOmarchyApp.swift; sourceTree = "<group>"; };
+		C41A9D0631166B6D50D197B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C6F28A4F2339E9106ECC8119 /* ezvm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ezvm; path = ..; sourceTree = SOURCE_ROOT; };
 		CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EZVMOmarchyTests.swift; sourceTree = "<group>"; };
 		EE5B4D3B4A0C6EF54D9E6272 /* OmarchyAcceptanceObservationReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyAcceptanceObservationReporter.swift; sourceTree = "<group>"; };
@@ -74,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				12FF22FC765D2A748BFFF5B2 /* Packages */,
+				78BFCE062DD8E04650A096B6 /* Resources */,
 				42A950A48AFC337E4A57A2E8 /* Sources */,
 				915BF81C3043C50DBF988B7F /* Tests */,
 				CC83EE377BA2489A91A07BAA /* Products */,
@@ -98,10 +103,19 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
+		78BFCE062DD8E04650A096B6 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C41A9D0631166B6D50D197B0 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		915BF81C3043C50DBF988B7F /* Tests */ = {
 			isa = PBXGroup;
 			children = (
 				CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */,
+				A8C8C57A53CD4D6C78B3390C /* OmarchyAccessibilityTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -123,6 +137,7 @@
 			buildConfigurationList = 73FFD2CF372949F89893FC8E /* Build configuration list for PBXNativeTarget "EZVM Omarchy" */;
 			buildPhases = (
 				3F95178522C279FF592F07FE /* Sources */,
+				736DF52A850680E11459D084 /* Resources */,
 				4F589970418908A0253E9EAF /* Frameworks */,
 			);
 			buildRules = (
@@ -193,6 +208,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		736DF52A850680E11459D084 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7CF2ED5F980F7E3DC5A3C5F7 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		3F95178522C279FF592F07FE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -217,6 +243,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4AF317238132CFFC331CA4F3 /* EZVMOmarchyTests.swift in Sources */,
+				651ABAA9C61B622C90CE52BC /* OmarchyAccessibilityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -13,6 +13,8 @@ targets:
     platform: macOS
     sources:
       - Sources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
     dependencies:
       - package: EZVMCore
         product: EZVMCore

@@ -49,6 +49,10 @@ final class OmarchyFocusedCommandBridge {
     private var activationObserver: NSObjectProtocol?
     private var commandSpaceState = OmarchyCommandSpaceCaptureState()
 
+    static let accessibilitySettingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+    )!
+
     init(
         focusProbe: @escaping () -> Bool,
         stateChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
@@ -107,6 +111,7 @@ final class OmarchyFocusedCommandBridge {
             start()
             return
         }
+        NSWorkspace.shared.open(Self.accessibilitySettingsURL)
         permissionTimer?.invalidate()
         var attemptsRemaining = 40
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
