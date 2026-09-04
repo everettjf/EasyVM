@@ -34,6 +34,18 @@ func TestSessionClipboardUsesDistributionMatchedCopyFrontend(t *testing.T) {
 	}
 }
 
+func TestClipboardCopyArgumentsLetTextFrontendAdvertiseNativeAliases(t *testing.T) {
+	arguments := clipboardCopyArguments(clipboardTextMIME)
+	if len(arguments) != 1 || arguments[0] != "--foreground" {
+		t.Fatalf("text arguments=%v", arguments)
+	}
+	arguments = clipboardCopyArguments(clipboardImageMIME)
+	if len(arguments) != 3 || arguments[0] != "--foreground" ||
+		arguments[1] != "--type" || arguments[2] != clipboardImageMIME {
+		t.Fatalf("image arguments=%v", arguments)
+	}
+}
+
 func TestStartVerifiedClipboardOwnerRetriesRejectedPublications(t *testing.T) {
 	want := []byte("clipboard bytes")
 	starts := 0

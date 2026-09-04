@@ -131,7 +131,7 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		payload,
 		request.MIMEType,
 		func(payload []byte, mimeType string) *exec.Cmd {
-			command := exec.Command(sessionClipboardCopyExecutable, "--foreground", "--type", mimeType)
+			command := exec.Command(sessionClipboardCopyExecutable, clipboardCopyArguments(mimeType)...)
 			// An io.Reader makes os/exec feed the distribution-matched wl-copy
 			// through an OS pipe. A regular-file stdin can fail with EPIPE in the
 			// Omarchy data-control session, while mixing the separately built Rust
@@ -162,6 +162,14 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		clipboardOwner.Unlock()
 	}()
 	return clipboardResult{Success: true, Message: "Guest clipboard updated.", ByteCount: byteCount, SHA256: digestText}
+}
+
+func clipboardCopyArguments(mimeType string) []string {
+	arguments := []string{"--foreground"}
+	if mimeType != clipboardTextMIME {
+		arguments = append(arguments, "--type", mimeType)
+	}
+	return arguments
 }
 
 func stopSessionClipboardOwner() {

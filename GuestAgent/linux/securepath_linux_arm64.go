@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -107,8 +108,7 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 	// The parent was resolved with openat2 beneath / and the random basename
 	// contains no separators. Use openat for creation because virtiofs can
 	// reject openat2(O_CREAT) despite permitting ordinary writes.
-	fd, err := syscall.Openat(parentFD, temporaryName,
-		syscall.O_WRONLY|syscall.O_CREAT|syscall.O_EXCL|syscall.O_CLOEXEC|oNoFollow, 0600)
+	fd, err := createUploadEntry(parentFD, temporaryName, syscall.Openat, syscall.Open)
 	if err != nil {
 		syscall.Close(parentFD)
 		return nil, nil, err
@@ -116,6 +116,34 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 	target := &linuxUploadTarget{parentFD: parentFD, temporaryName: temporaryName,
 		destinationName: filepath.Base(path)}
 	return os.NewFile(uintptr(fd), temporaryName), target, nil
+}
+
+type openUploadAtOperation func(int, string, int, uint32) (int, error)
+type openUploadPathOperation func(string, int, uint32) (int, error)
+
+func createUploadEntry(
+	parentFD int,
+	temporaryName string,
+	openAt openUploadAtOperation,
+	openPath openUploadPathOperation,
+) (int, error) {
+	flags := syscall.O_WRONLY | syscall.O_CREAT | syscall.O_EXCL | syscall.O_CLOEXEC | oNoFollow
+	fd, err := openAt(parentFD, temporaryName, flags, 0600)
+	if err == nil {
+		return fd, nil
+	}
+	if !errors.Is(err, syscall.EROFS) && !errors.Is(err, syscall.EINVAL) &&
+		!errors.Is(err, syscall.ENOSYS) && !errors.Is(err, syscall.EOPNOTSUPP) {
+		return -1, err
+	}
+	// macOS Virtualization.framework's virtiofs implementation can reject an
+	// otherwise valid O_CREAT operation addressed through openat(2). Resolve
+	// through the already-open directory descriptor instead. /proc/self/fd/N
+	// remains bound to that descriptor even if an untrusted shared-directory
+	// entry is concurrently renamed, while O_EXCL and O_NOFOLLOW continue to
+	// protect the random final component.
+	path := fmt.Sprintf("/proc/self/fd/%d/%s", parentFD, temporaryName)
+	return openPath(path, flags, 0600)
 }
 
 func (target *linuxUploadTarget) commit(overwrite bool) error {
