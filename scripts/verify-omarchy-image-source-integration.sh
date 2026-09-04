@@ -14,6 +14,8 @@ sources="$image_source/sources.env"
 [[ -f $sources && ! -L $sources ]] || fail "image source pin manifest is missing or unsafe"
 agent_ref=$(sed -n 's/^EZVM_GUEST_AGENT_REF=//p' "$sources")
 [[ $agent_ref =~ ^[0-9a-f]{40}$ ]] || fail "EZVM Guest Agent is not pinned to a full Git commit"
+wl_copy_ref=$(sed -n 's/^WL_CLIPBOARD_RS_REF=//p' "$sources")
+[[ $wl_copy_ref =~ ^[0-9a-f]{40}$ ]] || fail "EZVM wl-copy frontend is not pinned to a full Git commit"
 git -C "$project_root" cat-file -e "$agent_ref^{commit}" 2>/dev/null || \
   fail "pinned EZVM Guest Agent commit is unavailable in the product repository"
 git -C "$project_root" show "$agent_ref:GuestAgent/linux/session_linux.go" 2>/dev/null | \
@@ -31,6 +33,8 @@ cmp -s "$project_root/EZVMOmarchy/GuestOverlay/systemd/ezvm-session-agent.servic
 
 grep -Eq '^[[:space:]]*wl-clipboard([[:space:]]*(#.*)?)?$' "$profile/runtime-packages" || \
   fail "wl-clipboard is not an explicit image runtime dependency"
+grep -Fq 'install -m755 "$EZVM_WL_COPY_BINARY" "$MOUNT_DIR/usr/local/bin/wl-copy"' "$build" || \
+  fail "verified stdin-safe wl-copy frontend is not installed ahead of /usr/bin"
 grep -Fq "target_chroot systemctl enable 'mnt-ezvm\\x2dshared.mount'" "$build" || \
   fail "shared-folder mount is not enabled during image assembly"
 grep -Fq 'install -d -m755 "$MOUNT_DIR/mnt/ezvm-shared"' "$build" || \
@@ -46,6 +50,7 @@ for required in \
   "$user_unit" \
   'etc/systemd/system/multi-user.target.wants/mnt-ezvm\x2dshared.mount' \
   'mnt/ezvm-shared' \
+  'usr/local/bin/wl-copy' \
   "$owner_provisioner" \
   'etc/systemd/user/graphical-session.target.wants/ezvm-session-agent.service'; do
   grep -Fq "$required" "$build" || fail "final image validation does not require /$required"
