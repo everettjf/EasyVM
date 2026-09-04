@@ -968,7 +968,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 guard let self else { return }
                 do {
                     let result = try await integrationClient.verifySharedFolderRoundTrip(
-                        hostDirectory: layout.shared
+                        layout: layout
                     )
                     self.sharedFolderProbePassed = true
                     NSLog(

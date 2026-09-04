@@ -216,7 +216,9 @@ final class EZVMOmarchyTests: XCTestCase {
             sharedFolderRoundTrip: VMOmarchySharedFolderRoundTrip(
                 observedAt: observedAt,
                 hostToGuestSHA256: String(repeating: "a", count: 64),
-                guestToHostSHA256: String(repeating: "b", count: 64)
+                guestToHostSHA256: String(repeating: "b", count: 64),
+                fileImportObservedAt: observedAt,
+                importedFileSHA256: String(repeating: "c", count: 64)
             ),
             clipboardRoundTrip: OmarchyClipboardRoundTrip(
                 observedAt: observedAt,
@@ -234,7 +236,7 @@ final class EZVMOmarchyTests: XCTestCase {
             observedAt: observedAt
         )
 
-        XCTAssertEqual(observation.schemaVersion, 4)
+        XCTAssertEqual(observation.schemaVersion, 5)
         XCTAssertEqual(observation.observedAt, observedAt)
         XCTAssertEqual(observation.sourceRevision, "source-commit")
         XCTAssertEqual(observation.factoryImageVersion, "factory-version")
@@ -248,6 +250,9 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertTrue(observation.clipboardImageCapabilityAdvertised)
         XCTAssertTrue(observation.dynamicDisplayCapabilityAdvertised)
         XCTAssertTrue(observation.sharedFolderRoundTripPassed)
+        XCTAssertTrue(observation.fileImportPassed)
+        XCTAssertEqual(observation.fileImportObservedAt, observedAt)
+        XCTAssertEqual(observation.importedFileSHA256, String(repeating: "c", count: 64))
         XCTAssertEqual(observation.sharedFolderRoundTripObservedAt, observedAt)
         XCTAssertEqual(observation.hostToGuestSHA256, String(repeating: "a", count: 64))
         XCTAssertEqual(observation.guestToHostSHA256, String(repeating: "b", count: 64))

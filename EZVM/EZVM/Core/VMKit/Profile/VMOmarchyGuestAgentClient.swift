@@ -8,15 +8,21 @@ public struct VMOmarchySharedFolderRoundTrip: Codable, Equatable, Sendable {
     public let observedAt: Date
     public let hostToGuestSHA256: String
     public let guestToHostSHA256: String
+    public let fileImportObservedAt: Date
+    public let importedFileSHA256: String
 
     public init(
         observedAt: Date,
         hostToGuestSHA256: String,
-        guestToHostSHA256: String
+        guestToHostSHA256: String,
+        fileImportObservedAt: Date,
+        importedFileSHA256: String
     ) {
         self.observedAt = observedAt
         self.hostToGuestSHA256 = hostToGuestSHA256
         self.guestToHostSHA256 = guestToHostSHA256
+        self.fileImportObservedAt = fileImportObservedAt
+        self.importedFileSHA256 = importedFileSHA256
     }
 }
 
@@ -271,7 +277,7 @@ public final class VMOmarchyGuestAgentClient {
     /// The probe uses authenticated file-transfer requests and removes its
     /// random marker files before returning.
     public func verifySharedFolderRoundTrip(
-        hostDirectory: URL,
+        layout: VMOmarchyWorkspaceLayout,
         guestDirectory: String = "/mnt/ezvm-shared"
     ) async throws -> VMOmarchySharedFolderRoundTrip {
         guard capabilities.contains("shared-folders-v1"),
@@ -279,15 +285,20 @@ public final class VMOmarchyGuestAgentClient {
             throw CocoaError(.featureUnsupported)
         }
         let nonce = UUID().uuidString.lowercased()
+        let hostDirectory = layout.shared
         let hostName = ".ezvm-acceptance-host-\(nonce).marker"
         let guestName = ".ezvm-acceptance-guest-\(nonce).marker"
         let hostURL = hostDirectory.appending(path: hostName)
         let guestURL = hostDirectory.appending(path: guestName)
         let hostData = Data("ezvm-host-to-guest:\(nonce)".utf8)
         let guestData = Data("ezvm-guest-to-host:\(nonce)".utf8)
+        let importSource = layout.diagnostics.appending(path: ".ezvm-import-source-\(nonce).marker")
+        var importedURL: URL?
         defer {
             try? FileManager.default.removeItem(at: hostURL)
             try? FileManager.default.removeItem(at: guestURL)
+            try? FileManager.default.removeItem(at: importSource)
+            if let importedURL { try? FileManager.default.removeItem(at: importedURL) }
         }
         try FileManager.default.createDirectory(at: hostDirectory, withIntermediateDirectories: true)
         try hostData.write(to: hostURL, options: [.atomic])
@@ -313,10 +324,25 @@ public final class VMOmarchyGuestAgentClient {
         guard returned == guestData else {
             throw CocoaError(.fileReadCorruptFile)
         }
+        let importData = Data("ezvm-file-import:\(nonce)".utf8)
+        try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+        try importData.write(to: importSource, options: .atomic)
+        let imported = try VMOmarchySharedFolderImporter(layout: layout).importFiles([importSource])
+        guard imported.count == 1, let importedFile = imported.first else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        importedURL = importedFile.destinationURL
+        let importedFromGuest = try await downloadData(
+            guestPath: "\(guestDirectory)/\(importedFile.destinationURL.lastPathComponent)"
+        )
+        guard importedFromGuest == importData else { throw CocoaError(.fileReadCorruptFile) }
+        let importObservedAt = Date()
         return VMOmarchySharedFolderRoundTrip(
-            observedAt: Date(),
+            observedAt: importObservedAt,
             hostToGuestSHA256: Self.sha256(hostData),
-            guestToHostSHA256: Self.sha256(guestData)
+            guestToHostSHA256: Self.sha256(guestData),
+            fileImportObservedAt: importObservedAt,
+            importedFileSHA256: Self.sha256(importData)
         )
     }
 

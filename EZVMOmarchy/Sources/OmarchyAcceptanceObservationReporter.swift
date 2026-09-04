@@ -22,6 +22,9 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
     let sharedFolderRoundTripObservedAt: Date?
     let hostToGuestSHA256: String?
     let guestToHostSHA256: String?
+    let fileImportPassed: Bool
+    let fileImportObservedAt: Date?
+    let importedFileSHA256: String?
     let clipboardRoundTripPassed: Bool
     let clipboardRoundTripObservedAt: Date?
     let hostToGuestTextSHA256: String?
@@ -351,7 +354,7 @@ enum OmarchyAcceptanceObservationReporter {
     ) -> OmarchyIntegrationObservation {
         let capabilities = status.capabilities
         return OmarchyIntegrationObservation(
-            schemaVersion: 4,
+            schemaVersion: 5,
             observedAt: observedAt,
             sourceRevision: sourceRevision,
             factoryImageVersion: factoryImageVersion,
@@ -371,6 +374,9 @@ enum OmarchyAcceptanceObservationReporter {
             sharedFolderRoundTripObservedAt: sharedFolderRoundTrip?.observedAt,
             hostToGuestSHA256: sharedFolderRoundTrip?.hostToGuestSHA256,
             guestToHostSHA256: sharedFolderRoundTrip?.guestToHostSHA256,
+            fileImportPassed: sharedFolderRoundTrip != nil,
+            fileImportObservedAt: sharedFolderRoundTrip?.fileImportObservedAt,
+            importedFileSHA256: sharedFolderRoundTrip?.importedFileSHA256,
             clipboardRoundTripPassed: clipboardRoundTrip != nil,
             clipboardRoundTripObservedAt: clipboardRoundTrip?.observedAt,
             hostToGuestTextSHA256: clipboardRoundTrip?.hostToGuestTextSHA256,

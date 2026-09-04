@@ -17,7 +17,7 @@ write_observation() {
       shared-folders-v1 shutdown-v1
     ]
     value = {
-      schemaVersion: 4, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
+      schemaVersion: 5, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
       factoryImageVersion: ARGV.fetch(2), omarchyRevision: "omarchy-test-1",
       guestAgentVersion: ARGV.fetch(3), guestHostName: "omarchy",
       guestAddresses: ["192.0.2.2"], guestCapabilities: capabilities,
@@ -29,6 +29,8 @@ write_observation() {
       sharedFolderRoundTripPassed: true,
       sharedFolderRoundTripObservedAt: ARGV.fetch(0),
       hostToGuestSHA256: "a" * 64, guestToHostSHA256: "b" * 64,
+      fileImportPassed: true, fileImportObservedAt: ARGV.fetch(0),
+      importedFileSHA256: "c" * 64,
       clipboardRoundTripPassed: true,
       clipboardRoundTripObservedAt: ARGV.fetch(0),
       hostToGuestTextSHA256: "c" * 64, guestToHostTextSHA256: "d" * 64,
@@ -67,6 +69,10 @@ expect_rejection "observation without shared-folder readiness was accepted"
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["sharedFolderRoundTripPassed"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
 expect_rejection "observation without a real shared-folder round trip was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["fileImportPassed"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+expect_rejection "observation without a real file import was accepted"
 
 write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["clipboardRoundTripPassed"]=false; File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"

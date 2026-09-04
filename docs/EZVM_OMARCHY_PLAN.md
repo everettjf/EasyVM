@@ -676,7 +676,7 @@ Omarchy Edition tags use the separate
 `ezvm-omarchy-v<version>` namespace.
 
 Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
-schema-4 `Diagnostics/integration-readiness.json` observation after the authenticated
+schema-5 `Diagnostics/integration-readiness.json` observation after the authenticated
 Guest Agent reports an active desktop, completed provisioning, and every
 profile-required capability. Capability booleans explicitly mean “advertised,”
 not “round trip proven.” The observation binds those live facts to the App
@@ -685,6 +685,12 @@ version. In acceptance mode the Host also writes a random marker through
 VirtioFS, downloads it through the authenticated Agent, uploads a different
 random marker through the Agent, and verifies it on the Host. The report records
 both content digests only after this bidirectional round trip passes. It then
+creates a separate random source under diagnostics, invokes the same atomic
+`VMOmarchySharedFolderImporter` used by drag-and-drop and the file picker, and
+downloads the imported destination through the authenticated Agent. A fresh
+timestamp and content digest are recorded only when the Guest reads back the
+exact source bytes; `fileImport` is therefore not a hand-authored release flag.
+The acceptance sequence then
 opens a Guest terminal through the authenticated uinput device and runs an
 isolated shared-folder script that proves UTF-8 text and PNG in both directions
 through the actual `NSPasteboard`/SPICE/Wayland clipboard path. Four additional

@@ -24,7 +24,7 @@ ruby -rjson -e '
     shared-folders-v1 shutdown-v1
   ]
   value = {
-    schemaVersion: 4, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
+    schemaVersion: 5, observedAt: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
     factoryImageVersion: ARGV.fetch(2), omarchyRevision: "omarchy-test-1",
     guestAgentVersion: ARGV.fetch(3), guestHostName: "omarchy",
     guestAddresses: ["192.0.2.2"], guestCapabilities: capabilities,
@@ -34,6 +34,7 @@ ruby -rjson -e '
     dynamicDisplayCapabilityAdvertised: true, sharedFolderRoundTripPassed: true,
     sharedFolderRoundTripObservedAt: ARGV.fetch(0), hostToGuestSHA256: "a" * 64,
     guestToHostSHA256: "b" * 64, clipboardRoundTripPassed: true,
+    fileImportPassed: true, fileImportObservedAt: ARGV.fetch(0), importedFileSHA256: "c" * 64,
     clipboardRoundTripObservedAt: ARGV.fetch(0), hostToGuestTextSHA256: "c" * 64,
     guestToHostTextSHA256: "d" * 64, hostToGuestImageSHA256: "e" * 64,
     guestToHostImageSHA256: "f" * 64, dynamicDisplayRoundTripPassed: true,
@@ -73,7 +74,6 @@ write_evidence() {
   ruby -rjson -e '
     scenarios = %w[
       cleanInstall ownerProvisioning commandSuper clipboardText clipboardImage
-      fileImport
       updateRollback continuousOperation
     ].to_h { |name| [name, true] }
     value = {

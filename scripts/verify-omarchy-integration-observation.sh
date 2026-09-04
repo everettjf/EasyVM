@@ -15,7 +15,7 @@ fail() { echo "verify-omarchy-integration-observation: $*" >&2; exit 1; }
 
 ruby -rjson -rtime -e '
   value = JSON.parse(File.read(ARGV.fetch(0)))
-  abort "wrong observation schema" unless value["schemaVersion"] == 4
+  abort "wrong observation schema" unless value["schemaVersion"] == 5
   abort "wrong source revision" unless value["sourceRevision"] == ARGV.fetch(1)
   abort "wrong factory image version" unless value["factoryImageVersion"] == ARGV.fetch(2)
   expected_agent = ARGV.fetch(3)
@@ -56,6 +56,11 @@ ruby -rjson -rtime -e '
   %w[hostToGuestSHA256 guestToHostSHA256].each do |field|
     abort "invalid #{field}" unless value[field].is_a?(String) && value[field].match?(/\A[0-9a-f]{64}\z/)
   end
+  abort "file import did not pass" unless value["fileImportPassed"] == true
+  import_at = Time.iso8601(value.fetch("fileImportObservedAt"))
+  abort "file import predates observation window" if import_at < observed - 300
+  abort "file import is in the future" if import_at > Time.now.utc + 300
+  abort "invalid importedFileSHA256" unless value["importedFileSHA256"].is_a?(String) && value["importedFileSHA256"].match?(/\A[0-9a-f]{64}\z/)
   abort "clipboard round trip did not pass" unless value["clipboardRoundTripPassed"] == true
   clipboard_at = Time.iso8601(value.fetch("clipboardRoundTripObservedAt"))
   abort "clipboard result predates observation window" if clipboard_at < observed - 300
