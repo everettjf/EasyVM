@@ -1,5 +1,20 @@
 import EZVMCore
 
+enum OmarchyInteractiveDesktopReadiness {
+    // The system agent can report the compositor as active while the visible
+    // session is still locked. Session-agent capabilities prove that the
+    // authenticated user's desktop is reachable again.
+    static let requiredSessionCapabilities: Set<String> = [
+        "clipboard-agent-text-v1",
+        "clipboard-agent-image-v1",
+    ]
+
+    static func isReady(_ status: VMOmarchyGuestStatus) -> Bool {
+        status.desktopSessionActive
+            && requiredSessionCapabilities.isSubset(of: status.capabilities)
+    }
+}
+
 struct OmarchyAcceptanceUnlockCredential: Equatable {
     let password: String
 
@@ -97,14 +112,14 @@ struct OmarchyGuestRestartAcceptanceState: Equatable {
         guard !status.provisioningPending, !status.bootID.isEmpty else { return .none }
         switch phase {
         case .waitingForRestart(let previousBootID) where status.bootID != previousBootID:
-            if status.desktopSessionActive {
+            if OmarchyInteractiveDesktopReadiness.isReady(status) {
                 phase = .complete
                 return .completed
             }
             phase = .waitingForActive(bootID: status.bootID)
             return .submitUnlockSecret
         case .waitingForActive(let bootID)
-            where status.bootID == bootID && status.desktopSessionActive:
+            where status.bootID == bootID && OmarchyInteractiveDesktopReadiness.isReady(status):
             phase = .complete
             return .completed
         case .idle, .waitingForRestart, .waitingForActive, .complete:

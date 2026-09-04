@@ -258,7 +258,8 @@ enum OmarchyAcceptanceObservationReporter {
             observation.firstProvisioningPendingObservedAt =
                 observation.firstProvisioningPendingObservedAt ?? observedAt
         }
-        if status.desktopSessionActive {
+        let interactiveDesktopReady = OmarchyInteractiveDesktopReadiness.isReady(status)
+        if interactiveDesktopReady {
             observation.firstActiveObservedAt = observation.firstActiveObservedAt ?? observedAt
             if observation.firstLockedObservedAt != nil {
                 observation.firstActiveAfterLockedObservedAt =

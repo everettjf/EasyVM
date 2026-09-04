@@ -559,7 +559,8 @@ final class EZVMOmarchyTests: XCTestCase {
         )
         let activeAfter = VMOmarchyGuestStatus(
             agentVersion: "agent", bootID: "boot-after", hostName: "omarchy",
-            addresses: [], capabilities: [], desktopSessionActive: true,
+            addresses: [], capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
+            desktopSessionActive: true,
             provisioningPending: false
         )
         XCTAssertEqual(state.observe(before), .none)
@@ -573,10 +574,30 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertTrue(state.begin(previousBootID: "boot-before"))
         let activeAfter = VMOmarchyGuestStatus(
             agentVersion: "agent", bootID: "boot-after", hostName: "omarchy",
-            addresses: [], capabilities: [], desktopSessionActive: true,
+            addresses: [], capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
+            desktopSessionActive: true,
             provisioningPending: false
         )
         XCTAssertEqual(state.observe(activeAfter), .completed)
+    }
+
+    func testGuestRestartAcceptanceDoesNotTrustActiveFlagWithoutSessionAgent() {
+        var state = OmarchyGuestRestartAcceptanceState()
+        XCTAssertTrue(state.begin(previousBootID: "boot-before"))
+        let falselyActiveAfter = VMOmarchyGuestStatus(
+            agentVersion: "agent", bootID: "boot-after", hostName: "omarchy",
+            addresses: [], capabilities: [], desktopSessionActive: true,
+            provisioningPending: false
+        )
+        let interactiveAfter = VMOmarchyGuestStatus(
+            agentVersion: "agent", bootID: "boot-after", hostName: "omarchy",
+            addresses: [], capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
+            desktopSessionActive: true, provisioningPending: false
+        )
+
+        XCTAssertEqual(state.observe(falselyActiveAfter), .submitUnlockSecret)
+        XCTAssertEqual(state.observe(falselyActiveAfter), .none)
+        XCTAssertEqual(state.observe(interactiveAfter), .completed)
     }
 
     func testIntegrationObservationRecognizesAuthenticatedClipboardCapabilities() throws {
@@ -821,18 +842,20 @@ final class EZVMOmarchyTests: XCTestCase {
             bootID: "boot-before",
             hostName: "omarchy",
             addresses: [],
-            capabilities: [],
+            capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
             desktopSessionActive: true,
             provisioningPending: false
         )
         let agentRecovered = VMOmarchyGuestStatus(
             agentVersion: "agent-commit", agentInstanceID: "instance-after",
-            bootID: "boot-before", hostName: "omarchy", addresses: [], capabilities: [],
+            bootID: "boot-before", hostName: "omarchy", addresses: [],
+            capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
             desktopSessionActive: true, provisioningPending: false
         )
         let guestRecovered = VMOmarchyGuestStatus(
             agentVersion: "agent-commit", agentInstanceID: "instance-after-boot",
-            bootID: "boot-after", hostName: "omarchy", addresses: [], capabilities: [],
+            bootID: "boot-after", hostName: "omarchy", addresses: [],
+            capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
             desktopSessionActive: true, provisioningPending: false
         )
 
@@ -925,6 +948,62 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(json["lastDesktopSessionActive"] as? Bool, true)
         XCTAssertEqual(json["lastProvisioningPending"] as? Bool, false)
         XCTAssertEqual(json["guestAgentVersion"] as? String, "agent-commit")
+    }
+
+    func testAcceptanceLifecycleDoesNotRecordGuestRecoveryBeforeSessionAgentIsReady() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-omarchy-false-recovery-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        let environment = [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"]
+        let before = VMOmarchyGuestStatus(
+            agentVersion: "agent", agentInstanceID: "instance-before", bootID: "boot-before",
+            hostName: "omarchy", addresses: [],
+            capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let activeFlagOnly = VMOmarchyGuestStatus(
+            agentVersion: "agent", agentInstanceID: "instance-after", bootID: "boot-after",
+            hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let interactive = VMOmarchyGuestStatus(
+            agentVersion: "agent", agentInstanceID: "instance-after", bootID: "boot-after",
+            hostName: "omarchy", addresses: [],
+            capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
+            desktopSessionActive: true, provisioningPending: false
+        )
+
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: before, layout: layout, environment: environment
+        )
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .guestRestartRequested(before), layout: layout, environment: environment
+        )
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .disconnectedAfterGuestRestart, layout: layout, environment: environment
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: activeFlagOnly, layout: layout, environment: environment
+        )
+
+        let file = layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.lifecycleFileName
+        )
+        var json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any]
+        )
+        XCTAssertNil(json["firstGuestRecoveredAt"])
+        XCTAssertNil(json["guestBootIDAfterRestart"])
+
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: interactive, layout: layout, environment: environment
+        )
+        json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any]
+        )
+        XCTAssertNotNil(json["firstGuestRecoveredAt"])
+        XCTAssertEqual(json["guestBootIDAfterRestart"] as? String, "boot-after")
     }
 
     func testExplicitLockCycleSurvivesCoalescedStatusUpdates() throws {
