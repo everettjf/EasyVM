@@ -44,7 +44,12 @@ struct OmarchyVirtualMachineView: View {
                 dynamicDisplayProbeChanged: handleDynamicDisplayProbeChange,
                 ownerProvisioningSubmission: ownerProvisioningSubmission,
                 ownerProvisioningCompleted: handleOwnerProvisioningCompletion,
-                ownerProvisioningProgressChanged: { ownerProvisioningDetail = $0.displayMessage },
+                ownerProvisioningProgressChanged: {
+                    ownerProvisioningDetail = $0.displayMessage
+                    if ownerSetupPhase == .editing {
+                        ownerSetupPhase = .finishing
+                    }
+                },
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)

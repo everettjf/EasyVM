@@ -294,13 +294,26 @@ public final class VMOmarchyGuestAgentClient {
         }
     }
 
-    public func ownerProvisioningProgress() async throws -> VMOmarchyOwnerProvisioningProgress {
+    public func ownerProvisioningProgress() async throws -> VMOmarchyOwnerProvisioningProgress? {
         guard capabilities.contains("file-transfer-v1") else {
             throw CocoaError(.featureUnsupported)
         }
-        let state = try? await downloadData(guestPath: "/run/omarchy-provision-owner.state")
-        let log = try? await downloadData(guestPath: "/var/log/omarchy-provision-owner.log")
-        guard state != nil || log != nil else { throw CocoaError(.fileNoSuchFile) }
+        let state: Data?
+        do {
+            state = try await downloadData(guestPath: "/run/omarchy-provision-owner.state")
+        } catch {
+            state = nil
+        }
+        let log: Data?
+        do {
+            log = try await downloadData(
+                guestPath: "/var/log/omarchy-provision-owner.log",
+                maximumBytes: 8 * 1024 * 1024
+            )
+        } catch {
+            log = nil
+        }
+        guard state != nil || log != nil else { return nil }
         return .parse(state: state, log: log)
     }
 
@@ -677,7 +690,10 @@ public final class VMOmarchyGuestAgentClient {
         )
     }
 
-    private func downloadData(guestPath: String) async throws -> Data {
+    private func downloadData(
+        guestPath: String,
+        maximumBytes: Int = VMGuestAgentProtocol.fileChunkBytes
+    ) async throws -> Data {
         let transferID = UUID().uuidString
         do {
             var result: VMGuestAgentTransferResult = try await request(
@@ -689,7 +705,7 @@ public final class VMOmarchyGuestAgentClient {
             )
             try Self.requireSuccess(result)
             guard let total = result.totalBytes,
-                  total <= UInt64(VMGuestAgentProtocol.fileChunkBytes),
+                  total <= UInt64(maximumBytes),
                   let expectedSHA256 = result.sha256 else {
                 throw CocoaError(.fileReadCorruptFile)
             }
@@ -709,7 +725,7 @@ public final class VMOmarchyGuestAgentClient {
                 }
                 data.append(chunk)
                 if result.eof == true { break }
-            } while data.count <= VMGuestAgentProtocol.fileChunkBytes
+            } while data.count <= maximumBytes
             guard UInt64(data.count) == total, Self.sha256(data) == expectedSHA256 else {
                 throw CocoaError(.fileReadCorruptFile)
             }
