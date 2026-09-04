@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreGraphics
 import XCTest
 import EZVMCore
@@ -178,6 +179,29 @@ final class EZVMOmarchyTests: XCTestCase {
         let profile = VMOmarchyProfile.production
         try profile.validate()
         XCTAssertEqual(profile.productID, "com.everettjf.ezvm.omarchy")
+    }
+
+    func testMicrophonePermissionPolicyRequiresExplicitAuthorization() {
+        XCTAssertEqual(
+            OmarchyMicrophonePermissionPolicy.action(for: .authorized),
+            .enable
+        )
+        XCTAssertEqual(
+            OmarchyMicrophonePermissionPolicy.action(for: .notDetermined),
+            .request
+        )
+        XCTAssertEqual(
+            OmarchyMicrophonePermissionPolicy.action(for: .denied),
+            .openSystemSettings
+        )
+        XCTAssertEqual(
+            OmarchyMicrophonePermissionPolicy.action(for: .restricted),
+            .openSystemSettings
+        )
+        XCTAssertEqual(
+            OmarchyMicrophonePermissionPolicy.settingsURL.absoluteString,
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+        )
     }
 
     func testReleaseInfoTemplateCarriesFactoryTrustAndSourceProvenance() throws {

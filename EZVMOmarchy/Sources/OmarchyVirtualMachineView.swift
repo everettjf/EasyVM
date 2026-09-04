@@ -1,3 +1,4 @@
+import AVFoundation
 import EZVMCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -298,18 +299,57 @@ struct OmarchyVirtualMachineView: View {
         Binding(
             get: { microphoneEnabled },
             set: { enabled in
-                guard enabled != microphoneEnabled else { return }
-                microphoneEnabled = enabled
-                if phase == .running || phase == .paused {
-                    notice = UserNotice(
-                        title: "Restart Omarchy to Apply",
-                        message: enabled
-                            ? "After restart, macOS will ask for microphone access when Omarchy begins using the input device."
-                            : "Restart Omarchy to remove the Mac microphone from the virtual machine."
-                    )
-                }
+                requestMicrophoneSharing(enabled)
             }
         )
+    }
+
+    private func requestMicrophoneSharing(_ enabled: Bool) {
+        guard enabled != microphoneEnabled else { return }
+        guard enabled else {
+            applyMicrophoneSharing(false)
+            return
+        }
+        switch OmarchyMicrophonePermissionPolicy.action(
+            for: AVCaptureDevice.authorizationStatus(for: .audio)
+        ) {
+        case .enable:
+            applyMicrophoneSharing(true)
+        case .request:
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                Task { @MainActor in
+                    if granted {
+                        applyMicrophoneSharing(true)
+                    } else {
+                        explainDeniedMicrophoneAccess(openSettings: true)
+                    }
+                }
+            }
+        case .openSystemSettings:
+            explainDeniedMicrophoneAccess(openSettings: true)
+        }
+    }
+
+    private func applyMicrophoneSharing(_ enabled: Bool) {
+        microphoneEnabled = enabled
+        guard phase == .running || phase == .paused else { return }
+        notice = UserNotice(
+            title: "Restart Omarchy to Apply",
+            message: enabled
+                ? "Restart Omarchy to make the Mac microphone available to Linux applications."
+                : "Restart Omarchy to remove the Mac microphone from the virtual machine."
+        )
+    }
+
+    private func explainDeniedMicrophoneAccess(openSettings: Bool) {
+        microphoneEnabled = false
+        notice = UserNotice(
+            title: "Microphone Access Is Off",
+            message: "Allow EZVM Omarchy under Privacy & Security → Microphone, then enable sharing again."
+        )
+        if openSettings {
+            NSWorkspace.shared.open(OmarchyMicrophonePermissionPolicy.settingsURL)
+        }
     }
 
     private var ownerSetupAvailable: Bool {
@@ -773,6 +813,27 @@ struct OmarchyVirtualMachineView: View {
         let id = UUID()
         let title: String
         let message: String
+    }
+}
+
+enum OmarchyMicrophonePermissionAction: Equatable {
+    case enable
+    case request
+    case openSystemSettings
+}
+
+enum OmarchyMicrophonePermissionPolicy {
+    static let settingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+    )!
+
+    static func action(for status: AVAuthorizationStatus) -> OmarchyMicrophonePermissionAction {
+        switch status {
+        case .authorized: .enable
+        case .notDetermined: .request
+        case .denied, .restricted: .openSystemSettings
+        @unknown default: .openSystemSettings
+        }
     }
 }
 
