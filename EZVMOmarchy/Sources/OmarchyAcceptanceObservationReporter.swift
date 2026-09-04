@@ -50,6 +50,7 @@ enum OmarchyAcceptanceObservationReporter {
     static let fileName = "integration-readiness.json"
     static let lifecycleFileName = "integration-lifecycle.json"
     static let commandSuperFileName = "command-super.json"
+    static let fullScreenFileName = "full-screen.json"
     static let soakHeartbeatFileName = "soak-heartbeat.json"
 
     private struct CommandSuperObservation: Codable {
@@ -72,6 +73,55 @@ enum OmarchyAcceptanceObservationReporter {
         let uptimeSeconds: UInt64
         let desktopSessionActive: Bool
         let provisioningPending: Bool
+    }
+
+    private struct FullScreenObservation: Codable {
+        let schemaVersion: Int
+        let observedAt: Date
+        let sourceRevision: String
+        let enteredAt: Date?
+        let exitedAt: Date?
+        let enteredAndExitedFullScreen: Bool
+        let applicationActiveAfterExit: Bool
+        let virtualMachineWindowKeyAfterExit: Bool
+        let virtualMachineViewFocusedAfterExit: Bool
+    }
+
+    static func reportFullScreenIfEnabled(
+        layout: VMOmarchyWorkspaceLayout,
+        enteredAt: Date?,
+        exitedAt: Date?,
+        applicationActive: Bool,
+        virtualMachineWindowKey: Bool,
+        virtualMachineViewFocused: Bool,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let observation = FullScreenObservation(
+            schemaVersion: 1,
+            observedAt: observedAt,
+            sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
+            enteredAt: enteredAt,
+            exitedAt: exitedAt,
+            enteredAndExitedFullScreen: enteredAt != nil && exitedAt != nil,
+            applicationActiveAfterExit: applicationActive,
+            virtualMachineWindowKeyAfterExit: virtualMachineWindowKey,
+            virtualMachineViewFocusedAfterExit: virtualMachineViewFocused
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+            try encoder.encode(observation).write(
+                to: layout.diagnostics.appending(path: fullScreenFileName),
+                options: .atomic
+            )
+        } catch {
+            NSLog("Could not write Omarchy full-screen observation: %@", error.localizedDescription)
+        }
     }
 
     enum VirtualMachineEvent {

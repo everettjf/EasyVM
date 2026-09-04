@@ -11,13 +11,14 @@ integration_observation=${6:-}
 lifecycle_observation=${7:-}
 command_super_observation=${8:-}
 rollback_observation=${9:-}
-soak_observation=${10:-}
+full_screen_observation=${10:-}
+soak_observation=${11:-}
 
 fail() { echo "verify-omarchy-release-evidence: $*" >&2; exit 1; }
 
 for path in "$evidence" "$app_archive" "$factory_manifest" "$factory_image" \
   "$integration_observation" "$lifecycle_observation" "$command_super_observation" \
-  "$rollback_observation" "$soak_observation"; do
+  "$rollback_observation" "$full_screen_observation" "$soak_observation"; do
   [[ -f $path && ! -L $path ]] || fail "required input is missing or unsafe: ${path:-<empty>}"
 done
 [[ $expected_revision =~ ^[0-9a-f]{40}$ ]] || fail "expected revision must be a full Git commit"
@@ -29,6 +30,7 @@ integration_sha=$(shasum -a 256 "$integration_observation" | awk '{print $1}')
 lifecycle_sha=$(shasum -a 256 "$lifecycle_observation" | awk '{print $1}')
 command_super_sha=$(shasum -a 256 "$command_super_observation" | awk '{print $1}')
 rollback_sha=$(shasum -a 256 "$rollback_observation" | awk '{print $1}')
+full_screen_sha=$(shasum -a 256 "$full_screen_observation" | awk '{print $1}')
 soak_sha=$(shasum -a 256 "$soak_observation" | awk '{print $1}')
 manifest_image_sha=$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("payload").fetch("imageSHA256")' "$factory_manifest") || \
   fail "factory manifest is not valid JSON"
@@ -46,7 +48,7 @@ manifest_image_sha=$(printf '%s' "$manifest_image_sha" | tr '[:upper:]' '[:lower
 
 ruby -rjson -rtime -e '
   value = JSON.parse(File.read(ARGV.fetch(0)))
-  abort "wrong evidence schema" unless value["schemaVersion"] == 5
+  abort "wrong evidence schema" unless value["schemaVersion"] == 6
   abort "acceptance did not pass" unless value["result"] == "passed"
   abort "wrong source revision" unless value["sourceRevision"] == ARGV.fetch(1)
   abort "wrong app archive digest" unless value["appArchiveSHA256"] == ARGV.fetch(2)
@@ -56,18 +58,20 @@ ruby -rjson -rtime -e '
   abort "wrong lifecycle observation digest" unless value["lifecycleObservationSHA256"] == ARGV.fetch(6)
   abort "wrong Command/Super observation digest" unless value["commandSuperObservationSHA256"] == ARGV.fetch(7)
   abort "wrong rollback observation digest" unless value["rollbackObservationSHA256"] == ARGV.fetch(8)
-  abort "wrong soak observation digest" unless value["soakObservationSHA256"] == ARGV.fetch(9)
+  abort "wrong full-screen observation digest" unless value["fullScreenObservationSHA256"] == ARGV.fetch(9)
+  abort "wrong soak observation digest" unless value["soakObservationSHA256"] == ARGV.fetch(10)
   abort "wrong host architecture" unless value["hostArchitecture"] == "arm64"
   abort "host OS build is missing" unless value["hostOSBuild"].is_a?(String) && !value["hostOSBuild"].empty?
   started = Time.iso8601(value.fetch("startedAt"))
   ended = Time.iso8601(value.fetch("endedAt"))
   abort "invalid acceptance interval" unless ended >= started
   abort "acceptance evidence is older than 14 days" if Time.now.utc - ended > 14 * 24 * 60 * 60
-  integration = JSON.parse(File.read(ARGV.fetch(10)))
-  lifecycle = JSON.parse(File.read(ARGV.fetch(11)))
-  command_super = JSON.parse(File.read(ARGV.fetch(12)))
-  rollback = JSON.parse(File.read(ARGV.fetch(13)))
-  soak = JSON.parse(File.read(ARGV.fetch(14)))
+  integration = JSON.parse(File.read(ARGV.fetch(11)))
+  lifecycle = JSON.parse(File.read(ARGV.fetch(12)))
+  command_super = JSON.parse(File.read(ARGV.fetch(13)))
+  rollback = JSON.parse(File.read(ARGV.fetch(14)))
+  full_screen = JSON.parse(File.read(ARGV.fetch(15)))
+  soak = JSON.parse(File.read(ARGV.fetch(16)))
   abort "wrong Command/Super schema" unless command_super["schemaVersion"] == 1
   abort "wrong Command/Super source revision" unless command_super["sourceRevision"] == ARGV.fetch(1)
   abort "Command event tap was not enabled" unless command_super["eventTapEnabled"] == true
@@ -87,6 +91,15 @@ ruby -rjson -rtime -e '
   abort "rollback digests are malformed" unless [before_digest, update_digest, restored_digest].all? { |digest| digest_pattern.match?(digest) }
   abort "rollback digests do not prove reversal" unless before_digest == restored_digest && before_digest != update_digest
   rollback_observed = Time.iso8601(rollback.fetch("observedAt"))
+  abort "wrong full-screen schema" unless full_screen["schemaVersion"] == 1
+  abort "wrong full-screen source revision" unless full_screen["sourceRevision"] == ARGV.fetch(1)
+  abort "full-screen entry and exit were not observed" unless full_screen["enteredAndExitedFullScreen"] == true
+  abort "Host app lost focus after full-screen" unless full_screen["applicationActiveAfterExit"] == true
+  abort "VM window lost key status after full-screen" unless full_screen["virtualMachineWindowKeyAfterExit"] == true
+  abort "VM view lost focus after full-screen" unless full_screen["virtualMachineViewFocusedAfterExit"] == true
+  full_screen_entered = Time.iso8601(full_screen.fetch("enteredAt"))
+  full_screen_exited = Time.iso8601(full_screen.fetch("exitedAt"))
+  abort "full-screen exit did not follow entry" unless full_screen_exited >= full_screen_entered
   abort "wrong soak schema" unless soak["schemaVersion"] == 1
   abort "wrong soak source revision" unless soak["sourceRevision"] == ARGV.fetch(1)
   abort "desktop was not continuously active" unless soak["desktopContinuouslyActive"] == true
@@ -113,12 +126,14 @@ ruby -rjson -rtime -e '
   abort "Command/Super observation exceeds acceptance interval" if command_observed > ended + 300
   abort "rollback observation predates acceptance" if rollback_observed < started - 300
   abort "rollback observation exceeds acceptance interval" if rollback_observed > ended + 300
+  abort "full-screen observation predates acceptance" if full_screen_entered < started - 300
+  abort "full-screen observation exceeds acceptance interval" if full_screen_exited > ended + 300
   abort "soak predates acceptance" if soak_started < started - 300
   abort "soak exceeds acceptance interval" if soak_ended > ended + 300
   abort "legacy hand-authored scenarios remain" unless value["scenarios"] == {}
 ' "$evidence" "$expected_revision" "$app_sha" "$manifest_sha" "$image_sha" \
-  "$integration_sha" "$lifecycle_sha" "$command_super_sha" "$rollback_sha" "$soak_sha" \
+  "$integration_sha" "$lifecycle_sha" "$command_super_sha" "$rollback_sha" "$full_screen_sha" "$soak_sha" \
   "$integration_observation" "$lifecycle_observation" "$command_super_observation" \
-  "$rollback_observation" "$soak_observation"
+  "$rollback_observation" "$full_screen_observation" "$soak_observation"
 
 echo "Verified EZVM Omarchy real-guest release evidence."

@@ -195,6 +195,46 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(json["virtualMachineWindowKeyAfterCapture"] as? Bool, true)
     }
 
+    func testFullScreenTransitionRequiresOrderedEnterAndExit() {
+        var state = OmarchyFullScreenTransitionState()
+        let entered = Date(timeIntervalSince1970: 10)
+        let exited = Date(timeIntervalSince1970: 11)
+        XCTAssertFalse(state.observeExited(at: exited))
+        XCTAssertTrue(state.observeEntered(at: entered))
+        XCTAssertFalse(state.observeEntered(at: entered))
+        XCTAssertTrue(state.observeExited(at: exited))
+        XCTAssertFalse(state.observeExited(at: exited))
+        XCTAssertEqual(state.enteredAt, entered)
+        XCTAssertEqual(state.exitedAt, exited)
+    }
+
+    func testFullScreenObservationIsBoundToRuntimeState() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-full-screen-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        OmarchyAcceptanceObservationReporter.reportFullScreenIfEnabled(
+            layout: layout,
+            enteredAt: Date(timeIntervalSince1970: 10),
+            exitedAt: Date(timeIntervalSince1970: 11),
+            applicationActive: true,
+            virtualMachineWindowKey: true,
+            virtualMachineViewFocused: true,
+            environment: [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"],
+            bundleInfo: ["EZVMSourceRevision": "revision"]
+        )
+        let data = try Data(contentsOf: layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.fullScreenFileName
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["schemaVersion"] as? Int, 1)
+        XCTAssertEqual(json["sourceRevision"] as? String, "revision")
+        XCTAssertEqual(json["enteredAndExitedFullScreen"] as? Bool, true)
+        XCTAssertEqual(json["applicationActiveAfterExit"] as? Bool, true)
+        XCTAssertEqual(json["virtualMachineWindowKeyAfterExit"] as? Bool, true)
+        XCTAssertEqual(json["virtualMachineViewFocusedAfterExit"] as? Bool, true)
+    }
+
     func testSoakHeartbeatRecordsAuthenticatedGuestContinuity() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "ezvm-soak-heartbeat-\(UUID().uuidString)")

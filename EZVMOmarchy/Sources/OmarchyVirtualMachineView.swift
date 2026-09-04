@@ -810,6 +810,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var automaticRecoveryStage = AutomaticRecoveryStage.idle
         private var recoveryBaselineStatus: VMOmarchyGuestStatus?
         private var automaticCommandSpaceProbeStarted = false
+        private var automaticFullScreenProbeStarted = false
+        private var fullScreenProbe: OmarchyFullScreenAcceptanceProbe?
 
         private enum AutomaticRecoveryStage {
             case idle
@@ -1114,6 +1116,27 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 recoveryBaselineStatus = nil
             case .idle, .waitingForAgentDisconnect, .waitingForGuestDisconnect, .complete:
                 break
+            }
+            startAutomaticFullScreenProbeIfNeeded(status)
+        }
+
+        @MainActor
+        private func startAutomaticFullScreenProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
+            guard ProcessInfo.processInfo.environment[
+                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+            ] == "1", status.desktopSessionActive, !status.provisioningPending,
+                  automaticRecoveryStage == .complete,
+                  !automaticFullScreenProbeStarted, let machineView,
+                  let window = machineView.window else { return }
+            automaticFullScreenProbeStarted = true
+            let probe = OmarchyFullScreenAcceptanceProbe(
+                window: window,
+                virtualMachineView: machineView,
+                layout: layout
+            )
+            fullScreenProbe = probe
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak probe] in
+                probe?.start()
             }
         }
 

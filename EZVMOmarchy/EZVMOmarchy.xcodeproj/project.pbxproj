@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08B2C8C9A158F34B36E0CBB5 /* OmarchyFullScreenAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3DB1F289B76BE9C540F5A3 /* OmarchyFullScreenAcceptanceProbe.swift */; };
 		16D6E33C2666F1DFAC91E593 /* OmarchyClipboardAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490C829832DAA7EF0DC3578B /* OmarchyClipboardAcceptanceProbe.swift */; };
 		1715A7B6CD7CC805DF830662 /* OmarchyReleaseReadinessReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0265C3DEC883F1B7E77487C9 /* OmarchyReleaseReadinessReporter.swift */; };
 		177F45FA488565203C3F8F88 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */; };
@@ -34,6 +35,7 @@
 		3B328C4BF0A9CFBE6C0F6D36 /* EZVM OmarchyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "EZVM OmarchyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		490C829832DAA7EF0DC3578B /* OmarchyClipboardAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyClipboardAcceptanceProbe.swift; sourceTree = "<group>"; };
 		747AF85434076ADB336950A7 /* OmarchyDynamicDisplayAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyDynamicDisplayAcceptanceProbe.swift; sourceTree = "<group>"; };
+		7B3DB1F289B76BE9C540F5A3 /* OmarchyFullScreenAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyFullScreenAcceptanceProbe.swift; sourceTree = "<group>"; };
 		9000919C36387C899ED23370 /* OmarchyApplicationTermination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyApplicationTermination.swift; sourceTree = "<group>"; };
 		94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineView.swift; sourceTree = "<group>"; };
 		970A0F8BAF9DF5EC452BC1D0 /* EZVM Omarchy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZVM Omarchy.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -83,6 +85,7 @@
 				490C829832DAA7EF0DC3578B /* OmarchyClipboardAcceptanceProbe.swift */,
 				747AF85434076ADB336950A7 /* OmarchyDynamicDisplayAcceptanceProbe.swift */,
 				A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */,
+				7B3DB1F289B76BE9C540F5A3 /* OmarchyFullScreenAcceptanceProbe.swift */,
 				0265C3DEC883F1B7E77487C9 /* OmarchyReleaseReadinessReporter.swift */,
 				94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */,
 			);
@@ -195,6 +198,7 @@
 				16D6E33C2666F1DFAC91E593 /* OmarchyClipboardAcceptanceProbe.swift in Sources */,
 				17DEE7144D9A6C9578E485EC /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */,
 				DABCAAE2A198CD15B90FB292 /* OmarchyFocusedCommandBridge.swift in Sources */,
+				08B2C8C9A158F34B36E0CBB5 /* OmarchyFullScreenAcceptanceProbe.swift in Sources */,
 				1715A7B6CD7CC805DF830662 /* OmarchyReleaseReadinessReporter.swift in Sources */,
 				177F45FA488565203C3F8F88 /* OmarchyVirtualMachineView.swift in Sources */,
 			);
