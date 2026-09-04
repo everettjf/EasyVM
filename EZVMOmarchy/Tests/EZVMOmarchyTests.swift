@@ -335,6 +335,24 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(state.phase, .complete)
     }
 
+    func testLockAcceptanceTimeoutFailsOnlyAnInFlightProbe() {
+        var state = OmarchyLockAcceptanceState()
+        XCTAssertFalse(state.timeout())
+        XCTAssertTrue(state.begin())
+        XCTAssertTrue(state.timeout())
+        XCTAssertEqual(state.phase, .idle)
+        XCTAssertFalse(state.timeout())
+
+        XCTAssertTrue(state.begin())
+        let locked = VMOmarchyGuestStatus(
+            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: false, provisioningPending: false
+        )
+        XCTAssertEqual(state.observe(locked), .submitUnlockSecret)
+        XCTAssertTrue(state.timeout())
+        XCTAssertEqual(state.phase, .idle)
+    }
+
     func testAcceptanceUnlockCredentialIsScopedAndBounded() {
         let enabled = OmarchyWorkspaceConfiguration.acceptanceEnabledKey
         let password = OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey

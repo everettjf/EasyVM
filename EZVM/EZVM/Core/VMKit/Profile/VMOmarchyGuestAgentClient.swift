@@ -391,25 +391,46 @@ public final class VMOmarchyGuestAgentClient {
         guard capabilities.contains("input-uinput-v1") else {
             throw CocoaError(.featureUnsupported)
         }
-        var events: [VMGuestAgentInputEvent] = []
-        func append(_ code: UInt16, pressed: Bool) {
-            events.append(.init(type: 1, code: code, value: pressed ? 1 : 0))
-            events.append(.init(type: 0, code: 0, value: 0))
-        }
-        modifiers.forEach { append($0, pressed: true) }
-        append(key, pressed: true)
-        append(key, pressed: false)
-        modifiers.reversed().forEach { append($0, pressed: false) }
-        let result: VMGuestAgentInputResult = try await request(
-            .input,
-            payload: VMGuestAgentInputBatch(events: events)
-        )
-        guard result.success else {
-            throw NSError(
-                domain: "EZVMOmarchyInput",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: result.message]
+        var pressedKeys: [UInt16] = []
+        func send(_ code: UInt16, pressed: Bool) async throws {
+            let result: VMGuestAgentInputResult = try await request(
+                .input,
+                payload: VMGuestAgentInputBatch.key(code: code, pressed: pressed)
             )
+            guard result.success else {
+                throw NSError(
+                    domain: "EZVMOmarchyInput",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: result.message]
+                )
+            }
+            // Hyprland/libinput can discard a complete chord delivered as one
+            // zero-duration burst even though uinput accepted every event.
+            // Preserve the held-key state across separately synchronized,
+            // briefly paced reports just like the proven text-input path.
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        do {
+            for modifier in modifiers {
+                try await send(modifier, pressed: true)
+                pressedKeys.append(modifier)
+            }
+            try await send(key, pressed: true)
+            pressedKeys.append(key)
+            try await send(key, pressed: false)
+            pressedKeys.removeLast()
+            for modifier in modifiers.reversed() {
+                try await send(modifier, pressed: false)
+                pressedKeys.removeLast()
+            }
+        } catch {
+            // A transport failure must not leave Super, Control, or the main
+            // key logically held in the Guest. Cleanup is best effort because
+            // the original error remains the actionable failure.
+            for code in pressedKeys.reversed() {
+                try? await send(code, pressed: false)
+            }
+            throw error
         }
     }
 

@@ -49,4 +49,14 @@ struct OmarchyLockAcceptanceState: Equatable {
             return .none
         }
     }
+
+    mutating func timeout() -> Bool {
+        switch phase {
+        case .waitingForLocked, .waitingForActive:
+            phase = .idle
+            return true
+        case .idle, .complete:
+            return false
+        }
+    }
 }

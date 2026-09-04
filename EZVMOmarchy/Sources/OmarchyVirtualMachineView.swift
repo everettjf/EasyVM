@@ -902,6 +902,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var dynamicDisplayProbeTask: Task<Void, Never>?
         private var dynamicDisplayProbePassed = false
         private var automaticLockProbe = OmarchyLockAcceptanceState()
+        private var automaticLockProbeTimeoutTask: Task<Void, Never>?
         private var automaticPauseResumeProbeStarted = false
         private var automaticRecoveryAfterResume = false
         private var automaticRecoveryStage = AutomaticRecoveryStage.idle
@@ -985,6 +986,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             if let resumeObserver { NotificationCenter.default.removeObserver(resumeObserver) }
             if let keyboardPermissionObserver { NotificationCenter.default.removeObserver(keyboardPermissionObserver) }
             if let forceStopObserver { NotificationCenter.default.removeObserver(forceStopObserver) }
+            automaticLockProbeTimeoutTask?.cancel()
         }
 
         func beginObservingCommands() {
@@ -1285,6 +1287,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 return
             }
             guard automaticLockProbe.begin(), let integrationClient else { return }
+            scheduleAutomaticLockProbeTimeout(
+                message: "Omarchy did not enter the lock screen after the injected Super+Control+L chord."
+            )
             Task { @MainActor [weak self, weak integrationClient] in
                 do {
                     // Omarchy's default lock binding is Super+Control+L.
@@ -1292,6 +1297,20 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 } catch {
                     self?.phaseChanged(.failed("Guest lock probe failed: \(error.localizedDescription)"))
                 }
+            }
+        }
+
+        @MainActor
+        private func scheduleAutomaticLockProbeTimeout(message: String) {
+            automaticLockProbeTimeoutTask?.cancel()
+            automaticLockProbeTimeoutTask = Task { @MainActor [weak self] in
+                do {
+                    try await Task.sleep(for: .seconds(20))
+                } catch {
+                    return
+                }
+                guard let self, self.automaticLockProbe.timeout() else { return }
+                self.phaseChanged(.failed(message))
             }
         }
 
@@ -1351,6 +1370,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             case .none:
                 break
             case .submitUnlockSecret:
+                scheduleAutomaticLockProbeTimeout(
+                    message: "Omarchy did not return to the active desktop after acceptance unlock input."
+                )
                 guard let credential = OmarchyAcceptanceUnlockCredential(
                     environment: ProcessInfo.processInfo.environment
                 ), let integrationClient else {
@@ -1366,6 +1388,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     }
                 }
             case .completed:
+                automaticLockProbeTimeoutTask?.cancel()
+                automaticLockProbeTimeoutTask = nil
                 startAutomaticPauseResumeProbeIfNeeded()
             }
         }
