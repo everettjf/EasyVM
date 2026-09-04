@@ -54,7 +54,7 @@ ruby -rjson -rtime -e '
   abort "invalid acceptance interval" unless ended >= started
   abort "acceptance evidence is older than 14 days" if Time.now.utc - ended > 14 * 24 * 60 * 60
   required = %w[
-    cleanInstall ownerProvisioning commandSuper clipboardText clipboardImage
+    cleanInstall commandSuper
     updateRollback continuousOperation
   ]
   scenarios = value.fetch("scenarios")

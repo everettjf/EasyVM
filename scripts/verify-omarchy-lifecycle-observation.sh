@@ -15,6 +15,7 @@ ruby -rjson -rtime -e '
   abort "wrong lifecycle schema" unless value["schemaVersion"] == 5
   abort "wrong Guest Agent version" unless value["guestAgentVersion"] == ARGV.fetch(1)
 
+  provisioning = Time.iso8601(value.fetch("firstProvisioningPendingObservedAt"))
   locked = Time.iso8601(value.fetch("firstLockedObservedAt"))
   recovered = Time.iso8601(value.fetch("firstActiveAfterLockedObservedAt"))
   pause_requested = Time.iso8601(value.fetch("firstPauseRequestedAt"))
@@ -30,6 +31,7 @@ ruby -rjson -rtime -e '
   host_sleep = Time.iso8601(value.fetch("firstHostSleepObservedAt"))
   host_wake = Time.iso8601(value.fetch("firstHostWakeObservedAt"))
   active_after_wake = Time.iso8601(value.fetch("firstActiveAfterHostWakeObservedAt"))
+  abort "lock observation predates owner provisioning" unless locked >= provisioning
   abort "desktop recovery predates lock observation" unless recovered >= locked
   abort "pause request predates desktop recovery" unless pause_requested >= recovered
   abort "pause confirmation predates request" unless paused >= pause_requested

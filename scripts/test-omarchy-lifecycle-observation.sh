@@ -59,6 +59,10 @@ write_observation
 "${verify[@]}" >/dev/null
 
 write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v.delete("firstProvisioningPendingObservedAt"); File.write(ARGV[0], JSON.generate(v))' "$work/lifecycle.json"
+expect_rejection "lifecycle without observed owner provisioning was accepted"
+
+write_observation
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v.delete("firstLockedObservedAt"); File.write(ARGV[0], JSON.generate(v))' "$work/lifecycle.json"
 expect_rejection "lifecycle without a lock observation was accepted"
 

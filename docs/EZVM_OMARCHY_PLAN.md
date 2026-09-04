@@ -669,6 +669,10 @@ Agent instance ID; Guest restart with a changed Linux boot ID; and finally Host
 sleep, Host wake, and authenticated desktop recovery after wake. The release
 verifier rejects missing, reordered, or identity-inconsistent transitions, so
 none of these recovery scenarios relies on a hand-authored boolean.
+The lifecycle's observed provisioning-pending-to-active transition also replaces
+the former `ownerProvisioning` assertion. Text and PNG clipboard checks and the
+file-import check are bound to content digests in the integration observation,
+so those former scenario booleans are removed as well.
 The shared-folder scenario is likewise proven by the integration observation's
 bidirectional content-digest round trip and is therefore not duplicated as a
 manually asserted release-evidence boolean.

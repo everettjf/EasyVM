@@ -47,7 +47,8 @@ ruby -rjson -e '
 
 ruby -rjson -e '
   value = {
-    schemaVersion: 5, firstLockedObservedAt: ARGV.fetch(0),
+    schemaVersion: 5, firstProvisioningPendingObservedAt: ARGV.fetch(0),
+    firstLockedObservedAt: ARGV.fetch(0),
     firstActiveObservedAt: ARGV.fetch(0), firstActiveAfterLockedObservedAt: ARGV.fetch(0),
     firstPauseRequestedAt: ARGV.fetch(0), firstPausedAt: ARGV.fetch(0),
     firstResumedAt: ARGV.fetch(0), firstActiveAfterResumeObservedAt: ARGV.fetch(0),
@@ -73,7 +74,7 @@ write_evidence() {
   local result=${1:-passed}
   ruby -rjson -e '
     scenarios = %w[
-      cleanInstall ownerProvisioning commandSuper clipboardText clipboardImage
+      cleanInstall commandSuper
       updateRollback continuousOperation
     ].to_h { |name| [name, true] }
     value = {
