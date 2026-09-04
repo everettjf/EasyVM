@@ -36,68 +36,20 @@ struct OmarchyCommandSpaceCaptureState {
     }
 }
 
-struct OmarchyAcceptanceKeyTransition: Equatable {
-    let keyCode: CGKeyCode
-    let keyDown: Bool
-    let flags: CGEventFlags
-}
-
-enum OmarchyAcceptanceKeySequence {
-    static func chord(
-        keyCode: CGKeyCode,
-        additionalFlags: CGEventFlags
-    ) -> [OmarchyAcceptanceKeyTransition] {
-        var heldFlags: CGEventFlags = .maskCommand
-        var transitions = [
-            OmarchyAcceptanceKeyTransition(
-                keyCode: 55,
-                keyDown: true,
-                flags: heldFlags
-            ),
-        ]
-        if additionalFlags.contains(.maskControl) {
-            heldFlags.insert(.maskControl)
-            transitions.append(.init(keyCode: 59, keyDown: true, flags: heldFlags))
-        }
-        if additionalFlags.contains(.maskAlternate) {
-            heldFlags.insert(.maskAlternate)
-            transitions.append(.init(keyCode: 58, keyDown: true, flags: heldFlags))
-        }
-        if additionalFlags.contains(.maskShift) {
-            heldFlags.insert(.maskShift)
-            transitions.append(.init(keyCode: 56, keyDown: true, flags: heldFlags))
-        }
-        transitions.append(.init(keyCode: keyCode, keyDown: true, flags: heldFlags))
-        transitions.append(.init(keyCode: keyCode, keyDown: false, flags: heldFlags))
-        if additionalFlags.contains(.maskShift) {
-            heldFlags.remove(.maskShift)
-            transitions.append(.init(keyCode: 56, keyDown: false, flags: heldFlags))
-        }
-        if additionalFlags.contains(.maskAlternate) {
-            heldFlags.remove(.maskAlternate)
-            transitions.append(.init(keyCode: 58, keyDown: false, flags: heldFlags))
-        }
-        if additionalFlags.contains(.maskControl) {
-            heldFlags.remove(.maskControl)
-            transitions.append(.init(keyCode: 59, keyDown: false, flags: heldFlags))
-        }
-        transitions.append(.init(keyCode: 55, keyDown: false, flags: []))
-        return transitions
-    }
-}
-
 final class OmarchyFocusedCommandBridge {
     static let syntheticMarker: Int64 = 0x455A_4F4D_4152_4348
     static let acceptanceMarker: Int64 = 0x455A_4143_4345_5054
 
     private let focusProbe: () -> Bool
     private let stateChanged: (OmarchyKeyboardIntegrationState) -> Void
+    private let redirectedCommandChord: (CGKeyCode, CGEventFlags) -> Bool
     private let commandSpaceCaptured: () -> Void
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
     private var activationObserver: NSObjectProtocol?
     private var commandSpaceState = OmarchyCommandSpaceCaptureState()
+    private var agentForwardedKeys = Set<CGKeyCode>()
 
     static let accessibilitySettingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
@@ -117,10 +69,12 @@ final class OmarchyFocusedCommandBridge {
     init(
         focusProbe: @escaping () -> Bool,
         stateChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
+        redirectedCommandChord: @escaping (CGKeyCode, CGEventFlags) -> Bool = { _, _ in false },
         commandSpaceCaptured: @escaping () -> Void = {}
     ) {
         self.focusProbe = focusProbe
         self.stateChanged = stateChanged
+        self.redirectedCommandChord = redirectedCommandChord
         self.commandSpaceCaptured = commandSpaceCaptured
     }
 
@@ -224,26 +178,22 @@ final class OmarchyFocusedCommandBridge {
     ) -> Bool {
         guard tap != nil, AXIsProcessTrusted(), focusProbe() else { return false }
         guard let source = CGEventSource(stateID: .combinedSessionState) else { return false }
-        let transitions = OmarchyAcceptanceKeySequence.chord(
-            keyCode: keyCode,
-            additionalFlags: additionalFlags
-        )
+        let flags = additionalFlags.union(.maskCommand)
         var events: [CGEvent] = []
-        for transition in transitions {
+        for keyDown in [true, false] {
             guard let event = CGEvent(
                 keyboardEventSource: source,
-                virtualKey: transition.keyCode,
-                keyDown: transition.keyDown
+                virtualKey: keyCode,
+                keyDown: keyDown
             ) else { return false }
-            event.flags = transition.flags
+            event.flags = flags
             event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
             events.append(event)
         }
-        // VZ's virtual USB keyboard consumes physical modifier transitions; a
-        // key carrying modifier flags alone is not equivalent to a real chord.
-        // Pace the balanced sequence so every transition reaches AppKit/VZ.
+        // The event tap converts the modifier flags into balanced uinput key
+        // transitions; only the main key needs to traverse the session tap.
         for (index, event) in events.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.03) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.05) {
                 event.post(tap: .cghidEventTap)
             }
         }
@@ -264,12 +214,28 @@ final class OmarchyFocusedCommandBridge {
             focused: focusProbe(),
             isSynthetic: synthetic
         )
-        guard redirect, let localEvent = event.copy() else {
+        guard redirect else {
             return Unmanaged.passUnretained(event)
         }
         if commandSpaceState.observe(type: type, keyCode: keyCode) {
             DispatchQueue.main.async { [commandSpaceCaptured] in commandSpaceCaptured() }
         }
+        let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        if type == .keyDown, !isRepeat,
+           redirectedCommandChord(keyCode, event.flags) {
+            agentForwardedKeys.insert(keyCode)
+            if event.getIntegerValueField(.eventSourceUserData) == Self.acceptanceMarker {
+                NSLog("Omarchy acceptance Command chord forwarded through Guest Agent keyCode=%hu", keyCode)
+            }
+            return nil
+        }
+        if type == .keyUp, agentForwardedKeys.remove(keyCode) != nil {
+            return nil
+        }
+        if type == .keyDown, isRepeat, agentForwardedKeys.contains(keyCode) {
+            return nil
+        }
+        guard let localEvent = event.copy() else { return nil }
         localEvent.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
         localEvent.postToPid(ProcessInfo.processInfo.processIdentifier)
         return nil

@@ -101,7 +101,7 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         guard sendLockShortcut() else { throw ProbeError.shortcutUnavailable }
         try await waitForFile(probeDirectory.appending(path: "locked"))
         let lockedAt = Date()
-        // Keep hyprlock alive for at least one authenticated Agent heartbeat.
+        // Keep the Omarchy lock screen alive for at least one authenticated Agent heartbeat.
         // This proves the product status channel observes the locked state in
         // addition to the Guest-side process watcher proving the UI transition.
         try await Task.sleep(for: .seconds(11))
@@ -138,8 +138,10 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
           hyprctl devices -j
           printf '%s\n' '=== hyprctl activewindow -j ==='
           hyprctl activewindow -j
-          printf '%s\n' '=== hyprlock processes ==='
-          pgrep -a hyprlock || true
+          printf '%s\n' '=== omarchy shell ==='
+          command -v omarchy-shell || true
+          OMARCHY_SHELL_IPC_TIMEOUT=0.5s omarchy-shell lock status || true
+          pgrep -a omarchy-shell || true
         } > "$partial" 2>&1
         mv -f -- "$partial" "$result"
         """
@@ -150,11 +152,20 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         #!/bin/bash
         set +e
         d='\(guestDirectory)'
-        touch "$d/ready"
-        while ! pgrep -x hyprlock > "$d/hyprlock-pids" 2>/dev/null; do sleep 0.05; done
-        ps -o pid=,ppid=,comm=,args= -p "$(head -n 1 "$d/hyprlock-pids")" > "$d/hyprlock-process.txt" 2>&1
+        command -v omarchy-shell > "$d/omarchy-shell-command.txt" 2>&1 || exit 1
+        lock_state() {
+          OMARCHY_SHELL_IPC_TIMEOUT=0.5s omarchy-shell lock isLocked 2> "$d/lock-query-error.txt"
+        }
+        for _ in $(seq 1 400); do
+          state=$(lock_state)
+          printf '%s\n' "$state" > "$d/lock-state.txt"
+          if [[ $state == true || $state == false ]]; then touch "$d/ready"; break; fi
+          sleep 0.05
+        done
+        [[ -e "$d/ready" ]] || exit 1
+        while [[ $(lock_state) != true ]]; do sleep 0.05; done
         touch "$d/locked"
-        while pgrep -x hyprlock >/dev/null 2>&1; do sleep 0.05; done
+        while [[ $(lock_state) != false ]]; do sleep 0.05; done
         touch "$d/unlocked"
         """
     }

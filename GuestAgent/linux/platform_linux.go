@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -170,7 +171,66 @@ func desktopInputReady() bool {
 }
 
 func desktopSessionActive() bool {
-	return desktopSessionInteractive(desktopCompositorPIDs(), desktopLockerPIDs())
+	compositorPIDs := desktopCompositorPIDs()
+	if len(compositorPIDs) == 0 || len(desktopLockerPIDs()) > 0 {
+		return false
+	}
+	if locked, determined := hyprlandSessionLockState(); determined {
+		return !locked
+	}
+	return true
+}
+
+func hyprlandSessionLockState() (bool, bool) {
+	for _, session := range findHyprlandSessions() {
+		if session.signature == "" {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		command := exec.CommandContext(ctx, "hyprctl", "-j", "monitors")
+		command.Env = append(os.Environ(),
+			"XDG_RUNTIME_DIR="+session.runtimeDir,
+			"HYPRLAND_INSTANCE_SIGNATURE="+session.signature,
+		)
+		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: session.uid, Gid: session.gid}}
+		output, err := command.Output()
+		cancel()
+		if err != nil {
+			continue
+		}
+		if locked, determined := parseHyprlandSessionLockState(output); determined {
+			return locked, true
+		}
+	}
+	return false, false
+}
+
+func parseHyprlandSessionLockState(data []byte) (bool, bool) {
+	var monitors []struct {
+		SolitaryBlockedBy []string `json:"solitaryBlockedBy"`
+	}
+	if json.Unmarshal(data, &monitors) != nil || len(monitors) == 0 {
+		return false, false
+	}
+	readable := false
+	for _, monitor := range monitors {
+		hasWorkspace := false
+		for _, blocker := range monitor.SolitaryBlockedBy {
+			switch blocker {
+			case "LOCK":
+				return true, true
+			case "WORKSPACE":
+				hasWorkspace = true
+			}
+		}
+		if !hasWorkspace {
+			readable = true
+		}
+	}
+	if readable {
+		return false, true
+	}
+	return false, false
 }
 
 func desktopSessionInteractive(compositorPIDs, lockerPIDs []string) bool {

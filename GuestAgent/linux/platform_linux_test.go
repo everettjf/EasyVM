@@ -47,3 +47,28 @@ func TestDesktopSessionRequiresCompositorWithoutActiveLocker(t *testing.T) {
 		t.Fatal("missing compositor was reported as interactive")
 	}
 }
+
+func TestParseHyprlandSessionLockState(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		locked     bool
+		determined bool
+	}{
+		{"locked", `[{"solitaryBlockedBy":["LOCK"]}]`, true, true},
+		{"locked among monitors", `[{"solitaryBlockedBy":["WORKSPACE"]},{"solitaryBlockedBy":["LOCK"]}]`, true, true},
+		{"unlocked", `[{"solitaryBlockedBy":[]}]`, false, true},
+		{"unlocked with another blocker", `[{"solitaryBlockedBy":["MIRROR"]}]`, false, true},
+		{"workspace only is undetermined", `[{"solitaryBlockedBy":["WORKSPACE"]}]`, false, false},
+		{"empty is undetermined", `[]`, false, false},
+		{"invalid is undetermined", `{`, false, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			locked, determined := parseHyprlandSessionLockState([]byte(test.input))
+			if locked != test.locked || determined != test.determined {
+				t.Fatalf("got (%t, %t), want (%t, %t)", locked, determined, test.locked, test.determined)
+			}
+		})
+	}
+}

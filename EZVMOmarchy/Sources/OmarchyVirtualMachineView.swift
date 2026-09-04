@@ -1081,6 +1081,23 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     return responder === view || responder.isDescendant(of: view)
                 },
                 stateChanged: keyboardIntegrationChanged,
+                redirectedCommandChord: { [weak self] keyCode, flags in
+                    guard let client = self?.integrationClient else { return false }
+                    Task { @MainActor in
+                        do {
+                            try await client.injectMacCommandChord(
+                                keyCode: UInt16(keyCode),
+                                modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+                            )
+                        } catch {
+                            NSLog(
+                                "Omarchy Command chord Agent forwarding failed: %@",
+                                error.localizedDescription
+                            )
+                        }
+                    }
+                    return true
+                },
                 commandSpaceCaptured: { [weak self, weak view] in
                     guard let self else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {

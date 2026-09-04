@@ -387,7 +387,11 @@ public final class VMOmarchyGuestAgentClient {
     }
 
     /// Sends one complete Linux key chord with deterministic key-up cleanup.
-    public func injectKeyChord(modifiers: [UInt16], key: UInt16) async throws {
+    public func injectKeyChord(
+        modifiers: [UInt16],
+        key: UInt16,
+        transitionDelay: Duration = .milliseconds(15)
+    ) async throws {
         guard capabilities.contains("input-uinput-v1") else {
             throw CocoaError(.featureUnsupported)
         }
@@ -408,7 +412,7 @@ public final class VMOmarchyGuestAgentClient {
             // zero-duration burst even though uinput accepted every event.
             // Preserve the held-key state across separately synchronized,
             // briefly paced reports just like the proven text-input path.
-            try await Task.sleep(for: .milliseconds(5))
+            try await Task.sleep(for: transitionDelay)
         }
         do {
             for modifier in modifiers {
@@ -432,6 +436,36 @@ public final class VMOmarchyGuestAgentClient {
             }
             throw error
         }
+    }
+
+    /// Converts a focused macOS Command chord into a complete Linux Super
+    /// chord on the authenticated uinput keyboard. Super is pressed first to
+    /// match the user's physical Command-first gesture and all releases are
+    /// balanced by `injectKeyChord` even if the transport fails.
+    public func injectMacCommandChord(
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags
+    ) async throws {
+        guard let chord = Self.linuxCommandChord(
+            keyCode: keyCode,
+            modifierFlags: modifierFlags
+        ) else { throw CocoaError(.featureUnsupported) }
+        try await injectKeyChord(modifiers: chord.modifiers, key: chord.key)
+    }
+
+    nonisolated static func linuxCommandChord(
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> (modifiers: [UInt16], key: UInt16)? {
+        guard let key = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: keyCode) else {
+            return nil
+        }
+        let flags = modifierFlags.intersection(.deviceIndependentFlagsMask)
+        var modifiers: [UInt16] = [125]
+        if flags.contains(.control) { modifiers.append(29) }
+        if flags.contains(.option) { modifiers.append(56) }
+        if flags.contains(.shift) { modifiers.append(42) }
+        return (modifiers, key)
     }
 
     public func setGuestClipboard(_ value: VMOmarchyClipboardRequest) async throws -> VMOmarchyClipboardResult {

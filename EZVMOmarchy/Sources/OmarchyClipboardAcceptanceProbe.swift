@@ -77,7 +77,7 @@ enum OmarchyClipboardAcceptanceProbe {
             )
         } catch ProbeError.timeout(let operation)
                     where operation == "script-ready" && unlockCredential != nil {
-            // A freshly booted persistent workspace may be at hyprlock even
+            // A freshly booted persistent workspace may be at the Omarchy lock screen even
             // while the compositor and Agent are already ready. The first
             // launch attempt will then have landed in the password field.
             // This recovery is acceptance-only: clear that field, submit the

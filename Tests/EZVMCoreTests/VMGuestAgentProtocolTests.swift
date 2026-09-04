@@ -8,6 +8,15 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertTrue(VMOmarchyGuestAgentClient.shouldLogClipboardResult(operation: .clipboardSet))
     }
 
+    func testMacCommandChordMapsSuperBeforeOtherLinuxModifiers() throws {
+        let chord = try XCTUnwrap(VMOmarchyGuestAgentClient.linuxCommandChord(
+            keyCode: 37,
+            modifierFlags: [.command, .control, .option, .shift]
+        ))
+        XCTAssertEqual(chord.modifiers, [125, 29, 56, 42])
+        XCTAssertEqual(chord.key, 38)
+    }
+
     func testLinuxKeyboardTextEncoderProducesBalancedBatches() throws {
         let nonce = UUID().uuidString.lowercased()
         let batches = try VMLinuxKeyboardTextEncoder.batches(
