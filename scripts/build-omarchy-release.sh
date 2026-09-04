@@ -108,6 +108,17 @@ codesign "${signing_options[@]}" "$app_path"
 "$project_root/scripts/verify-omarchy-release-app.sh" \
   "$app_path" "$version" "$source_revision" "$source_tree_state"
 
+# A Developer ID timestamp can be accepted while trustd is still resolving its
+# chain and fail shortly afterward if that resolution does not complete.  Do a
+# delayed second verification before archiving so a transiently valid signature
+# can never become the immutable release candidate.  Ad-hoc CI builds have no
+# online timestamp chain and do not need this release-only settling interval.
+if [[ $signing_identity != - ]]; then
+  sleep "${EZVM_OMARCHY_SIGNATURE_SETTLE_SECONDS:-30}"
+  "$project_root/scripts/verify-omarchy-release-app.sh" \
+    "$app_path" "$version" "$source_revision" "$source_tree_state"
+fi
+
 archive="EZVM-Omarchy-$version.zip"
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$output_dir/$archive"
 roundtrip=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-release-roundtrip.XXXXXX")
