@@ -656,10 +656,10 @@ machine-enforced boundary; CI tests its positive and tamper-rejection paths.
 and Gatekeeper-tests one immutable candidate in a versioned state directory.
 Real-guest acceptance runs against that exact ZIP. A later
 `publish <version> <evidence> <manifest> <image> <integration-observation>
-<lifecycle-observation> <command-super-observation>` invocation reuses the same checksum-verified bytes,
+<lifecycle-observation> <command-super-observation> <rollback-observation>` invocation reuses the same checksum-verified bytes,
 validates the bound evidence, and only then pushes the release branch/tag and
-creates the GitHub release. The schema-3 release record contains SHA-256 digests
-of all three structured observations. Promotion therefore fails if either the live
+creates the GitHub release. The schema-4 release record contains SHA-256 digests
+of all four structured observations. Promotion therefore fails if either the live
 clipboard/display/shared-folder result or the lock-to-active recovery result is
 missing, stale, version-mismatched, or changed after acceptance. The schema-5
 lifecycle observation also records the ordered VM pause request, framework
@@ -679,6 +679,14 @@ the VM display is focused. The session event tap must intercept both transitions
 repost them to the VM process, and leave both the App and VM window focused before
 `Diagnostics/command-super.json` is written. Promotion rejects a missing, stale,
 altered, unfocused, or source-revision-mismatched observation.
+Update rollback is derived in the same way. With the VM stopped, the restricted
+`omarchy-rollback-acceptance-tool` accepts only a temporary acceptance workspace,
+writes a random pre-update marker into the real VM bundle, creates a protected
+pre-update recovery point through `VMOmarchyRecoveryManager`, changes the marker,
+restores the recovery point transactionally, and verifies the exact pre-update
+bytes and a ready workspace. `Diagnostics/update-rollback.json` records three
+distinct content digests and the committed recovery-point identity; promotion
+rejects a hand-authored `updateRollback` flag or any altered observation.
 `cleanInstall` is also derived rather than asserted: the verifier requires the
 transactional workspace `createdAt` to fall inside the acceptance interval,
 the first provisioning-pending observation to follow workspace creation, and

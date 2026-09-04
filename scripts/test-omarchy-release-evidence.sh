@@ -74,28 +74,35 @@ printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","eventTapEnab
   "$ended" "$revision" >"$work/command-super.json"
 command_super_sha=$(shasum -a 256 "$work/command-super.json" | awk '{print $1}')
 cp "$work/command-super.json" "$work/command-super.valid.json"
+printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","snapshotID":"snapshot-test","snapshotName":"Before update","snapshotProtected":true,"beforeSHA256":"%064d","simulatedUpdateSHA256":"%064d","restoredSHA256":"%064d","restoredMatchesSnapshot":true,"workspaceReadyAfterRestore":true}\n' \
+  "$ended" "$revision" 1 2 1 >"$work/rollback.json"
+rollback_sha=$(shasum -a 256 "$work/rollback.json" | awk '{print $1}')
+cp "$work/rollback.json" "$work/rollback.valid.json"
 
 write_evidence() {
   local result=${1:-passed}
   ruby -rjson -e '
-    scenarios = %w[updateRollback continuousOperation].to_h { |name| [name, true] }
+    scenarios = %w[continuousOperation].to_h { |name| [name, true] }
     value = {
-      schemaVersion: 3, result: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
+      schemaVersion: 4, result: ARGV.fetch(0), sourceRevision: ARGV.fetch(1),
       appArchiveSHA256: ARGV.fetch(2), factoryManifestSHA256: ARGV.fetch(3),
       factoryImageSHA256: ARGV.fetch(4), hostArchitecture: "arm64",
       integrationObservationSHA256: ARGV.fetch(5), lifecycleObservationSHA256: ARGV.fetch(6),
       commandSuperObservationSHA256: ARGV.fetch(7),
-      hostOSBuild: "test-build", startedAt: ARGV.fetch(8), endedAt: ARGV.fetch(9),
+      rollbackObservationSHA256: ARGV.fetch(8),
+      hostOSBuild: "test-build", startedAt: ARGV.fetch(9), endedAt: ARGV.fetch(10),
       continuousOperationSeconds: 86_400, scenarios: scenarios
     }
-    File.write(ARGV.fetch(10), JSON.pretty_generate(value))
+    File.write(ARGV.fetch(11), JSON.pretty_generate(value))
   ' "$result" "$revision" "$app_sha" "$manifest_sha" "$image_sha" \
-    "$integration_sha" "$lifecycle_sha" "$command_super_sha" "$started" "$ended" "$work/evidence.json"
+    "$integration_sha" "$lifecycle_sha" "$command_super_sha" "$rollback_sha" \
+    "$started" "$ended" "$work/evidence.json"
 }
 
 verify=("$project_root/scripts/verify-omarchy-release-evidence.sh" "$work/evidence.json" \
   "$work/app.zip" "$work/manifest.json" "$work/factory.asif" "$revision" \
-  "$work/integration.json" "$work/lifecycle.json" "$work/command-super.json")
+  "$work/integration.json" "$work/lifecycle.json" "$work/command-super.json" \
+  "$work/rollback.json")
 write_evidence
 "${verify[@]}" >/dev/null
 
@@ -140,6 +147,13 @@ cp "$work/lifecycle.valid.json" "$work/lifecycle.json"
 printf tampered >>"$work/command-super.json"
 if "${verify[@]}" >/dev/null 2>&1; then
   echo "evidence with a tampered Command/Super observation was accepted" >&2
+  exit 1
+fi
+
+cp "$work/command-super.valid.json" "$work/command-super.json"
+printf tampered >>"$work/rollback.json"
+if "${verify[@]}" >/dev/null 2>&1; then
+  echo "evidence with a tampered rollback observation was accepted" >&2
   exit 1
 fi
 
