@@ -25,7 +25,7 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
     public override init() {}
 
     public func fetchData(from url: URL) async throws -> Data {
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await URLSession.shared.data(for: Self.uncachedRequest(for: url))
         try Self.validateHTTPResponse(response)
         return data
     }
@@ -40,7 +40,7 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
         let resumeData = try? Data(contentsOf: resumeDataURL)
         try await withCheckedThrowingContinuation { continuation in
             let task = resumeData.map(session.downloadTask(withResumeData:))
-                ?? session.downloadTask(with: url)
+                ?? session.downloadTask(with: Self.uncachedRequest(for: url))
             lock.withLock {
                 activeDownloads[task.taskIdentifier] = ActiveDownload(
                     destination: destination,
@@ -106,24 +106,43 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
         }
     }
 
+    static func uncachedRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(
+            url: url,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData
+        )
+        // GitHub release URLs redirect to time-limited asset URLs. A 404 from
+        // before a draft is published must not survive in URLCache and make the
+        // in-app Try Again action repeat the stale response.
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        return request
+    }
+
     private static func validateHTTPResponse(_ response: URLResponse?) throws {
         guard let response = response as? HTTPURLResponse,
               (200 ... 299).contains(response.statusCode) else {
-            throw VMOmarchyFactoryInstallError.invalidHTTPResponse
+            throw VMOmarchyFactoryInstallError.invalidHTTPResponse(
+                statusCode: (response as? HTTPURLResponse)?.statusCode
+            )
         }
     }
 }
 
 public enum VMOmarchyFactoryInstallError: Error, Equatable, LocalizedError {
-    case invalidHTTPResponse
+    case invalidHTTPResponse(statusCode: Int?)
     case downloadDidNotPublish
     case manifestTooLarge
     case invalidManifestEncoding
 
     public var errorDescription: String? {
         switch self {
-        case .invalidHTTPResponse:
-            "The Omarchy release server returned an invalid response."
+        case .invalidHTTPResponse(let statusCode):
+            if let statusCode {
+                "The Omarchy release server returned HTTP \(statusCode)."
+            } else {
+                "The Omarchy release server returned an invalid response."
+            }
         case .downloadDidNotPublish:
             "The Omarchy factory download completed without a usable file."
         case .manifestTooLarge:

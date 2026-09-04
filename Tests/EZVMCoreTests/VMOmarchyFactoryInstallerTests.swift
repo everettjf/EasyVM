@@ -3,6 +3,17 @@ import XCTest
 @testable import EZVMCore
 
 final class VMOmarchyFactoryInstallerTests: XCTestCase {
+    func testProductionTransportBypassesStaleReleaseCaches() {
+        let url = URL(string: "https://example.test/factory")!
+
+        let request = VMOmarchyURLSessionTransport.uncachedRequest(for: url)
+
+        XCTAssertEqual(request.url, url)
+        XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalAndRemoteCacheData)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Cache-Control"), "no-cache")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Pragma"), "no-cache")
+    }
+
     func testInstallerVerifiesBeforeDownloadingAndPublishesAtomically() async throws {
         let fixture = try Fixture()
         let transport = MockTransport(manifestData: fixture.manifestData, image: fixture.image)
