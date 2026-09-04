@@ -9,14 +9,14 @@ import (
 
 const (
 	clipboardSharedRoot   = "/mnt/ezvm-shared"
-	clipboardRelativeRoot = ".ezvm-integration/clipboard"
+	clipboardFilePrefix   = ".ezvm-clipboard-"
 	maximumClipboardBytes = 100 * 1024 * 1024
 	clipboardTextMIME     = "text/plain;charset=utf-8"
 	clipboardImageMIME    = "image/png"
 )
 
 var clipboardItemPattern = regexp.MustCompile(
-	`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(?:txt|png)$`,
+	`^\.ezvm-clipboard-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(?:txt|png)$`,
 )
 
 type clipboardRequest struct {
@@ -47,12 +47,11 @@ func validateClipboardRequest(request clipboardRequest) (string, error) {
 	if clean != request.RelativePath || filepath.IsAbs(clean) || strings.Contains(clean, "..") {
 		return "", errors.New("invalid clipboard relative path")
 	}
-	parts := strings.Split(clean, "/")
-	if len(parts) != 3 || strings.Join(parts[:2], "/") != clipboardRelativeRoot ||
-		!clipboardItemPattern.MatchString(parts[2]) {
-		return "", errors.New("clipboard path is outside the integration staging directory")
+	if strings.Contains(clean, "/") || !strings.HasPrefix(clean, clipboardFilePrefix) ||
+		!clipboardItemPattern.MatchString(clean) {
+		return "", errors.New("clipboard path is outside the shared staging root")
 	}
-	extension := filepath.Ext(parts[2])
+	extension := filepath.Ext(clean)
 	if (request.MIMEType == clipboardTextMIME && extension != ".txt") ||
 		(request.MIMEType == clipboardImageMIME && extension != ".png") {
 		return "", errors.New("clipboard MIME type does not match the staging extension")

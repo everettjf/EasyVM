@@ -31,12 +31,15 @@ enum OmarchyClipboardAcceptanceProbe {
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".ezvm-clipboard-\(nonce)")
         let guestDirectory = "/mnt/ezvm-shared/\(probeDirectory.lastPathComponent)"
-        let agentStagingDirectory = sharedDirectory
-            .appending(path: ".ezvm-integration/clipboard")
-        let agentHostText = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).txt")
-        let agentHostImage = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).png")
-        let agentGuestText = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).txt")
-        let agentGuestImage = agentStagingDirectory.appending(path: "\(UUID().uuidString.lowercased()).png")
+        func agentStagingURL(_ fileExtension: String) -> URL {
+            sharedDirectory.appending(
+                path: ".ezvm-clipboard-\(UUID().uuidString.lowercased()).\(fileExtension)"
+            )
+        }
+        let agentHostText = agentStagingURL("txt")
+        let agentHostImage = agentStagingURL("png")
+        let agentGuestText = agentStagingURL("txt")
+        let agentGuestImage = agentStagingURL("png")
         let agentURLs = [agentHostText, agentHostImage, agentGuestText, agentGuestImage]
         let snapshot = PasteboardSnapshot.capture(pasteboard)
         var completed = false
@@ -53,10 +56,6 @@ enum OmarchyClipboardAcceptanceProbe {
         try FileManager.default.createDirectory(
             at: probeDirectory,
             withIntermediateDirectories: false
-        )
-        try FileManager.default.createDirectory(
-            at: agentStagingDirectory,
-            withIntermediateDirectories: true
         )
         let hostText = "EZVM host → Omarchy 文本 \(nonce)"
         let guestText = "Omarchy guest → macOS 文本 \(nonce)"

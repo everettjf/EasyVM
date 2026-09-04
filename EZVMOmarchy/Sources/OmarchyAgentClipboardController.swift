@@ -159,9 +159,10 @@ final class OmarchyAgentClipboardController {
     }
 
     private func stagingURL(fileExtension: String) throws -> URL {
-        let directory = sharedDirectory.appending(path: ".ezvm-integration/clipboard")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appending(path: "\(UUID().uuidString.lowercased()).\(fileExtension)")
+        try FileManager.default.createDirectory(at: sharedDirectory, withIntermediateDirectories: true)
+        return sharedDirectory.appending(
+            path: ".ezvm-clipboard-\(UUID().uuidString.lowercased()).\(fileExtension)"
+        )
     }
 
     private func relativePath(for url: URL) -> String {

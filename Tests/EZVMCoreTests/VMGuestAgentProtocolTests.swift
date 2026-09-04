@@ -546,7 +546,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         ])
 
         let clipboardRequest = VMOmarchyClipboardRequest(
-            relativePath: ".ezvm-integration/clipboard/01234567-89ab-cdef-0123-456789abcdef.txt",
+            relativePath: ".ezvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt",
             mimeType: "text/plain;charset=utf-8",
             byteCount: 12,
             sha256: String(repeating: "a", count: 64)
