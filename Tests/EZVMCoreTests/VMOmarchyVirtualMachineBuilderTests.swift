@@ -63,10 +63,10 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         )
         let sharedShare = try XCTUnwrap(sharedDevice.share as? VZSingleDirectoryShare)
         XCTAssertFalse(sharedShare.directory.isReadOnly)
-        XCTAssertEqual(configuration.consoleDevices.count, 1)
-        let console = try XCTUnwrap(configuration.consoleDevices.first as? VZVirtioConsoleDeviceConfiguration)
-        let clipboard = try XCTUnwrap(console.ports[0]?.attachment as? VZSpiceAgentPortAttachment)
-        XCTAssertTrue(clipboard.sharesClipboard)
+        XCTAssertTrue(
+            configuration.consoleDevices.isEmpty,
+            "The dedicated Agent clipboard must not compete with a SPICE clipboard owner."
+        )
         XCTAssertEqual(configuration.audioDevices.count, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.efiVariableStore.path))
 

@@ -112,14 +112,11 @@ public enum VMOmarchyVirtualMachineBuilder {
         sharedDevice.share = VZSingleDirectoryShare(directory: sharedDirectory)
         configuration.directorySharingDevices = [enrollmentDevice, sharedDevice]
 
-        let spiceConsole = VZVirtioConsoleDeviceConfiguration()
-        let spicePort = VZVirtioConsolePortConfiguration()
-        spicePort.name = VZSpiceAgentPortAttachment.spiceAgentPortName
-        let spiceAttachment = VZSpiceAgentPortAttachment()
-        spiceAttachment.sharesClipboard = true
-        spicePort.attachment = spiceAttachment
-        spiceConsole.ports[0] = spicePort
-        configuration.consoleDevices = [spiceConsole]
+        // Omarchy uses the authenticated Guest Agent for text and image
+        // clipboard integration. Attaching the SPICE clipboard at the same
+        // time creates a second Wayland selection owner which can overwrite a
+        // freshly verified Agent publication with stale Host contents.
+        configuration.consoleDevices = []
 
         let network = VZVirtioNetworkDeviceConfiguration()
         network.attachment = VZNATNetworkDeviceAttachment()
