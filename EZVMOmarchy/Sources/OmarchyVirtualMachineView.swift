@@ -1390,6 +1390,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         cycle.lockedAt as NSDate,
                         cycle.unlockedAt as NSDate
                     )
+                    OmarchyAcceptanceObservationReporter.reportLockCycleIfEnabled(
+                        layout: self.layout,
+                        lockedAt: cycle.lockedAt,
+                        activeAt: cycle.unlockedAt
+                    )
                     self.startAutomaticPauseResumeProbeIfNeeded()
                 } catch {
                     self?.phaseChanged(.failed("Guest lock probe failed: \(error.localizedDescription)"))

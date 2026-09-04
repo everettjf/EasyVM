@@ -588,6 +588,9 @@ final class EZVMOmarchyTests: XCTestCase {
             ),
             clipboardRoundTrip: OmarchyClipboardRoundTrip(
                 observedAt: observedAt,
+                advertisedCapabilities: [
+                    "clipboard-agent-text-v1", "clipboard-agent-image-v1",
+                ],
                 hostToGuestTextSHA256: String(repeating: "c", count: 64),
                 guestToHostTextSHA256: String(repeating: "d", count: 64),
                 hostToGuestImageSHA256: String(repeating: "e", count: 64),
@@ -789,6 +792,36 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(json["lastDesktopSessionActive"] as? Bool, true)
         XCTAssertEqual(json["lastProvisioningPending"] as? Bool, false)
         XCTAssertEqual(json["guestAgentVersion"] as? String, "agent-commit")
+    }
+
+    func testExplicitLockCycleSurvivesCoalescedStatusUpdates() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-omarchy-lock-cycle-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        let environment = [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"]
+        let active = VMOmarchyGuestStatus(
+            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let activeAt = Date(timeIntervalSince1970: 1_700_000_010)
+        let lockedAt = activeAt.addingTimeInterval(2)
+        let recoveredAt = lockedAt.addingTimeInterval(8)
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: active, layout: layout, environment: environment, observedAt: activeAt
+        )
+        OmarchyAcceptanceObservationReporter.reportLockCycleIfEnabled(
+            layout: layout, lockedAt: lockedAt, activeAt: recoveredAt,
+            environment: environment
+        )
+
+        let data = try Data(contentsOf: layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.lifecycleFileName
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertNotNil(json["firstLockedObservedAt"])
+        XCTAssertNotNil(json["firstActiveAfterLockedObservedAt"])
+        XCTAssertEqual(json["lastDesktopSessionActive"] as? Bool, true)
     }
 
     func testAcceptanceLifecycleReplacesLegacySchemaBeforeRecordingEvents() throws {

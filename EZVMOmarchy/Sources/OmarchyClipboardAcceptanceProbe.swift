@@ -5,6 +5,7 @@ import Foundation
 
 struct OmarchyClipboardRoundTrip: Codable, Equatable {
     let observedAt: Date
+    let advertisedCapabilities: Set<String>
     let hostToGuestTextSHA256: String
     let guestToHostTextSHA256: String
     let hostToGuestImageSHA256: String
@@ -117,6 +118,10 @@ enum OmarchyClipboardAcceptanceProbe {
             throw error
         }
         try await Task.sleep(for: .seconds(2))
+        let advertisedCapabilities = client.currentCapabilities.intersection([
+            "clipboard-agent-text-v1", "clipboard-agent-image-v1",
+            "clipboard-text-v1", "clipboard-image-v1",
+        ])
 
         if client.currentCapabilities.contains("clipboard-agent-text-v1"),
            client.currentCapabilities.contains("clipboard-agent-image-v1") {
@@ -131,7 +136,8 @@ enum OmarchyClipboardAcceptanceProbe {
                     hostTextURL: agentHostText,
                     hostImageURL: agentHostImage,
                     guestTextURL: agentGuestText,
-                    guestImageURL: agentGuestImage
+                    guestImageURL: agentGuestImage,
+                    advertisedCapabilities: advertisedCapabilities
                 )
                 completed = true
                 return result
@@ -196,6 +202,7 @@ enum OmarchyClipboardAcceptanceProbe {
 
         let result = OmarchyClipboardRoundTrip(
             observedAt: Date(),
+            advertisedCapabilities: advertisedCapabilities,
             hostToGuestTextSHA256: sha256(Data(hostText.utf8)),
             guestToHostTextSHA256: sha256(Data(guestText.utf8)),
             hostToGuestImageSHA256: sha256(image),
@@ -283,7 +290,8 @@ enum OmarchyClipboardAcceptanceProbe {
         hostTextURL: URL,
         hostImageURL: URL,
         guestTextURL: URL,
-        guestImageURL: URL
+        guestImageURL: URL,
+        advertisedCapabilities: Set<String>
     ) async throws -> OmarchyClipboardRoundTrip {
         NSLog("Omarchy Agent clipboard probe starting Host-to-Guest text")
         let hostTextRequest = try agentRequest(
@@ -361,6 +369,7 @@ enum OmarchyClipboardAcceptanceProbe {
 
         return OmarchyClipboardRoundTrip(
             observedAt: Date(),
+            advertisedCapabilities: advertisedCapabilities,
             hostToGuestTextSHA256: sha256(Data(hostText.utf8)),
             guestToHostTextSHA256: sha256(guestTextResult),
             hostToGuestImageSHA256: sha256(image),

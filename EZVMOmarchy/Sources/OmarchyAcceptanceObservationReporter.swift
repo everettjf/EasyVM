@@ -306,6 +306,37 @@ enum OmarchyAcceptanceObservationReporter {
         }
     }
 
+    static func reportLockCycleIfEnabled(
+        layout: VMOmarchyWorkspaceLayout,
+        lockedAt: Date,
+        activeAt: Date,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let file = layout.diagnostics.appending(path: lifecycleFileName)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var observation = (try? Data(contentsOf: file)).flatMap({
+            try? decoder.decode(LifecycleObservation.self, from: $0)
+        }), observation.schemaVersion == 5 else {
+            NSLog("Cannot record Omarchy lock cycle before a Guest Agent status observation.")
+            return
+        }
+        observation.firstLockedObservedAt = observation.firstLockedObservedAt ?? lockedAt
+        observation.firstActiveAfterLockedObservedAt =
+            observation.firstActiveAfterLockedObservedAt ?? activeAt
+        observation.lastObservedAt = max(observation.lastObservedAt, activeAt)
+        observation.lastDesktopSessionActive = true
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try encoder.encode(observation).write(to: file, options: .atomic)
+        } catch {
+            NSLog("Could not write Omarchy lock cycle: %@", error.localizedDescription)
+        }
+    }
+
     private static func reportSoakHeartbeat(
         status: VMOmarchyGuestStatus,
         layout: VMOmarchyWorkspaceLayout,
@@ -499,7 +530,9 @@ enum OmarchyAcceptanceObservationReporter {
         dynamicDisplayRoundTrip: OmarchyDynamicDisplayRoundTrip?,
         observedAt: Date
     ) -> OmarchyIntegrationObservation {
-        let capabilities = status.capabilities
+        let capabilities = status.capabilities.union(
+            clipboardRoundTrip?.advertisedCapabilities ?? []
+        )
         return OmarchyIntegrationObservation(
             schemaVersion: 5,
             observedAt: observedAt,
