@@ -162,6 +162,39 @@ final class EZVMOmarchyTests: XCTestCase {
         ))
     }
 
+    func testCommandSpaceCaptureRequiresOrderedDownAndUp() {
+        var state = OmarchyCommandSpaceCaptureState()
+        XCTAssertFalse(state.observe(type: .keyUp, keyCode: 49))
+        XCTAssertFalse(state.observe(type: .keyDown, keyCode: 0))
+        XCTAssertFalse(state.observe(type: .keyDown, keyCode: 49))
+        XCTAssertTrue(state.observe(type: .keyUp, keyCode: 49))
+        XCTAssertFalse(state.observe(type: .keyUp, keyCode: 49))
+    }
+
+    func testCommandSuperObservationIsBoundToRuntimeState() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-command-super-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        OmarchyAcceptanceObservationReporter.reportCommandSuperIfEnabled(
+            layout: layout,
+            applicationActive: true,
+            virtualMachineWindowKey: true,
+            environment: [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"],
+            bundleInfo: ["EZVMSourceRevision": "revision"]
+        )
+        let data = try Data(contentsOf: layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.commandSuperFileName
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["schemaVersion"] as? Int, 1)
+        XCTAssertEqual(json["sourceRevision"] as? String, "revision")
+        XCTAssertEqual(json["eventTapEnabled"] as? Bool, true)
+        XCTAssertEqual(json["commandSpaceKeyDownAndUpCaptured"] as? Bool, true)
+        XCTAssertEqual(json["applicationActiveAfterCapture"] as? Bool, true)
+        XCTAssertEqual(json["virtualMachineWindowKeyAfterCapture"] as? Bool, true)
+    }
+
     func testIntegrationRequiresDesktopProvisioningAndEverySignedCapability() {
         let required = VMOmarchyProfile.production.requiredGuestCapabilities
         let readyStatus = VMOmarchyGuestStatus(

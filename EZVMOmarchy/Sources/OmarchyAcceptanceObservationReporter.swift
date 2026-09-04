@@ -49,6 +49,17 @@ struct OmarchyIntegrationObservation: Codable, Equatable {
 enum OmarchyAcceptanceObservationReporter {
     static let fileName = "integration-readiness.json"
     static let lifecycleFileName = "integration-lifecycle.json"
+    static let commandSuperFileName = "command-super.json"
+
+    private struct CommandSuperObservation: Codable {
+        let schemaVersion: Int
+        let observedAt: Date
+        let sourceRevision: String
+        let eventTapEnabled: Bool
+        let commandSpaceKeyDownAndUpCaptured: Bool
+        let applicationActiveAfterCapture: Bool
+        let virtualMachineWindowKeyAfterCapture: Bool
+    }
 
     enum VirtualMachineEvent {
         case pauseRequested
@@ -66,6 +77,38 @@ enum OmarchyAcceptanceObservationReporter {
         case disconnectedAfterAgentRestart
         case guestRestartRequested(VMOmarchyGuestStatus)
         case disconnectedAfterGuestRestart
+    }
+
+    static func reportCommandSuperIfEnabled(
+        layout: VMOmarchyWorkspaceLayout,
+        applicationActive: Bool,
+        virtualMachineWindowKey: Bool,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let observation = CommandSuperObservation(
+            schemaVersion: 1,
+            observedAt: observedAt,
+            sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
+            eventTapEnabled: true,
+            commandSpaceKeyDownAndUpCaptured: true,
+            applicationActiveAfterCapture: applicationActive,
+            virtualMachineWindowKeyAfterCapture: virtualMachineWindowKey
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+            try encoder.encode(observation).write(
+                to: layout.diagnostics.appending(path: commandSuperFileName),
+                options: .atomic
+            )
+        } catch {
+            NSLog("Could not write Omarchy Command/Super observation: %@", error.localizedDescription)
+        }
     }
 
     private struct LifecycleObservation: Codable {

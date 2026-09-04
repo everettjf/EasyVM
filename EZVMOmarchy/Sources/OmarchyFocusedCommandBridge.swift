@@ -21,22 +21,42 @@ enum OmarchyCommandCapturePolicy {
     }
 }
 
+struct OmarchyCommandSpaceCaptureState {
+    private(set) var sawKeyDown = false
+
+    mutating func observe(type: CGEventType, keyCode: CGKeyCode) -> Bool {
+        guard keyCode == 49 else { return false }
+        if type == .keyDown {
+            sawKeyDown = true
+            return false
+        }
+        guard type == .keyUp, sawKeyDown else { return false }
+        sawKeyDown = false
+        return true
+    }
+}
+
 final class OmarchyFocusedCommandBridge {
     private static let syntheticMarker: Int64 = 0x455A_4F4D_4152_4348
+    private static let acceptanceMarker: Int64 = 0x455A_4143_4345_5054
 
     private let focusProbe: () -> Bool
     private let stateChanged: (OmarchyKeyboardIntegrationState) -> Void
+    private let commandSpaceCaptured: () -> Void
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
     private var activationObserver: NSObjectProtocol?
+    private var commandSpaceState = OmarchyCommandSpaceCaptureState()
 
     init(
         focusProbe: @escaping () -> Bool,
-        stateChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void
+        stateChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
+        commandSpaceCaptured: @escaping () -> Void = {}
     ) {
         self.focusProbe = focusProbe
         self.stateChanged = stateChanged
+        self.commandSpaceCaptured = commandSpaceCaptured
     }
 
     func start() {
@@ -121,21 +141,41 @@ final class OmarchyFocusedCommandBridge {
         tap = nil
     }
 
+    @discardableResult
+    func runAcceptanceCommandSpaceProbe() -> Bool {
+        guard tap != nil, AXIsProcessTrusted(), focusProbe() else { return false }
+        guard let source = CGEventSource(stateID: .combinedSessionState),
+              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 49, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 49, keyDown: false) else {
+            return false
+        }
+        for event in [keyDown, keyUp] {
+            event.flags = .maskCommand
+            event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
+            event.post(tap: .cghidEventTap)
+        }
+        return true
+    }
+
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
         let synthetic = event.getIntegerValueField(.eventSourceUserData) == Self.syntheticMarker
+        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
         let redirect = OmarchyCommandCapturePolicy.shouldRedirect(
             type: type,
-            keyCode: CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode)),
+            keyCode: keyCode,
             flags: event.flags,
             focused: focusProbe(),
             isSynthetic: synthetic
         )
         guard redirect, let localEvent = event.copy() else {
             return Unmanaged.passUnretained(event)
+        }
+        if commandSpaceState.observe(type: type, keyCode: keyCode) {
+            DispatchQueue.main.async { [commandSpaceCaptured] in commandSpaceCaptured() }
         }
         localEvent.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
         localEvent.postToPid(ProcessInfo.processInfo.processIdentifier)

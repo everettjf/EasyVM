@@ -809,6 +809,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var automaticRecoveryAfterResume = false
         private var automaticRecoveryStage = AutomaticRecoveryStage.idle
         private var recoveryBaselineStatus: VMOmarchyGuestStatus?
+        private var automaticCommandSpaceProbeStarted = false
 
         private enum AutomaticRecoveryStage {
             case idle
@@ -902,7 +903,17 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     guard let responder = window.firstResponder as? NSView else { return false }
                     return responder === view || responder.isDescendant(of: view)
                 },
-                stateChanged: keyboardIntegrationChanged
+                stateChanged: keyboardIntegrationChanged,
+                commandSpaceCaptured: { [weak self, weak view] in
+                    guard let self else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        OmarchyAcceptanceObservationReporter.reportCommandSuperIfEnabled(
+                            layout: self.layout,
+                            applicationActive: NSApp.isActive,
+                            virtualMachineWindowKey: view?.window?.isKeyWindow == true
+                        )
+                    }
+                }
             )
             keyboardBridge = bridge
             bridge.start()
@@ -1060,6 +1071,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         @MainActor
         private func handleAutomaticRecoveryReady(_ status: VMOmarchyGuestStatus) {
+            startAutomaticCommandSpaceProbeIfNeeded(status)
             switch automaticRecoveryStage {
             case .waitingForPostResumeReady:
                 guard status.capabilities.contains("agent-restart-v1"),
@@ -1103,6 +1115,16 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             case .idle, .waitingForAgentDisconnect, .waitingForGuestDisconnect, .complete:
                 break
             }
+        }
+
+        @MainActor
+        private func startAutomaticCommandSpaceProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
+            guard ProcessInfo.processInfo.environment[
+                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+            ] == "1", status.desktopSessionActive, !status.provisioningPending,
+                  !automaticCommandSpaceProbeStarted,
+                  keyboardBridge?.runAcceptanceCommandSpaceProbe() == true else { return }
+            automaticCommandSpaceProbeStarted = true
         }
 
         @MainActor
