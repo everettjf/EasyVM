@@ -101,6 +101,23 @@ func TestOwnerProvisioningValidationRejectsUnsafeFields(t *testing.T) {
 	}
 }
 
+func TestOwnerProvisioningRejectsUnknownAndTrailingJSON(t *testing.T) {
+	pending, destination, zoneinfo := ownerProvisioningFixture(t)
+	for name, payload := range map[string][]byte{
+		"unknown field":  []byte(`{"schemaVersion":1,"username":"omarchy","password":"secret","keyboard":"us","hostname":"omarchy","timezone":"UTC","command":"reboot"}`),
+		"trailing value": []byte(`{"schemaVersion":1,"username":"omarchy","password":"secret","keyboard":"us","hostname":"omarchy","timezone":"UTC"} {}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if result := handleOwnerProvisioningAt(payload, pending, destination, zoneinfo); result.Success {
+				t.Fatal("ambiguous owner provisioning JSON was accepted")
+			}
+			if _, err := os.Lstat(destination); !os.IsNotExist(err) {
+				t.Fatalf("rejected request created destination: %v", err)
+			}
+		})
+	}
+}
+
 func ownerProvisioningFixture(t *testing.T) (string, string, string) {
 	t.Helper()
 	directory := t.TempDir()

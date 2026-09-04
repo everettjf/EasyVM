@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -56,7 +58,13 @@ func handleOwnerProvisioningAt(payload []byte, pendingPath, destination, zoneinf
 		return inputResult{Success: false, Message: "Owner provisioning is not pending."}
 	}
 	var request ownerProvisioningRequest
-	if err := json.Unmarshal(payload, &request); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		return inputResult{Success: false, Message: "Owner provisioning payload is invalid."}
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return inputResult{Success: false, Message: "Owner provisioning payload is invalid."}
 	}
 	if err := validateOwnerProvisioning(request, zoneinfoRoot); err != nil {
