@@ -7,6 +7,7 @@ enum FactoryToolError: LocalizedError {
     case usage
     case existingOutput(String)
     case invalidPrivateKey
+    case invalidImagePart(String)
     case invalidLogicalSize
     case decompressionFailed
 
@@ -17,12 +18,14 @@ enum FactoryToolError: LocalizedError {
             usage:
               omarchy-factory-tool generate-key <private-key> <public-key>
               omarchy-factory-tool sign <image.asif> <image-url> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json>
+              omarchy-factory-tool sign-parts <image.asif> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json> <part-url> <part-file> [<part-url> <part-file> ...]
               omarchy-factory-tool verify <manifest.json> <image.asif> <public-key>
               omarchy-factory-tool prepare-workspace <manifest.json> <image.asif> <public-key> <application-support-root>
               omarchy-factory-tool decode-sparse-gzip <archive.gz> <logical-size> <output.raw>
             """
         case .existingOutput(let path): "Refusing to overwrite existing output: \(path)"
         case .invalidPrivateKey: "The signing key is not a raw Ed25519 private key."
+        case .invalidImagePart(let reason): "The Factory image parts are invalid: \(reason)"
         case .invalidLogicalSize: "The sparse image logical size is invalid."
         case .decompressionFailed: "The compressed sparse image could not be decoded."
         }
@@ -83,6 +86,64 @@ enum OmarchyFactoryTool {
             let manifest = VMOmarchyFactoryManifest(
                 payload: payload,
                 keyID: arguments[6],
+                signature: signature.base64EncodedString()
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            try encoder.encode(manifest).write(to: output, options: [.atomic])
+        case "sign-parts":
+            guard arguments.count >= 12, arguments.count.isMultiple(of: 2) else {
+                throw FactoryToolError.usage
+            }
+            let image = URL(filePath: arguments[1])
+            let output = URL(filePath: arguments[7])
+            try requireAbsent([output])
+            let privateKeyData = try Data(contentsOf: URL(filePath: arguments[6]))
+            guard let privateKey = try? Curve25519.Signing.PrivateKey(rawRepresentation: privateKeyData) else {
+                throw FactoryToolError.invalidPrivateKey
+            }
+            let imageSize = try regularFileSize(image)
+            var parts: [VMOmarchyFactoryManifest.ImagePart] = []
+            var partFiles: [URL] = []
+            for index in stride(from: 8, to: arguments.count, by: 2) {
+                guard let remoteURL = URL(string: arguments[index]), remoteURL.scheme == "https" else {
+                    throw FactoryToolError.invalidImagePart("every part URL must use HTTPS")
+                }
+                let localURL = URL(filePath: arguments[index + 1])
+                let size = try regularFileSize(localURL)
+                guard size > 0, size <= VMOmarchyFactoryValidator.maximumPartBytes else {
+                    throw FactoryToolError.invalidImagePart("every part must be between 1 byte and 1900 MiB")
+                }
+                parts.append(.init(url: remoteURL, byteCount: size, sha256: try digest(localURL)))
+                partFiles.append(localURL)
+            }
+            guard Set(parts.map(\.url)).count == parts.count else {
+                throw FactoryToolError.invalidImagePart("part URLs must be unique")
+            }
+            let total = try parts.reduce(UInt64(0)) { partial, part in
+                let (sum, overflow) = partial.addingReportingOverflow(part.byteCount)
+                guard !overflow else { throw FactoryToolError.invalidImagePart("part sizes overflow") }
+                return sum
+            }
+            let imageDigest = try digest(image)
+            guard total == imageSize, try digest(partFiles) == imageDigest else {
+                throw FactoryToolError.invalidImagePart("concatenated parts do not reproduce the Factory image")
+            }
+            let payload = VMOmarchyFactoryManifest.Payload(
+                schemaVersion: 2,
+                imageVersion: arguments[2],
+                imageParts: parts,
+                imageByteCount: imageSize,
+                imageSHA256: imageDigest,
+                architecture: "arm64",
+                omarchyRevision: arguments[3],
+                guestAgentVersion: arguments[4],
+                guestCapabilities: VMOmarchyProfile.production.factoryGuestCapabilities
+            )
+            let signature = try privateKey.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
+            let manifest = VMOmarchyFactoryManifest(
+                payload: payload,
+                keyID: arguments[5],
                 signature: signature.base64EncodedString()
             )
             let encoder = JSONEncoder()
@@ -183,6 +244,15 @@ enum OmarchyFactoryTool {
         try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: Data(contentsOf: url))
     }
 
+    private static func regularFileSize(_ url: URL) throws -> UInt64 {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true,
+              let size = values.fileSize, size >= 0 else {
+            throw VMOmarchyFactoryValidationError.imageMissing
+        }
+        return UInt64(size)
+    }
+
     private static func verificationProfile(signingKeyID: String) -> VMOmarchyProfile {
         let production = VMOmarchyProfile.production
         return VMOmarchyProfile(
@@ -202,13 +272,19 @@ enum OmarchyFactoryTool {
     }
 
     private static func digest(_ url: URL) throws -> String {
-        let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
+        try digest([url])
+    }
+
+    private static func digest(_ urls: [URL]) throws -> String {
         var hash = SHA256()
-        while true {
-            let data = try handle.read(upToCount: 1_048_576) ?? Data()
-            if data.isEmpty { break }
-            hash.update(data: data)
+        for url in urls {
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            while true {
+                let data = try handle.read(upToCount: 1_048_576) ?? Data()
+                if data.isEmpty { break }
+                hash.update(data: data)
+            }
         }
         return hash.finalize().map { String(format: "%02x", $0) }.joined()
     }

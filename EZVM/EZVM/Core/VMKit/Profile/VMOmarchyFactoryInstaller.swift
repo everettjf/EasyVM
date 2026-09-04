@@ -195,14 +195,19 @@ public struct VMOmarchyFactoryInstaller {
             return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
         }
         let staging = cacheDirectory.appending(path: ".Factory-\(UUID().uuidString).download")
-        let resumeData = cacheDirectory.appending(path: "Factory.resume")
         do {
-            try await transport.downloadFile(
-                from: manifest.payload.imageURL,
-                to: staging,
-                resumeDataURL: resumeData,
-                progress: progress
-            )
+            if let imageURL = manifest.payload.imageURL {
+                try await transport.downloadFile(
+                    from: imageURL,
+                    to: staging,
+                    resumeDataURL: cacheDirectory.appending(path: "Factory.resume"),
+                    progress: progress
+                )
+            } else if let parts = manifest.payload.imageParts {
+                try await downloadAndAssemble(parts, to: staging, progress: progress)
+            } else {
+                throw VMOmarchyFactoryValidationError.invalidManifest
+            }
             try VMOmarchyFactoryValidator.validateImage(at: staging, manifest: manifest)
             try FileManager.default.moveItem(at: staging, to: published)
             return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
@@ -210,6 +215,51 @@ public struct VMOmarchyFactoryInstaller {
             try? FileManager.default.removeItem(at: staging)
             throw error
         }
+    }
+
+    private func downloadAndAssemble(
+        _ parts: [VMOmarchyFactoryManifest.ImagePart],
+        to destination: URL,
+        progress: @escaping (Int64, Int64) -> Void
+    ) async throws {
+        let total = parts.reduce(Int64(0)) { partial, part in
+            partial + Int64(clamping: part.byteCount)
+        }
+        var completed: Int64 = 0
+        let localParts = parts.indices.map {
+            cacheDirectory.appending(path: ".Factory.part-\($0).download")
+        }
+        defer { localParts.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        for (index, part) in parts.enumerated() {
+            let local = localParts[index]
+            let resume = cacheDirectory.appending(path: "Factory.part-\(index).resume")
+            try? FileManager.default.removeItem(at: local)
+            try await transport.downloadFile(
+                from: part.url,
+                to: local,
+                resumeDataURL: resume
+            ) { received, _ in
+                progress(min(completed + max(received, 0), total), total)
+            }
+            try VMOmarchyFactoryValidator.validatePart(at: local, part: part)
+            completed += Int64(clamping: part.byteCount)
+            progress(completed, total)
+        }
+
+        FileManager.default.createFile(atPath: destination.path, contents: nil)
+        let output = try FileHandle(forWritingTo: destination)
+        defer { try? output.close() }
+        for local in localParts {
+            let input = try FileHandle(forReadingFrom: local)
+            defer { try? input.close() }
+            while true {
+                let data = try input.read(upToCount: 4 * 1_024 * 1_024) ?? Data()
+                if data.isEmpty { break }
+                try output.write(contentsOf: data)
+            }
+        }
+        try output.synchronize()
     }
 
     /// Fetches and authenticates channel metadata without downloading or

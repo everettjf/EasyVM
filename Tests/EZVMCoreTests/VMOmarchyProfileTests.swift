@@ -10,6 +10,8 @@ final class VMOmarchyProfileTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(VMOmarchyProfile.self, from: encoded), profile)
         XCTAssertTrue(profile.factoryGuestCapabilities.contains("owner-provisioning-v1"))
         XCTAssertFalse(profile.requiredGuestCapabilities.contains("owner-provisioning-v1"))
+        XCTAssertFalse(profile.factoryImage.manifestURL.path.contains("/latest/"))
+        XCTAssertTrue(profile.factoryImage.manifestURL.path.contains("/v4.0.0-alpha-ezvm.32/"))
     }
 
     func testResourcePolicyLeavesHalfMemoryAndTwoProcessorsForHost() {

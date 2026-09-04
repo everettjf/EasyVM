@@ -135,7 +135,10 @@ extension VMOmarchyProfile {
             "shutdown-v1",
         ],
         factoryImage: .init(
-            manifestURL: URL(string: "https://github.com/everettjf/omarchy-aarch64-image/releases/latest/download/ezvm-omarchy-factory-manifest.json")!,
+            // A Host build must resolve one immutable Factory channel. GitHub's
+            // `releases/latest` excludes prereleases and previously redirected
+            // Alpha builds to an older release without a Factory manifest.
+            manifestURL: URL(string: "https://github.com/everettjf/omarchy-aarch64-image/releases/download/v4.0.0-alpha-ezvm.32/ezvm-omarchy-factory-manifest.json")!,
             signingKeyID: "ezvm-omarchy-factory-2026",
             architecture: "arm64",
             maximumDownloadBytes: 8 * 1_024 * 1_024 * 1_024

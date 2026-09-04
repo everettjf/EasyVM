@@ -44,6 +44,45 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         XCTAssertEqual(transport.downloadCount, 0)
     }
 
+    func testMultipartInstallerVerifiesEachPartAndReassemblesImage() async throws {
+        let fixture = try Fixture(multipart: true)
+        let transport = MockTransport(manifestData: fixture.manifestData, downloads: fixture.downloads)
+        let installer = VMOmarchyFactoryInstaller(
+            profile: fixture.profile,
+            cacheDirectory: fixture.cache,
+            publicKey: fixture.key.publicKey.rawRepresentation,
+            transport: transport
+        )
+
+        let installed = try await installer.install()
+
+        XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
+        XCTAssertEqual(transport.downloadCount, 2)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: fixture.cache.path)
+            .contains(where: { $0.hasPrefix(".Factory.part-") }))
+    }
+
+    func testMultipartInstallerRejectsTamperedPartAndCleansTemporaryFiles() async throws {
+        let fixture = try Fixture(multipart: true, tamperSecondPart: true)
+        let transport = MockTransport(manifestData: fixture.manifestData, downloads: fixture.downloads)
+        let installer = VMOmarchyFactoryInstaller(
+            profile: fixture.profile,
+            cacheDirectory: fixture.cache,
+            publicKey: fixture.key.publicKey.rawRepresentation,
+            transport: transport
+        )
+
+        do {
+            _ = try await installer.install()
+            XCTFail("Tampered Factory part unexpectedly installed")
+        } catch {
+            XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .imageDigestMismatch)
+        }
+        XCTAssertEqual(transport.downloadCount, 2)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: fixture.cache.path)
+            .contains(where: { $0.hasPrefix(".Factory.part-") || $0.hasPrefix(".Factory-") }))
+    }
+
     func testReleaseCheckVerifiesManifestWithoutDownloadingImage() async throws {
         let fixture = try Fixture()
         let transport = MockTransport(manifestData: fixture.manifestData, image: fixture.image)
@@ -112,13 +151,22 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
 
     private final class MockTransport: VMOmarchyFactoryTransport {
         let manifestData: Data
-        let image: Data
+        let downloads: [URL: Data]
         var downloadCount = 0
 
         init(manifestData: Data, image: Data) {
             self.manifestData = manifestData
-            self.image = image
+            downloads = [:]
+            fallbackImage = image
         }
+
+        init(manifestData: Data, downloads: [URL: Data]) {
+            self.manifestData = manifestData
+            self.downloads = downloads
+            fallbackImage = nil
+        }
+
+        private let fallbackImage: Data?
 
         func fetchData(from url: URL) async throws -> Data { manifestData }
 
@@ -129,6 +177,9 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
             progress: @escaping (Int64, Int64) -> Void
         ) async throws {
             downloadCount += 1
+            guard let image = downloads[url] ?? fallbackImage else {
+                throw VMOmarchyFactoryInstallError.downloadDidNotPublish
+            }
             try image.write(to: destination)
             progress(Int64(image.count), Int64(image.count))
         }
@@ -141,8 +192,13 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let image: Data
         let profile: VMOmarchyProfile
         let manifestData: Data
+        let downloads: [URL: Data]
 
-        init(tamperSignature: Bool = false) throws {
+        init(
+            tamperSignature: Bool = false,
+            multipart: Bool = false,
+            tamperSecondPart: Bool = false
+        ) throws {
             root = FileManager.default.temporaryDirectory
                 .appending(path: "OmarchyInstallerTests-\(UUID().uuidString)", directoryHint: .isDirectory)
             cache = root.appending(path: "cache")
@@ -164,17 +220,44 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
                     maximumDownloadBytes: 1_024
                 )
             )
-            let payload = VMOmarchyFactoryManifest.Payload(
-                schemaVersion: 1,
-                imageVersion: "test",
-                imageURL: URL(string: "https://example.test/factory.asif")!,
-                imageByteCount: UInt64(image.count),
-                imageSHA256: digest,
-                architecture: "arm64",
-                omarchyRevision: "revision",
-                guestAgentVersion: "1",
-                guestCapabilities: VMOmarchyProfile.production.factoryGuestCapabilities
-            )
+            let payload: VMOmarchyFactoryManifest.Payload
+            if multipart {
+                let first = Data(image.prefix(image.count / 2))
+                let second = Data(image.dropFirst(first.count))
+                let firstURL = URL(string: "https://example.test/factory.part-00")!
+                let secondURL = URL(string: "https://example.test/factory.part-01")!
+                downloads = [
+                    firstURL: first,
+                    secondURL: tamperSecondPart ? Data(repeating: 0xff, count: second.count) : second,
+                ]
+                payload = VMOmarchyFactoryManifest.Payload(
+                    schemaVersion: 2,
+                    imageVersion: "test",
+                    imageParts: [
+                        .init(url: firstURL, byteCount: UInt64(first.count), sha256: Self.digest(first)),
+                        .init(url: secondURL, byteCount: UInt64(second.count), sha256: Self.digest(second)),
+                    ],
+                    imageByteCount: UInt64(image.count),
+                    imageSHA256: digest,
+                    architecture: "arm64",
+                    omarchyRevision: "revision",
+                    guestAgentVersion: "1",
+                    guestCapabilities: VMOmarchyProfile.production.factoryGuestCapabilities
+                )
+            } else {
+                downloads = [:]
+                payload = VMOmarchyFactoryManifest.Payload(
+                    schemaVersion: 1,
+                    imageVersion: "test",
+                    imageURL: URL(string: "https://example.test/factory.asif")!,
+                    imageByteCount: UInt64(image.count),
+                    imageSHA256: digest,
+                    architecture: "arm64",
+                    omarchyRevision: "revision",
+                    guestAgentVersion: "1",
+                    guestCapabilities: VMOmarchyProfile.production.factoryGuestCapabilities
+                )
+            }
             var signature = try key.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
             if tamperSignature { signature[0] ^= 0xff }
             manifestData = try JSONEncoder().encode(VMOmarchyFactoryManifest(
@@ -182,6 +265,10 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
                 keyID: signingKeyID,
                 signature: signature.base64EncodedString()
             ))
+        }
+
+        private static func digest(_ data: Data) -> String {
+            SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
         }
     }
 }

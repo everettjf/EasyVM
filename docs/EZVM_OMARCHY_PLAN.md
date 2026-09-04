@@ -379,10 +379,36 @@ The ARM64 Omarchy factory must record and validate:
 - third-party licenses and redistributed source obligations;
 - clean-image real-guest acceptance results.
 
-The initial release should download a signed/verified manifest and image on
-first run rather than place a multi-gigabyte disk in every application update.
-Downloads need a size forecast, resumable staging, cancellation, digest
-verification, atomic publication, and cleanup after interruption.
+The initial release downloads a signed/verified manifest and image on first run
+rather than placing a multi-gigabyte disk in every application update. Because
+the Factory ASIF is larger than GitHub's per-asset limit, schema 2 manifests
+describe 2–32 ordered HTTPS parts of at most 1900 MiB each. Every part carries
+its own signed byte count and SHA-256; the Host downloads each part with an
+independent resume record, verifies it before assembly, streams the ordered
+parts into staging, verifies the complete ASIF again, and only then publishes it
+atomically. Failed or interrupted assembly removes temporary data while keeping
+valid URLSession resume records. Schema 1 remains accepted for older single-file
+channels.
+
+Each App build pins an immutable Factory manifest release URL. It must not use
+GitHub's `releases/latest`, because GitHub excludes prereleases from that route
+and can silently redirect an Alpha Host to unrelated stable image assets.
+Changing the Factory channel is therefore a reviewed Host source change.
+
+The production path is automated by three narrow tools:
+
+1. `build-omarchy-factory.sh` converts and byte-verifies the sparse raw disk;
+2. `sign-omarchy-factory-parts.sh` splits the ASIF, proves that concatenation
+   reproduces the complete image, and emits the signed schema-2 manifest plus
+   `EZVM_FACTORY_SHA256SUMS`; and
+3. `publish-omarchy-factory-assets.sh` locally verifies the public key, image,
+   manifest, part set, checksums, names, order, and immutable release URLs. Its
+   retry-safe `publish` mode only accepts an existing draft, reuses only assets
+   with identical remote digests, refuses to overwrite mismatches, uploads no
+   full ASIF, and compares every resulting GitHub asset digest.
+
+Changing a draft to a public release remains a separate, explicit operation so
+asset preparation cannot accidentally publish an unaccepted image.
 
 ### 8.3 Update layers
 
@@ -989,6 +1015,32 @@ gates open: a real macOS sleep/wake cycle and a continuous 24-hour soak. The
 lifecycle and release-evidence validators continue to reject a candidate that
 does not contain fresh evidence for those actions; neither gate may be replaced
 by a synthetic notification or shortened timer.
+
+### 11.8 Immutable multipart Factory channel checkpoint (2026-09-04)
+
+Cold-start testing of the signed `1.0.0-alpha.35` App exposed a release-channel
+failure before any workspace mutation: GitHub's `releases/latest` resolved to
+the older stable `v4.0.1-ezvm.200` release, which has no EZVM Omarchy Factory
+manifest. The intended `.32` Factory ASIF is 5,282,725,888 bytes and therefore
+cannot be uploaded as one GitHub Release asset.
+
+The Host now retains schema-1 single-file compatibility while adding signed
+schema-2 multipart delivery. It rejects fewer than two or more than 32 parts,
+non-HTTPS or duplicate URLs, malformed hashes, an incorrect aggregate size,
+and any part over 1900 MiB. Installation downloads and validates parts one at a
+time, reports aggregate progress, assembles through a bounded-memory stream,
+validates the complete image, and atomically publishes only the final verified
+ASIF. Tests cover valid reassembly, content tampering, temporary-file cleanup,
+legacy canonical encoding, invalid counts, duplicate URLs, aggregate mismatch,
+and oversized parts.
+
+The Factory signing tool independently hashes the ordered local parts and
+refuses to sign unless their concatenation exactly reproduces the source ASIF.
+The production profile pins the immutable
+`v4.0.0-alpha-ezvm.32/ezvm-omarchy-factory-manifest.json` path. Promotion remains
+open until the locally verified `.32` Factory parts are uploaded to that draft,
+their remote digests are checked, the release is made downloadable, and a new
+signed Host candidate completes a genuinely empty-workspace installation.
 
 ## 12. Test and measurement strategy
 
