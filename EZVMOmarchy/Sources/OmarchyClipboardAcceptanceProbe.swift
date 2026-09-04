@@ -215,22 +215,31 @@ enum OmarchyClipboardAcceptanceProbe {
           expected="$1"
           output="$2"
           shift 2
+          local_part="${XDG_RUNTIME_DIR:-/tmp}/ezvm-clipboard-probe.$$.part"
+          local_error="${XDG_RUNTIME_DIR:-/tmp}/ezvm-clipboard-probe.$$.error"
           for _ in $(seq 1 150); do
-            if /usr/bin/wl-paste "$@" > "$output.part" 2>/dev/null && cmp -s "$expected" "$output.part"; then
-              mv "$output.part" "$output"
+            # wl-paste uses a zero-copy transfer path when stdout is a regular
+            # file. A virtiofs destination can reject that splice even though
+            # the clipboard data is valid, so capture in the Guest runtime FS
+            # and then copy the verified bytes into the shared evidence path.
+            if /usr/bin/wl-paste "$@" > "$local_part" 2>"$local_error" && cmp -s "$expected" "$local_part"; then
+              cp "$local_part" "$output"
+              rm -f "$local_part" "$local_error"
               return 0
             fi
             sleep 0.1
           done
           /usr/bin/wl-paste --list-types > "$d/guest-clipboard-types" 2>&1 || true
-          mv -f "$output.part" "$output.last" 2>/dev/null || true
+          cp "$local_part" "$output.last" 2>/dev/null || true
+          cp "$local_error" "$output.error" 2>/dev/null || true
+          rm -f "$local_part" "$local_error"
           return 1
         }
         /usr/bin/wl-copy --version > "$d/wl-copy-version" 2>&1 || true
         /usr/bin/wl-paste --version > "$d/wl-paste-version" 2>&1 || true
         touch "$d/script-ready"
         while [ ! -f "$d/host-text-go" ]; do sleep 0.1; done
-        copy_until_matches "$d/host-text-input" "$d/host-text-result" --no-newline
+        copy_until_matches "$d/host-text-input" "$d/host-text-result" --type 'text/plain;charset=utf-8' --no-newline
         while [ ! -f "$d/host-image-go" ]; do sleep 0.1; done
         copy_until_matches "$d/host-image-input" "$d/host-image-result" --type image/png
         while [ ! -f "$d/guest-text-go" ]; do sleep 0.1; done

@@ -88,21 +88,24 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 	}
 	root, err := rootFD()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("open upload filesystem root: %w", err)
 	}
 	defer syscall.Close(root)
 	parentPath := filepath.Dir(path)[1:]
 	if parentPath == "" {
 		parentPath = "."
 	}
-	parentFD, err := openat2(root, parentPath, oPath|syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
+	// Keep a real readable directory descriptor for the later openat/renameat
+	// operations. virtiofs accepts lookup through O_PATH but can report EROFS
+	// when a mutating operation is derived from that descriptor.
+	parentFD, err := openat2(root, parentPath, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("resolve upload parent %q: %w", filepath.Dir(path), err)
 	}
 	var random [16]byte
 	if _, err = rand.Read(random[:]); err != nil {
 		syscall.Close(parentFD)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("generate upload temporary name: %w", err)
 	}
 	temporaryName := ".ezvm-upload-" + hex.EncodeToString(random[:])
 	// The parent was resolved with openat2 beneath / and the random basename
@@ -111,7 +114,7 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 	fd, err := createUploadEntry(parentFD, temporaryName, syscall.Openat, syscall.Open)
 	if err != nil {
 		syscall.Close(parentFD)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("create upload temporary file in %q: %w", filepath.Dir(path), err)
 	}
 	target := &linuxUploadTarget{parentFD: parentFD, temporaryName: temporaryName,
 		destinationName: filepath.Base(path)}
