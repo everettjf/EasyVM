@@ -896,6 +896,43 @@ by an inconsistent signed Arch Linux ARM repository graph, so the same release
 tag must be retried only after the official repository publishes mutually
 compatible Hyprland and Aquamarine packages.
 
+### 11.6 `.28` factory and real-guest checkpoint (2026-09-04)
+
+The repository-graph blockage described in checkpoint 11.5 is no longer
+current. Image workflow `33887520897` completed successfully and published the
+draft `v4.0.0-alpha-ezvm.28` assets. Every asset matched the release
+`SHA256SUMS`; reconstructing the split raw image produced SHA-256
+`83b92ceb2398acbf3c6b199204e1815ce474bf9f6f7736972733fb1b0c52a2f2`.
+The factory conversion then passed manifest signature verification and an exact
+raw-to-ASIF byte comparison. Its ASIF SHA-256 is
+`7fcba48e8bcc51244fc812028f6fa0adbeae463dd0d86cc8ef5074e2fd0b56ff`.
+The image declares Guest Agent source revision
+`22fd96505cf4f426f6359996e7b64b217b034d8e`.
+
+An isolated workspace created from that factory reached the provisioned
+Hyprland desktop and produced fresh live evidence for:
+
+- authenticated Guest Agent readiness and a writable VirtioFS round trip;
+- bidirectional UTF-8 text and PNG clipboard payloads;
+- dynamic display movement from `2200x1104` to `1760x1320`, with the latter
+  exactly matching the Host VM view's Retina backing size;
+- an authorized, focused Accessibility event tap receiving the synthetic
+  `Command-Space` down/up pair while the VM window was key.
+
+This checkpoint does **not** close keyboard or lifecycle acceptance. Guest
+diagnostics prove Hyprland 0.56.1 exposes the expected `SUPER+CTRL+L` lock bind
+and recognizes `EZVM Keyboard`, but two attempted lock probes reached their
+ready marker without observing a `hyprlock` process. The first probe used the
+authenticated uinput endpoint; the second posted a key carrying modifier flags
+through the Host event tap. The acceptance implementation at Host revision
+`d0b6327e62273e2038b85bc5062c999486e8e75e` now emits balanced physical
+Command/Control/key transitions with pacing, refreshes Accessibility state on
+activation, and treats an absent Wayland clipboard owner as an idle read rather
+than a per-second error log. Unit and native App tests pass, but this revised
+path still requires a single-instance real-guest run before the lock/unlock,
+pause/resume, Agent restart, Guest restart, and full-screen lifecycle gate can
+be considered complete.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests
