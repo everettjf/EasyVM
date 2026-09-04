@@ -164,6 +164,8 @@ enum VMGuestAgentOperation: String, Codable, CaseIterable {
     case downloadChunk
     case input
     case ownerProvisioning
+    case clipboardSet
+    case clipboardGet
 }
 
 struct VMGuestAgentInputEvent: Codable, Equatable {

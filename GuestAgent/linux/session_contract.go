@@ -16,6 +16,13 @@ func sessionCapabilities(waylandReady, spiceRunning bool, spiceConfig []byte) []
 	return capabilities
 }
 
+func agentClipboardCapabilities(waylandReady, copyAvailable, pasteAvailable bool) []string {
+	if !waylandReady || !copyAvailable || !pasteAvailable {
+		return nil
+	}
+	return []string{"clipboard-agent-text-v1", "clipboard-agent-image-v1"}
+}
+
 func spiceClipboardEnabled(config []byte) bool {
 	section := ""
 	for _, raw := range strings.Split(string(config), "\n") {
@@ -32,7 +39,10 @@ func spiceClipboardEnabled(config []byte) bool {
 }
 
 func validatedSessionCapabilities(values []string) ([]string, bool) {
-	allowed := map[string]bool{"clipboard-text-v1": true, "clipboard-image-v1": true}
+	allowed := map[string]bool{
+		"clipboard-text-v1": true, "clipboard-image-v1": true,
+		"clipboard-agent-text-v1": true, "clipboard-agent-image-v1": true,
+	}
 	set := map[string]bool{}
 	for _, value := range values {
 		if !allowed[value] {
@@ -41,6 +51,9 @@ func validatedSessionCapabilities(values []string) ([]string, bool) {
 		set[value] = true
 	}
 	if set["clipboard-image-v1"] && !set["clipboard-text-v1"] {
+		return nil, false
+	}
+	if set["clipboard-agent-image-v1"] && !set["clipboard-agent-text-v1"] {
 		return nil, false
 	}
 	result := make([]string, 0, len(set))

@@ -37,3 +37,24 @@ func TestSessionRegistrationAllowsOnlyDeclaredDesktopCapabilities(t *testing.T) 
 		t.Fatal("image clipboard was accepted without the base text capability")
 	}
 }
+
+func TestAgentClipboardCapabilitiesRequireWaylandAndBothFixedTools(t *testing.T) {
+	expected := []string{"clipboard-agent-text-v1", "clipboard-agent-image-v1"}
+	if actual := agentClipboardCapabilities(true, true, true); !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("Agent clipboard capabilities = %#v", actual)
+	}
+	for name, actual := range map[string][]string{
+		"no Wayland": agentClipboardCapabilities(false, true, true),
+		"no copy":    agentClipboardCapabilities(true, false, true),
+		"no paste":   agentClipboardCapabilities(true, true, false),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if actual != nil {
+				t.Fatalf("unready Agent clipboard advertised capabilities: %#v", actual)
+			}
+		})
+	}
+	if _, ok := validatedSessionCapabilities([]string{"clipboard-agent-image-v1"}); ok {
+		t.Fatal("Agent image clipboard was accepted without Agent text clipboard")
+	}
+}

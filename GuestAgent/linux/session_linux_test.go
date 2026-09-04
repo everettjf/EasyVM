@@ -55,3 +55,28 @@ func TestDesktopSessionRegistrationsExpire(t *testing.T) {
 		t.Fatalf("active capabilities = %#v", actual)
 	}
 }
+
+func TestActiveDesktopSessionRequiresCapabilityAndSocket(t *testing.T) {
+	now := time.Now()
+	desktopSessions.Lock()
+	desktopSessions.byUID = map[uint32]registeredSession{
+		1000: {
+			capabilities: []string{"clipboard-agent-text-v1"},
+			socketPath:   "/run/user/1000/ezvm-agent-session.sock",
+			updatedAt:    now.Add(-time.Second),
+		},
+		1001: {
+			capabilities: []string{"clipboard-agent-text-v1", "clipboard-agent-image-v1"},
+			socketPath:   "/run/user/1001/ezvm-agent-session.sock",
+			updatedAt:    now,
+		},
+	}
+	desktopSessions.Unlock()
+	session, ok := activeDesktopSession(now, "clipboard-agent-image-v1")
+	if !ok || session.socketPath != "/run/user/1001/ezvm-agent-session.sock" {
+		t.Fatalf("wrong active image clipboard session: %#v %v", session, ok)
+	}
+	if _, ok := activeDesktopSession(now, "arbitrary-host-command-v1"); ok {
+		t.Fatal("unknown capability selected a desktop session")
+	}
+}

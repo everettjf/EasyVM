@@ -177,6 +177,27 @@ public struct VMOmarchyOwnerProvisioningProgress: Equatable, Sendable {
     }
 }
 
+public struct VMOmarchyClipboardRequest: Codable, Equatable, Sendable {
+    public let relativePath: String
+    public let mimeType: String
+    public let byteCount: UInt64
+    public let sha256: String
+
+    public init(relativePath: String, mimeType: String, byteCount: UInt64, sha256: String) {
+        self.relativePath = relativePath
+        self.mimeType = mimeType
+        self.byteCount = byteCount
+        self.sha256 = sha256
+    }
+}
+
+public struct VMOmarchyClipboardResult: Codable, Equatable, Sendable {
+    public let success: Bool
+    public let message: String
+    public let byteCount: UInt64?
+    public let sha256: String?
+}
+
 enum VMOmarchyConnectionSuspensionReason: Hashable {
     case hostSleeping
     case virtualMachinePaused
@@ -228,6 +249,11 @@ public final class VMOmarchyGuestAgentClient {
     private var stopped = false
     private var capabilities: Set<String> = []
     private var pendingRequests: [String: PendingRequest] = [:]
+
+    /// Latest capabilities advertised by the authenticated Guest session.
+    /// Session-scoped capabilities can appear after the system Agent is ready
+    /// (for example, once a locked Wayland session has been unlocked).
+    public var currentCapabilities: Set<String> { capabilities }
 
     public init(
         device: VZVirtioSocketDevice,
@@ -385,6 +411,35 @@ public final class VMOmarchyGuestAgentClient {
                 userInfo: [NSLocalizedDescriptionKey: result.message]
             )
         }
+    }
+
+    public func setGuestClipboard(_ value: VMOmarchyClipboardRequest) async throws -> VMOmarchyClipboardResult {
+        try await clipboardRequest(.clipboardSet, value: value)
+    }
+
+    public func captureGuestClipboard(_ value: VMOmarchyClipboardRequest) async throws -> VMOmarchyClipboardResult {
+        try await clipboardRequest(.clipboardGet, value: value)
+    }
+
+    private func clipboardRequest(
+        _ operation: VMGuestAgentOperation,
+        value: VMOmarchyClipboardRequest
+    ) async throws -> VMOmarchyClipboardResult {
+        let requiredCapability = value.mimeType == "image/png"
+            ? "clipboard-agent-image-v1"
+            : "clipboard-agent-text-v1"
+        guard capabilities.contains(requiredCapability) else {
+            throw CocoaError(.featureUnsupported)
+        }
+        let result: VMOmarchyClipboardResult = try await request(operation, payload: value)
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMOmarchyClipboard",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+        return result
     }
 
     /// Proves both directions of the live VirtioFS mount without requiring SSH.

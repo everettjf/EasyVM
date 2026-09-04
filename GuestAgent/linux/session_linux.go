@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -24,10 +25,12 @@ const sessionSocketPath = "/run/ezvm-agent/session.sock"
 type sessionRegistration struct {
 	UID          uint32   `json:"uid"`
 	Capabilities []string `json:"capabilities"`
+	SocketPath   string   `json:"socketPath"`
 }
 
 type registeredSession struct {
 	capabilities []string
+	socketPath   string
 	updatedAt    time.Time
 }
 
@@ -82,7 +85,15 @@ func acceptSessionRegistration(connection *net.UnixConn) {
 		return
 	}
 	desktopSessions.Lock()
-	desktopSessions.byUID[uid] = registeredSession{capabilities: capabilities, updatedAt: time.Now()}
+	expectedSocketPath := filepath.Join("/run/user", strconv.FormatUint(uint64(uid), 10), "ezvm-agent-session.sock")
+	if registration.SocketPath != expectedSocketPath {
+		return
+	}
+	desktopSessions.byUID[uid] = registeredSession{
+		capabilities: capabilities,
+		socketPath:   registration.SocketPath,
+		updatedAt:    time.Now(),
+	}
 	desktopSessions.Unlock()
 }
 
@@ -125,14 +136,41 @@ func activeSessionCapabilities(now time.Time) []string {
 	return values
 }
 
+func activeDesktopSession(now time.Time, requiredCapability string) (registeredSession, bool) {
+	desktopSessions.Lock()
+	defer desktopSessions.Unlock()
+	var selected registeredSession
+	found := false
+	for uid, session := range desktopSessions.byUID {
+		if now.Sub(session.updatedAt) > 15*time.Second {
+			delete(desktopSessions.byUID, uid)
+			continue
+		}
+		if !containsString(session.capabilities, requiredCapability) || session.socketPath == "" {
+			continue
+		}
+		if !found || session.updatedAt.After(selected.updatedAt) {
+			selected = session
+			found = true
+		}
+	}
+	return selected, found
+}
+
 func runSessionAgent() error {
 	uid := uint32(os.Getuid())
 	if uid == 0 {
 		return errors.New("session mode must run as the desktop user")
 	}
+	listener, socketPath, err := startClipboardSessionServer(uid)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	defer os.Remove(socketPath)
 	for {
 		capabilities := detectSessionCapabilities(uid)
-		registration := sessionRegistration{UID: uid, Capabilities: capabilities}
+		registration := sessionRegistration{UID: uid, Capabilities: capabilities, SocketPath: socketPath}
 		data, err := json.Marshal(registration)
 		if err != nil {
 			return err
@@ -153,7 +191,30 @@ func detectSessionCapabilities(uid uint32) []string {
 	waylandReady := os.Getenv("WAYLAND_DISPLAY") != "" && os.Getenv("XDG_RUNTIME_DIR") != ""
 	spiceConfig, _ := os.ReadFile("/usr/share/spice-guest-tools/config/config.toml")
 	spiceRunning := processOwnedBy("spice-vdagent", uid)
-	return sessionCapabilities(waylandReady, spiceRunning, spiceConfig)
+	capabilities := sessionCapabilities(waylandReady, spiceRunning, spiceConfig)
+	copyAvailable := false
+	pasteAvailable := false
+	if waylandReady {
+		if _, copyError := exec.LookPath("wl-copy"); copyError == nil {
+			copyAvailable = true
+		}
+		if _, pasteError := exec.LookPath("wl-paste"); pasteError == nil {
+			pasteAvailable = true
+		}
+	}
+	capabilities = append(capabilities,
+		agentClipboardCapabilities(waylandReady, copyAvailable, pasteAvailable)...)
+	sort.Strings(capabilities)
+	return capabilities
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func processOwnedBy(name string, uid uint32) bool {

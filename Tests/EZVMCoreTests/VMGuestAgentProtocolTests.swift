@@ -534,7 +534,22 @@ final class VMGuestAgentProtocolTests: XCTestCase {
             .heartbeat, .status, .shutdown, .restart, .restartAgent,
             .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,
             .downloadInfo, .downloadChunk, .input, .ownerProvisioning,
+            .clipboardSet, .clipboardGet,
         ])
+
+        let clipboardRequest = VMOmarchyClipboardRequest(
+            relativePath: ".ezvm-integration/clipboard/01234567-89ab-cdef-0123-456789abcdef.txt",
+            mimeType: "text/plain;charset=utf-8",
+            byteCount: 12,
+            sha256: String(repeating: "a", count: 64)
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                VMOmarchyClipboardRequest.self,
+                from: JSONEncoder().encode(clipboardRequest)
+            ),
+            clipboardRequest
+        )
 
         let legacyJSON = Data(#"{"agentVersion":"1.0","operatingSystem":"Linux","kernelVersion":"6","hostName":"legacy","addresses":[],"bootID":"old","uptimeSeconds":1}"#.utf8)
         let legacy = try JSONDecoder().decode(VMGuestAgentStatus.self, from: legacyJSON)
