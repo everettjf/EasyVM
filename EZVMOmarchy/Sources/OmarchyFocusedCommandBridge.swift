@@ -4,6 +4,7 @@ import CoreGraphics
 enum OmarchyKeyboardIntegrationState: Equatable {
     case enabled
     case accessibilityRequired
+    case requestingAccessibility
 }
 
 enum OmarchyCommandCapturePolicy {
@@ -128,12 +129,13 @@ final class OmarchyFocusedCommandBridge {
     }
 
     func requestPermission() {
+        stateChanged(.requestingAccessibility)
         if Self.requestAccessibilityAccess() {
             start()
             return
         }
         permissionTimer?.invalidate()
-        var attemptsRemaining = 40
+        var attemptsRemaining = 240
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
             guard let self else { timer.invalidate(); return }
             if AXIsProcessTrusted() {

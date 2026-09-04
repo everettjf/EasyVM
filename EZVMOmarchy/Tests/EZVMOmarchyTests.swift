@@ -4,6 +4,14 @@ import EZVMCore
 @testable import EZVM_Omarchy
 
 final class EZVMOmarchyTests: XCTestCase {
+    func testAccessibilityRequestHasVisiblePendingState() {
+        XCTAssertNotEqual(
+            OmarchyKeyboardIntegrationState.requestingAccessibility,
+            .accessibilityRequired
+        )
+        XCTAssertNotEqual(OmarchyKeyboardIntegrationState.requestingAccessibility, .enabled)
+    }
+
     func testInputDiagnosticsProbeCapturesHyprlandBindingAndDeviceState() {
         let script = OmarchyInputDiagnosticsAcceptanceProbe.probeScript(
             resultPath: "/mnt/ezvm-shared/result.txt"

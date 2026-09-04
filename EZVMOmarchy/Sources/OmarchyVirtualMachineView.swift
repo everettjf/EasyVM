@@ -136,11 +136,18 @@ struct OmarchyVirtualMachineView: View {
             }
         }
         .safeAreaInset(edge: .top) {
-            if keyboardIntegration == .accessibilityRequired {
+            if keyboardIntegration != .enabled {
                 HStack {
-                    Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
+                    if keyboardIntegration == .requestingAccessibility {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("Waiting for Accessibility permission")
+                        Text("Turn on EZVM Omarchy in System Settings, then return here.")
+                    } else {
+                        Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
+                    }
                     Spacer()
-                    Button("Enable") {
+                    Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : "Enable") {
                         NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
                     }
                 }
