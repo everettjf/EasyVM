@@ -37,6 +37,7 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
     public let agentVersion: String
     public let agentInstanceID: String?
     public let bootID: String
+    public let uptimeSeconds: UInt64
     public let omarchyRevision: String?
     public let hostName: String
     public let addresses: [String]
@@ -48,6 +49,7 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
         agentVersion: String,
         agentInstanceID: String? = nil,
         bootID: String = "",
+        uptimeSeconds: UInt64 = 0,
         omarchyRevision: String? = nil,
         hostName: String,
         addresses: [String],
@@ -58,6 +60,7 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
         self.agentVersion = agentVersion
         self.agentInstanceID = agentInstanceID
         self.bootID = bootID
+        self.uptimeSeconds = uptimeSeconds
         self.omarchyRevision = omarchyRevision
         self.hostName = hostName
         self.addresses = addresses
@@ -470,6 +473,7 @@ public final class VMOmarchyGuestAgentClient {
                 agentVersion: status.agentVersion,
                 agentInstanceID: status.agentInstanceID,
                 bootID: status.bootID,
+                uptimeSeconds: status.uptimeSeconds,
                 omarchyRevision: status.omarchyRevision,
                 hostName: status.hostName,
                 addresses: status.addresses,

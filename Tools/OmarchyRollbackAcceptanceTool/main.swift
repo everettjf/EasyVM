@@ -18,7 +18,16 @@ private struct RollbackObservation: Codable {
 
 @main
 enum OmarchyRollbackAcceptanceTool {
-    static func main() throws {
+    static func main() {
+        do {
+            try run()
+        } catch {
+            FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
+            exit(1)
+        }
+    }
+
+    private static func run() throws {
         let arguments = Array(CommandLine.arguments.dropFirst())
         guard arguments.count == 3 else {
             throw CocoaError(.validationMissingMandatoryProperty)

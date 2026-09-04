@@ -50,6 +50,7 @@ enum OmarchyAcceptanceObservationReporter {
     static let fileName = "integration-readiness.json"
     static let lifecycleFileName = "integration-lifecycle.json"
     static let commandSuperFileName = "command-super.json"
+    static let soakHeartbeatFileName = "soak-heartbeat.json"
 
     private struct CommandSuperObservation: Codable {
         let schemaVersion: Int
@@ -59,6 +60,18 @@ enum OmarchyAcceptanceObservationReporter {
         let commandSpaceKeyDownAndUpCaptured: Bool
         let applicationActiveAfterCapture: Bool
         let virtualMachineWindowKeyAfterCapture: Bool
+    }
+
+    private struct SoakHeartbeat: Codable {
+        let schemaVersion: Int
+        let observedAt: Date
+        let sourceRevision: String
+        let guestAgentVersion: String
+        let agentInstanceID: String?
+        let bootID: String
+        let uptimeSeconds: UInt64
+        let desktopSessionActive: Bool
+        let provisioningPending: Bool
     }
 
     enum VirtualMachineEvent {
@@ -146,9 +159,16 @@ enum OmarchyAcceptanceObservationReporter {
         status: VMOmarchyGuestStatus,
         layout: VMOmarchyWorkspaceLayout,
         environment: [String: String] = ProcessInfo.processInfo.environment,
+        bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
         observedAt: Date = Date()
     ) {
         guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        reportSoakHeartbeat(
+            status: status,
+            layout: layout,
+            sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
+            observedAt: observedAt
+        )
         let file = layout.diagnostics.appending(path: lifecycleFileName)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -233,6 +253,37 @@ enum OmarchyAcceptanceObservationReporter {
             try encoder.encode(observation).write(to: file, options: .atomic)
         } catch {
             NSLog("Could not write Omarchy integration lifecycle observation: %@", error.localizedDescription)
+        }
+    }
+
+    private static func reportSoakHeartbeat(
+        status: VMOmarchyGuestStatus,
+        layout: VMOmarchyWorkspaceLayout,
+        sourceRevision: String,
+        observedAt: Date
+    ) {
+        let heartbeat = SoakHeartbeat(
+            schemaVersion: 1,
+            observedAt: observedAt,
+            sourceRevision: sourceRevision,
+            guestAgentVersion: status.agentVersion,
+            agentInstanceID: status.agentInstanceID,
+            bootID: status.bootID,
+            uptimeSeconds: status.uptimeSeconds,
+            desktopSessionActive: status.desktopSessionActive,
+            provisioningPending: status.provisioningPending
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+            try encoder.encode(heartbeat).write(
+                to: layout.diagnostics.appending(path: soakHeartbeatFileName),
+                options: .atomic
+            )
+        } catch {
+            NSLog("Could not write Omarchy soak heartbeat: %@", error.localizedDescription)
         }
     }
 

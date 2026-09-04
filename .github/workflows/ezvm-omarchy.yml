@@ -27,6 +27,7 @@ on:
       - "scripts/test-omarchy-release-gates.sh"
       - "scripts/verify-omarchy-release-evidence.sh"
       - "scripts/test-omarchy-release-evidence.sh"
+      - "scripts/test-omarchy-soak-acceptance-tool.sh"
       - "scripts/verify-omarchy-integration-observation.sh"
       - "scripts/test-omarchy-integration-observation.sh"
       - "scripts/verify-omarchy-lifecycle-observation.sh"
@@ -59,6 +60,7 @@ on:
       - "scripts/test-omarchy-release-gates.sh"
       - "scripts/verify-omarchy-release-evidence.sh"
       - "scripts/test-omarchy-release-evidence.sh"
+      - "scripts/test-omarchy-soak-acceptance-tool.sh"
       - "scripts/verify-omarchy-integration-observation.sh"
       - "scripts/test-omarchy-integration-observation.sh"
       - "scripts/verify-omarchy-lifecycle-observation.sh"
@@ -131,6 +133,8 @@ jobs:
         run: scripts/test-omarchy-release-gates.sh
       - name: Test real-guest evidence binding gates
         run: scripts/test-omarchy-release-evidence.sh
+      - name: Test continuous Guest soak monitor
+        run: scripts/test-omarchy-soak-acceptance-tool.sh
       - name: Test integration observation gates
         run: scripts/test-omarchy-integration-observation.sh
       - name: Test lock-to-active lifecycle observation gates
