@@ -11,8 +11,8 @@ final class EZVMOmarchyTests: XCTestCase {
 
         XCTAssertTrue(script.contains("touch \"$d/script-ready\""))
         XCTAssertTrue(script.contains("copy_until_matches \"$d/host-text-input\""))
-        XCTAssertTrue(script.contains("cat \"$d/guest-text-input\" | wl-copy --foreground --type 'text/plain;charset=utf-8'"))
-        XCTAssertTrue(script.contains("cat \"$d/guest-image-input\" | wl-copy --foreground --type image/png"))
+        XCTAssertTrue(script.contains("cat \"$d/guest-text-input\" | /usr/bin/wl-copy --foreground --type 'text/plain;charset=utf-8'"))
+        XCTAssertTrue(script.contains("cat \"$d/guest-image-input\" | /usr/bin/wl-copy --foreground --type image/png"))
         XCTAssertFalse(script.contains("native-wayland-result"))
         XCTAssertTrue(script.contains("copy_until_matches \"$d/host-image-input\""))
         XCTAssertTrue(script.contains("cmp -s \"$expected\" \"$output.part\""))

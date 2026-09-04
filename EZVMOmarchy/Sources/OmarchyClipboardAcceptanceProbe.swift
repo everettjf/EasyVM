@@ -233,13 +233,13 @@ enum OmarchyClipboardAcceptanceProbe {
         while [ ! -f "$d/host-image-go" ]; do sleep 0.1; done
         copy_until_matches "$d/host-image-input" "$d/host-image-result" --type image/png
         while [ ! -f "$d/guest-text-go" ]; do sleep 0.1; done
-        cat "$d/guest-text-input" | wl-copy --foreground --type 'text/plain;charset=utf-8' &
+        cat "$d/guest-text-input" | /usr/bin/wl-copy --foreground --type 'text/plain;charset=utf-8' &
         text_pid=$!
         touch "$d/guest-text-ready"
         while [ ! -f "$d/guest-text-consumed" ]; do sleep 0.1; done
         kill "$text_pid" 2>/dev/null || true
         wait "$text_pid" 2>/dev/null || true
-        cat "$d/guest-image-input" | wl-copy --foreground --type image/png &
+        cat "$d/guest-image-input" | /usr/bin/wl-copy --foreground --type image/png &
         image_pid=$!
         touch "$d/guest-image-ready"
         while [ ! -f "$d/guest-image-consumed" ]; do sleep 0.1; done

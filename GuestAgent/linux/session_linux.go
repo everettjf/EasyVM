@@ -219,7 +219,7 @@ func detectSessionCapabilities(uid uint32) []string {
 	copyAvailable := false
 	pasteAvailable := false
 	if waylandReady {
-		if _, copyError := exec.LookPath("wl-copy"); copyError == nil {
+		if info, copyError := os.Stat(sessionClipboardCopyExecutable); copyError == nil && info.Mode().IsRegular() && info.Mode()&0111 != 0 {
 			copyAvailable = true
 		}
 		if _, pasteError := exec.LookPath("wl-paste"); pasteError == nil {

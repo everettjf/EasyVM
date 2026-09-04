@@ -25,6 +25,12 @@ func TestReadClipboardPayloadRetainsAuthenticatedBytes(t *testing.T) {
 	}
 }
 
+func TestSessionClipboardUsesDistributionMatchedCopyFrontend(t *testing.T) {
+	if sessionClipboardCopyExecutable != "/usr/bin/wl-copy" {
+		t.Fatalf("copy executable=%q, want the distribution-matched frontend", sessionClipboardCopyExecutable)
+	}
+}
+
 func TestStartVerifiedClipboardOwnerRetriesRejectedPublications(t *testing.T) {
 	want := []byte("clipboard bytes")
 	starts := 0

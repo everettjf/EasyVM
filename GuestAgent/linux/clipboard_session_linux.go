@@ -35,6 +35,8 @@ var clipboardOwner = struct {
 
 var clipboardPublication sync.Mutex
 
+const sessionClipboardCopyExecutable = "/usr/bin/wl-copy"
+
 func startClipboardSessionServer(uid uint32) (*net.UnixListener, string, error) {
 	runtimeDirectory := os.Getenv("XDG_RUNTIME_DIR")
 	expected := filepath.Join("/run/user", strconv.FormatUint(uint64(uid), 10))
@@ -126,11 +128,11 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		payload,
 		request.MIMEType,
 		func(payload []byte, mimeType string) *exec.Cmd {
-			command := exec.Command("wl-copy", "--foreground", "--type", mimeType)
-			// An io.Reader makes os/exec feed wl-copy through an OS pipe. This is
-			// intentional: the pinned wl-clipboard-rs frontend reliably serves
-			// binary payloads from a pipe, while a regular-file stdin can fail
-			// with EPIPE in the Omarchy data-control session.
+			command := exec.Command(sessionClipboardCopyExecutable, "--foreground", "--type", mimeType)
+			// An io.Reader makes os/exec feed the distribution-matched wl-copy
+			// through an OS pipe. A regular-file stdin can fail with EPIPE in the
+			// Omarchy data-control session, while mixing the separately built Rust
+			// owner with the distribution wl-paste delays cross-client retrieval.
 			command.Stdin = bytes.NewReader(payload)
 			command.Stderr = os.Stderr
 			return command
