@@ -10,5 +10,7 @@
 	<string>$(EZVM_SOURCE_TREE_STATE)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>EZVM Omarchy uses the Mac microphone only when you enable microphone sharing for the Omarchy workspace.</string>
 </dict>
 </plist>

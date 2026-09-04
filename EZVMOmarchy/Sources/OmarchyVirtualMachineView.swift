@@ -43,6 +43,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
 struct OmarchyVirtualMachineView: View {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
+    @AppStorage("omarchyMicrophoneEnabled") private var microphoneEnabled = false
     @State private var lifecycle = OmarchyMachineLifecycle()
     @State private var sessionID = UUID()
     @State private var keyboardIntegration: OmarchyKeyboardIntegrationState = .accessibilityRequired
@@ -71,6 +72,7 @@ struct OmarchyVirtualMachineView: View {
             OmarchyVirtualMachineRepresentable(
                 layout: layout,
                 profile: profile,
+                microphoneEnabled: microphoneEnabled,
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
                 integrationChanged: handleIntegrationChange,
@@ -233,6 +235,11 @@ struct OmarchyVirtualMachineView: View {
                 Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
             }
             Divider()
+            Toggle("Share Mac Microphone", isOn: microphoneBinding)
+            Text(microphoneEnabled
+                ? "Microphone will be available after Omarchy restarts"
+                : "Microphone sharing is off")
+            Divider()
             Button("Export Diagnostics…", systemImage: "square.and.arrow.up") {
                 exportDiagnostics()
             }
@@ -285,6 +292,24 @@ struct OmarchyVirtualMachineView: View {
             ).isReady
         }
         return false
+    }
+
+    private var microphoneBinding: Binding<Bool> {
+        Binding(
+            get: { microphoneEnabled },
+            set: { enabled in
+                guard enabled != microphoneEnabled else { return }
+                microphoneEnabled = enabled
+                if phase == .running || phase == .paused {
+                    notice = UserNotice(
+                        title: "Restart Omarchy to Apply",
+                        message: enabled
+                            ? "After restart, macOS will ask for microphone access when Omarchy begins using the input device."
+                            : "Restart Omarchy to remove the Mac microphone from the virtual machine."
+                    )
+                }
+            }
+        )
     }
 
     private var ownerSetupAvailable: Bool {
@@ -836,6 +861,7 @@ struct OmarchyMachineLifecycle: Equatable {
 private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
+    let microphoneEnabled: Bool
     let sessionID: UUID
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
     let integrationChanged: (VMOmarchyIntegrationState) -> Void
@@ -870,7 +896,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         do {
             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
                 layout: layout,
-                profile: profile
+                profile: profile,
+                microphoneEnabled: microphoneEnabled
             )
             let machine = VZVirtualMachine(configuration: configuration)
             machine.delegate = context.coordinator

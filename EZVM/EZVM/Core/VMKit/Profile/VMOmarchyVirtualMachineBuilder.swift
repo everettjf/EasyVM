@@ -6,6 +6,7 @@ public enum VMOmarchyVirtualMachineBuilder {
     public static func makeConfiguration(
         layout: VMOmarchyWorkspaceLayout,
         profile: VMOmarchyProfile,
+        microphoneEnabled: Bool = false,
         hostMemoryBytes: UInt64 = ProcessInfo.processInfo.physicalMemory,
         activeProcessorCount: Int = ProcessInfo.processInfo.activeProcessorCount
     ) throws -> VZVirtualMachineConfiguration {
@@ -19,6 +20,7 @@ public enum VMOmarchyVirtualMachineBuilder {
         return try buildConfiguration(
             layout: layout,
             profile: profile,
+            microphoneEnabled: microphoneEnabled,
             hostMemoryBytes: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount,
             validatesConfiguration: true
@@ -28,12 +30,14 @@ public enum VMOmarchyVirtualMachineBuilder {
     static func makeUnvalidatedConfigurationForTesting(
         layout: VMOmarchyWorkspaceLayout,
         profile: VMOmarchyProfile,
+        microphoneEnabled: Bool = false,
         hostMemoryBytes: UInt64,
         activeProcessorCount: Int
     ) throws -> VZVirtualMachineConfiguration {
         try buildConfiguration(
             layout: layout,
             profile: profile,
+            microphoneEnabled: microphoneEnabled,
             hostMemoryBytes: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount,
             validatesConfiguration: false
@@ -43,6 +47,7 @@ public enum VMOmarchyVirtualMachineBuilder {
     private static func buildConfiguration(
         layout: VMOmarchyWorkspaceLayout,
         profile: VMOmarchyProfile,
+        microphoneEnabled: Bool,
         hostMemoryBytes: UInt64,
         activeProcessorCount: Int,
         validatesConfiguration: Bool
@@ -126,7 +131,13 @@ public enum VMOmarchyVirtualMachineBuilder {
         let audio = VZVirtioSoundDeviceConfiguration()
         let output = VZVirtioSoundDeviceOutputStreamConfiguration()
         output.sink = VZHostAudioOutputStreamSink()
-        audio.streams = [output]
+        var audioStreams: [VZVirtioSoundDeviceStreamConfiguration] = [output]
+        if microphoneEnabled {
+            let input = VZVirtioSoundDeviceInputStreamConfiguration()
+            input.source = VZHostAudioInputStreamSource()
+            audioStreams.append(input)
+        }
+        audio.streams = audioStreams
         configuration.audioDevices = [audio]
 
         if validatesConfiguration { try configuration.validate() }

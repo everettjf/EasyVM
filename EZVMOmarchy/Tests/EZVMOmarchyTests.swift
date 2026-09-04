@@ -194,6 +194,10 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(values["EZVMSourceRevision"] as? String, "$(EZVM_SOURCE_REVISION)")
         XCTAssertEqual(values["EZVMSourceTreeState"] as? String, "$(EZVM_SOURCE_TREE_STATE)")
         XCTAssertEqual(values["ITSAppUsesNonExemptEncryption"] as? Bool, false)
+        XCTAssertEqual(
+            values["NSMicrophoneUsageDescription"] as? String,
+            "EZVM Omarchy uses the Mac microphone only when you enable microphone sharing for the Omarchy workspace."
+        )
     }
 
     func testStopRequestsGracefulStopAndWaitsForGuest() {

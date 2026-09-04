@@ -68,6 +68,9 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
             "The dedicated Agent clipboard must not compete with a SPICE clipboard owner."
         )
         XCTAssertEqual(configuration.audioDevices.count, 1)
+        let sound = try XCTUnwrap(configuration.audioDevices.first as? VZVirtioSoundDeviceConfiguration)
+        XCTAssertEqual(sound.streams.count, 1)
+        XCTAssertTrue(sound.streams.first is VZVirtioSoundDeviceOutputStreamConfiguration)
         XCTAssertTrue(FileManager.default.fileExists(atPath: layout.efiVariableStore.path))
 
         let identifierData = try Data(contentsOf: layout.machineIdentifier)
@@ -76,6 +79,32 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         )
         let network = try XCTUnwrap(configuration.networkDevices.first as? VZVirtioNetworkDeviceConfiguration)
         XCTAssertEqual(network.macAddress.string, expectedMAC.string)
+    }
+
+    func testBuilderAddsMicrophoneOnlyWhenExplicitlyEnabled() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "VMOmarchyMicrophoneTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: layout.boot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: layout.enrollment, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: layout.shared, withIntermediateDirectories: true)
+        XCTAssertTrue(FileManager.default.createFile(atPath: layout.disk.path, contents: Data(count: 1_048_576)))
+        try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
+
+        let configuration = try VMOmarchyVirtualMachineBuilder.makeUnvalidatedConfigurationForTesting(
+            layout: layout,
+            profile: .production,
+            microphoneEnabled: true,
+            hostMemoryBytes: 32 * UInt64(1_024 * 1_024 * 1_024),
+            activeProcessorCount: 10
+        )
+
+        let sound = try XCTUnwrap(configuration.audioDevices.first as? VZVirtioSoundDeviceConfiguration)
+        XCTAssertEqual(sound.streams.count, 2)
+        XCTAssertTrue(sound.streams.contains { $0 is VZVirtioSoundDeviceOutputStreamConfiguration })
+        XCTAssertTrue(sound.streams.contains { $0 is VZVirtioSoundDeviceInputStreamConfiguration })
     }
 
     func testNetworkIdentityIsStableLocalAndUnicast() throws {
