@@ -4,8 +4,37 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"testing"
 )
+
+func TestClipboardInputReaderStartsAtBeginningAfterDigestRead(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "clipboard-input-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	payload := []byte("EZVM clipboard payload\nwith unicode: 你好")
+	if _, err := file.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.Copy(io.Discard, file); err != nil {
+		t.Fatal(err)
+	}
+
+	actual, err := io.ReadAll(clipboardInputReader(file, int64(len(payload))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(actual, payload) {
+		t.Fatalf("clipboard input = %q, want %q", actual, payload)
+	}
+}
 
 func TestClipboardCountingWriterStopsOneBytePastLimit(t *testing.T) {
 	var output bytes.Buffer

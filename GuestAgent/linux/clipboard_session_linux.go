@@ -113,17 +113,17 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		file.Close()
 		return clipboardResult{Message: "clipboard staging digest mismatch"}
 	}
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		file.Close()
-		return clipboardResult{Message: "clipboard staging input is not seekable"}
-	}
-
 	clipboardOwner.Lock()
 	if clipboardOwner.command != nil && clipboardOwner.command.Process != nil {
 		_ = clipboardOwner.command.Process.Kill()
 	}
 	command := exec.Command("wl-copy", "--foreground", "--type", request.MIMEType)
-	command.Stdin = file
+	// Hashing leaves the shared file descriptor at EOF. Feed wl-copy through a
+	// SectionReader so its input always starts at byte zero and is bounded to the
+	// exact payload that was authenticated above. Using the *os.File directly
+	// makes the child inherit the descriptor's mutable offset and can publish an
+	// empty Wayland selection even though the digest check succeeded.
+	command.Stdin = clipboardInputReader(file, byteCount)
 	if err := command.Start(); err != nil {
 		file.Close()
 		clipboardOwner.Unlock()
@@ -141,6 +141,10 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		clipboardOwner.Unlock()
 	}()
 	return clipboardResult{Success: true, Message: "Guest clipboard updated.", ByteCount: uint64(byteCount), SHA256: digestText}
+}
+
+func clipboardInputReader(file *os.File, byteCount int64) io.Reader {
+	return io.NewSectionReader(file, 0, byteCount)
 }
 
 func getSessionClipboard(path string, request clipboardRequest) clipboardResult {
