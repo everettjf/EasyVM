@@ -88,6 +88,23 @@ final class EZVMOmarchyTests: XCTestCase {
         )
     }
 
+    func testAutomaticOwnerPasswordRequiresValidTemporaryAcceptanceWorkspace() {
+        let password = "temporary-密碼"
+        XCTAssertNil(OmarchyWorkspaceConfiguration.acceptanceOwnerProvisioningPassword(
+            environment: [OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey: password]
+        ))
+        XCTAssertNil(OmarchyWorkspaceConfiguration.acceptanceOwnerProvisioningPassword(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceRootKey: "/Users/shared/not-temporary",
+            OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey: password,
+        ]))
+        XCTAssertEqual(OmarchyWorkspaceConfiguration.acceptanceOwnerProvisioningPassword(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceRootKey: "/tmp/ezvm-owner-acceptance",
+            OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey: password,
+        ]), password)
+    }
+
     func testDedicatedAppUsesOmarchyProductIdentity() throws {
         let profile = VMOmarchyProfile.production
         try profile.validate()

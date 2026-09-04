@@ -26,6 +26,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var ownerSetupForm = OmarchyOwnerSetupForm()
     @State private var ownerSetupPhase: OmarchyOwnerSetupPhase = .editing
     @State private var ownerProvisioningSubmission: OmarchyOwnerProvisioningSubmission?
+    @State private var automaticOwnerProvisioningStarted = false
 
     private var phase: Phase { lifecycle.phase }
 
@@ -331,6 +332,7 @@ struct OmarchyVirtualMachineView: View {
     private func handleIntegrationChange(_ state: VMOmarchyIntegrationState) {
         integration = state
         guard case .ready(let status) = state else { return }
+        startAutomaticOwnerProvisioningIfNeeded(status)
         if !status.provisioningPending {
             ownerSetupForm.clearSecrets()
             ownerProvisioningSubmission = nil
@@ -363,6 +365,29 @@ struct OmarchyVirtualMachineView: View {
             } catch {
                 NSLog("Could not record Omarchy integration metadata: %@", error.localizedDescription)
             }
+        }
+    }
+
+    private func startAutomaticOwnerProvisioningIfNeeded(_ status: VMOmarchyGuestStatus) {
+        guard status.provisioningPending,
+              status.capabilities.contains("owner-provisioning-v1"),
+              !automaticOwnerProvisioningStarted,
+              let password = OmarchyWorkspaceConfiguration.acceptanceOwnerProvisioningPassword()
+        else { return }
+
+        automaticOwnerProvisioningStarted = true
+        var form = ownerSetupForm
+        form.password = password
+        form.passwordConfirmation = password
+        do {
+            let request = try form.validatedRequest()
+            ownerSetupForm = form
+            ownerSetupPhase = .submitting
+            ownerProvisioningSubmission = .init(request: request)
+        } catch {
+            form.clearSecrets()
+            ownerSetupForm = form
+            ownerSetupPhase = .failed(error.localizedDescription)
         }
     }
 

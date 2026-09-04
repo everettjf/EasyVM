@@ -42,6 +42,17 @@ enum OmarchyWorkspaceConfiguration {
     static let acceptanceRootKey = "EZVM_OMARCHY_ACCEPTANCE_WORKSPACE_ROOT"
     static let acceptanceUnlockPasswordKey = "EZVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD"
 
+    static func acceptanceOwnerProvisioningPassword(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) -> String? {
+        guard environment[acceptanceEnabledKey] == "1",
+              (try? layout(environment: environment, fileManager: fileManager)) != nil,
+              let password = environment[acceptanceUnlockPasswordKey],
+              !password.isEmpty else { return nil }
+        return password
+    }
+
     static func layout(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default

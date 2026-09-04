@@ -859,6 +859,12 @@ image-source verifier also requires the consumer to be present and integrated
 by the image builder. This checkpoint is implementation evidence only; it is
 not complete until a newly built candidate performs owner creation from the Mac
 form and reaches an authenticated active Hyprland session without console input.
+Real-guest automation may provide the existing acceptance-only unlock password
+to the same native state machine. That shortcut is enabled only when the app is
+explicitly in acceptance mode and its application-support root resolves beneath
+`/tmp`; ordinary launches never read an automated owner credential. This lets a
+clean-image journey prove the authenticated operation without UI password
+injection while preserving the manual product form as the normal path.
 
 ## 12. Test and measurement strategy
 
