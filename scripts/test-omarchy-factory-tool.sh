@@ -11,6 +11,15 @@ swift build --package-path "$project_root" --product omarchy-factory-tool >/dev/
 bin_dir="$(swift build --package-path "$project_root" --show-bin-path)"
 tool="$bin_dir/omarchy-factory-tool"
 
+printf 'EZVM-SPARSE-1\n8\n2 3\nabc\nEND\n' | gzip -c > "$work/image.sparse.gz"
+"$tool" decode-sparse-gzip "$work/image.sparse.gz" 8 "$work/image.raw"
+[[ $(stat -f '%z' "$work/image.raw") == 8 ]]
+[[ $(dd if="$work/image.raw" bs=1 skip=2 count=3 2>/dev/null) == abc ]]
+if "$tool" decode-sparse-gzip "$work/image.sparse.gz" 8 "$work/image.raw" 2>/dev/null; then
+  echo 'sparse decoder unexpectedly overwrote an existing output' >&2
+  exit 1
+fi
+
 printf 'test factory bytes' > "$work/factory.asif"
 "$tool" generate-key "$work/private.key" "$work/public.key"
 [[ $(stat -f '%Lp' "$work/private.key") == 600 ]]

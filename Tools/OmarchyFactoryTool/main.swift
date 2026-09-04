@@ -7,6 +7,8 @@ enum FactoryToolError: LocalizedError {
     case usage
     case existingOutput(String)
     case invalidPrivateKey
+    case invalidLogicalSize
+    case decompressionFailed
 
     var errorDescription: String? {
         switch self {
@@ -17,9 +19,12 @@ enum FactoryToolError: LocalizedError {
               omarchy-factory-tool sign <image.asif> <image-url> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json>
               omarchy-factory-tool verify <manifest.json> <image.asif> <public-key>
               omarchy-factory-tool prepare-workspace <manifest.json> <image.asif> <public-key> <application-support-root>
+              omarchy-factory-tool decode-sparse-gzip <archive.gz> <logical-size> <output.raw>
             """
         case .existingOutput(let path): "Refusing to overwrite existing output: \(path)"
         case .invalidPrivateKey: "The signing key is not a raw Ed25519 private key."
+        case .invalidLogicalSize: "The sparse image logical size is invalid."
+        case .decompressionFailed: "The compressed sparse image could not be decoded."
         }
     }
 }
@@ -113,8 +118,58 @@ enum OmarchyFactoryTool {
                 configuration: metadata,
                 machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
             )
+        case "decode-sparse-gzip":
+            guard arguments.count == 4,
+                  let logicalSize = UInt64(arguments[2]), logicalSize > 0 else {
+                throw FactoryToolError.invalidLogicalSize
+            }
+            let archive = URL(filePath: arguments[1])
+            let output = URL(filePath: arguments[3])
+            try requireAbsent([output])
+            let values = try archive.resourceValues(
+                forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            )
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                throw FactoryToolError.decompressionFailed
+            }
+            FileManager.default.createFile(atPath: output.path, contents: nil)
+            do {
+                try decodeSparseGzip(archive, to: output, logicalSize: logicalSize)
+            } catch {
+                try? FileManager.default.removeItem(at: output)
+                throw error
+            }
         default:
             throw FactoryToolError.usage
+        }
+    }
+
+    private static func decodeSparseGzip(
+        _ archive: URL,
+        to output: URL,
+        logicalSize: UInt64
+    ) throws {
+        let process = Process()
+        process.executableURL = URL(filePath: "/usr/bin/gzip")
+        process.arguments = ["-dc", archive.path]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+        try process.run()
+        do {
+            try VMPreinstalledSparseStreamDecoder.decode(
+                from: pipe.fileHandleForReading,
+                to: output,
+                expectedSize: logicalSize
+            )
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                throw FactoryToolError.decompressionFailed
+            }
+        } catch {
+            if process.isRunning { process.terminate() }
+            process.waitUntilExit()
+            throw error
         }
     }
 

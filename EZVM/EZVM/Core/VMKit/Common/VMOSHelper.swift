@@ -645,8 +645,8 @@ final class VMOperationCancellationFlag: @unchecked Sendable {
 
 
 #if arch(arm64)
-enum VMPreinstalledSparseStreamDecoder {
-    static func decode(
+public enum VMPreinstalledSparseStreamDecoder {
+    public static func decode(
         from input: FileHandle,
         to outputURL: URL,
         expectedSize: UInt64,
@@ -707,9 +707,9 @@ enum VMPreinstalledSparseStreamDecoder {
         return result
     }
 
-    enum DecodeError: LocalizedError, Equatable {
+    public enum DecodeError: LocalizedError, Equatable {
         case invalidHeader, invalidExtent, truncated
-        var errorDescription: String? {
+        public var errorDescription: String? {
             switch self {
             case .invalidHeader: "The sparse image header is invalid."
             case .invalidExtent: "The sparse image contains an invalid extent."
