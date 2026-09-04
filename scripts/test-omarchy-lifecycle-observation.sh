@@ -6,12 +6,14 @@ project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-lifecycle.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 agent=0123456789abcdef0123456789abcdef01234567
+revision=1234567890abcdef1234567890abcdef12345678
 now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 write_observation() {
   ruby -rjson -e '
     value = {
-      schemaVersion: 5,
+      schemaVersion: 6,
+      sourceRevision: ARGV.fetch(3),
       firstProvisioningPendingObservedAt: ARGV.fetch(0),
       firstLockedObservedAt: ARGV.fetch(0),
       firstActiveObservedAt: ARGV.fetch(0),
@@ -41,11 +43,11 @@ write_observation() {
       guestAgentVersion: ARGV.fetch(1)
     }
     File.write(ARGV.fetch(2), JSON.generate(value))
-  ' "$now" "$agent" "$work/lifecycle.json"
+  ' "$now" "$agent" "$work/lifecycle.json" "$revision"
 }
 
 verify=("$project_root/scripts/verify-omarchy-lifecycle-observation.sh" \
-  "$work/lifecycle.json" "$agent")
+  "$work/lifecycle.json" "$agent" "$revision")
 
 expect_rejection() {
   local message=$1
@@ -108,7 +110,12 @@ expect_rejection "lifecycle with wake preceding sleep was accepted"
 
 write_observation
 verify=("$project_root/scripts/verify-omarchy-lifecycle-observation.sh" \
-  "$work/lifecycle.json" wrong-agent)
+  "$work/lifecycle.json" wrong-agent "$revision")
 expect_rejection "lifecycle from a different Guest Agent was accepted"
+
+write_observation
+verify=("$project_root/scripts/verify-omarchy-lifecycle-observation.sh" \
+  "$work/lifecycle.json" "$agent" 0000000000000000000000000000000000000000)
+expect_rejection "lifecycle from a different Host revision was accepted"
 
 echo "Verified lifecycle observation validation and rejection gates."

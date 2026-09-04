@@ -4,15 +4,18 @@ set -euo pipefail
 
 observation=${1:-}
 expected_agent_version=${2:-}
+expected_revision=${3:-}
 
 fail() { echo "verify-omarchy-lifecycle-observation: $*" >&2; exit 1; }
 
 [[ -f $observation && ! -L $observation ]] || fail "observation is missing or unsafe"
 [[ -n $expected_agent_version ]] || fail "expected Guest Agent version is required"
+[[ $expected_revision =~ ^[0-9a-f]{40}$ ]] || fail "expected revision must be a full Git commit"
 
 ruby -rjson -rtime -e '
   value = JSON.parse(File.read(ARGV.fetch(0)))
-  abort "wrong lifecycle schema" unless value["schemaVersion"] == 5
+  abort "wrong lifecycle schema" unless value["schemaVersion"] == 6
+  abort "wrong source revision" unless value["sourceRevision"] == ARGV.fetch(2)
   abort "wrong Guest Agent version" unless value["guestAgentVersion"] == ARGV.fetch(1)
 
   provisioning = Time.iso8601(value.fetch("firstProvisioningPendingObservedAt"))
@@ -59,6 +62,6 @@ ruby -rjson -rtime -e '
   abort "host wake recovery is older than 24 hours" if Time.now.utc - active_after_wake > 86_400
   abort "desktop is not active after recovery" unless value["lastDesktopSessionActive"] == true
   abort "owner provisioning is still pending" unless value["lastProvisioningPending"] == false
-' "$observation" "$expected_agent_version"
+' "$observation" "$expected_agent_version" "$expected_revision"
 
 echo "Verified EZVM Omarchy lock-to-active lifecycle observation."

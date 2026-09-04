@@ -219,6 +219,7 @@ enum OmarchyAcceptanceObservationReporter {
 
     private struct LifecycleObservation: Codable {
         let schemaVersion: Int
+        let sourceRevision: String
         var firstProvisioningPendingObservedAt: Date?
         var firstLockedObservedAt: Date?
         var firstActiveObservedAt: Date?
@@ -267,8 +268,13 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         var observation = (try? Data(contentsOf: file)).flatMap {
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }.flatMap { $0.schemaVersion == 5 ? $0 : nil } ?? LifecycleObservation(
-            schemaVersion: 5,
+        }.flatMap {
+            $0.schemaVersion == 6
+                && $0.sourceRevision == (bundleInfo["EZVMSourceRevision"] as? String ?? "")
+                ? $0 : nil
+        } ?? LifecycleObservation(
+            schemaVersion: 6,
+            sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
             firstProvisioningPendingObservedAt: nil,
             firstLockedObservedAt: nil,
             firstActiveObservedAt: nil,
@@ -362,7 +368,7 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         guard var observation = (try? Data(contentsOf: file)).flatMap({
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }), observation.schemaVersion == 5 else {
+        }), observation.schemaVersion == 6 else {
             NSLog("Cannot record Omarchy lock cycle before a Guest Agent status observation.")
             return
         }
@@ -424,7 +430,7 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         guard var observation = (try? Data(contentsOf: file)).flatMap({
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }), observation.schemaVersion == 5 else {
+        }), observation.schemaVersion == 6 else {
             NSLog("Cannot record Omarchy VM lifecycle event before a Guest Agent status observation.")
             return
         }
@@ -459,7 +465,7 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         guard var observation = (try? Data(contentsOf: file)).flatMap({
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }), observation.schemaVersion == 5 else {
+        }), observation.schemaVersion == 6 else {
             NSLog("Cannot record Omarchy host power event before a Guest Agent status observation.")
             return
         }
@@ -492,7 +498,7 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         guard var observation = (try? Data(contentsOf: file)).flatMap({
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }), observation.schemaVersion == 5 else {
+        }), observation.schemaVersion == 6 else {
             NSLog("Cannot record Omarchy recovery event before a Guest Agent status observation.")
             return
         }

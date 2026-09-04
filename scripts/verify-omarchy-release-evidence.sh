@@ -47,7 +47,7 @@ manifest_image_sha=$(printf '%s' "$manifest_image_sha" | tr '[:upper:]' '[:lower
 "$(dirname "$0")/verify-omarchy-integration-observation.sh" \
   "$integration_observation" "$expected_revision" "$factory_version" "$agent_version" >/dev/null
 "$(dirname "$0")/verify-omarchy-lifecycle-observation.sh" \
-  "$lifecycle_observation" "$agent_version" >/dev/null
+  "$lifecycle_observation" "$agent_version" "$expected_revision" >/dev/null
 "$(dirname "$0")/verify-omarchy-notification-observation.sh" \
   "$notification_observation" "$expected_revision" >/dev/null
 

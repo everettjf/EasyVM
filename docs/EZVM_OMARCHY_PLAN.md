@@ -675,8 +675,9 @@ validates the bound evidence, and only then pushes the release branch/tag and
 creates the GitHub release. The schema-7 release record contains SHA-256 digests
 of all seven structured observations. Promotion therefore fails if either the live
 clipboard/display/shared-folder result or the lock-to-active recovery result is
-missing, stale, version-mismatched, or changed after acceptance. The schema-5
-lifecycle observation also records the ordered VM pause request, framework
+missing, stale, version-mismatched, or changed after acceptance. The schema-6
+lifecycle observation binds every transition to the exact App source revision
+and also records the ordered VM pause request, framework
 pause completion, framework resume completion, and authenticated desktop
 recovery; authenticated Agent restart with an unchanged Linux boot ID and a new
 Agent instance ID; Guest restart with a changed Linux boot ID; and finally Host

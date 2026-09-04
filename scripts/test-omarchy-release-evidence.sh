@@ -48,7 +48,8 @@ ruby -rjson -e '
 
 ruby -rjson -e '
   value = {
-    schemaVersion: 5, firstProvisioningPendingObservedAt: ARGV.fetch(0),
+    schemaVersion: 6, sourceRevision: ARGV.fetch(2),
+    firstProvisioningPendingObservedAt: ARGV.fetch(0),
     firstLockedObservedAt: ARGV.fetch(0),
     firstActiveObservedAt: ARGV.fetch(0), firstActiveAfterLockedObservedAt: ARGV.fetch(0),
     firstPauseRequestedAt: ARGV.fetch(0), firstPausedAt: ARGV.fetch(0),
@@ -64,8 +65,8 @@ ruby -rjson -e '
     lastObservedAt: ARGV.fetch(0), lastDesktopSessionActive: true,
     lastProvisioningPending: false, guestAgentVersion: ARGV.fetch(1)
   }
-  File.write(ARGV.fetch(2), JSON.generate(value))
-' "$ended" "$agent_version" "$work/lifecycle.json"
+  File.write(ARGV.fetch(3), JSON.generate(value))
+' "$ended" "$agent_version" "$revision" "$work/lifecycle.json"
 integration_sha=$(shasum -a 256 "$work/integration.json" | awk '{print $1}')
 lifecycle_sha=$(shasum -a 256 "$work/lifecycle.json" | awk '{print $1}')
 cp "$work/integration.json" "$work/integration.valid.json"

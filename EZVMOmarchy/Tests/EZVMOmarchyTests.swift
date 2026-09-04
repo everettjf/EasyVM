@@ -952,7 +952,8 @@ final class EZVMOmarchyTests: XCTestCase {
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 5)
+        XCTAssertEqual(json["schemaVersion"] as? Int, 6)
+        XCTAssertEqual(json["sourceRevision"] as? String, "")
         XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
         XCTAssertNotNil(json["firstLockedObservedAt"])
         XCTAssertNotNil(json["firstActiveObservedAt"])
@@ -1097,9 +1098,43 @@ final class EZVMOmarchyTests: XCTestCase {
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 5)
+        XCTAssertEqual(json["schemaVersion"] as? Int, 6)
+        XCTAssertEqual(json["sourceRevision"] as? String, "")
         XCTAssertEqual(json["guestAgentVersion"] as? String, "current")
         XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
+    }
+
+    func testAcceptanceLifecycleStartsFreshWhenHostRevisionChanges() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-omarchy-lifecycle-revision-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        let environment = [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"]
+        let status = VMOmarchyGuestStatus(
+            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: false, provisioningPending: true
+        )
+
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: status,
+            layout: layout,
+            environment: environment,
+            bundleInfo: ["EZVMSourceRevision": "old-revision"]
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: status,
+            layout: layout,
+            environment: environment,
+            bundleInfo: ["EZVMSourceRevision": "new-revision"]
+        )
+
+        let data = try Data(contentsOf: layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.lifecycleFileName
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["schemaVersion"] as? Int, 6)
+        XCTAssertEqual(json["sourceRevision"] as? String, "new-revision")
+        XCTAssertEqual(json["guestAgentVersion"] as? String, "agent")
     }
 
     @MainActor
