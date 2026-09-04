@@ -185,8 +185,11 @@ func desktopSessionActive() bool {
 }
 
 func omarchyShellLockState() (bool, bool) {
-	executable, err := exec.LookPath("omarchy-shell")
-	if err != nil {
+	executable := "/usr/share/omarchy/bin/omarchy-shell"
+	if info, err := os.Stat(executable); err != nil || info.IsDir() || info.Mode()&0111 == 0 {
+		executable, err = exec.LookPath("omarchy-shell")
+	}
+	if executable == "" {
 		return false, false
 	}
 	for _, session := range findHyprlandSessions() {

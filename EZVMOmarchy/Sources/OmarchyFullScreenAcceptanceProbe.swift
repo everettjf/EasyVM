@@ -59,25 +59,30 @@ final class OmarchyFullScreenAcceptanceProbe {
             }
         ]
         timeoutTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(20))
+            try? await Task.sleep(for: .seconds(30))
             guard !Task.isCancelled else { return }
+            NSLog("Omarchy full-screen acceptance timed out before a complete enter/exit cycle")
             self?.stop()
         }
+        NSLog("Omarchy full-screen acceptance requesting entry")
         window.toggleFullScreen(nil)
     }
 
     private func didEnterFullScreen() {
         guard state.observeEntered(at: Date()), let window else { return }
+        NSLog("Omarchy full-screen acceptance observed entry")
         // AppKit can ignore a second synchronous toggle while it is still
         // unwinding didEnterFullScreen. Schedule the exit on a later run-loop
         // turn so the acceptance probe cannot strand the App in its new Space.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak window] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak window] in
+            NSLog("Omarchy full-screen acceptance requesting exit")
             window?.toggleFullScreen(nil)
         }
     }
 
     private func didExitFullScreen() {
         guard state.observeExited(at: Date()), let window else { return }
+        NSLog("Omarchy full-screen acceptance observed exit")
         if let virtualMachineView {
             window.makeFirstResponder(virtualMachineView)
         }
