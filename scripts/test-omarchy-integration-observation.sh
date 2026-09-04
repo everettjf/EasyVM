@@ -13,7 +13,7 @@ observed=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 write_observation() {
   ruby -rjson -e '
     capabilities = %w[
-      clipboard-image-v1 clipboard-text-v1 desktop-input-v1 dynamic-display-v1
+      agent-restart-v1 clipboard-image-v1 clipboard-text-v1 desktop-input-v1 dynamic-display-v1
       shared-folders-v1 shutdown-v1
     ]
     value = {

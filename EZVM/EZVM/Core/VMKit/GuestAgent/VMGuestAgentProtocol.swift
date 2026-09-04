@@ -155,6 +155,7 @@ enum VMGuestAgentOperation: String, Codable, CaseIterable {
     case status
     case shutdown
     case restart
+    case restartAgent
     case uploadStart
     case uploadChunk
     case uploadCommit
@@ -696,6 +697,7 @@ struct VMGuestAgentEnvelope: Codable, Equatable {
 
 struct VMGuestAgentStatus: Codable, Equatable {
     let agentVersion: String
+    let agentInstanceID: String?
     let omarchyRevision: String?
     let operatingSystem: String
     let kernelVersion: String
@@ -711,7 +713,7 @@ struct VMGuestAgentStatus: Codable, Equatable {
     let kvmAPIVersion: Int?
     let kvmError: String?
 
-    init(agentVersion: String, omarchyRevision: String? = nil,
+    init(agentVersion: String, agentInstanceID: String? = nil, omarchyRevision: String? = nil,
          operatingSystem: String, kernelVersion: String, hostName: String,
          addresses: [String], bootID: String, uptimeSeconds: UInt64, capabilities: [String]?,
          inputDevices: [String]? = nil,
@@ -719,6 +721,7 @@ struct VMGuestAgentStatus: Codable, Equatable {
          provisioningPending: Bool? = nil,
          kvmAvailable: Bool? = nil, kvmAPIVersion: Int? = nil, kvmError: String? = nil) {
         self.agentVersion = agentVersion
+        self.agentInstanceID = agentInstanceID
         self.omarchyRevision = omarchyRevision
         self.operatingSystem = operatingSystem
         self.kernelVersion = kernelVersion

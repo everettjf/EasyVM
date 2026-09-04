@@ -122,6 +122,7 @@ extension VMOmarchyProfile {
             .init(hostMemoryBytes: 64 * 1_024 * 1_024 * 1_024, cpuCount: 8, memoryBytes: 24 * 1_024 * 1_024 * 1_024),
         ],
         requiredGuestCapabilities: [
+            "agent-restart-v1",
             "desktop-input-v1",
             "dynamic-display-v1",
             "shutdown-v1",

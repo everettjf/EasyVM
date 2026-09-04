@@ -29,6 +29,8 @@ public enum VMOmarchySharedFolderProbeState: Equatable, Sendable {
 
 public struct VMOmarchyGuestStatus: Equatable, Sendable {
     public let agentVersion: String
+    public let agentInstanceID: String?
+    public let bootID: String
     public let omarchyRevision: String?
     public let hostName: String
     public let addresses: [String]
@@ -38,6 +40,8 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
 
     public init(
         agentVersion: String,
+        agentInstanceID: String? = nil,
+        bootID: String = "",
         omarchyRevision: String? = nil,
         hostName: String,
         addresses: [String],
@@ -46,6 +50,8 @@ public struct VMOmarchyGuestStatus: Equatable, Sendable {
         provisioningPending: Bool
     ) {
         self.agentVersion = agentVersion
+        self.agentInstanceID = agentInstanceID
+        self.bootID = bootID
         self.omarchyRevision = omarchyRevision
         self.hostName = hostName
         self.addresses = addresses
@@ -190,6 +196,20 @@ public final class VMOmarchyGuestAgentClient {
 
     public func requestShutdown() { send(.shutdown) }
     public func requestRestart() { send(.restart) }
+
+    public func requestAgentRestart() async throws {
+        let result: VMGuestAgentInputResult = try await request(
+            .restartAgent,
+            payload: [String: String]()
+        )
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMOmarchyAgentRestart",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+    }
 
     /// Types a constrained US-ASCII command through the authenticated uinput
     /// channel. This is used by isolated end-to-end acceptance runs and does
@@ -422,6 +442,8 @@ public final class VMOmarchyGuestAgentClient {
             capabilities = Set(status.capabilities ?? [])
             stateChanged(.ready(VMOmarchyGuestStatus(
                 agentVersion: status.agentVersion,
+                agentInstanceID: status.agentInstanceID,
+                bootID: status.bootID,
                 omarchyRevision: status.omarchyRevision,
                 hostName: status.hostName,
                 addresses: status.addresses,

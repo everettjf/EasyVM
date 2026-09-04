@@ -29,6 +29,7 @@ const guestAgentPort = 10240
 const vmaddrCIDAny = 0xffffffff
 
 var version = "dev"
+var agentInstanceID = randomInstanceID()
 
 type enrollment struct {
 	SchemaVersion int    `json:"schemaVersion"`
@@ -62,6 +63,7 @@ type envelope struct {
 
 type status struct {
 	AgentVersion         string   `json:"agentVersion"`
+	AgentInstanceID      string   `json:"agentInstanceID"`
 	OmarchyRevision      string   `json:"omarchyRevision,omitempty"`
 	OperatingSystem      string   `json:"operatingSystem"`
 	KernelVersion        string   `json:"kernelVersion"`
@@ -192,6 +194,20 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 				return err
 			}
 			go power(request.Operation)
+		case "restartAgent":
+			payload, err := json.Marshal(map[string]interface{}{"success": true, "message": "Guest Agent restart scheduled."})
+			if err != nil {
+				return err
+			}
+			sentSequence++
+			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
+			if err := writeFrame(stream, response); err != nil {
+				return err
+			}
+			go func() {
+				time.Sleep(100 * time.Millisecond)
+				os.Exit(0)
+			}()
 		case "uploadStart", "uploadChunk", "uploadCommit", "transferCancel", "downloadInfo", "downloadChunk":
 			result := transfers.handle(request.Operation, request.Payload)
 			payload, err := json.Marshal(result)
@@ -258,6 +274,14 @@ func secureEqual(first, second string) bool {
 	return errA == nil && errB == nil && len(a) == len(b) && subtle.ConstantTimeCompare(a, b) == 1
 }
 
+func randomInstanceID() string {
+	value := make([]byte, 16)
+	if _, err := rand.Read(value); err != nil {
+		return fmt.Sprintf("pid-%d-%d", os.Getpid(), time.Now().UnixNano())
+	}
+	return base64.RawURLEncoding.EncodeToString(value)
+}
+
 func writeFrame(writer io.Writer, value any) error {
 	payload, err := json.Marshal(value)
 	if err != nil {
@@ -307,7 +331,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	}
 	sort.Strings(addresses)
 	kvmAvailable, kvmVersion, kvmError := kvmStatus()
-	capabilities := []string{"file-transfer-v1", "kvm-diagnostics-v1", "shutdown-v1"}
+	capabilities := []string{"file-transfer-v1", "kvm-diagnostics-v1", "shutdown-v1", "agent-restart-v1"}
 	if sshListening() {
 		capabilities = append(capabilities, "ssh-addresses-v1")
 	}
@@ -331,7 +355,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
 	_, provisioningErr := os.Stat("/var/lib/omarchy/provisioning/pending")
-	return status{AgentVersion: version, OmarchyRevision: readTrimmed("/usr/share/omarchy/version"), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: readTrimmed("/usr/share/omarchy/version"), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopSessionActive(), ProvisioningPending: provisioningErr == nil, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func sshListening() bool {

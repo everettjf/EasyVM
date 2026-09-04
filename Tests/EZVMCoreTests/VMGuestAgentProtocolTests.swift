@@ -518,7 +518,8 @@ final class VMGuestAgentProtocolTests: XCTestCase {
 
     func testStatusPayloadRoundTrips() throws {
         let status = VMGuestAgentStatus(
-            agentVersion: "1.2.3", operatingSystem: "Ubuntu 26.04", kernelVersion: "7.0",
+            agentVersion: "1.2.3", agentInstanceID: "instance-a",
+            operatingSystem: "Ubuntu 26.04", kernelVersion: "7.0",
             hostName: "builder", addresses: ["10.0.2.15", "fd00::15"], bootID: "abc", uptimeSeconds: 99,
             capabilities: [
                 "file-transfer-v1", "ssh-addresses-v1", "input-uinput-v1",
@@ -526,10 +527,11 @@ final class VMGuestAgentProtocolTests: XCTestCase {
             ]
         )
         XCTAssertEqual(try JSONDecoder().decode(VMGuestAgentStatus.self, from: JSONEncoder().encode(status)), status)
+        XCTAssertEqual(status.agentInstanceID, "instance-a")
         XCTAssertTrue(status.supportsAbsoluteGuestPointer)
         XCTAssertTrue(status.hasIPv4Address)
         XCTAssertEqual(Set(VMGuestAgentOperation.allCases), [
-            .heartbeat, .status, .shutdown, .restart,
+            .heartbeat, .status, .shutdown, .restart, .restartAgent,
             .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,
             .downloadInfo, .downloadChunk, .input,
         ])
@@ -537,6 +539,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         let legacyJSON = Data(#"{"agentVersion":"1.0","operatingSystem":"Linux","kernelVersion":"6","hostName":"legacy","addresses":[],"bootID":"old","uptimeSeconds":1}"#.utf8)
         let legacy = try JSONDecoder().decode(VMGuestAgentStatus.self, from: legacyJSON)
         XCTAssertNil(legacy.capabilities)
+        XCTAssertNil(legacy.agentInstanceID)
         XCTAssertFalse(legacy.supportsSSH)
         XCTAssertFalse(legacy.supportsFileTransfer)
         XCTAssertFalse(legacy.supportsGuestInput)

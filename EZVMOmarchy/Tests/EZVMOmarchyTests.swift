@@ -202,7 +202,7 @@ final class EZVMOmarchyTests: XCTestCase {
             hostName: "omarchy",
             addresses: ["2001:db8::2", "192.0.2.2"],
             capabilities: [
-                "desktop-input-v1", "dynamic-display-v1", "shutdown-v1",
+                "agent-restart-v1", "desktop-input-v1", "dynamic-display-v1", "shutdown-v1",
                 "shared-folders-v1", "clipboard-text-v1", "clipboard-image-v1",
             ],
             desktopSessionActive: true,
