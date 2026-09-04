@@ -273,10 +273,12 @@ func getSessionClipboard(path string, request clipboardRequest) clipboardResult 
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		return clipboardResult{Message: err.Error()}
 	}
-	// Create an unguessable file and retain an open descriptor for the parent.
-	// Committing through secureUploadTarget prevents symlink traversal and
-	// refuses to replace a destination that appeared during capture.
-	file, target, err := secureCreateUpload(path)
+	// Create the final unguessable staging file exclusively. The Host cannot
+	// consume it before this request succeeds, and direct creation avoids a
+	// Virtualization.framework virtiofs bug affecting descriptor-relative
+	// mutations. The specialized helper accepts only the shared-root clipboard
+	// filename contract and refuses links or an existing destination.
+	file, target, err := secureCreateClipboardOutput(path)
 	if err != nil {
 		return clipboardResult{Message: "could not create clipboard staging output: " + err.Error()}
 	}
