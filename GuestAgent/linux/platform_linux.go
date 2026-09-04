@@ -175,10 +175,50 @@ func desktopSessionActive() bool {
 	if len(compositorPIDs) == 0 || len(desktopLockerPIDs()) > 0 {
 		return false
 	}
+	if locked, determined := omarchyShellLockState(); determined {
+		return !locked
+	}
 	if locked, determined := hyprlandSessionLockState(); determined {
 		return !locked
 	}
 	return true
+}
+
+func omarchyShellLockState() (bool, bool) {
+	executable, err := exec.LookPath("omarchy-shell")
+	if err != nil {
+		return false, false
+	}
+	for _, session := range findHyprlandSessions() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		command := exec.CommandContext(ctx, executable, "lock", "isLocked")
+		command.Env = append(os.Environ(),
+			"XDG_RUNTIME_DIR="+session.runtimeDir,
+			"HYPRLAND_INSTANCE_SIGNATURE="+session.signature,
+			"OMARCHY_SHELL_IPC_TIMEOUT=0.5s",
+		)
+		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: session.uid, Gid: session.gid}}
+		output, commandErr := command.Output()
+		cancel()
+		if commandErr != nil {
+			continue
+		}
+		if locked, determined := parseOmarchyShellLockState(output); determined {
+			return locked, true
+		}
+	}
+	return false, false
+}
+
+func parseOmarchyShellLockState(data []byte) (bool, bool) {
+	switch strings.TrimSpace(string(data)) {
+	case "true":
+		return true, true
+	case "false":
+		return false, true
+	default:
+		return false, false
+	}
 }
 
 func hyprlandSessionLockState() (bool, bool) {

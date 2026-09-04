@@ -68,7 +68,12 @@ final class OmarchyFullScreenAcceptanceProbe {
 
     private func didEnterFullScreen() {
         guard state.observeEntered(at: Date()), let window else { return }
-        window.toggleFullScreen(nil)
+        // AppKit can ignore a second synchronous toggle while it is still
+        // unwinding didEnterFullScreen. Schedule the exit on a later run-loop
+        // turn so the acceptance probe cannot strand the App in its new Space.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak window] in
+            window?.toggleFullScreen(nil)
+        }
     }
 
     private func didExitFullScreen() {

@@ -72,3 +72,25 @@ func TestParseHyprlandSessionLockState(t *testing.T) {
 		})
 	}
 }
+
+func TestParseOmarchyShellLockState(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		locked     bool
+		determined bool
+	}{
+		{"locked", "true\n", true, true},
+		{"unlocked", " false \n", false, true},
+		{"empty", "", false, false},
+		{"unexpected", "LOCK", false, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			locked, determined := parseOmarchyShellLockState([]byte(test.input))
+			if locked != test.locked || determined != test.determined {
+				t.Fatalf("got (%v, %v), want (%v, %v)", locked, determined, test.locked, test.determined)
+			}
+		})
+	}
+}
