@@ -149,6 +149,15 @@ final class EZVMOmarchyTests: XCTestCase {
             privateTemporary.applicationSupportRoot.path.hasSuffix("/tmp/ezvm-omarchy-acceptance-test")
         )
 
+        let privateSpelling = try OmarchyWorkspaceConfiguration.layout(environment: [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceRootKey: "/private/tmp/ezvm-omarchy-acceptance-test",
+        ])
+        XCTAssertEqual(
+            privateSpelling.applicationSupportRoot.path,
+            "/private/tmp/ezvm-omarchy-acceptance-test"
+        )
+
         XCTAssertThrowsError(try OmarchyWorkspaceConfiguration.layout(environment: [
             OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
             OmarchyWorkspaceConfiguration.acceptanceRootKey: "/Users/shared/not-temporary",

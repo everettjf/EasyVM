@@ -64,12 +64,15 @@ enum OmarchyWorkspaceConfiguration {
             throw ConfigurationError.invalidAcceptanceRoot
         }
         let root = URL(filePath: path).standardizedFileURL.resolvingSymlinksInPath()
-        let allowedRoots = [
-            fileManager.temporaryDirectory.standardizedFileURL.resolvingSymlinksInPath(),
-            URL(filePath: "/tmp", directoryHint: .isDirectory).resolvingSymlinksInPath(),
-            URL(filePath: "/private/tmp", directoryHint: .isDirectory).resolvingSymlinksInPath(),
+        let allowedRootPaths = [
+            fileManager.temporaryDirectory.standardizedFileURL.resolvingSymlinksInPath().path,
+            // Keep both spellings. On current macOS, URL path resolution can
+            // preserve `/private/tmp` for a child while returning `/tmp` for
+            // the root itself, even though they identify the same volume.
+            "/tmp",
+            "/private/tmp",
         ]
-        guard allowedRoots.contains(where: { root.path == $0.path || root.path.hasPrefix($0.path + "/") }) else {
+        guard allowedRootPaths.contains(where: { root.path == $0 || root.path.hasPrefix($0 + "/") }) else {
             throw ConfigurationError.invalidAcceptanceRoot
         }
         return .init(applicationSupportRoot: root)
