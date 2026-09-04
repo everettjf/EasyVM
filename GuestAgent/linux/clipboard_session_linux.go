@@ -30,7 +30,10 @@ type clipboardSessionRequest struct {
 var clipboardOwner = struct {
 	sync.Mutex
 	command *exec.Cmd
+	done    chan struct{}
 }{}
+
+var clipboardPublication sync.Mutex
 
 func startClipboardSessionServer(uid uint32) (*net.UnixListener, string, error) {
 	runtimeDirectory := os.Getenv("XDG_RUNTIME_DIR")
@@ -112,10 +115,13 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 	if request.SHA256 != digestText {
 		return clipboardResult{Message: "clipboard staging digest mismatch"}
 	}
-	clipboardOwner.Lock()
-	if clipboardOwner.command != nil && clipboardOwner.command.Process != nil {
-		_ = clipboardOwner.command.Process.Kill()
-	}
+	// Replacing a Wayland data-control source is ordered. Wait for the old
+	// wl-copy process to finish its compositor teardown before registering the
+	// next source; otherwise the late teardown can clear a selection which the
+	// new owner has already published and verified.
+	clipboardPublication.Lock()
+	defer clipboardPublication.Unlock()
+	stopSessionClipboardOwner()
 	command, err := startVerifiedClipboardOwner(
 		payload,
 		request.MIMEType,
@@ -133,20 +139,42 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		time.Sleep,
 	)
 	if err != nil {
-		clipboardOwner.Unlock()
 		return clipboardResult{Message: err.Error()}
 	}
+	done := make(chan struct{})
+	clipboardOwner.Lock()
 	clipboardOwner.command = command
+	clipboardOwner.done = done
 	clipboardOwner.Unlock()
 	go func() {
 		_ = command.Wait()
+		close(done)
 		clipboardOwner.Lock()
 		if clipboardOwner.command == command {
 			clipboardOwner.command = nil
+			clipboardOwner.done = nil
 		}
 		clipboardOwner.Unlock()
 	}()
 	return clipboardResult{Success: true, Message: "Guest clipboard updated.", ByteCount: byteCount, SHA256: digestText}
+}
+
+func stopSessionClipboardOwner() {
+	clipboardOwner.Lock()
+	command := clipboardOwner.command
+	done := clipboardOwner.done
+	clipboardOwner.command = nil
+	clipboardOwner.done = nil
+	clipboardOwner.Unlock()
+	if command == nil {
+		return
+	}
+	if command.Process != nil {
+		_ = command.Process.Kill()
+	}
+	if done != nil {
+		<-done
+	}
 }
 
 const clipboardPublicationAttempts = 5

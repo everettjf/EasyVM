@@ -77,6 +77,37 @@ func TestStartVerifiedClipboardOwnerRejectsPersistentMismatch(t *testing.T) {
 	}
 }
 
+func TestStopSessionClipboardOwnerWaitsForProcessExit(t *testing.T) {
+	command := exec.Command("sleep", "30")
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	clipboardOwner.Lock()
+	clipboardOwner.command = command
+	clipboardOwner.done = done
+	clipboardOwner.Unlock()
+	go func() {
+		_ = command.Wait()
+		close(done)
+	}()
+
+	stopSessionClipboardOwner()
+	select {
+	case <-done:
+	default:
+		t.Fatal("clipboard owner stop returned before process exit")
+	}
+	if command.ProcessState == nil || !command.ProcessState.Exited() {
+		t.Fatalf("clipboard owner process state = %#v, want exited", command.ProcessState)
+	}
+	clipboardOwner.Lock()
+	defer clipboardOwner.Unlock()
+	if clipboardOwner.command != nil || clipboardOwner.done != nil {
+		t.Fatal("stopped clipboard owner remained registered")
+	}
+}
+
 func TestReadClipboardPayloadStopsOneBytePastLimit(t *testing.T) {
 	reader := bytes.NewReader(make([]byte, 6))
 	payload, byteCount, _, err := readClipboardPayload(reader, 4)
