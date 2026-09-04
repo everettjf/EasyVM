@@ -70,8 +70,8 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
     static func runObservedLockCycle(
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
-        credential: OmarchyAcceptanceUnlockCredential,
-        sendLockShortcut: () -> Bool
+        sendLockShortcut: () -> Bool,
+        sendUnlockSecret: () -> Bool
     ) async throws -> LockCycle {
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".ezvm-lock-cycle-\(nonce)")
@@ -105,9 +105,15 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         // This proves the product status channel observes the locked state in
         // addition to the Guest-side process watcher proving the UI transition.
         try await Task.sleep(for: .seconds(11))
-        try await client.typeUSASCII(credential.password)
-        try await client.injectKeyChord(modifiers: [], key: 28)
+        guard sendUnlockSecret() else { throw ProbeError.shortcutUnavailable }
         try await waitForFile(probeDirectory.appending(path: "unlocked"))
+        // Lock state APIs can briefly or incorrectly report false after a
+        // rejected password. Prove that a normal desktop shortcut and command
+        // can actually execute before accepting the cycle as recovered.
+        try await verifyInteractiveDesktop(
+            client: client,
+            sharedDirectory: sharedDirectory
+        )
         let unlockedAt = Date()
         completed = true
         return LockCycle(lockedAt: lockedAt, unlockedAt: unlockedAt)
@@ -142,8 +148,34 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         try await waitForFile(resultURL)
     }
 
-    private static func waitForFile(_ url: URL) async throws {
-        let deadline = ContinuousClock.now + timeout
+    static func verifyInteractiveDesktop(
+        client: VMOmarchyGuestAgentClient,
+        sharedDirectory: URL,
+        timeout: Duration = .seconds(8)
+    ) async throws {
+        let nonce = UUID().uuidString.lowercased()
+        let stem = ".ezvm-interactive-\(nonce)"
+        let scriptURL = sharedDirectory.appending(path: "\(stem).sh")
+        let resultURL = sharedDirectory.appending(path: "\(stem).done")
+        let guestScript = "/mnt/ezvm-shared/\(scriptURL.lastPathComponent)"
+        let guestResult = "/mnt/ezvm-shared/\(resultURL.lastPathComponent)"
+        defer {
+            try? FileManager.default.removeItem(at: scriptURL)
+            try? FileManager.default.removeItem(at: resultURL)
+        }
+        try Data("#!/bin/bash\nset -euo pipefail\ntouch '\(guestResult)'\n".utf8)
+            .write(to: scriptURL, options: .atomic)
+        try await client.injectKeyChord(modifiers: [125], key: 28)
+        try await Task.sleep(for: .seconds(2))
+        try await client.typeUSASCII("bash \(guestScript)\n")
+        try await waitForFile(resultURL, timeout: timeout)
+    }
+
+    private static func waitForFile(
+        _ url: URL,
+        timeout requestedTimeout: Duration = .seconds(20)
+    ) async throws {
+        let deadline = ContinuousClock.now + requestedTimeout
         repeat {
             if FileManager.default.fileExists(atPath: url.path) { return }
             try await Task.sleep(for: .milliseconds(100))

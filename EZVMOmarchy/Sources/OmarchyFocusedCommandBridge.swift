@@ -1,6 +1,68 @@
 import AppKit
 import CoreGraphics
 
+struct OmarchyHostKeyboardStroke: Equatable {
+    let keyCode: CGKeyCode
+    let shifted: Bool
+}
+
+enum OmarchyHostKeyboardTextEncoder {
+    /// Matches the 25 ms spacing used for each key-down and key-up event and
+    /// leaves a small margin for the final event to reach the virtual keyboard.
+    static func deliveryDuration(for text: String) -> Duration {
+        .milliseconds(text.count * 50 + 250)
+    }
+
+    static func strokes(for text: String) -> [OmarchyHostKeyboardStroke]? {
+        var result: [OmarchyHostKeyboardStroke] = []
+        for character in text {
+            if let keyCode = lowerKeyCodes[character] {
+                result.append(.init(keyCode: keyCode, shifted: false))
+            } else if character.isUppercase,
+                      let lower = character.lowercased().first,
+                      let keyCode = lowerKeyCodes[lower] {
+                result.append(.init(keyCode: keyCode, shifted: true))
+            } else if let stroke = symbolKeyCodes[character] {
+                result.append(stroke)
+            } else {
+                return nil
+            }
+        }
+        return result
+    }
+
+    private static let lowerKeyCodes: [Character: CGKeyCode] = [
+        "a": 0, "b": 11, "c": 8, "d": 2, "e": 14, "f": 3, "g": 5,
+        "h": 4, "i": 34, "j": 38, "k": 40, "l": 37, "m": 46,
+        "n": 45, "o": 31, "p": 35, "q": 12, "r": 15, "s": 1,
+        "t": 17, "u": 32, "v": 9, "w": 13, "x": 7, "y": 16,
+        "z": 6, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23,
+        "6": 22, "7": 26, "8": 28, "9": 25, "0": 29,
+    ]
+
+    private static let symbolKeyCodes: [Character: OmarchyHostKeyboardStroke] = [
+        " ": .init(keyCode: 49, shifted: false),
+        "\n": .init(keyCode: 36, shifted: false),
+        "/": .init(keyCode: 44, shifted: false),
+        ".": .init(keyCode: 47, shifted: false),
+        "-": .init(keyCode: 27, shifted: false), "_": .init(keyCode: 27, shifted: true),
+        "=": .init(keyCode: 24, shifted: false), "+": .init(keyCode: 24, shifted: true),
+        "[": .init(keyCode: 33, shifted: false), "{": .init(keyCode: 33, shifted: true),
+        "]": .init(keyCode: 30, shifted: false), "}": .init(keyCode: 30, shifted: true),
+        ";": .init(keyCode: 41, shifted: false), ":": .init(keyCode: 41, shifted: true),
+        "'": .init(keyCode: 39, shifted: false), "\"": .init(keyCode: 39, shifted: true),
+        "`": .init(keyCode: 50, shifted: false), "~": .init(keyCode: 50, shifted: true),
+        "\\": .init(keyCode: 42, shifted: false), "|": .init(keyCode: 42, shifted: true),
+        ",": .init(keyCode: 43, shifted: false), "<": .init(keyCode: 43, shifted: true),
+        ">": .init(keyCode: 47, shifted: true), "?": .init(keyCode: 44, shifted: true),
+        "!": .init(keyCode: 18, shifted: true), "@": .init(keyCode: 19, shifted: true),
+        "#": .init(keyCode: 20, shifted: true), "$": .init(keyCode: 21, shifted: true),
+        "%": .init(keyCode: 23, shifted: true), "^": .init(keyCode: 22, shifted: true),
+        "&": .init(keyCode: 26, shifted: true), "*": .init(keyCode: 28, shifted: true),
+        "(": .init(keyCode: 25, shifted: true), ")": .init(keyCode: 29, shifted: true),
+    ]
+}
+
 enum OmarchyKeyboardIntegrationState: Equatable {
     case enabled
     case accessibilityRequired
@@ -197,6 +259,36 @@ final class OmarchyFocusedCommandBridge {
         for (index, event) in events.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.05) {
                 event.post(tap: .cghidEventTap)
+            }
+        }
+        return true
+    }
+
+    /// Posts acceptance-only text through the focused VZVirtualMachineView.
+    /// Secure lock screens may intentionally ignore the Guest Agent's uinput
+    /// keyboard, so unlock verification exercises Virtualization.framework's
+    /// virtual USB keyboard just like real user input does.
+    @discardableResult
+    func runAcceptanceTextInput(_ text: String) -> Bool {
+        guard tap != nil, AXIsProcessTrusted(), focusProbe(),
+              let source = CGEventSource(stateID: .combinedSessionState),
+              let strokes = OmarchyHostKeyboardTextEncoder.strokes(for: text) else {
+            return false
+        }
+        var delay = 0.0
+        for stroke in strokes {
+            for keyDown in [true, false] {
+                guard let event = CGEvent(
+                    keyboardEventSource: source,
+                    virtualKey: stroke.keyCode,
+                    keyDown: keyDown
+                ) else { return false }
+                event.flags = stroke.shifted ? .maskShift : []
+                event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    event.post(tap: .cghidEventTap)
+                }
+                delay += 0.025
             }
         }
         return true

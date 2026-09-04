@@ -183,6 +183,7 @@ enum OmarchyAcceptanceObservationReporter {
         case disconnectedAfterAgentRestart
         case guestRestartRequested(VMOmarchyGuestStatus)
         case disconnectedAfterGuestRestart
+        case guestInteractiveAfterRestart(VMOmarchyGuestStatus)
     }
 
     static func reportCommandSuperIfEnabled(
@@ -318,10 +319,6 @@ enum OmarchyAcceptanceObservationReporter {
                 observation.firstActiveAfterResumeObservedAt =
                     observation.firstActiveAfterResumeObservedAt ?? observedAt
             }
-            if observation.firstHostWakeObservedAt != nil {
-                observation.firstActiveAfterHostWakeObservedAt =
-                    observation.firstActiveAfterHostWakeObservedAt ?? observedAt
-            }
             if observation.firstAgentDisconnectedAfterRestartAt != nil,
                observation.firstAgentRecoveredAt == nil,
                status.bootID == observation.agentBootIDBeforeRestart,
@@ -330,13 +327,6 @@ enum OmarchyAcceptanceObservationReporter {
                 observation.firstAgentRecoveredAt = observedAt
                 observation.agentBootIDAfterRestart = status.bootID
                 observation.agentInstanceIDAfterRestart = currentInstanceID
-            }
-            if observation.firstGuestDisconnectedAfterRestartAt != nil,
-               observation.firstGuestRecoveredAt == nil,
-               !status.bootID.isEmpty,
-               status.bootID != observation.guestBootIDBeforeRestart {
-                observation.firstGuestRecoveredAt = observedAt
-                observation.guestBootIDAfterRestart = status.bootID
             }
         } else if !status.provisioningPending {
             observation.firstLockedObservedAt = observation.firstLockedObservedAt ?? observedAt
@@ -486,6 +476,38 @@ enum OmarchyAcceptanceObservationReporter {
         }
     }
 
+    static func reportInteractiveAfterHostWakeIfEnabled(
+        status: VMOmarchyGuestStatus,
+        layout: VMOmarchyWorkspaceLayout,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let file = layout.diagnostics.appending(path: lifecycleFileName)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var observation = (try? Data(contentsOf: file)).flatMap({
+            try? decoder.decode(LifecycleObservation.self, from: $0)
+        }), observation.schemaVersion == 6,
+              observation.firstHostWakeObservedAt != nil,
+              !status.bootID.isEmpty else {
+            NSLog("Cannot record interactive Omarchy host wake before its power event.")
+            return
+        }
+        observation.firstActiveAfterHostWakeObservedAt =
+            observation.firstActiveAfterHostWakeObservedAt ?? observedAt
+        observation.lastObservedAt = observedAt
+        observation.lastDesktopSessionActive = true
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try encoder.encode(observation).write(to: file, options: .atomic)
+        } catch {
+            NSLog("Could not write interactive Omarchy host wake: %@", error.localizedDescription)
+        }
+    }
+
     static func reportRecoveryEventIfEnabled(
         _ event: RecoveryEvent,
         layout: VMOmarchyWorkspaceLayout,
@@ -517,6 +539,12 @@ enum OmarchyAcceptanceObservationReporter {
         case .disconnectedAfterGuestRestart:
             observation.firstGuestDisconnectedAfterRestartAt =
                 observation.firstGuestDisconnectedAfterRestartAt ?? observedAt
+        case .guestInteractiveAfterRestart(let status):
+            guard observation.firstGuestDisconnectedAfterRestartAt != nil,
+                  !status.bootID.isEmpty,
+                  status.bootID != observation.guestBootIDBeforeRestart else { return }
+            observation.firstGuestRecoveredAt = observation.firstGuestRecoveredAt ?? observedAt
+            observation.guestBootIDAfterRestart = observation.guestBootIDAfterRestart ?? status.bootID
         }
         observation.lastObservedAt = observedAt
         let encoder = JSONEncoder()

@@ -491,48 +491,14 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(state.exitedAt, exited)
     }
 
-    func testLockAcceptanceRequiresLockedThenActiveStatus() {
-        let pending = VMOmarchyGuestStatus(
-            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
-            desktopSessionActive: false, provisioningPending: true
-        )
-        let active = VMOmarchyGuestStatus(
-            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
-            desktopSessionActive: true, provisioningPending: false
-        )
-        let locked = VMOmarchyGuestStatus(
-            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
-            desktopSessionActive: false, provisioningPending: false
-        )
+    func testLockAcceptanceCompletesOnlyAnObservedInteractiveCycle() {
         var state = OmarchyLockAcceptanceState()
-        XCTAssertEqual(state.observe(locked), .none)
+        XCTAssertFalse(state.completeObservedCycle())
         XCTAssertTrue(state.begin())
         XCTAssertFalse(state.begin())
-        XCTAssertEqual(state.observe(active), .none)
-        XCTAssertEqual(state.observe(pending), .none)
-        XCTAssertEqual(state.observe(locked), .submitUnlockSecret)
-        XCTAssertEqual(state.observe(locked), .none)
-        XCTAssertEqual(state.observe(active), .completed)
-        XCTAssertEqual(state.observe(active), .none)
+        XCTAssertTrue(state.completeObservedCycle())
+        XCTAssertFalse(state.completeObservedCycle())
         XCTAssertEqual(state.phase, .complete)
-    }
-
-    func testLockAcceptanceTimeoutFailsOnlyAnInFlightProbe() {
-        var state = OmarchyLockAcceptanceState()
-        XCTAssertFalse(state.timeout())
-        XCTAssertTrue(state.begin())
-        XCTAssertTrue(state.timeout())
-        XCTAssertEqual(state.phase, .idle)
-        XCTAssertFalse(state.timeout())
-
-        XCTAssertTrue(state.begin())
-        let locked = VMOmarchyGuestStatus(
-            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
-            desktopSessionActive: false, provisioningPending: false
-        )
-        XCTAssertEqual(state.observe(locked), .submitUnlockSecret)
-        XCTAssertTrue(state.timeout())
-        XCTAssertEqual(state.phase, .idle)
     }
 
     func testAcceptanceUnlockCredentialIsScopedAndBounded() {
@@ -575,10 +541,13 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(state.observe(before), .none)
         XCTAssertEqual(state.observe(lockedAfter), .submitUnlockSecret)
         XCTAssertEqual(state.observe(lockedAfter), .none)
-        XCTAssertEqual(state.observe(activeAfter), .completed)
+        XCTAssertEqual(state.observe(activeAfter), .none)
+        XCTAssertFalse(state.completeInteractiveProof(bootID: "wrong-boot"))
+        XCTAssertTrue(state.completeInteractiveProof(bootID: "boot-after"))
+        XCTAssertEqual(state.phase, .complete)
     }
 
-    func testGuestRestartAcceptanceCanCompleteWhenDesktopIsAlreadyActive() {
+    func testGuestRestartAcceptanceNeverTrustsStatusWithoutInteractiveProof() {
         var state = OmarchyGuestRestartAcceptanceState()
         XCTAssertTrue(state.begin(previousBootID: "boot-before"))
         let activeAfter = VMOmarchyGuestStatus(
@@ -587,7 +556,9 @@ final class EZVMOmarchyTests: XCTestCase {
             desktopSessionActive: true,
             provisioningPending: false
         )
-        XCTAssertEqual(state.observe(activeAfter), .completed)
+        XCTAssertEqual(state.observe(activeAfter), .submitUnlockSecret)
+        XCTAssertEqual(state.observe(activeAfter), .none)
+        XCTAssertTrue(state.completeInteractiveProof(bootID: "boot-after"))
     }
 
     func testGuestRestartAcceptanceDoesNotTrustActiveFlagWithoutSessionAgent() {
@@ -606,7 +577,8 @@ final class EZVMOmarchyTests: XCTestCase {
 
         XCTAssertEqual(state.observe(falselyActiveAfter), .submitUnlockSecret)
         XCTAssertEqual(state.observe(falselyActiveAfter), .none)
-        XCTAssertEqual(state.observe(interactiveAfter), .completed)
+        XCTAssertEqual(state.observe(interactiveAfter), .none)
+        XCTAssertTrue(state.completeInteractiveProof(bootID: "boot-after"))
     }
 
     func testAgentRestartRecoveryWaitsForTheInteractiveSessionAgent() {
@@ -974,6 +946,10 @@ final class EZVMOmarchyTests: XCTestCase {
             status: guestRecovered, layout: layout, environment: environment,
             observedAt: guestRecoveredAt
         )
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .guestInteractiveAfterRestart(guestRecovered), layout: layout,
+            environment: environment, observedAt: guestRecoveredAt
+        )
         OmarchyAcceptanceObservationReporter.reportHostPowerEventIfEnabled(
             .willSleep, layout: layout, environment: environment, observedAt: hostSleepAt
         )
@@ -982,6 +958,10 @@ final class EZVMOmarchyTests: XCTestCase {
         )
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: guestRecovered, layout: layout, environment: environment, observedAt: hostRecoveredAt
+        )
+        OmarchyAcceptanceObservationReporter.reportInteractiveAfterHostWakeIfEnabled(
+            status: guestRecovered, layout: layout, environment: environment,
+            observedAt: hostRecoveredAt
         )
 
         let data = try Data(contentsOf: layout.diagnostics.appending(
@@ -1066,6 +1046,16 @@ final class EZVMOmarchyTests: XCTestCase {
 
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: interactive, layout: layout, environment: environment
+        )
+        json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any]
+        )
+        XCTAssertNil(json["firstGuestRecoveredAt"])
+        XCTAssertNil(json["guestBootIDAfterRestart"])
+
+        OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+            .guestInteractiveAfterRestart(interactive), layout: layout,
+            environment: environment
         )
         json = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any]

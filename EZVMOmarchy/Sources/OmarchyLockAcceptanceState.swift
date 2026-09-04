@@ -45,51 +45,20 @@ struct OmarchyAcceptanceUnlockCredential: Equatable {
 struct OmarchyLockAcceptanceState: Equatable {
     enum Phase: Equatable {
         case idle
-        case waitingForLocked
-        case waitingForActive
+        case inFlight
         case complete
-    }
-
-    enum Action: Equatable {
-        case none
-        case submitUnlockSecret
-        case completed
     }
 
     private(set) var phase: Phase = .idle
 
     mutating func begin() -> Bool {
         guard phase == .idle else { return false }
-        phase = .waitingForLocked
+        phase = .inFlight
         return true
     }
 
-    mutating func observe(_ status: VMOmarchyGuestStatus) -> Action {
-        guard !status.provisioningPending else { return .none }
-        switch phase {
-        case .waitingForLocked where !status.desktopSessionActive:
-            phase = .waitingForActive
-            return .submitUnlockSecret
-        case .waitingForActive where status.desktopSessionActive:
-            phase = .complete
-            return .completed
-        case .idle, .waitingForLocked, .waitingForActive, .complete:
-            return .none
-        }
-    }
-
-    mutating func timeout() -> Bool {
-        switch phase {
-        case .waitingForLocked, .waitingForActive:
-            phase = .idle
-            return true
-        case .idle, .complete:
-            return false
-        }
-    }
-
     mutating func completeObservedCycle() -> Bool {
-        guard phase == .waitingForLocked else { return false }
+        guard phase == .inFlight else { return false }
         phase = .complete
         return true
     }
@@ -103,14 +72,13 @@ struct OmarchyGuestRestartAcceptanceState: Equatable {
     enum Phase: Equatable {
         case idle
         case waitingForRestart(previousBootID: String)
-        case waitingForActive(bootID: String)
+        case waitingForInteractiveProof(bootID: String)
         case complete
     }
 
     enum Action: Equatable {
         case none
         case submitUnlockSecret
-        case completed
     }
 
     private(set) var phase: Phase = .idle
@@ -125,18 +93,21 @@ struct OmarchyGuestRestartAcceptanceState: Equatable {
         guard !status.provisioningPending, !status.bootID.isEmpty else { return .none }
         switch phase {
         case .waitingForRestart(let previousBootID) where status.bootID != previousBootID:
-            if OmarchyInteractiveDesktopReadiness.isReady(status) {
-                phase = .complete
-                return .completed
-            }
-            phase = .waitingForActive(bootID: status.bootID)
+            // A freshly rebooted Omarchy can advertise its session Agent while
+            // the secure lock surface is still visible. Never accept status
+            // alone as interactive recovery; submit through the virtual USB
+            // keyboard and require an actual desktop command round trip.
+            phase = .waitingForInteractiveProof(bootID: status.bootID)
             return .submitUnlockSecret
-        case .waitingForActive(let bootID)
-            where status.bootID == bootID && OmarchyInteractiveDesktopReadiness.isReady(status):
-            phase = .complete
-            return .completed
-        case .idle, .waitingForRestart, .waitingForActive, .complete:
+        case .idle, .waitingForRestart, .waitingForInteractiveProof, .complete:
             return .none
         }
+    }
+
+    mutating func completeInteractiveProof(bootID: String) -> Bool {
+        guard case .waitingForInteractiveProof(let expectedBootID) = phase,
+              bootID == expectedBootID else { return false }
+        phase = .complete
+        return true
     }
 }

@@ -1097,6 +1097,34 @@ release verification. Notification authorization, real host sleep/wake,
 protected update rollback, and the full 24-hour observation window remain open
 at this checkpoint.
 
+### 11.10 Secure-lock recovery correction checkpoint (2026-09-04)
+
+The signed `1.0.0-alpha.41` candidate built from revision
+`60c4ea3dfa78a35d8c9e60dc895eb032a438c8cb` passed Developer ID, strict
+code-signing, Gatekeeper, clean-tree metadata, icon, archive round-trip, and CI
+gates. It repeated the empty-workspace public multipart installation and the
+initial integration round trips. A real host sleep from 23:14:10Z to 23:34:15Z
+preserved the Guest boot and Agent instance identities, and macOS accepted a
+unique notification created inside the Guest.
+
+The same run invalidated the earlier lock-recovery interpretation. Omarchy's
+secure lock surface remained visible after rejected Agent-uinput password
+submissions while the compositor and Session Agent still reported an active
+desktop. Generic authenticated status and even a nominal lock-state transition
+therefore do not prove that the desktop accepts normal application shortcuts.
+Alpha 41 is an evidence-discovery candidate, not a final release candidate.
+
+Acceptance unlock input now traverses the focused
+`VZVirtualMachineView`/Virtualization.framework virtual USB keyboard, matching
+the path that successfully handled a real user-entered password. The lock probe
+no longer has two independent state machines submitting the secret. Lock,
+Guest-restart, and host-wake recovery must execute a fresh desktop terminal
+command through the Guest input channel and receive its shared-folder result
+before lifecycle evidence records an interactive recovery timestamp. Guest
+restart and host wake can no longer become green from `desktopSessionActive` or
+Session-Agent capabilities alone. A new signed candidate must repeat those
+transitions and supersede Alpha 41's lifecycle evidence.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests

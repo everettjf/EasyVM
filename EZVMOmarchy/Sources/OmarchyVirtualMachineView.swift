@@ -1108,13 +1108,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var dynamicDisplayProbeTask: Task<Void, Never>?
         private var dynamicDisplayProbePassed = false
         private var automaticLockProbe = OmarchyLockAcceptanceState()
-        private var automaticLockProbeTimeoutTask: Task<Void, Never>?
         private var automaticPauseResumeProbeStarted = false
         private var automaticRecoveryAfterResume = false
         private var automaticRecoveryStage = AutomaticRecoveryStage.idle
         private var recoveryBaselineStatus: VMOmarchyGuestStatus?
         private var guestRestartAcceptanceState = OmarchyGuestRestartAcceptanceState()
         private var guestRestartUnlockTimeoutTask: Task<Void, Never>?
+        private var hostWakeInteractiveTask: Task<Void, Never>?
         private var automaticCommandSpaceProbeStarted = false
         private var automaticFullScreenProbeStarted = false
         private var fullScreenProbe: OmarchyFullScreenAcceptanceProbe?
@@ -1198,7 +1198,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             if let resumeObserver { NotificationCenter.default.removeObserver(resumeObserver) }
             if let keyboardPermissionObserver { NotificationCenter.default.removeObserver(keyboardPermissionObserver) }
             if let forceStopObserver { NotificationCenter.default.removeObserver(forceStopObserver) }
-            automaticLockProbeTimeoutTask?.cancel()
+            hostWakeInteractiveTask?.cancel()
         }
 
         func beginObservingCommands() {
@@ -1303,10 +1303,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         layout: layout,
                         hostPowerChanged: { [weak self] event in
                             guard let self else { return }
-                            OmarchyAcceptanceObservationReporter.reportHostPowerEventIfEnabled(
-                                event == .willSleep ? .willSleep : .didWake,
-                                layout: self.layout
-                            )
+                            Task { @MainActor [weak self] in
+                                self?.handleHostPowerEvent(event)
+                            }
                         },
                         stateChanged: { [weak self] state in
                             guard let self else { return }
@@ -1656,7 +1655,6 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     let cycle = try await OmarchyInputDiagnosticsAcceptanceProbe.runObservedLockCycle(
                         client: integrationClient,
                         sharedDirectory: self.layout.shared,
-                        credential: credential,
                         sendLockShortcut: { [weak self] in
                             // macOS virtual key 37 is L. Command is redirected
                             // to Guest Super by the production Accessibility
@@ -1664,6 +1662,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             self?.keyboardBridge?.runAcceptanceCommandChordProbe(
                                 keyCode: 37,
                                 additionalFlags: .maskControl
+                            ) == true
+                        },
+                        sendUnlockSecret: { [weak self] in
+                            self?.keyboardBridge?.runAcceptanceTextInput(
+                                credential.password + "\n"
                             ) == true
                         }
                     )
@@ -1686,22 +1689,81 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         @MainActor
-        private func scheduleAutomaticLockProbeTimeout(message: String) {
-            automaticLockProbeTimeoutTask?.cancel()
-            automaticLockProbeTimeoutTask = Task { @MainActor [weak self] in
+        private func handleHostPowerEvent(_ event: VMOmarchyHostPowerEvent) {
+            OmarchyAcceptanceObservationReporter.reportHostPowerEventIfEnabled(
+                event == .willSleep ? .willSleep : .didWake,
+                layout: layout
+            )
+            guard event == .didWake,
+                  ProcessInfo.processInfo.environment[
+                    OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+                  ] == "1" else { return }
+            startHostWakeInteractiveProbe()
+        }
+
+        @MainActor
+        private func startHostWakeInteractiveProbe() {
+            hostWakeInteractiveTask?.cancel()
+            hostWakeInteractiveTask = Task { @MainActor [weak self] in
+                guard let self else { return }
                 do {
-                    try await Task.sleep(for: .seconds(20))
-                } catch {
+                    var client: VMOmarchyGuestAgentClient?
+                    for _ in 0..<30 {
+                        if let integrationClient = self.integrationClient,
+                           self.latestGuestStatus != nil {
+                            client = integrationClient
+                            break
+                        }
+                        try await Task.sleep(for: .seconds(1))
+                    }
+                    guard let client else { throw CocoaError(.fileReadNoSuchFile) }
+                    do {
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                            client: client,
+                            sharedDirectory: self.layout.shared,
+                            timeout: .seconds(6)
+                        )
+                    } catch {
+                        guard let credential = OmarchyAcceptanceUnlockCredential(
+                            environment: ProcessInfo.processInfo.environment
+                        ) else { throw error }
+                        NSApp.activate(ignoringOtherApps: true)
+                        if let machineView = self.machineView, let window = machineView.window {
+                            window.makeKeyAndOrderFront(nil)
+                            window.makeFirstResponder(machineView)
+                        }
+                        guard self.keyboardBridge?.runAcceptanceTextInput(
+                            credential.password + "\n"
+                        ) == true else { throw CocoaError(.featureUnsupported) }
+                        try await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(
+                            for: credential.password + "\n"
+                        ))
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                            client: client,
+                            sharedDirectory: self.layout.shared
+                        )
+                    }
+                    guard let status = self.latestGuestStatus else {
+                        throw CocoaError(.fileReadNoSuchFile)
+                    }
+                    OmarchyAcceptanceObservationReporter.reportInteractiveAfterHostWakeIfEnabled(
+                        status: status,
+                        layout: self.layout
+                    )
+                    NSLog("Omarchy interactive desktop recovered after host wake")
+                } catch is CancellationError {
                     return
+                } catch {
+                    self.phaseChanged(.failed(
+                        "Host wake interactive probe failed: \(error.localizedDescription)"
+                    ))
                 }
-                guard let self, self.automaticLockProbe.timeout() else { return }
-                self.phaseChanged(.failed(message))
+                self.hostWakeInteractiveTask = nil
             }
         }
 
         @MainActor
         private func handleAutomaticRecoveryReady(_ status: VMOmarchyGuestStatus) {
-            handleAutomaticLockProbeReady(status)
             switch automaticRecoveryStage {
             case .waitingForPostResumeReady:
                 guard status.capabilities.contains("agent-restart-v1"),
@@ -1748,11 +1810,6 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     break
                 case .submitUnlockSecret:
                     submitGuestRestartUnlockSecret()
-                case .completed:
-                    guestRestartUnlockTimeoutTask?.cancel()
-                    guestRestartUnlockTimeoutTask = nil
-                    automaticRecoveryStage = .complete
-                    recoveryBaselineStatus = nil
                 }
             case .idle, .waitingForAgentDisconnect, .waitingForGuestDisconnect, .complete:
                 break
@@ -1764,7 +1821,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private func submitGuestRestartUnlockSecret() {
             guard let credential = OmarchyAcceptanceUnlockCredential(
                 environment: ProcessInfo.processInfo.environment
-            ), let integrationClient else {
+            ), let integrationClient, keyboardBridge != nil else {
                 automaticRecoveryStage = .idle
                 phaseChanged(.failed("The Guest restart unlock credential became unavailable."))
                 return
@@ -1772,14 +1829,38 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             guestRestartUnlockTimeoutTask?.cancel()
             guestRestartUnlockTimeoutTask = Task { @MainActor [weak self, weak integrationClient] in
                 do {
-                    try await integrationClient?.typeUSASCII(credential.password)
-                    try await integrationClient?.injectKeyChord(modifiers: [], key: 28)
-                    try await Task.sleep(for: .seconds(20))
-                    guard let self, self.automaticRecoveryStage == .waitingForGuestReady else { return }
-                    self.automaticRecoveryStage = .idle
-                    self.phaseChanged(.failed(
-                        "Omarchy did not return to the active desktop after Guest restart unlock input."
+                    guard let self, let integrationClient else { return }
+                    NSApp.activate(ignoringOtherApps: true)
+                    if let machineView = self.machineView, let window = machineView.window {
+                        window.makeKeyAndOrderFront(nil)
+                        window.makeFirstResponder(machineView)
+                    }
+                    guard self.keyboardBridge?.runAcceptanceTextInput(
+                        credential.password + "\n"
+                    ) == true else {
+                        throw CocoaError(.featureUnsupported)
+                    }
+                    try await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(
+                        for: credential.password + "\n"
                     ))
+                    try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                        client: integrationClient,
+                        sharedDirectory: self.layout.shared
+                    )
+                    guard let status = self.latestGuestStatus,
+                          self.guestRestartAcceptanceState.completeInteractiveProof(
+                            bootID: status.bootID
+                          ) else {
+                        throw CocoaError(.fileReadCorruptFile)
+                    }
+                    OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
+                        .guestInteractiveAfterRestart(status),
+                        layout: self.layout
+                    )
+                    self.guestRestartUnlockTimeoutTask = nil
+                    self.automaticRecoveryStage = .complete
+                    self.recoveryBaselineStatus = nil
+                    self.startAutomaticFullScreenProbeIfNeeded(status)
                 } catch is CancellationError {
                     return
                 } catch {
@@ -1789,36 +1870,6 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         "Guest restart unlock probe failed: \(error.localizedDescription)"
                     ))
                 }
-            }
-        }
-
-        @MainActor
-        private func handleAutomaticLockProbeReady(_ status: VMOmarchyGuestStatus) {
-            switch automaticLockProbe.observe(status) {
-            case .none:
-                break
-            case .submitUnlockSecret:
-                scheduleAutomaticLockProbeTimeout(
-                    message: "Omarchy did not return to the active desktop after acceptance unlock input."
-                )
-                guard let credential = OmarchyAcceptanceUnlockCredential(
-                    environment: ProcessInfo.processInfo.environment
-                ), let integrationClient else {
-                    phaseChanged(.failed("The acceptance unlock credential became unavailable."))
-                    return
-                }
-                Task { @MainActor [weak self, weak integrationClient] in
-                    do {
-                        try await integrationClient?.typeUSASCII(credential.password)
-                        try await integrationClient?.injectKeyChord(modifiers: [], key: 28)
-                    } catch {
-                        self?.phaseChanged(.failed("Guest unlock probe failed: \(error.localizedDescription)"))
-                    }
-                }
-            case .completed:
-                automaticLockProbeTimeoutTask?.cancel()
-                automaticLockProbeTimeoutTask = nil
-                startAutomaticPauseResumeProbeIfNeeded()
             }
         }
 
