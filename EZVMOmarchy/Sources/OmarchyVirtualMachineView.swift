@@ -329,23 +329,18 @@ struct OmarchyVirtualMachineView: View {
             notificationsEnabled = false
             return
         }
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            Task { @MainActor in
-                switch OmarchyNotificationPermissionPolicy.action(for: settings.authorizationStatus) {
-                case .enable:
-                    notificationsEnabled = true
-                case .request:
-                    UNUserNotificationCenter.current().requestAuthorization(
-                        options: [.alert, .sound]
-                    ) { granted, _ in
-                        Task { @MainActor in
-                            notificationsEnabled = granted
-                            if !granted { explainDeniedNotificationAccess() }
-                        }
-                    }
-                case .openSystemSettings:
-                    explainDeniedNotificationAccess()
-                }
+        Task { @MainActor in
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            switch OmarchyNotificationPermissionPolicy.action(for: settings.authorizationStatus) {
+            case .enable:
+                notificationsEnabled = true
+            case .request:
+                let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) == true
+                notificationsEnabled = granted
+                if !granted { explainDeniedNotificationAccess() }
+            case .openSystemSettings:
+                explainDeniedNotificationAccess()
             }
         }
     }
@@ -1099,6 +1094,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var integrationClient: VMOmarchyGuestAgentClient?
         private var agentClipboardController: OmarchyAgentClipboardController?
         private var notificationController: OmarchyNotificationController?
+        private var notificationAcceptanceProbeTask: Task<Void, Never>?
+        private var notificationAcceptanceProbeStarted = false
+        private var notificationAcceptanceProbeCompleted = false
+        private var expectedAcceptanceNotificationTitle: String?
         private var latestGuestStatus: VMOmarchyGuestStatus?
         private var clipboardProbeOwnsTransport = false
         private var sharedFolderProbeTask: Task<Void, Never>?
@@ -1411,10 +1410,23 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             guard notificationController == nil else { return }
             let controller = OmarchyNotificationController(
                 client: integrationClient,
-                bootID: status.bootID
+                bootID: status.bootID,
+                deliverySucceeded: { [weak self] notification in
+                    guard let self,
+                          notification.title == self.expectedAcceptanceNotificationTitle else { return }
+                    self.expectedAcceptanceNotificationTitle = nil
+                    self.notificationAcceptanceProbeCompleted = true
+                    OmarchyAcceptanceObservationReporter.reportDesktopNotificationIfEnabled(
+                        notification,
+                        guestBootID: status.bootID,
+                        layout: self.layout
+                    )
+                    NSLog("Omarchy Guest notification was accepted by macOS Notification Center")
+                }
             )
             notificationController = controller
             controller.start()
+            startNotificationAcceptanceProbeIfNeeded(client: integrationClient)
         }
 
         @MainActor
@@ -1432,6 +1444,54 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private func stopNotifications() {
             notificationController?.stop()
             notificationController = nil
+            notificationAcceptanceProbeTask?.cancel()
+            notificationAcceptanceProbeTask = nil
+            expectedAcceptanceNotificationTitle = nil
+            if !notificationAcceptanceProbeCompleted {
+                notificationAcceptanceProbeStarted = false
+            }
+        }
+
+        private func startNotificationAcceptanceProbeIfNeeded(
+            client: VMOmarchyGuestAgentClient
+        ) {
+            guard ProcessInfo.processInfo.environment[
+                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+            ] == "1", !notificationAcceptanceProbeStarted,
+                  !notificationAcceptanceProbeCompleted else { return }
+            notificationAcceptanceProbeStarted = true
+            let title = "EZVM notification \(UUID().uuidString.lowercased())"
+            expectedAcceptanceNotificationTitle = title
+            notificationAcceptanceProbeTask = Task { @MainActor [weak self, weak client] in
+                guard let self, let client else { return }
+                do {
+                    // Let the first poll establish its baseline before the
+                    // synthetic Guest notification is created.
+                    try await Task.sleep(for: .seconds(3))
+                    try await OmarchyInputDiagnosticsAcceptanceProbe.sendDesktopNotification(
+                        client: client,
+                        sharedDirectory: self.layout.shared,
+                        title: title
+                    )
+                    let deadline = ContinuousClock.now + .seconds(30)
+                    while self.expectedAcceptanceNotificationTitle != nil,
+                          ContinuousClock.now < deadline {
+                        try await Task.sleep(for: .milliseconds(200))
+                    }
+                    if self.expectedAcceptanceNotificationTitle != nil {
+                        NSLog("Omarchy notification acceptance timed out")
+                        self.expectedAcceptanceNotificationTitle = nil
+                        self.notificationAcceptanceProbeStarted = false
+                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    NSLog("Omarchy notification acceptance failed: %@", error.localizedDescription)
+                    self.expectedAcceptanceNotificationTitle = nil
+                    self.notificationAcceptanceProbeStarted = false
+                }
+                self.notificationAcceptanceProbeTask = nil
+            }
         }
 
         private func startSharedFolderProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {

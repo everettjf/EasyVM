@@ -113,6 +113,35 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         return LockCycle(lockedAt: lockedAt, unlockedAt: unlockedAt)
     }
 
+    static func sendDesktopNotification(
+        client: VMOmarchyGuestAgentClient,
+        sharedDirectory: URL,
+        title: String
+    ) async throws {
+        let nonce = UUID().uuidString.lowercased()
+        let stem = ".ezvm-notification-\(nonce)"
+        let scriptURL = sharedDirectory.appending(path: "\(stem).sh")
+        let resultURL = sharedDirectory.appending(path: "\(stem).done")
+        let guestScript = "/mnt/ezvm-shared/\(scriptURL.lastPathComponent)"
+        let guestResult = "/mnt/ezvm-shared/\(resultURL.lastPathComponent)"
+        defer {
+            try? FileManager.default.removeItem(at: scriptURL)
+            try? FileManager.default.removeItem(at: resultURL)
+        }
+        let script = """
+        #!/bin/bash
+        set -euo pipefail
+        notify-send --app-name='EZVM Omarchy Acceptance' --urgency=normal \
+          '\(title)' 'Guest to macOS notification bridge'
+        touch '\(guestResult)'
+        """
+        try Data(script.utf8).write(to: scriptURL, options: .atomic)
+        try await client.injectKeyChord(modifiers: [125], key: 28)
+        try await Task.sleep(for: .seconds(2))
+        try await client.typeUSASCII("bash \(guestScript)\n")
+        try await waitForFile(resultURL)
+    }
+
     private static func waitForFile(_ url: URL) async throws {
         let deadline = ContinuousClock.now + timeout
         repeat {

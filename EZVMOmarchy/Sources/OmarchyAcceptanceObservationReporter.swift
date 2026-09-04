@@ -51,6 +51,7 @@ enum OmarchyAcceptanceObservationReporter {
     static let lifecycleFileName = "integration-lifecycle.json"
     static let commandSuperFileName = "command-super.json"
     static let fullScreenFileName = "full-screen.json"
+    static let desktopNotificationFileName = "desktop-notification.json"
     static let soakHeartbeatFileName = "soak-heartbeat.json"
 
     private struct CommandSuperObservation: Codable {
@@ -85,6 +86,48 @@ enum OmarchyAcceptanceObservationReporter {
         let applicationActiveAfterExit: Bool
         let virtualMachineWindowKeyAfterExit: Bool
         let virtualMachineViewFocusedAfterExit: Bool
+    }
+
+    private struct DesktopNotificationObservation: Codable {
+        let schemaVersion: Int
+        let observedAt: Date
+        let sourceRevision: String
+        let guestBootID: String
+        let guestNotificationID: String
+        let notificationTitle: String
+        let macOSRequestAccepted: Bool
+    }
+
+    static func reportDesktopNotificationIfEnabled(
+        _ notification: VMOmarchyDesktopNotification,
+        guestBootID: String,
+        layout: VMOmarchyWorkspaceLayout,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        bundleInfo: [String: Any] = Bundle.main.infoDictionary ?? [:],
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let observation = DesktopNotificationObservation(
+            schemaVersion: 1,
+            observedAt: observedAt,
+            sourceRevision: bundleInfo["EZVMSourceRevision"] as? String ?? "",
+            guestBootID: guestBootID,
+            guestNotificationID: notification.id,
+            notificationTitle: notification.title,
+            macOSRequestAccepted: true
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+            try encoder.encode(observation).write(
+                to: layout.diagnostics.appending(path: desktopNotificationFileName),
+                options: .atomic
+            )
+        } catch {
+            NSLog("Could not write Omarchy notification observation: %@", error.localizedDescription)
+        }
     }
 
     static func reportFullScreenIfEnabled(

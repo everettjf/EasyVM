@@ -40,11 +40,12 @@ enum OmarchyNotificationPermissionPolicy {
 
 @MainActor
 final class OmarchyNotificationController {
-    typealias Deliver = (UNNotificationRequest, @escaping (Error?) -> Void) -> Void
+    typealias Deliver = (UNNotificationRequest, @escaping @Sendable (Error?) -> Void) -> Void
 
     private let client: VMOmarchyGuestAgentClient
     private let bootID: String
     private let deliverRequest: Deliver
+    private let deliverySucceeded: (VMOmarchyDesktopNotification) -> Void
     private var timer: Timer?
     private var polling = false
     private var deliveryState: OmarchyNotificationDeliveryState
@@ -52,11 +53,13 @@ final class OmarchyNotificationController {
     init(
         client: VMOmarchyGuestAgentClient,
         bootID: String,
-        center: UNUserNotificationCenter = .current()
+        center: UNUserNotificationCenter = .current(),
+        deliverySucceeded: @escaping (VMOmarchyDesktopNotification) -> Void = { _ in }
     ) {
         self.client = client
         self.bootID = bootID
         self.deliveryState = OmarchyNotificationDeliveryState(bootID: bootID)
+        self.deliverySucceeded = deliverySucceeded
         self.deliverRequest = { request, completion in
             center.add(request, withCompletionHandler: completion)
         }
@@ -111,6 +114,8 @@ final class OmarchyNotificationController {
                 self.deliveryState.complete(notification.id, succeeded: error == nil)
                 if let error {
                     NSLog("Could not mirror Omarchy notification: %@", error.localizedDescription)
+                } else {
+                    self.deliverySucceeded(notification)
                 }
             }
         }

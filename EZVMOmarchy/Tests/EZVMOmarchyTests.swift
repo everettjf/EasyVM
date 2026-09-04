@@ -651,6 +651,37 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(json["virtualMachineViewFocusedAfterExit"] as? Bool, true)
     }
 
+    func testDesktopNotificationObservationRecordsAcceptedGuestDelivery() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "ezvm-notification-observation-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        let notification = try JSONDecoder().decode(
+            VMOmarchyDesktopNotification.self,
+            from: Data(#"{"id":"guest-id","app":"Terminal","title":"acceptance-title","body":"body","urgency":1,"timestamp":1700000000}"#.utf8)
+        )
+
+        OmarchyAcceptanceObservationReporter.reportDesktopNotificationIfEnabled(
+            notification,
+            guestBootID: "boot-id",
+            layout: layout,
+            environment: [OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1"],
+            bundleInfo: ["EZVMSourceRevision": "source-revision"],
+            observedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let data = try Data(contentsOf: layout.diagnostics.appending(
+            path: OmarchyAcceptanceObservationReporter.desktopNotificationFileName
+        ))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(json["schemaVersion"] as? Int, 1)
+        XCTAssertEqual(json["sourceRevision"] as? String, "source-revision")
+        XCTAssertEqual(json["guestBootID"] as? String, "boot-id")
+        XCTAssertEqual(json["guestNotificationID"] as? String, "guest-id")
+        XCTAssertEqual(json["notificationTitle"] as? String, "acceptance-title")
+        XCTAssertEqual(json["macOSRequestAccepted"] as? Bool, true)
+    }
+
     func testSoakHeartbeatRecordsAuthenticatedGuestContinuity() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "ezvm-soak-heartbeat-\(UUID().uuidString)")
