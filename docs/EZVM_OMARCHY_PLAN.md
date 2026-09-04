@@ -687,7 +687,9 @@ authenticated input channel, waits for the Agent to report an inactive desktop,
 submits the ephemeral `EZVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD` without logging
 or persisting it, waits for the desktop to become active again, and only then
 continues to pause/resume and restart recovery. Production launches never read
-or use this acceptance-only secret.
+or use this acceptance-only secret. Acceptance fails closed before later
+lifecycle probes when the secret is absent, contains non-printable/non-ASCII
+input, or exceeds 128 bytes; it never silently skips the lock transition.
 Full-screen behavior is derived from AppKit lifecycle notifications rather than
 a manual assertion. After the authenticated desktop becomes active, acceptance
 mode asks the actual VM window to enter full screen, waits for

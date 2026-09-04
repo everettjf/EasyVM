@@ -1075,12 +1075,16 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func startAutomaticLockProbeIfNeeded() {
             let environment = ProcessInfo.processInfo.environment
-            guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1",
-                  let password = environment[OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey],
-                  !password.isEmpty, automaticLockProbe.begin(), let integrationClient else {
-                startAutomaticPauseResumeProbeIfNeeded()
+            guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else {
                 return
             }
+            guard OmarchyAcceptanceUnlockCredential(environment: environment) != nil else {
+                phaseChanged(.failed(
+                    "Acceptance requires a printable ASCII unlock password of 1–128 bytes."
+                ))
+                return
+            }
+            guard automaticLockProbe.begin(), let integrationClient else { return }
             Task { @MainActor [weak self, weak integrationClient] in
                 do {
                     // Omarchy's default lock binding is Super+Control+L.
@@ -1147,12 +1151,15 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             case .none:
                 break
             case .submitUnlockSecret:
-                guard let password = ProcessInfo.processInfo.environment[
-                    OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey
-                ], !password.isEmpty, let integrationClient else { return }
+                guard let credential = OmarchyAcceptanceUnlockCredential(
+                    environment: ProcessInfo.processInfo.environment
+                ), let integrationClient else {
+                    phaseChanged(.failed("The acceptance unlock credential became unavailable."))
+                    return
+                }
                 Task { @MainActor [weak self, weak integrationClient] in
                     do {
-                        try await integrationClient?.typeUSASCII(password)
+                        try await integrationClient?.typeUSASCII(credential.password)
                         try await integrationClient?.injectKeyChord(modifiers: [], key: 28)
                     } catch {
                         self?.phaseChanged(.failed("Guest unlock probe failed: \(error.localizedDescription)"))

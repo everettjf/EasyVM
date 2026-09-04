@@ -234,6 +234,23 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(state.phase, .complete)
     }
 
+    func testAcceptanceUnlockCredentialIsScopedAndBounded() {
+        let enabled = OmarchyWorkspaceConfiguration.acceptanceEnabledKey
+        let password = OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey
+        XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [password: "test"]))
+        XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [enabled: "1"]))
+        XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [enabled: "1", password: ""]))
+        XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [
+            enabled: "1", password: String(repeating: "a", count: 129)
+        ]))
+        XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [enabled: "1", password: "line\nfeed"]))
+        XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [enabled: "1", password: "密碼"]))
+        XCTAssertEqual(
+            OmarchyAcceptanceUnlockCredential(environment: [enabled: "1", password: "test-123!"])?.password,
+            "test-123!"
+        )
+    }
+
     func testFullScreenObservationIsBoundToRuntimeState() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "ezvm-full-screen-\(UUID().uuidString)")

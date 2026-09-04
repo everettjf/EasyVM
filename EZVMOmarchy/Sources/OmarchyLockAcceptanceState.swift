@@ -1,5 +1,19 @@
 import EZVMCore
 
+struct OmarchyAcceptanceUnlockCredential: Equatable {
+    let password: String
+
+    init?(environment: [String: String]) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1",
+              let password = environment[OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey],
+              (1...128).contains(password.utf8.count),
+              password.unicodeScalars.allSatisfy({ (0x20...0x7e).contains($0.value) }) else {
+            return nil
+        }
+        self.password = password
+    }
+}
+
 struct OmarchyLockAcceptanceState: Equatable {
     enum Phase: Equatable {
         case idle
