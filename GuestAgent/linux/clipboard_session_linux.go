@@ -89,7 +89,10 @@ func executeClipboardSessionRequest(request clipboardSessionRequest) clipboardRe
 }
 
 func setSessionClipboard(path string, request clipboardRequest) clipboardResult {
-	file, err := os.Open(path)
+	// Re-open beneath / with openat2(RESOLVE_NO_SYMLINKS) on the production
+	// architecture. Lexical validation alone is not enough because the shared
+	// staging directory is writable by the desktop user.
+	file, err := secureOpenGuestFile(path)
 	if err != nil {
 		return clipboardResult{Message: err.Error()}
 	}
@@ -140,15 +143,23 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 }
 
 func getSessionClipboard(path string, request clipboardRequest) clipboardResult {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	directory := filepath.Dir(path)
+	if err := os.MkdirAll(directory, 0700); err != nil {
 		return clipboardResult{Message: err.Error()}
 	}
-	temporary := path + ".part"
-	file, err := os.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	// Create an unguessable file and retain an open descriptor for the parent.
+	// Committing through secureUploadTarget prevents symlink traversal and
+	// refuses to replace a destination that appeared during capture.
+	file, target, err := secureCreateUpload(path)
 	if err != nil {
 		return clipboardResult{Message: err.Error()}
 	}
-	defer os.Remove(temporary)
+	committed := false
+	defer func() {
+		if !committed {
+			target.cleanup()
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	arguments := []string{"--type", request.MIMEType}
@@ -156,25 +167,51 @@ func getSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		arguments = append(arguments, "--no-newline")
 	}
 	command := exec.CommandContext(ctx, "wl-paste", arguments...)
-	command.Stdout = file
+	hasher := sha256.New()
+	counter := &clipboardCountingWriter{
+		writer: io.MultiWriter(file, hasher),
+		limit:  maximumClipboardBytes,
+	}
+	command.Stdout = counter
 	command.Stderr = io.Discard
 	err = command.Run()
 	closeError := file.Close()
+	if counter.byteCount > maximumClipboardBytes {
+		return clipboardResult{Message: "clipboard output is invalid"}
+	}
 	if err != nil || closeError != nil {
 		return clipboardResult{Message: "could not read the Wayland clipboard"}
 	}
-	data, err := os.ReadFile(temporary)
-	if err != nil || uint64(len(data)) > maximumClipboardBytes {
-		return clipboardResult{Message: "clipboard output is invalid"}
-	}
-	if err := os.Rename(temporary, path); err != nil {
+	if err := target.commit(false); err != nil {
 		return clipboardResult{Message: err.Error()}
 	}
-	digest := sha256.Sum256(data)
+	committed = true
 	return clipboardResult{
 		Success: true, Message: "Guest clipboard captured.",
-		ByteCount: uint64(len(data)), SHA256: hex.EncodeToString(digest[:]),
+		ByteCount: counter.byteCount, SHA256: hex.EncodeToString(hasher.Sum(nil)),
 	}
+}
+
+type clipboardCountingWriter struct {
+	writer    io.Writer
+	byteCount uint64
+	limit     uint64
+}
+
+func (writer *clipboardCountingWriter) Write(data []byte) (int, error) {
+	if writer.byteCount >= writer.limit+1 {
+		return 0, errors.New("clipboard output exceeds limit")
+	}
+	remaining := writer.limit + 1 - writer.byteCount
+	if uint64(len(data)) > remaining {
+		data = data[:remaining]
+	}
+	written, err := writer.writer.Write(data)
+	writer.byteCount += uint64(written)
+	if err == nil && writer.byteCount > writer.limit {
+		err = errors.New("clipboard output exceeds limit")
+	}
+	return written, err
 }
 
 func proxyClipboardRequest(operation string, payload []byte) clipboardResult {
