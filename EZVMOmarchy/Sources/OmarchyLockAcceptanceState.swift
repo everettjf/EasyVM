@@ -15,6 +15,19 @@ enum OmarchyInteractiveDesktopReadiness {
     }
 }
 
+enum OmarchyAgentRestartRecoveryReadiness {
+    static func isReady(
+        baseline: VMOmarchyGuestStatus,
+        recovered: VMOmarchyGuestStatus
+    ) -> Bool {
+        recovered.bootID == baseline.bootID
+            && recovered.agentInstanceID?.isEmpty == false
+            && recovered.agentInstanceID != baseline.agentInstanceID
+            && !recovered.provisioningPending
+            && OmarchyInteractiveDesktopReadiness.isReady(recovered)
+    }
+}
+
 struct OmarchyAcceptanceUnlockCredential: Equatable {
     let password: String
 

@@ -609,6 +609,33 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(state.observe(interactiveAfter), .completed)
     }
 
+    func testAgentRestartRecoveryWaitsForTheInteractiveSessionAgent() {
+        let baseline = VMOmarchyGuestStatus(
+            agentVersion: "agent", agentInstanceID: "instance-before", bootID: "boot",
+            hostName: "omarchy", addresses: [],
+            capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let systemAgentOnly = VMOmarchyGuestStatus(
+            agentVersion: "agent", agentInstanceID: "instance-after", bootID: "boot",
+            hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let recovered = VMOmarchyGuestStatus(
+            agentVersion: "agent", agentInstanceID: "instance-after", bootID: "boot",
+            hostName: "omarchy", addresses: [],
+            capabilities: OmarchyInteractiveDesktopReadiness.requiredSessionCapabilities,
+            desktopSessionActive: true, provisioningPending: false
+        )
+
+        XCTAssertFalse(OmarchyAgentRestartRecoveryReadiness.isReady(
+            baseline: baseline, recovered: systemAgentOnly
+        ))
+        XCTAssertTrue(OmarchyAgentRestartRecoveryReadiness.isReady(
+            baseline: baseline, recovered: recovered
+        ))
+    }
+
     func testIntegrationObservationRecognizesAuthenticatedClipboardCapabilities() throws {
         let status = VMOmarchyGuestStatus(
             agentVersion: "agent", hostName: "omarchy", addresses: ["192.0.2.1"],

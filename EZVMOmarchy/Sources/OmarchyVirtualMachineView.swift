@@ -1725,9 +1725,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 }
             case .waitingForAgentReady:
                 guard let baseline = recoveryBaselineStatus,
-                      status.bootID == baseline.bootID,
-                      let instanceID = status.agentInstanceID,
-                      instanceID != baseline.agentInstanceID,
+                      OmarchyAgentRestartRecoveryReadiness.isReady(
+                        baseline: baseline,
+                        recovered: status
+                      ),
                       let integrationClient else { return }
                 OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
                     .guestRestartRequested(status),
