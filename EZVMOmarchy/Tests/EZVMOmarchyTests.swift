@@ -446,6 +446,30 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(state.observe(activeAfter), .completed)
     }
 
+    func testIntegrationObservationRecognizesAuthenticatedClipboardCapabilities() throws {
+        let status = VMOmarchyGuestStatus(
+            agentVersion: "agent", hostName: "omarchy", addresses: ["192.0.2.1"],
+            capabilities: [
+                "shared-folders-v1", "clipboard-agent-text-v1",
+                "clipboard-agent-image-v1", "dynamic-display-v1",
+            ],
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let observation = OmarchyAcceptanceObservationReporter.makeObservation(
+            status: status,
+            requiredCapabilities: [],
+            workspaceCreatedAt: Date(timeIntervalSince1970: 1),
+            factoryImageVersion: "factory",
+            sourceRevision: "revision",
+            sharedFolderRoundTrip: nil,
+            clipboardRoundTrip: nil,
+            dynamicDisplayRoundTrip: nil,
+            observedAt: Date(timeIntervalSince1970: 2)
+        )
+        XCTAssertTrue(observation.clipboardTextCapabilityAdvertised)
+        XCTAssertTrue(observation.clipboardImageCapabilityAdvertised)
+    }
+
     func testFullScreenObservationIsBoundToRuntimeState() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "ezvm-full-screen-\(UUID().uuidString)")

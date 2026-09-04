@@ -13,7 +13,7 @@ observed=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 write_observation() {
   ruby -rjson -e '
     capabilities = %w[
-      agent-restart-v1 clipboard-image-v1 clipboard-text-v1 desktop-input-v1 dynamic-display-v1
+      agent-restart-v1 clipboard-agent-image-v1 clipboard-agent-text-v1 desktop-input-v1 dynamic-display-v1
       shared-folders-v1 shutdown-v1
     ]
     value = {
@@ -96,7 +96,7 @@ ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["guestDisplayAfter"]["width"
 expect_rejection "observation with mismatched Host and Guest display sizes was accepted"
 
 write_observation
-ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["guestCapabilities"].delete("clipboard-image-v1"); File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["guestCapabilities"].delete("clipboard-agent-image-v1"); File.write(ARGV[0], JSON.generate(v))' "$work/observation.json"
 expect_rejection "observation with a missing capability was accepted"
 
 write_observation

@@ -393,10 +393,6 @@ struct OmarchyVirtualMachineView: View {
             ownerSetupPhase = .editing
             ownerProvisioningDetail = nil
         }
-        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
-            status: status,
-            layout: layout
-        )
         OmarchyAcceptanceObservationReporter.reportIfEnabled(
             status: status,
             requiredCapabilities: profile.requiredGuestCapabilities,
@@ -1146,10 +1142,19 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             switch state {
                             case .ready(let status):
                                 Task { @MainActor [weak self] in
-                                    self?.latestGuestStatus = status
-                                    self?.configureAgentClipboard(for: status)
-                                    self?.handleAutomaticRecoveryReady(status)
-                                    self?.refreshOwnerProvisioningProgressIfNeeded(status)
+                                    guard let self else { return }
+                                    // Record every authenticated status transition here. SwiftUI
+                                    // can coalesce a short-lived locked status before the parent
+                                    // view's onChange handler runs, which would make real lifecycle
+                                    // evidence omit a lock that the recovery state machine observed.
+                                    OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+                                        status: status,
+                                        layout: self.layout
+                                    )
+                                    self.latestGuestStatus = status
+                                    self.configureAgentClipboard(for: status)
+                                    self.handleAutomaticRecoveryReady(status)
+                                    self.refreshOwnerProvisioningProgressIfNeeded(status)
                                 }
                             case .disconnected:
                                 Task { @MainActor [weak self] in

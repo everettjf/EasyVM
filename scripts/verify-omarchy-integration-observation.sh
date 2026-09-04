@@ -43,14 +43,14 @@ ruby -rjson -rtime -e '
   abort "required capabilities are missing: #{missing.join(", ")}" unless missing.empty?
 
   advertised = {
-    "sharedFolderCapabilityAdvertised" => "shared-folders-v1",
-    "clipboardTextCapabilityAdvertised" => "clipboard-text-v1",
-    "clipboardImageCapabilityAdvertised" => "clipboard-image-v1",
-    "dynamicDisplayCapabilityAdvertised" => "dynamic-display-v1"
+    "sharedFolderCapabilityAdvertised" => ["shared-folders-v1"],
+    "clipboardTextCapabilityAdvertised" => ["clipboard-agent-text-v1", "clipboard-text-v1"],
+    "clipboardImageCapabilityAdvertised" => ["clipboard-agent-image-v1", "clipboard-image-v1"],
+    "dynamicDisplayCapabilityAdvertised" => ["dynamic-display-v1"]
   }
-  advertised.each do |field, capability|
+  advertised.each do |field, accepted_capabilities|
     abort "#{field} was not advertised" unless value[field] == true
-    abort "#{field} lacks #{capability}" unless capabilities.include?(capability)
+    abort "#{field} lacks a recognized capability" if (accepted_capabilities & capabilities).empty?
   end
   abort "shared-folder round trip did not pass" unless value["sharedFolderRoundTripPassed"] == true
   round_trip_at = Time.iso8601(value.fetch("sharedFolderRoundTripObservedAt"))

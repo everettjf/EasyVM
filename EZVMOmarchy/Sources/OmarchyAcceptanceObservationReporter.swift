@@ -515,8 +515,10 @@ enum OmarchyAcceptanceObservationReporter {
             desktopSessionActive: status.desktopSessionActive,
             provisioningPending: status.provisioningPending,
             sharedFolderCapabilityAdvertised: capabilities.contains("shared-folders-v1"),
-            clipboardTextCapabilityAdvertised: capabilities.contains("clipboard-text-v1"),
-            clipboardImageCapabilityAdvertised: capabilities.contains("clipboard-image-v1"),
+            clipboardTextCapabilityAdvertised: capabilities.contains("clipboard-agent-text-v1")
+                || capabilities.contains("clipboard-text-v1"),
+            clipboardImageCapabilityAdvertised: capabilities.contains("clipboard-agent-image-v1")
+                || capabilities.contains("clipboard-image-v1"),
             dynamicDisplayCapabilityAdvertised: capabilities.contains("dynamic-display-v1"),
             sharedFolderRoundTripPassed: sharedFolderRoundTrip != nil,
             sharedFolderRoundTripObservedAt: sharedFolderRoundTrip?.observedAt,

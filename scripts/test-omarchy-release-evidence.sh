@@ -20,7 +20,7 @@ ended=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
 ruby -rjson -e '
   capabilities = %w[
-    agent-restart-v1 clipboard-image-v1 clipboard-text-v1 desktop-input-v1 dynamic-display-v1
+    agent-restart-v1 clipboard-agent-image-v1 clipboard-agent-text-v1 desktop-input-v1 dynamic-display-v1
     shared-folders-v1 shutdown-v1
   ]
   value = {
