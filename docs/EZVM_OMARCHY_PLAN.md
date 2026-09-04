@@ -668,11 +668,12 @@ and Gatekeeper-tests one immutable candidate in a versioned state directory.
 Real-guest acceptance runs against that exact ZIP. A later
 `publish <version> <evidence> <manifest> <image> <integration-observation>
 <lifecycle-observation> <command-super-observation> <rollback-observation>
-<full-screen-observation> <soak-observation>` invocation reuses the same
+<full-screen-observation> <desktop-notification-observation> <soak-observation>`
+invocation reuses the same
 checksum-verified bytes,
 validates the bound evidence, and only then pushes the release branch/tag and
-creates the GitHub release. The schema-6 release record contains SHA-256 digests
-of all six structured observations. Promotion therefore fails if either the live
+creates the GitHub release. The schema-7 release record contains SHA-256 digests
+of all seven structured observations. Promotion therefore fails if either the live
 clipboard/display/shared-folder result or the lock-to-active recovery result is
 missing, stale, version-mismatched, or changed after acceptance. The schema-5
 lifecycle observation also records the ordered VM pause request, framework
@@ -708,6 +709,15 @@ mode asks the actual VM window to enter full screen, waits for
 view as first responder, and writes `Diagnostics/full-screen.json`. Promotion
 requires ordered entry/exit timestamps plus an active App, key VM window, and
 focused VM view after exit, all bound to the exact source revision.
+Notification acceptance is derived from the live Guest path as well. After the
+user explicitly enables notification mirroring, acceptance mode lets the first
+Agent poll establish a baseline, opens an Omarchy terminal through authenticated
+desktop input, runs `notify-send`, and waits for that exact generated title to
+cross the Session Agent boundary. `Diagnostics/desktop-notification.json` is
+written only after macOS Notification Center accepts the corresponding request.
+The standalone and release verifiers require the current source revision, a
+fresh timestamp, a Guest boot and notification identity, and the constrained
+acceptance title; unrelated or edited notifications cannot satisfy the gate.
 Update rollback is derived in the same way. With the VM stopped, the restricted
 `omarchy-rollback-acceptance-tool` accepts only a temporary acceptance workspace,
 writes a random pre-update marker into the real VM bundle, creates a protected
@@ -723,7 +733,7 @@ Agent status. The monitor requires an unchanged Linux boot ID, Agent instance
 and Agent version, monotonically increasing Guest uptime, continuously active
 desktop, completed provisioning, and no heartbeat gap above 120 seconds. Only a
 real interval of at least 86,400 seconds with at least one independent sample per
-120 seconds produces `soak-observation.json`; schema-6 promotion binds its digest
+120 seconds produces `soak-observation.json`; schema-7 promotion binds its digest
 and rejects all legacy hand-authored scenario flags.
 `cleanInstall` is also derived rather than asserted: the verifier requires the
 transactional workspace `createdAt` to fall inside the acceptance interval,
