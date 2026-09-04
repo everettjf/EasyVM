@@ -394,7 +394,7 @@ enum OmarchyClipboardAcceptanceProbe {
             // path avoids taking over the developer's physical keyboard.
             try await client.injectKeyChord(modifiers: [29], key: 46)
             try await Task.sleep(for: .milliseconds(500))
-            let command = "{ systemctl --user status ezvm-session-agent.service --no-pager; journalctl --user -u ezvm-session-agent.service --no-pager -n 100; systemctl --user show ezvm-session-agent.service -p ActiveState -p SubState -p NRestarts -p ExecMainStatus; ps -ef | grep '[e]zvm-agent'; ls -l /run/user/1000/ezvm-agent-session.sock /run/ezvm-agent/session.sock; } > \(guestDirectory)/session-diagnostics.txt 2>&1\n"
+            let command = "{ systemctl --user status ezvm-session-agent.service --no-pager; journalctl --user -u ezvm-session-agent.service --no-pager -n 100; systemctl --user show ezvm-session-agent.service -p ActiveState -p SubState -p NRestarts -p ExecMainStatus; ps -ef | grep '[e]zvm-agent'; ls -ld /run/ezvm-agent/sessions; ls -l /run/ezvm-agent/sessions/session-1000.sock /run/ezvm-agent/session.sock; } > \(guestDirectory)/session-diagnostics.txt 2>&1\n"
             try await client.typeUSASCII(command)
             try await waitForFile(at: evidenceFile)
             NSLog("Omarchy clipboard probe captured Guest session diagnostics at %@", evidenceFile.path)

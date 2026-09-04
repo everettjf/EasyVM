@@ -43,6 +43,29 @@ func TestUnixSessionPeerUIDComesFromKernelCredentials(t *testing.T) {
 	}
 }
 
+func TestDesktopSessionSocketUsesAgentRuntimeDirectory(t *testing.T) {
+	if actual := desktopSessionSocketPath(1000); actual != "/run/ezvm-agent/sessions/session-1000.sock" {
+		t.Fatalf("desktop session socket path = %q", actual)
+	}
+}
+
+func TestDesktopSessionSocketValidationRequiresKernelOwner(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "desktop.sock")
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	session := registeredSession{uid: uint32(os.Getuid()), socketPath: path}
+	if err := validateDesktopSessionSocket(session); err != nil {
+		t.Fatalf("owned Unix socket was rejected: %v", err)
+	}
+	session.uid++
+	if err := validateDesktopSessionSocket(session); err == nil {
+		t.Fatal("Unix socket owned by another UID was accepted")
+	}
+}
+
 func TestDesktopSessionRegistrationsExpire(t *testing.T) {
 	now := time.Now()
 	desktopSessions.Lock()
@@ -71,7 +94,7 @@ func TestInvalidDesktopSessionRegistrationDoesNotPoisonRegistry(t *testing.T) {
 		t.Fatal("accepted an untrusted session socket path")
 	}
 	valid := invalid
-	valid.SocketPath = "/run/user/1000/ezvm-agent-session.sock"
+	valid.SocketPath = "/run/ezvm-agent/sessions/session-1000.sock"
 	if !storeSessionRegistration(1000, valid, now) {
 		t.Fatal("valid session registration was rejected after invalid input")
 	}
@@ -85,19 +108,21 @@ func TestActiveDesktopSessionRequiresCapabilityAndSocket(t *testing.T) {
 	desktopSessions.Lock()
 	desktopSessions.byUID = map[uint32]registeredSession{
 		1000: {
+			uid:          1000,
 			capabilities: []string{"clipboard-agent-text-v1"},
-			socketPath:   "/run/user/1000/ezvm-agent-session.sock",
+			socketPath:   "/run/ezvm-agent/sessions/session-1000.sock",
 			updatedAt:    now.Add(-time.Second),
 		},
 		1001: {
+			uid:          1001,
 			capabilities: []string{"clipboard-agent-text-v1", "clipboard-agent-image-v1"},
-			socketPath:   "/run/user/1001/ezvm-agent-session.sock",
+			socketPath:   "/run/ezvm-agent/sessions/session-1001.sock",
 			updatedAt:    now,
 		},
 	}
 	desktopSessions.Unlock()
 	session, ok := activeDesktopSession(now, "clipboard-agent-image-v1")
-	if !ok || session.socketPath != "/run/user/1001/ezvm-agent-session.sock" {
+	if !ok || session.socketPath != "/run/ezvm-agent/sessions/session-1001.sock" {
 		t.Fatalf("wrong active image clipboard session: %#v %v", session, ok)
 	}
 	if _, ok := activeDesktopSession(now, "arbitrary-host-command-v1"); ok {

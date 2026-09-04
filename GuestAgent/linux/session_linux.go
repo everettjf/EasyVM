@@ -20,7 +20,10 @@ import (
 	"time"
 )
 
-const sessionSocketPath = "/run/ezvm-agent/session.sock"
+const (
+	sessionSocketPath       = "/run/ezvm-agent/session.sock"
+	desktopSessionDirectory = "/run/ezvm-agent/sessions"
+)
 
 type sessionRegistration struct {
 	UID          uint32   `json:"uid"`
@@ -29,6 +32,7 @@ type sessionRegistration struct {
 }
 
 type registeredSession struct {
+	uid          uint32
 	capabilities []string
 	socketPath   string
 	updatedAt    time.Time
@@ -41,6 +45,13 @@ var desktopSessions = struct {
 
 func startSessionRegistry() error {
 	if err := os.MkdirAll(filepath.Dir(sessionSocketPath), 0755); err != nil {
+		return err
+	}
+	sessionDirectoryMode := os.FileMode(0777) | os.ModeSticky
+	if err := os.MkdirAll(desktopSessionDirectory, sessionDirectoryMode); err != nil {
+		return err
+	}
+	if err := os.Chmod(desktopSessionDirectory, sessionDirectoryMode); err != nil {
 		return err
 	}
 	_ = os.Remove(sessionSocketPath)
@@ -91,18 +102,23 @@ func acceptSessionRegistration(connection *net.UnixConn) {
 }
 
 func storeSessionRegistration(uid uint32, registration sessionRegistration, now time.Time) bool {
-	expectedSocketPath := filepath.Join("/run/user", strconv.FormatUint(uint64(uid), 10), "ezvm-agent-session.sock")
+	expectedSocketPath := desktopSessionSocketPath(uid)
 	if registration.SocketPath != expectedSocketPath {
 		return false
 	}
 	desktopSessions.Lock()
 	defer desktopSessions.Unlock()
 	desktopSessions.byUID[uid] = registeredSession{
+		uid:          uid,
 		capabilities: registration.Capabilities,
 		socketPath:   registration.SocketPath,
 		updatedAt:    now,
 	}
 	return true
+}
+
+func desktopSessionSocketPath(uid uint32) string {
+	return filepath.Join(desktopSessionDirectory, "session-"+strconv.FormatUint(uint64(uid), 10)+".sock")
 }
 
 func unixPeerUID(connection *net.UnixConn) (uint32, error) {

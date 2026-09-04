@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -35,7 +36,7 @@ func startClipboardSessionServer(uid uint32) (*net.UnixListener, string, error) 
 	if runtimeDirectory != expected {
 		return nil, "", errors.New("invalid XDG_RUNTIME_DIR for session clipboard")
 	}
-	socketPath := filepath.Join(runtimeDirectory, "ezvm-agent-session.sock")
+	socketPath := desktopSessionSocketPath(uid)
 	_ = os.Remove(socketPath)
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: socketPath, Net: "unix"})
 	if err != nil {
@@ -230,11 +231,23 @@ func proxyClipboardRequest(operation string, payload []byte) clipboardResult {
 	if !ok {
 		return clipboardResult{Message: "no clipboard-capable desktop session is active"}
 	}
-	connection, err := net.DialTimeout("unix", session.socketPath, 2*time.Second)
+	if err := validateDesktopSessionSocket(session); err != nil {
+		return clipboardResult{Message: "desktop clipboard session is unavailable"}
+	}
+	rawConnection, err := net.DialTimeout("unix", session.socketPath, 2*time.Second)
 	if err != nil {
 		return clipboardResult{Message: "desktop clipboard session is unavailable"}
 	}
+	connection, ok := rawConnection.(*net.UnixConn)
+	if !ok {
+		rawConnection.Close()
+		return clipboardResult{Message: "desktop clipboard session is unavailable"}
+	}
 	defer connection.Close()
+	peerUID, err := unixPeerUID(connection)
+	if err != nil || peerUID != session.uid {
+		return clipboardResult{Message: "desktop clipboard session identity mismatch"}
+	}
 	_ = connection.SetDeadline(time.Now().Add(15 * time.Second))
 	encoded, _ := json.Marshal(clipboardSessionRequest{Operation: operation, clipboardRequest: request})
 	if _, err := connection.Write(append(encoded, '\n')); err != nil {
@@ -249,4 +262,16 @@ func proxyClipboardRequest(operation string, payload []byte) clipboardResult {
 		return clipboardResult{Message: "invalid desktop clipboard response"}
 	}
 	return result
+}
+
+func validateDesktopSessionSocket(session registeredSession) error {
+	info, err := os.Lstat(session.socketPath)
+	if err != nil || info.Mode()&os.ModeSocket == 0 {
+		return errors.New("desktop session socket is missing")
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat.Uid != session.uid {
+		return errors.New("desktop session socket owner mismatch")
+	}
+	return nil
 }
