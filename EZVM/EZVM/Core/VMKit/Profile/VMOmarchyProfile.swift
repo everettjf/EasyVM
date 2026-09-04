@@ -99,6 +99,13 @@ public struct VMOmarchyProfile: Codable, Equatable {
         )
     }
 
+    /// Capabilities a signed factory image must expose across its full
+    /// lifecycle. Owner provisioning is intentionally absent from steady-state
+    /// readiness because the Guest Agent removes it after setup completes.
+    public var factoryGuestCapabilities: [String] {
+        Array(Set(requiredGuestCapabilities + ["owner-provisioning-v1"])).sorted()
+    }
+
     public enum ValidationError: Error, Equatable {
         case unsupportedSchema(Int)
         case invalidProductID

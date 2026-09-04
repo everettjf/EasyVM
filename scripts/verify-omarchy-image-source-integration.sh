@@ -23,6 +23,7 @@ git -C "$project_root" show "$agent_ref:GuestAgent/linux/install.sh" 2>/dev/null
 
 system_unit='etc/systemd/system/mnt-ezvm\x2dshared.mount'
 user_unit='etc/systemd/user/ezvm-session-agent.service'
+owner_provisioner='usr/local/libexec/ezvm-owner-provisioning'
 cmp -s "$project_root/EZVMOmarchy/GuestOverlay/systemd/mnt-ezvm\x2dshared.mount" \
   "$profile/overlay/$system_unit" || fail "shared-folder mount unit is missing or differs from the product contract"
 cmp -s "$project_root/EZVMOmarchy/GuestOverlay/systemd/ezvm-session-agent.service" \
@@ -36,11 +37,16 @@ grep -Fq 'install -d -m755 "$MOUNT_DIR/mnt/ezvm-shared"' "$build" || \
   fail "shared-folder mount point is not created during image assembly"
 grep -Fq 'target_chroot systemctl --global enable ezvm-session-agent.service' "$build" || \
   fail "Session Agent is not globally enabled for the owner desktop session"
+[[ -f "$profile/overlay/$owner_provisioner" && ! -L "$profile/overlay/$owner_provisioner" ]] || \
+  fail "authenticated owner-provisioning consumer is missing or unsafe"
+grep -Fq 'ezvm-owner-provisioning' "$build" || \
+  fail "image assembly does not integrate authenticated owner provisioning"
 for required in \
   "$system_unit" \
   "$user_unit" \
   'etc/systemd/system/multi-user.target.wants/mnt-ezvm\x2dshared.mount' \
   'mnt/ezvm-shared' \
+  "$owner_provisioner" \
   'etc/systemd/user/graphical-session.target.wants/ezvm-session-agent.service'; do
   grep -Fq "$required" "$build" || fail "final image validation does not require /$required"
 done

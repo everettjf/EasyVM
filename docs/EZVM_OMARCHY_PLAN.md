@@ -485,6 +485,17 @@ The user sees download size, required space, recoverable progress, and clear
 permission consequences. Camera and USB can remain post-MVP options and should
 not block setup.
 
+Owner creation is a native EZVM Omarchy form rather than simulated typing into
+the Guest console. The app keeps both password fields only in its live SwiftUI
+state, validates the same username, keyboard, hostname, time-zone, and length
+constraints as the image, then sends one authenticated `ownerProvisioning`
+request over vsock. The system Agent atomically stages a mode-0600 request in
+`/run`; the patched Omarchy first-boot flow consumes and deletes it before
+calling Omarchy's existing owner setup functions. The capability is advertised
+only while provisioning is pending and is required by factory manifests, but is
+deliberately excluded from steady-state desktop readiness after first boot.
+Older images without the capability retain their interactive console flow.
+
 ### 10.2 Normal launch
 
 Opening the application starts or restores the primary workspace and presents
@@ -835,6 +846,19 @@ All randomly named acceptance directories were removed afterward. This closes
 the windowed dynamic-resolution and Retina-mapping checkpoint. Repeated resize,
 full-screen, multi-Space, sleep/wake, and long-running display recovery remain
 part of lifecycle and soak acceptance.
+
+### 11.4 Native owner-provisioning implementation checkpoint (2026-09-03)
+
+The Host protocol, strict Linux Agent staging endpoint, dedicated SwiftUI owner
+form, factory capability contract, and image-side one-shot consumer are now
+implemented on the integration branches. Unit tests cover valid Unicode
+credentials, password confirmation and erasure, reserved users, unknown or
+trailing JSON, unsafe fields, request file mode/symlink rejection, one-time
+deletion, and the transient-versus-steady capability boundary. The main
+image-source verifier also requires the consumer to be present and integrated
+by the image builder. This checkpoint is implementation evidence only; it is
+not complete until a newly built candidate performs owner creation from the Mac
+form and reaches an authenticated active Hyprland session without console input.
 
 ## 12. Test and measurement strategy
 

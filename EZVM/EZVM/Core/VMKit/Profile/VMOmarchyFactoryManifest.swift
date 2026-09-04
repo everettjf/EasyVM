@@ -75,7 +75,7 @@ public enum VMOmarchyFactoryValidator {
               !payload.omarchyRevision.isEmpty,
               !payload.guestAgentVersion.isEmpty,
               Set(payload.guestCapabilities).count == payload.guestCapabilities.count,
-              Set(payload.guestCapabilities).isSuperset(of: profile.requiredGuestCapabilities) else {
+              Set(payload.guestCapabilities).isSuperset(of: profile.factoryGuestCapabilities) else {
             throw VMOmarchyFactoryValidationError.invalidManifest
         }
         guard manifest.keyID == profile.factoryImage.signingKeyID else {

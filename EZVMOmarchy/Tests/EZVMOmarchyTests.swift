@@ -3,6 +3,61 @@ import EZVMCore
 @testable import EZVM_Omarchy
 
 final class EZVMOmarchyTests: XCTestCase {
+    func testOwnerSetupBuildsOnePasswordRequestAndClearsSecrets() throws {
+        var form = OmarchyOwnerSetupForm()
+        form.password = "temporary-密碼"
+        form.passwordConfirmation = form.password
+        form.fullName = "Omarchy Owner"
+        form.emailAddress = "owner@example.com"
+        form.timezone = "America/Los_Angeles"
+
+        let request = try form.validatedRequest()
+        XCTAssertEqual(request.username, "omarchy")
+        XCTAssertEqual(request.password, "temporary-密碼")
+        XCTAssertEqual(request.keyboard, "us")
+        XCTAssertEqual(request.timezone, "America/Los_Angeles")
+
+        form.clearSecrets()
+        XCTAssertTrue(form.password.isEmpty)
+        XCTAssertTrue(form.passwordConfirmation.isEmpty)
+        XCTAssertEqual(form.username, "omarchy")
+    }
+
+    func testOwnerSetupRejectsMismatchReservedNamesAndUnsafeFields() {
+        var form = OmarchyOwnerSetupForm()
+        form.password = "temporary-password"
+        form.passwordConfirmation = "different"
+        XCTAssertThrowsError(try form.validatedRequest()) {
+            XCTAssertEqual($0 as? OmarchyOwnerSetupForm.ValidationError, .passwordsDoNotMatch)
+        }
+
+        form.passwordConfirmation = form.password
+        form.username = "root"
+        XCTAssertThrowsError(try form.validatedRequest()) {
+            XCTAssertEqual($0 as? OmarchyOwnerSetupForm.ValidationError, .invalidUsername)
+        }
+
+        form.username = "omarchy"
+        form.hostname = "-invalid"
+        XCTAssertThrowsError(try form.validatedRequest()) {
+            XCTAssertEqual($0 as? OmarchyOwnerSetupForm.ValidationError, .invalidHostname)
+        }
+
+        form.hostname = "omarchy"
+        form.fullName = "Injected\nName"
+        XCTAssertThrowsError(try form.validatedRequest()) {
+            XCTAssertEqual($0 as? OmarchyOwnerSetupForm.ValidationError, .invalidIdentity)
+        }
+    }
+
+    func testOwnerSetupKeyboardCodesAreUniqueAndMatchFactoryChoices() {
+        let layouts = OmarchyOwnerSetupForm.keyboardLayouts
+        XCTAssertEqual(Set(layouts.map(\.label)).count, layouts.count)
+        XCTAssertEqual(layouts.first?.code, "us")
+        XCTAssertTrue(layouts.contains(where: { $0.code == "jp106" }))
+        XCTAssertTrue(layouts.contains(where: { $0.code == "br-abnt2" }))
+    }
+
     func testAcceptanceWorkspaceOverrideRequiresExplicitFlagAndTemporaryRoot() throws {
         let fallback = try OmarchyWorkspaceConfiguration.layout(environment: [:])
         XCTAssertTrue(fallback.applicationSupportRoot.path.hasSuffix("/EZVM Omarchy"))

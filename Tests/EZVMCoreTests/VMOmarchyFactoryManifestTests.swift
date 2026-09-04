@@ -106,7 +106,7 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
             architecture: "arm64",
             omarchyRevision: "test-revision",
             guestAgentVersion: "1.0.0",
-            guestCapabilities: VMOmarchyProfile.production.requiredGuestCapabilities.sorted()
+            guestCapabilities: VMOmarchyProfile.production.factoryGuestCapabilities
         )
     }
 }

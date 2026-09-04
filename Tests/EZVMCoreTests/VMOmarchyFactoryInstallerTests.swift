@@ -173,7 +173,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
                 architecture: "arm64",
                 omarchyRevision: "revision",
                 guestAgentVersion: "1",
-                guestCapabilities: VMOmarchyProfile.production.requiredGuestCapabilities.sorted()
+                guestCapabilities: VMOmarchyProfile.production.factoryGuestCapabilities
             )
             var signature = try key.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
             if tamperSignature { signature[0] ^= 0xff }

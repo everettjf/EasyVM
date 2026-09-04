@@ -23,6 +23,9 @@ struct OmarchyVirtualMachineView: View {
     @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
     @State private var clipboardProbe: OmarchyClipboardProbeState = .notRun
     @State private var dynamicDisplayProbe: OmarchyDynamicDisplayProbeState = .notRun
+    @State private var ownerSetupForm = OmarchyOwnerSetupForm()
+    @State private var ownerSetupPhase: OmarchyOwnerSetupPhase = .editing
+    @State private var ownerProvisioningSubmission: OmarchyOwnerProvisioningSubmission?
 
     private var phase: Phase { lifecycle.phase }
 
@@ -37,11 +40,20 @@ struct OmarchyVirtualMachineView: View {
                 sharedFolderProbeChanged: handleSharedFolderProbeChange,
                 clipboardProbeChanged: handleClipboardProbeChange,
                 dynamicDisplayProbeChanged: handleDynamicDisplayProbeChange,
+                ownerProvisioningSubmission: ownerProvisioningSubmission,
+                ownerProvisioningCompleted: handleOwnerProvisioningCompletion,
                 phaseChanged: handlePhaseChange
             )
             .id(sessionID)
             if phase != .running {
                 statusOverlay
+            }
+            if ownerSetupAvailable {
+                OmarchyOwnerSetupView(
+                    form: $ownerSetupForm,
+                    phase: ownerSetupPhase,
+                    submit: submitOwnerSetup
+                )
             }
         }
         .background(.black)
@@ -220,6 +232,33 @@ struct OmarchyVirtualMachineView: View {
         return false
     }
 
+    private var ownerSetupAvailable: Bool {
+        guard case .ready(let status) = integration else { return false }
+        return status.provisioningPending && status.capabilities.contains("owner-provisioning-v1")
+    }
+
+    private func submitOwnerSetup() {
+        guard ownerSetupPhase != .submitting, ownerSetupPhase != .finishing else { return }
+        do {
+            let request = try ownerSetupForm.validatedRequest()
+            ownerSetupPhase = .submitting
+            ownerProvisioningSubmission = .init(request: request)
+        } catch {
+            ownerSetupPhase = .failed(error.localizedDescription)
+        }
+    }
+
+    private func handleOwnerProvisioningCompletion(_ id: UUID, _ errorMessage: String?) {
+        guard ownerProvisioningSubmission?.id == id else { return }
+        ownerProvisioningSubmission = nil
+        if let errorMessage {
+            ownerSetupPhase = .failed(errorMessage)
+        } else {
+            ownerSetupForm.clearSecrets()
+            ownerSetupPhase = .finishing
+        }
+    }
+
     @ViewBuilder
     private var updatesMenu: some View {
         Menu {
@@ -292,6 +331,11 @@ struct OmarchyVirtualMachineView: View {
     private func handleIntegrationChange(_ state: VMOmarchyIntegrationState) {
         integration = state
         guard case .ready(let status) = state else { return }
+        if !status.provisioningPending {
+            ownerSetupForm.clearSecrets()
+            ownerProvisioningSubmission = nil
+            ownerSetupPhase = .editing
+        }
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: status,
             layout: layout
@@ -722,6 +766,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
     let clipboardProbeChanged: (OmarchyClipboardProbeState) -> Void
     let dynamicDisplayProbeChanged: (OmarchyDynamicDisplayProbeState) -> Void
+    let ownerProvisioningSubmission: OmarchyOwnerProvisioningSubmission?
+    let ownerProvisioningCompleted: (UUID, String?) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -734,6 +780,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             sharedFolderProbeChanged: sharedFolderProbeChanged,
             clipboardProbeChanged: clipboardProbeChanged,
             dynamicDisplayProbeChanged: dynamicDisplayProbeChanged,
+            ownerProvisioningCompleted: ownerProvisioningCompleted,
             phaseChanged: phaseChanged
         )
     }
@@ -773,7 +820,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ nsView: VZVirtualMachineView, context: Context) {}
+    func updateNSView(_ nsView: VZVirtualMachineView, context: Context) {
+        if let ownerProvisioningSubmission {
+            context.coordinator.submitOwnerProvisioning(ownerProvisioningSubmission)
+        }
+    }
 
     static func dismantleNSView(_ nsView: VZVirtualMachineView, coordinator: Coordinator) {
         coordinator.stopImmediately()
@@ -790,6 +841,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
         let clipboardProbeChanged: (OmarchyClipboardProbeState) -> Void
         let dynamicDisplayProbeChanged: (OmarchyDynamicDisplayProbeState) -> Void
+        let ownerProvisioningCompleted: (UUID, String?) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         private var stopObserver: NSObjectProtocol?
         private var pauseObserver: NSObjectProtocol?
@@ -813,6 +865,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var automaticCommandSpaceProbeStarted = false
         private var automaticFullScreenProbeStarted = false
         private var fullScreenProbe: OmarchyFullScreenAcceptanceProbe?
+        private var lastOwnerProvisioningSubmissionID: UUID?
 
         private enum AutomaticRecoveryStage {
             case idle
@@ -833,6 +886,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             sharedFolderProbeChanged: @escaping (VMOmarchySharedFolderProbeState) -> Void,
             clipboardProbeChanged: @escaping (OmarchyClipboardProbeState) -> Void,
             dynamicDisplayProbeChanged: @escaping (OmarchyDynamicDisplayProbeState) -> Void,
+            ownerProvisioningCompleted: @escaping (UUID, String?) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
         ) {
             self.sessionID = sessionID
@@ -843,7 +897,26 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.sharedFolderProbeChanged = sharedFolderProbeChanged
             self.clipboardProbeChanged = clipboardProbeChanged
             self.dynamicDisplayProbeChanged = dynamicDisplayProbeChanged
+            self.ownerProvisioningCompleted = ownerProvisioningCompleted
             self.phaseChanged = phaseChanged
+        }
+
+        func submitOwnerProvisioning(_ submission: OmarchyOwnerProvisioningSubmission) {
+            guard lastOwnerProvisioningSubmissionID != submission.id else { return }
+            lastOwnerProvisioningSubmissionID = submission.id
+            guard let integrationClient else {
+                ownerProvisioningCompleted(submission.id, "The Guest Agent is not ready for owner setup.")
+                return
+            }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                do {
+                    try await integrationClient.provisionOwner(submission.request)
+                    ownerProvisioningCompleted(submission.id, nil)
+                } catch {
+                    ownerProvisioningCompleted(submission.id, error.localizedDescription)
+                }
+            }
         }
 
         deinit {

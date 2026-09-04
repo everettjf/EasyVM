@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 const ownerProvisioningCapability = "owner-provisioning-v1"
@@ -88,7 +89,7 @@ func validateOwnerProvisioning(request ownerProvisioningRequest, zoneinfoRoot st
 	if !ownerUsernamePattern.MatchString(request.Username) || len(request.Username) > 32 || reservedUsername {
 		return errors.New("Owner username is invalid.")
 	}
-	if len(request.Password) < 1 || len(request.Password) > 128 || !printableASCII(request.Password) {
+	if len(request.Password) < 1 || len(request.Password) > 128 || containsControl(request.Password) {
 		return errors.New("Owner password is invalid.")
 	}
 	if !ownerKeyboardPattern.MatchString(request.Keyboard) {
@@ -126,7 +127,7 @@ func validateOwnerProvisioning(request ownerProvisioningRequest, zoneinfoRoot st
 
 func containsControl(value string) bool {
 	for _, character := range value {
-		if character < 0x20 || character == 0x7f {
+		if unicode.IsControl(character) {
 			return true
 		}
 	}
@@ -136,15 +137,6 @@ func containsControl(value string) bool {
 func pathWithin(root, candidate string) bool {
 	relative, err := filepath.Rel(root, candidate)
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
-}
-
-func printableASCII(value string) bool {
-	for _, character := range []byte(value) {
-		if character < 0x20 || character > 0x7e {
-			return false
-		}
-	}
-	return true
 }
 
 func writeOncePrivate(destination string, data []byte) error {

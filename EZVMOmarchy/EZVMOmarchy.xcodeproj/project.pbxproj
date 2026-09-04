@@ -12,6 +12,7 @@
 		1715A7B6CD7CC805DF830662 /* OmarchyReleaseReadinessReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0265C3DEC883F1B7E77487C9 /* OmarchyReleaseReadinessReporter.swift */; };
 		177F45FA488565203C3F8F88 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */; };
 		17DEE7144D9A6C9578E485EC /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 747AF85434076ADB336950A7 /* OmarchyDynamicDisplayAcceptanceProbe.swift */; };
+		1DE00F9AE38F4CB12162E9A8 /* OmarchyOwnerSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09386E69C69AA61229E5340D /* OmarchyOwnerSetupView.swift */; };
 		20E670A3AF3B256648F15181 /* EZVMOmarchyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BFDC7816F487DFD13DE00E /* EZVMOmarchyApp.swift */; };
 		4AF317238132CFFC331CA4F3 /* EZVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD226F3D0E5D3CB6ED5A572A /* EZVMOmarchyTests.swift */; };
 		7DD269A01154BD72BA3B039B /* OmarchyLockAcceptanceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93363B5A93F4C340BAE13537 /* OmarchyLockAcceptanceState.swift */; };
@@ -33,6 +34,7 @@
 
 /* Begin PBXFileReference section */
 		0265C3DEC883F1B7E77487C9 /* OmarchyReleaseReadinessReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyReleaseReadinessReporter.swift; sourceTree = "<group>"; };
+		09386E69C69AA61229E5340D /* OmarchyOwnerSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyOwnerSetupView.swift; sourceTree = "<group>"; };
 		3B328C4BF0A9CFBE6C0F6D36 /* EZVM OmarchyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "EZVM OmarchyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		490C829832DAA7EF0DC3578B /* OmarchyClipboardAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyClipboardAcceptanceProbe.swift; sourceTree = "<group>"; };
 		747AF85434076ADB336950A7 /* OmarchyDynamicDisplayAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmarchyDynamicDisplayAcceptanceProbe.swift; sourceTree = "<group>"; };
@@ -89,6 +91,7 @@
 				A0632B6717EC41A9EF9D4C62 /* OmarchyFocusedCommandBridge.swift */,
 				7B3DB1F289B76BE9C540F5A3 /* OmarchyFullScreenAcceptanceProbe.swift */,
 				93363B5A93F4C340BAE13537 /* OmarchyLockAcceptanceState.swift */,
+				09386E69C69AA61229E5340D /* OmarchyOwnerSetupView.swift */,
 				0265C3DEC883F1B7E77487C9 /* OmarchyReleaseReadinessReporter.swift */,
 				94DFD16F2FF9FB7E18292398 /* OmarchyVirtualMachineView.swift */,
 			);
@@ -203,6 +206,7 @@
 				DABCAAE2A198CD15B90FB292 /* OmarchyFocusedCommandBridge.swift in Sources */,
 				08B2C8C9A158F34B36E0CBB5 /* OmarchyFullScreenAcceptanceProbe.swift in Sources */,
 				7DD269A01154BD72BA3B039B /* OmarchyLockAcceptanceState.swift in Sources */,
+				1DE00F9AE38F4CB12162E9A8 /* OmarchyOwnerSetupView.swift in Sources */,
 				1715A7B6CD7CC805DF830662 /* OmarchyReleaseReadinessReporter.swift in Sources */,
 				177F45FA488565203C3F8F88 /* OmarchyVirtualMachineView.swift in Sources */,
 			);

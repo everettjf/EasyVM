@@ -8,6 +8,8 @@ final class VMOmarchyProfileTests: XCTestCase {
 
         let encoded = try JSONEncoder().encode(profile)
         XCTAssertEqual(try JSONDecoder().decode(VMOmarchyProfile.self, from: encoded), profile)
+        XCTAssertTrue(profile.factoryGuestCapabilities.contains("owner-provisioning-v1"))
+        XCTAssertFalse(profile.requiredGuestCapabilities.contains("owner-provisioning-v1"))
     }
 
     func testResourcePolicyLeavesHalfMemoryAndTwoProcessorsForHost() {

@@ -140,7 +140,7 @@ func validOwnerProvisioningRequest() ownerProvisioningRequest {
 	return ownerProvisioningRequest{
 		SchemaVersion: 1,
 		Username:      "omarchy",
-		Password:      "temporary-password",
+		Password:      "temporary-密碼",
 		Keyboard:      "us",
 		FullName:      "Omarchy Owner",
 		EmailAddress:  "owner@example.com",

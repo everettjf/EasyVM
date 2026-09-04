@@ -72,7 +72,7 @@ enum OmarchyFactoryTool {
                 architecture: "arm64",
                 omarchyRevision: arguments[4],
                 guestAgentVersion: arguments[5],
-                guestCapabilities: VMOmarchyProfile.production.requiredGuestCapabilities.sorted()
+                guestCapabilities: VMOmarchyProfile.production.factoryGuestCapabilities
             )
             let signature = try privateKey.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
             let manifest = VMOmarchyFactoryManifest(
