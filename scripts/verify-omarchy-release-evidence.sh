@@ -55,7 +55,7 @@ ruby -rjson -rtime -e '
   abort "acceptance evidence is older than 14 days" if Time.now.utc - ended > 14 * 24 * 60 * 60
   required = %w[
     cleanInstall ownerProvisioning commandSuper clipboardText clipboardImage
-    sharedFolder fileImport guestRestart agentRestart hostSleepWake
+    sharedFolder fileImport guestRestart agentRestart
     updateRollback continuousOperation
   ]
   scenarios = value.fetch("scenarios")

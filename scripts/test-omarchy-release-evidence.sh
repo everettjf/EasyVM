@@ -46,10 +46,12 @@ ruby -rjson -e '
 
 ruby -rjson -e '
   value = {
-    schemaVersion: 3, firstLockedObservedAt: ARGV.fetch(0),
+    schemaVersion: 4, firstLockedObservedAt: ARGV.fetch(0),
     firstActiveObservedAt: ARGV.fetch(0), firstActiveAfterLockedObservedAt: ARGV.fetch(0),
     firstPauseRequestedAt: ARGV.fetch(0), firstPausedAt: ARGV.fetch(0),
     firstResumedAt: ARGV.fetch(0), firstActiveAfterResumeObservedAt: ARGV.fetch(0),
+    firstHostSleepObservedAt: ARGV.fetch(0), firstHostWakeObservedAt: ARGV.fetch(0),
+    firstActiveAfterHostWakeObservedAt: ARGV.fetch(0),
     lastObservedAt: ARGV.fetch(0), lastDesktopSessionActive: true,
     lastProvisioningPending: false, guestAgentVersion: ARGV.fetch(1)
   }
@@ -65,7 +67,7 @@ write_evidence() {
   ruby -rjson -e '
     scenarios = %w[
       cleanInstall ownerProvisioning commandSuper clipboardText clipboardImage
-      sharedFolder fileImport guestRestart agentRestart hostSleepWake
+      sharedFolder fileImport guestRestart agentRestart
       updateRollback continuousOperation
     ].to_h { |name| [name, true] }
     value = {

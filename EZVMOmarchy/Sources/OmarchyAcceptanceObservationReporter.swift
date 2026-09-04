@@ -52,6 +52,11 @@ enum OmarchyAcceptanceObservationReporter {
         case resumed
     }
 
+    enum HostPowerEvent {
+        case willSleep
+        case didWake
+    }
+
     private struct LifecycleObservation: Codable {
         let schemaVersion: Int
         var firstProvisioningPendingObservedAt: Date?
@@ -62,6 +67,9 @@ enum OmarchyAcceptanceObservationReporter {
         var firstPausedAt: Date?
         var firstResumedAt: Date?
         var firstActiveAfterResumeObservedAt: Date?
+        var firstHostSleepObservedAt: Date?
+        var firstHostWakeObservedAt: Date?
+        var firstActiveAfterHostWakeObservedAt: Date?
         var lastObservedAt: Date
         var lastDesktopSessionActive: Bool
         var lastProvisioningPending: Bool
@@ -80,8 +88,8 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         var observation = (try? Data(contentsOf: file)).flatMap {
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }.flatMap { $0.schemaVersion == 3 ? $0 : nil } ?? LifecycleObservation(
-            schemaVersion: 3,
+        }.flatMap { $0.schemaVersion == 4 ? $0 : nil } ?? LifecycleObservation(
+            schemaVersion: 4,
             firstProvisioningPendingObservedAt: nil,
             firstLockedObservedAt: nil,
             firstActiveObservedAt: nil,
@@ -90,6 +98,9 @@ enum OmarchyAcceptanceObservationReporter {
             firstPausedAt: nil,
             firstResumedAt: nil,
             firstActiveAfterResumeObservedAt: nil,
+            firstHostSleepObservedAt: nil,
+            firstHostWakeObservedAt: nil,
+            firstActiveAfterHostWakeObservedAt: nil,
             lastObservedAt: observedAt,
             lastDesktopSessionActive: status.desktopSessionActive,
             lastProvisioningPending: status.provisioningPending,
@@ -108,6 +119,10 @@ enum OmarchyAcceptanceObservationReporter {
             if observation.firstResumedAt != nil {
                 observation.firstActiveAfterResumeObservedAt =
                     observation.firstActiveAfterResumeObservedAt ?? observedAt
+            }
+            if observation.firstHostWakeObservedAt != nil {
+                observation.firstActiveAfterHostWakeObservedAt =
+                    observation.firstActiveAfterHostWakeObservedAt ?? observedAt
             }
         } else if !status.provisioningPending {
             observation.firstLockedObservedAt = observation.firstLockedObservedAt ?? observedAt
@@ -139,7 +154,7 @@ enum OmarchyAcceptanceObservationReporter {
         decoder.dateDecodingStrategy = .iso8601
         guard var observation = (try? Data(contentsOf: file)).flatMap({
             try? decoder.decode(LifecycleObservation.self, from: $0)
-        }), observation.schemaVersion == 3 else {
+        }), observation.schemaVersion == 4 else {
             NSLog("Cannot record Omarchy VM lifecycle event before a Guest Agent status observation.")
             return
         }
@@ -159,6 +174,39 @@ enum OmarchyAcceptanceObservationReporter {
             try encoder.encode(observation).write(to: file, options: .atomic)
         } catch {
             NSLog("Could not write Omarchy VM lifecycle event: %@", error.localizedDescription)
+        }
+    }
+
+    static func reportHostPowerEventIfEnabled(
+        _ event: HostPowerEvent,
+        layout: VMOmarchyWorkspaceLayout,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        observedAt: Date = Date()
+    ) {
+        guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else { return }
+        let file = layout.diagnostics.appending(path: lifecycleFileName)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard var observation = (try? Data(contentsOf: file)).flatMap({
+            try? decoder.decode(LifecycleObservation.self, from: $0)
+        }), observation.schemaVersion == 4 else {
+            NSLog("Cannot record Omarchy host power event before a Guest Agent status observation.")
+            return
+        }
+        switch event {
+        case .willSleep:
+            observation.firstHostSleepObservedAt = observation.firstHostSleepObservedAt ?? observedAt
+        case .didWake:
+            observation.firstHostWakeObservedAt = observation.firstHostWakeObservedAt ?? observedAt
+        }
+        observation.lastObservedAt = observedAt
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        do {
+            try encoder.encode(observation).write(to: file, options: .atomic)
+        } catch {
+            NSLog("Could not write Omarchy host power event: %@", error.localizedDescription)
         }
     }
 

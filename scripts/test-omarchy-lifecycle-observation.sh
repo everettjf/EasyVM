@@ -11,7 +11,7 @@ now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 write_observation() {
   ruby -rjson -e '
     value = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       firstProvisioningPendingObservedAt: ARGV.fetch(0),
       firstLockedObservedAt: ARGV.fetch(0),
       firstActiveObservedAt: ARGV.fetch(0),
@@ -20,6 +20,9 @@ write_observation() {
       firstPausedAt: ARGV.fetch(0),
       firstResumedAt: ARGV.fetch(0),
       firstActiveAfterResumeObservedAt: ARGV.fetch(0),
+      firstHostSleepObservedAt: ARGV.fetch(0),
+      firstHostWakeObservedAt: ARGV.fetch(0),
+      firstActiveAfterHostWakeObservedAt: ARGV.fetch(0),
       lastObservedAt: ARGV.fetch(0),
       lastDesktopSessionActive: true,
       lastProvisioningPending: false,
@@ -66,6 +69,18 @@ ruby -rjson -e '
   File.write(ARGV[0], JSON.generate(v))
 ' "$work/lifecycle.json"
 expect_rejection "lifecycle with resume preceding pause was accepted"
+
+write_observation
+ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v.delete("firstActiveAfterHostWakeObservedAt"); File.write(ARGV[0], JSON.generate(v))' "$work/lifecycle.json"
+expect_rejection "lifecycle without post-wake integration recovery was accepted"
+
+write_observation
+ruby -rjson -e '
+  v=JSON.parse(File.read(ARGV[0]));
+  v["firstHostWakeObservedAt"]="2000-01-01T00:00:00Z";
+  File.write(ARGV[0], JSON.generate(v))
+' "$work/lifecycle.json"
+expect_rejection "lifecycle with wake preceding sleep was accepted"
 
 write_observation
 verify=("$project_root/scripts/verify-omarchy-lifecycle-observation.sh" \

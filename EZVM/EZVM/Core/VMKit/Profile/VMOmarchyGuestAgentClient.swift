@@ -86,6 +86,11 @@ public enum VMOmarchyIntegrationState: Equatable, Sendable {
     case disconnected(String)
 }
 
+public enum VMOmarchyHostPowerEvent: Equatable, Sendable {
+    case willSleep
+    case didWake
+}
+
 enum VMOmarchyConnectionSuspensionReason: Hashable {
     case hostSleeping
     case virtualMachinePaused
@@ -121,6 +126,7 @@ public final class VMOmarchyGuestAgentClient {
     private let device: VZVirtioSocketDevice
     private let enrollment: VMGuestAgentEnrollment
     private let stateChanged: (VMOmarchyIntegrationState) -> Void
+    private let hostPowerChanged: (VMOmarchyHostPowerEvent) -> Void
     private let ioQueue = DispatchQueue(label: "com.everettjf.ezvm.omarchy.agent", qos: .utility)
     private let writeLock = NSLock()
     private var connection: VZVirtioSocketConnection?
@@ -140,10 +146,12 @@ public final class VMOmarchyGuestAgentClient {
     public init(
         device: VZVirtioSocketDevice,
         layout: VMOmarchyWorkspaceLayout,
+        hostPowerChanged: @escaping (VMOmarchyHostPowerEvent) -> Void = { _ in },
         stateChanged: @escaping (VMOmarchyIntegrationState) -> Void
     ) throws {
         self.device = device
         self.stateChanged = stateChanged
+        self.hostPowerChanged = hostPowerChanged
         let data = try Data(contentsOf: layout.enrollment.appending(path: "config.json"))
         let enrollment = try JSONDecoder().decode(VMGuestAgentEnrollment.self, from: data)
         try enrollment.validate()
@@ -692,14 +700,20 @@ public final class VMOmarchyGuestAgentClient {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in self?.suspendConnection(for: .hostSleeping) }
+                Task { @MainActor in
+                    self?.hostPowerChanged(.willSleep)
+                    self?.suspendConnection(for: .hostSleeping)
+                }
             },
             center.addObserver(
                 forName: NSWorkspace.didWakeNotification,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in self?.resumeConnection(after: .hostSleeping) }
+                Task { @MainActor in
+                    self?.hostPowerChanged(.didWake)
+                    self?.resumeConnection(after: .hostSleeping)
+                }
             },
         ]
     }

@@ -282,6 +282,9 @@ final class EZVMOmarchyTests: XCTestCase {
         let pausedAt = pauseRequestedAt.addingTimeInterval(1)
         let resumedAt = pausedAt.addingTimeInterval(2)
         let recoveredAt = resumedAt.addingTimeInterval(3)
+        let hostSleepAt = recoveredAt.addingTimeInterval(10)
+        let hostWakeAt = hostSleepAt.addingTimeInterval(4)
+        let hostRecoveredAt = hostWakeAt.addingTimeInterval(3)
         let provisioning = VMOmarchyGuestStatus(
             agentVersion: "agent-commit",
             hostName: "omarchy",
@@ -331,12 +334,21 @@ final class EZVMOmarchyTests: XCTestCase {
         OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
             status: unlocked, layout: layout, environment: environment, observedAt: recoveredAt
         )
+        OmarchyAcceptanceObservationReporter.reportHostPowerEventIfEnabled(
+            .willSleep, layout: layout, environment: environment, observedAt: hostSleepAt
+        )
+        OmarchyAcceptanceObservationReporter.reportHostPowerEventIfEnabled(
+            .didWake, layout: layout, environment: environment, observedAt: hostWakeAt
+        )
+        OmarchyAcceptanceObservationReporter.reportLifecycleIfEnabled(
+            status: unlocked, layout: layout, environment: environment, observedAt: hostRecoveredAt
+        )
 
         let data = try Data(contentsOf: layout.diagnostics.appending(
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 3)
+        XCTAssertEqual(json["schemaVersion"] as? Int, 4)
         XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
         XCTAssertNotNil(json["firstLockedObservedAt"])
         XCTAssertNotNil(json["firstActiveObservedAt"])
@@ -345,6 +357,9 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertNotNil(json["firstPausedAt"])
         XCTAssertNotNil(json["firstResumedAt"])
         XCTAssertNotNil(json["firstActiveAfterResumeObservedAt"])
+        XCTAssertNotNil(json["firstHostSleepObservedAt"])
+        XCTAssertNotNil(json["firstHostWakeObservedAt"])
+        XCTAssertNotNil(json["firstActiveAfterHostWakeObservedAt"])
         XCTAssertEqual(json["lastDesktopSessionActive"] as? Bool, true)
         XCTAssertEqual(json["lastProvisioningPending"] as? Bool, false)
         XCTAssertEqual(json["guestAgentVersion"] as? String, "agent-commit")
@@ -356,7 +371,7 @@ final class EZVMOmarchyTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
         try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
-        try Data(#"{"schemaVersion":2,"guestAgentVersion":"legacy"}"#.utf8).write(
+        try Data(#"{"schemaVersion":3,"guestAgentVersion":"legacy"}"#.utf8).write(
             to: layout.diagnostics.appending(
                 path: OmarchyAcceptanceObservationReporter.lifecycleFileName
             )
@@ -380,7 +395,7 @@ final class EZVMOmarchyTests: XCTestCase {
             path: OmarchyAcceptanceObservationReporter.lifecycleFileName
         ))
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["schemaVersion"] as? Int, 3)
+        XCTAssertEqual(json["schemaVersion"] as? Int, 4)
         XCTAssertEqual(json["guestAgentVersion"] as? String, "current")
         XCTAssertNotNil(json["firstProvisioningPendingObservedAt"])
     }

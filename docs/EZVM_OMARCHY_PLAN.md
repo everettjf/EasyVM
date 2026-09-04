@@ -661,11 +661,13 @@ validates the bound evidence, and only then pushes the release branch/tag and
 creates the GitHub release. The schema-2 release record contains SHA-256 digests
 of both structured observations. Promotion therefore fails if either the live
 clipboard/display/shared-folder result or the lock-to-active recovery result is
-missing, stale, version-mismatched, or changed after acceptance. The schema-3
+missing, stale, version-mismatched, or changed after acceptance. The schema-4
 lifecycle observation also records the ordered VM pause request, framework
 pause completion, framework resume completion, and authenticated desktop
-recovery; the release verifier rejects missing or reordered pause/resume
-transitions. Omarchy Edition tags use the separate
+recovery, followed by Host sleep, Host wake, and authenticated desktop recovery
+after wake. The release verifier rejects missing or reordered pause/resume or
+sleep/wake transitions, so neither scenario relies on a hand-authored boolean.
+Omarchy Edition tags use the separate
 `ezvm-omarchy-v<version>` namespace.
 
 Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic

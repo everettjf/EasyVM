@@ -906,6 +906,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     let client = try VMOmarchyGuestAgentClient(
                         device: socket,
                         layout: layout,
+                        hostPowerChanged: { [weak self] event in
+                            guard let self else { return }
+                            OmarchyAcceptanceObservationReporter.reportHostPowerEventIfEnabled(
+                                event == .willSleep ? .willSleep : .didWake,
+                                layout: self.layout
+                            )
+                        },
                         stateChanged: { [weak self] state in
                             guard let self else { return }
                             self.integrationChanged(state)
