@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -222,7 +221,7 @@ func detectSessionCapabilities(uid uint32) []string {
 		if info, copyError := os.Stat(sessionClipboardCopyExecutable); copyError == nil && info.Mode().IsRegular() && info.Mode()&0111 != 0 {
 			copyAvailable = true
 		}
-		if _, pasteError := exec.LookPath("wl-paste"); pasteError == nil {
+		if info, pasteError := os.Stat(sessionClipboardPasteExecutable); pasteError == nil && info.Mode().IsRegular() && info.Mode()&0111 != 0 {
 			pasteAvailable = true
 		}
 	}

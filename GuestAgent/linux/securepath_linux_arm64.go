@@ -15,6 +15,7 @@ import (
 const (
 	sysOpenat2          = 437
 	sysRenameat2        = 276
+	sysLinkat           = 37
 	sysUnlinkat         = 35
 	oPath               = 0x200000
 	oNoFollow           = 0x20000
@@ -103,7 +104,11 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 		return nil, nil, err
 	}
 	temporaryName := ".ezvm-upload-" + hex.EncodeToString(random[:])
-	fd, err := openat2(parentFD, temporaryName, syscall.O_WRONLY|syscall.O_CREAT|syscall.O_EXCL|syscall.O_CLOEXEC|oNoFollow, 0600)
+	// The parent was resolved with openat2 beneath / and the random basename
+	// contains no separators. Use openat for creation because virtiofs can
+	// reject openat2(O_CREAT) despite permitting ordinary writes.
+	fd, err := syscall.Openat(parentFD, temporaryName,
+		syscall.O_WRONLY|syscall.O_CREAT|syscall.O_EXCL|syscall.O_CLOEXEC|oNoFollow, 0600)
 	if err != nil {
 		syscall.Close(parentFD)
 		return nil, nil, err
@@ -114,20 +119,83 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 }
 
 func (target *linuxUploadTarget) commit(overwrite bool) error {
-	oldName, _ := cString(target.temporaryName)
-	newName, _ := cString(target.destinationName)
-	flags := uintptr(0)
-	if !overwrite {
-		flags = renameNoReplace
-	}
-	_, _, errno := syscall.RawSyscall6(sysRenameat2, uintptr(target.parentFD), uintptr(unsafe.Pointer(oldName)),
-		uintptr(target.parentFD), uintptr(unsafe.Pointer(newName)), flags, 0)
-	if errno != 0 {
-		return errno
+	err := commitUploadEntry(
+		target.parentFD, target.temporaryName, target.destinationName, overwrite,
+		renameUploadEntry, linkUploadEntry, unlinkUploadEntry,
+	)
+	if err != nil {
+		return err
 	}
 	target.temporaryName = ""
 	syscall.Close(target.parentFD)
 	target.parentFD = -1
+	return nil
+}
+
+type renameUploadOperation func(int, string, string, uintptr) syscall.Errno
+type linkUploadOperation func(int, string, string) syscall.Errno
+type unlinkUploadOperation func(int, string) syscall.Errno
+
+func renameUploadEntry(parentFD int, oldName, newName string, flags uintptr) syscall.Errno {
+	oldPointer, _ := cString(oldName)
+	newPointer, _ := cString(newName)
+	_, _, errno := syscall.RawSyscall6(sysRenameat2, uintptr(parentFD), uintptr(unsafe.Pointer(oldPointer)),
+		uintptr(parentFD), uintptr(unsafe.Pointer(newPointer)), flags, 0)
+	return errno
+}
+
+func linkUploadEntry(parentFD int, oldName, newName string) syscall.Errno {
+	oldPointer, _ := cString(oldName)
+	newPointer, _ := cString(newName)
+	_, _, errno := syscall.RawSyscall6(sysLinkat,
+		uintptr(parentFD), uintptr(unsafe.Pointer(oldPointer)),
+		uintptr(parentFD), uintptr(unsafe.Pointer(newPointer)), 0, 0)
+	return errno
+}
+
+func unlinkUploadEntry(parentFD int, name string) syscall.Errno {
+	pointer, _ := cString(name)
+	_, _, errno := syscall.RawSyscall(sysUnlinkat,
+		uintptr(parentFD), uintptr(unsafe.Pointer(pointer)), 0)
+	return errno
+}
+
+func commitUploadEntry(
+	parentFD int,
+	temporaryName, destinationName string,
+	overwrite bool,
+	rename renameUploadOperation,
+	link linkUploadOperation,
+	unlink unlinkUploadOperation,
+) error {
+	flags := uintptr(0)
+	if !overwrite {
+		flags = renameNoReplace
+	}
+	errno := rename(parentFD, temporaryName, destinationName, flags)
+	// virtiofs currently rejects RENAME_NOREPLACE with EROFS even while the
+	// shared directory itself is writable. linkat provides the same atomic
+	// no-replace guarantee on one directory, so use it only for filesystems
+	// that cannot implement the rename flag. The random temporary name remains
+	// addressed through the already verified parent descriptor.
+	if !overwrite && (errno == syscall.EROFS || errno == syscall.EINVAL ||
+		errno == syscall.ENOSYS || errno == syscall.EOPNOTSUPP) {
+		linkErrno := link(parentFD, temporaryName, destinationName)
+		if linkErrno != 0 {
+			return linkErrno
+		}
+		unlinkErrno := unlink(parentFD, temporaryName)
+		if unlinkErrno != 0 {
+			// Roll back the destination if the temporary link could not be
+			// removed; callers must never observe a failed partial commit.
+			_ = unlink(parentFD, destinationName)
+			return unlinkErrno
+		}
+		errno = 0
+	}
+	if errno != 0 {
+		return errno
+	}
 	return nil
 }
 

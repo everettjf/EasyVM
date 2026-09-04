@@ -35,7 +35,10 @@ var clipboardOwner = struct {
 
 var clipboardPublication sync.Mutex
 
-const sessionClipboardCopyExecutable = "/usr/bin/wl-copy"
+const (
+	sessionClipboardCopyExecutable  = "/usr/bin/wl-copy"
+	sessionClipboardPasteExecutable = "/usr/bin/wl-paste"
+)
 
 func startClipboardSessionServer(uid uint32) (*net.UnixListener, string, error) {
 	runtimeDirectory := os.Getenv("XDG_RUNTIME_DIR")
@@ -180,6 +183,7 @@ func stopSessionClipboardOwner() {
 }
 
 const clipboardPublicationAttempts = 5
+const clipboardPublicationVerifications = 3
 
 func startVerifiedClipboardOwner(
 	payload []byte,
@@ -198,15 +202,23 @@ func startVerifiedClipboardOwner(
 			// first ownership request. Prove the exact bytes are serveable before
 			// acknowledging the authenticated Host request; a longer wait on the
 			// same rejected owner does not recover it.
-			pause(time.Duration(attempt+1) * 100 * time.Millisecond)
-			actual, err := readBack(mimeType)
-			if err == nil && bytes.Equal(actual, payload) {
-				return command, nil
+			verified := true
+			for verification := 0; verification < clipboardPublicationVerifications; verification++ {
+				pause(time.Duration(attempt+1) * 100 * time.Millisecond)
+				actual, err := readBack(mimeType)
+				if err != nil {
+					lastError = err
+					verified = false
+					break
+				}
+				if !bytes.Equal(actual, payload) {
+					lastError = errors.New("Wayland clipboard readback did not match")
+					verified = false
+					break
+				}
 			}
-			if err != nil {
-				lastError = err
-			} else {
-				lastError = errors.New("Wayland clipboard readback did not match")
+			if verified {
+				return command, nil
 			}
 			if command.Process != nil {
 				_ = command.Process.Kill()
@@ -227,7 +239,7 @@ func readSessionClipboardPayload(mimeType string) ([]byte, error) {
 	if mimeType == clipboardTextMIME {
 		arguments = append(arguments, "--no-newline")
 	}
-	command := exec.CommandContext(ctx, "wl-paste", arguments...)
+	command := exec.CommandContext(ctx, sessionClipboardPasteExecutable, arguments...)
 	var output bytes.Buffer
 	writer := &clipboardCountingWriter{writer: &output, limit: maximumClipboardBytes}
 	command.Stdout = writer
@@ -258,7 +270,7 @@ func getSessionClipboard(path string, request clipboardRequest) clipboardResult 
 	// refuses to replace a destination that appeared during capture.
 	file, target, err := secureCreateUpload(path)
 	if err != nil {
-		return clipboardResult{Message: err.Error()}
+		return clipboardResult{Message: "could not create clipboard staging output: " + err.Error()}
 	}
 	committed := false
 	defer func() {
@@ -272,7 +284,7 @@ func getSessionClipboard(path string, request clipboardRequest) clipboardResult 
 	if request.MIMEType == clipboardTextMIME {
 		arguments = append(arguments, "--no-newline")
 	}
-	command := exec.CommandContext(ctx, "wl-paste", arguments...)
+	command := exec.CommandContext(ctx, sessionClipboardPasteExecutable, arguments...)
 	hasher := sha256.New()
 	counter := &clipboardCountingWriter{
 		writer: io.MultiWriter(file, hasher),
@@ -289,7 +301,7 @@ func getSessionClipboard(path string, request clipboardRequest) clipboardResult 
 		return clipboardResult{Message: "could not read the Wayland clipboard"}
 	}
 	if err := target.commit(false); err != nil {
-		return clipboardResult{Message: err.Error()}
+		return clipboardResult{Message: "could not commit clipboard staging output: " + err.Error()}
 	}
 	committed = true
 	return clipboardResult{

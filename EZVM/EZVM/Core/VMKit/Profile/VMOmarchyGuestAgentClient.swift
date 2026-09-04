@@ -431,7 +431,20 @@ public final class VMOmarchyGuestAgentClient {
         guard capabilities.contains(requiredCapability) else {
             throw CocoaError(.featureUnsupported)
         }
+        if operation == .clipboardSet {
+            NSLog(
+                "Omarchy clipboard request sending %@ %@ (%llu bytes)",
+                value.mimeType, value.sha256, value.byteCount
+            )
+        }
         let result: VMOmarchyClipboardResult = try await request(operation, payload: value)
+        if operation == .clipboardSet || !result.success {
+            NSLog(
+                "Omarchy clipboard request completed %@ %@ success=%@ message=%@ %@ (%llu bytes)",
+                String(describing: operation), value.mimeType, result.success ? "yes" : "no",
+                result.message, result.sha256 ?? "none", result.byteCount ?? 0
+            )
+        }
         guard result.success else {
             throw NSError(
                 domain: "EZVMOmarchyClipboard",

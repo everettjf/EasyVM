@@ -216,17 +216,18 @@ enum OmarchyClipboardAcceptanceProbe {
           output="$2"
           shift 2
           for _ in $(seq 1 150); do
-            if wl-paste "$@" > "$output.part" 2>/dev/null && cmp -s "$expected" "$output.part"; then
+            if /usr/bin/wl-paste "$@" > "$output.part" 2>/dev/null && cmp -s "$expected" "$output.part"; then
               mv "$output.part" "$output"
               return 0
             fi
             sleep 0.1
           done
-          wl-paste --list-types > "$d/guest-clipboard-types" 2>&1 || true
+          /usr/bin/wl-paste --list-types > "$d/guest-clipboard-types" 2>&1 || true
           mv -f "$output.part" "$output.last" 2>/dev/null || true
           return 1
         }
-        wl-copy --version > "$d/wl-copy-version" 2>&1 || true
+        /usr/bin/wl-copy --version > "$d/wl-copy-version" 2>&1 || true
+        /usr/bin/wl-paste --version > "$d/wl-paste-version" 2>&1 || true
         touch "$d/script-ready"
         while [ ! -f "$d/host-text-go" ]; do sleep 0.1; done
         copy_until_matches "$d/host-text-input" "$d/host-text-result" --no-newline

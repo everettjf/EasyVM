@@ -892,6 +892,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var keyboardBridge: OmarchyFocusedCommandBridge?
         private var integrationClient: VMOmarchyGuestAgentClient?
         private var agentClipboardController: OmarchyAgentClipboardController?
+        private var latestGuestStatus: VMOmarchyGuestStatus?
+        private var clipboardProbeOwnsTransport = false
         private var sharedFolderProbeTask: Task<Void, Never>?
         private var sharedFolderProbePassed = false
         private var clipboardProbeTask: Task<Void, Never>?
@@ -1081,12 +1083,14 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             switch state {
                             case .ready(let status):
                                 Task { @MainActor [weak self] in
+                                    self?.latestGuestStatus = status
                                     self?.configureAgentClipboard(for: status)
                                     self?.handleAutomaticRecoveryReady(status)
                                     self?.refreshOwnerProvisioningProgressIfNeeded(status)
                                 }
                             case .disconnected:
                                 Task { @MainActor [weak self] in
+                                    self?.latestGuestStatus = nil
                                     self?.stopAgentClipboard()
                                     self?.handleAutomaticRecoveryDisconnect()
                                 }
@@ -1112,6 +1116,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         @MainActor
         private func configureAgentClipboard(for status: VMOmarchyGuestStatus) {
+            latestGuestStatus = status
+            guard !clipboardProbeOwnsTransport else {
+                stopAgentClipboard()
+                return
+            }
             let required = Set(["clipboard-agent-text-v1", "clipboard-agent-image-v1"])
             guard required.isSubset(of: Set(status.capabilities)),
                   status.desktopSessionActive, !status.provisioningPending,
@@ -1167,6 +1176,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 OmarchyWorkspaceConfiguration.acceptanceEnabledKey
             ] == "1", sharedFolderProbePassed, !clipboardProbePassed,
                   clipboardProbeTask == nil, let integrationClient else { return }
+            // Claim clipboard transport ownership before scheduling the probe.
+            // A ready-status callback is delivered on a separate MainActor task;
+            // without this synchronous gate it can create a new polling bridge
+            // after the probe has already attempted to quiesce the old one.
+            clipboardProbeOwnsTransport = true
             clipboardProbeChanged(.running)
             clipboardProbeTask = Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -1176,7 +1190,15 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 // pasteboard change can overwrite the selection under test.
                 let clipboardController = self.agentClipboardController
                 await clipboardController?.quiesce()
-                defer { clipboardController?.start() }
+                if self.agentClipboardController === clipboardController {
+                    self.agentClipboardController = nil
+                }
+                defer {
+                    self.clipboardProbeOwnsTransport = false
+                    if let status = self.latestGuestStatus {
+                        self.configureAgentClipboard(for: status)
+                    }
+                }
                 do {
                     NSApp.activate(ignoringOtherApps: true)
                     if let machineView = self.machineView,

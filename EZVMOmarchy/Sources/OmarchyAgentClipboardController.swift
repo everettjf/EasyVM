@@ -64,9 +64,11 @@ final class OmarchyAgentClipboardController {
         timer?.invalidate()
         timer = nil
         let task = operationTask
+        NSLog("Omarchy clipboard bridge quiescing (in-flight=%@)", task == nil ? "no" : "yes")
         task?.cancel()
         await task?.value
         operationTask = nil
+        NSLog("Omarchy clipboard bridge quiesced")
     }
 
     private func tick() {

@@ -29,6 +29,9 @@ func TestSessionClipboardUsesDistributionMatchedCopyFrontend(t *testing.T) {
 	if sessionClipboardCopyExecutable != "/usr/bin/wl-copy" {
 		t.Fatalf("copy executable=%q, want the distribution-matched frontend", sessionClipboardCopyExecutable)
 	}
+	if sessionClipboardPasteExecutable != "/usr/bin/wl-paste" {
+		t.Fatalf("paste executable=%q, want the distribution-matched frontend", sessionClipboardPasteExecutable)
+	}
 }
 
 func TestStartVerifiedClipboardOwnerRetriesRejectedPublications(t *testing.T) {
@@ -58,8 +61,8 @@ func TestStartVerifiedClipboardOwnerRetriesRejectedPublications(t *testing.T) {
 		_ = command.Process.Kill()
 		_ = command.Wait()
 	}()
-	if starts != 3 || reads != 3 {
-		t.Fatalf("starts=%d reads=%d, want 3 retries", starts, reads)
+	if starts != 3 || reads != 3+clipboardPublicationVerifications-1 {
+		t.Fatalf("starts=%d reads=%d, want retries followed by stable verification", starts, reads)
 	}
 }
 
