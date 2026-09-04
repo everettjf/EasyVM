@@ -866,6 +866,36 @@ explicitly in acceptance mode and its application-support root resolves beneath
 clean-image journey prove the authenticated operation without UI password
 injection while preserving the manual product form as the normal path.
 
+### 11.5 Clipboard ownership and Accessibility correction checkpoint (2026-09-04)
+
+Later real-guest testing invalidated one assumption behind checkpoint 11.2:
+successfully starting `wl-copy` does not prove that the compositor accepted and
+now serves the requested selection. The Linux Session Agent now writes through
+an OS pipe, reads the selection back through `wl-paste`, compares the exact
+bytes, and retries a bounded number of times before rejecting the Host request.
+Tests cover delayed ownership and persistent mismatches. The acceptance probe
+also publishes Guest text and PNG payloads through stdin, matching the proven
+Wayland path. Linux unit tests, the AArch64 cross-build, all 34 macOS tests, and
+the two-job Host CI run `33857119051` pass at source revision
+`a8888daab0065ce15b71f7eff375b63b7b6a90d1`.
+
+The Accessibility banner had a separate lifecycle race: it can be rendered
+before the VM view creates its keyboard bridge, so the original optional call
+silently did nothing. The action now requests trust and opens the Accessibility
+privacy pane even before that bridge exists; once the bridge is available it
+continues polling and enables focused capture normally. Existing real-guest
+evidence proves that the authorized event tap receives a focused
+`Command-Space` down/up pair without leaking the chord to macOS.
+
+These corrections supersede the claim that the clipboard checkpoint is fully
+closed. Source behavior and automated tests are complete, but final clipboard
+acceptance remains open until a newly built factory containing Guest Agent
+revision `b36e312597a2e53c92e0fc80f64d0622c8c2758c` passes fresh-workspace text
+and PNG round trips in both directions. The candidate build is currently gated
+by an inconsistent signed Arch Linux ARM repository graph, so the same release
+tag must be retried only after the official repository publishes mutually
+compatible Hyprland and Aquamarine packages.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests
