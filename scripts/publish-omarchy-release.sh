@@ -85,6 +85,26 @@ EZVM_OMARCHY_LAUNCH_TIMEOUT=${EZVM_OMARCHY_LAUNCH_TIMEOUT:-10} \
   "$project_root/scripts/verify-omarchy-release-gui.sh" \
     "$install_check/EZVM Omarchy.app" "$version" "$source_revision"
 
+# The GUI verifier terminates its candidate before returning. Re-extract the
+# immutable archive and verify it again with no process using the bundle. This
+# catches post-launch code-signing/cache failures and also proves the compiled
+# AppIcon is present in the exact ZIP that will be published.
+if pgrep -x 'EZVM Omarchy' >/dev/null 2>&1; then
+  fail "EZVM Omarchy remained running before cold archive verification" 70
+fi
+rm -rf "$install_check"
+mkdir -p "$install_check"
+ditto -x -k "$archive" "$install_check"
+cold_settle_seconds=${EZVM_OMARCHY_COLD_VERIFY_SETTLE_SECONDS:-30}
+[[ $cold_settle_seconds =~ ^[0-9]+$ ]] || \
+  fail "EZVM_OMARCHY_COLD_VERIFY_SETTLE_SECONDS must be a non-negative integer" 64
+sleep "$cold_settle_seconds"
+[[ $(shasum -a 256 "$archive" | awk '{print $1}') == "$archive_sha" ]] || \
+  fail "candidate archive changed before cold verification" 67
+"$project_root/scripts/verify-omarchy-release-app.sh" \
+  "$install_check/EZVM Omarchy.app" "$version" "$source_revision" clean
+spctl --assess --type execute --verbose=4 "$install_check/EZVM Omarchy.app"
+
 if [[ $mode == prepare ]]; then
   echo "Prepared notarized EZVM Omarchy candidate: $archive"
   echo "Archive SHA-256: $archive_sha"
