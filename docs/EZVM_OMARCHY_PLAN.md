@@ -933,6 +933,52 @@ path still requires a single-instance real-guest run before the lock/unlock,
 pause/resume, Agent restart, Guest restart, and full-screen lifecycle gate can
 be considered complete.
 
+### 11.7 `.31.2` release-candidate checkpoint (2026-09-04)
+
+Image workflow `33901210922` completed successfully and published the draft
+`v4.0.0-alpha-ezvm.31` image assets. Every downloaded part matched the signed
+`SHA256SUMS`; reconstructing the split raw image produced SHA-256
+`05001d32709b0c1b295ff18ecf1f9e256dbddbc830afb4eb70f3b1a41deadbc5`.
+The signed Factory passed manifest verification and an exact raw-to-ASIF byte
+comparison. It pins Omarchy revision
+`f38d909b38e4fc34d1853daf11039e2fbb96ead7` and Guest Agent revision
+`0eccc06cbde3a0f589a4032ab44440cf3c6fd1cf`.
+
+A clean workspace created from that Factory was exercised with the signed
+`1.0.0-alpha.31.2` App built from Host revision
+`6fe5b05ec54e1b2e9795b179864438424eb31e72`. The live, machine-generated
+observations and strict validators prove:
+
+- first-owner provisioning reached an authenticated active Hyprland session;
+- writable shared-folder and file-import round trips returned the exact bytes;
+- UTF-8 text and PNG crossed both clipboard directions byte-for-byte using the
+  advertised Agent clipboard capabilities;
+- the Guest display moved from `2200x1200` to `1760x1416`, exactly matching the
+  Host VM view's Retina backing size;
+- the focused Accessibility event tap received balanced `Command-Space`
+  down/up events while the Omarchy window was key;
+- the session completed a real lock/unlock cycle, pause/resume, an Agent restart
+  with the same boot ID and a new Agent instance ID, and a Guest restart with a
+  new boot ID followed by automatic owner unlock;
+- full-screen entry and exit were observed and keyboard focus was restored;
+- the rollback acceptance tool protected a snapshot, mutated the workspace,
+  restored it, and verified that the restored workspace SHA-256 exactly matched
+  its pre-update value.
+
+The final Host CI run `33903834434` passed at that exact revision. Local final
+regression runs passed all 370 Swift Package tests (one environment-dependent
+test skipped) and all 42 dedicated App Xcode tests. The signed App contains the
+new pixel-rally `AppIcon.icns`; replacing an already installed development copy
+is intentionally separate from producing and verifying the candidate.
+
+This checkpoint closes the clean-factory, owner-provisioning, integration,
+focused `Command-Space`, core lifecycle, full-screen, and rollback gates for the
+first Alpha candidate. It deliberately leaves two release-quality endurance
+gates open: a real macOS sleep/wake cycle and a continuous 24-hour soak. The
+lifecycle and release-evidence validators continue to reject a candidate that
+does not contain fresh evidence for those actions; neither gate may be replaced
+by a synthetic notification or shortened timer.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests
