@@ -208,6 +208,32 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertEqual(state.exitedAt, exited)
     }
 
+    func testLockAcceptanceRequiresLockedThenActiveStatus() {
+        let pending = VMOmarchyGuestStatus(
+            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: false, provisioningPending: true
+        )
+        let active = VMOmarchyGuestStatus(
+            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: true, provisioningPending: false
+        )
+        let locked = VMOmarchyGuestStatus(
+            agentVersion: "agent", hostName: "omarchy", addresses: [], capabilities: [],
+            desktopSessionActive: false, provisioningPending: false
+        )
+        var state = OmarchyLockAcceptanceState()
+        XCTAssertEqual(state.observe(locked), .none)
+        XCTAssertTrue(state.begin())
+        XCTAssertFalse(state.begin())
+        XCTAssertEqual(state.observe(active), .none)
+        XCTAssertEqual(state.observe(pending), .none)
+        XCTAssertEqual(state.observe(locked), .submitUnlockSecret)
+        XCTAssertEqual(state.observe(locked), .none)
+        XCTAssertEqual(state.observe(active), .completed)
+        XCTAssertEqual(state.observe(active), .none)
+        XCTAssertEqual(state.phase, .complete)
+    }
+
     func testFullScreenObservationIsBoundToRuntimeState() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "ezvm-full-screen-\(UUID().uuidString)")

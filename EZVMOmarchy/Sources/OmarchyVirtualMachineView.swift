@@ -805,6 +805,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         weak var machineView: VZVirtualMachineView?
         private var dynamicDisplayProbeTask: Task<Void, Never>?
         private var dynamicDisplayProbePassed = false
+        private var automaticLockProbe = OmarchyLockAcceptanceState()
         private var automaticPauseResumeProbeStarted = false
         private var automaticRecoveryAfterResume = false
         private var automaticRecoveryStage = AutomaticRecoveryStage.idle
@@ -1053,7 +1054,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         result.hostViewAfter.width, result.hostViewAfter.height
                     )
                     self.dynamicDisplayProbeChanged(.passed(result))
-                    self.startAutomaticPauseResumeProbeIfNeeded()
+                    self.startAutomaticLockProbeIfNeeded()
                 } catch {
                     NSLog("Omarchy dynamic display round trip failed: %@", error.localizedDescription)
                     self.dynamicDisplayProbeChanged(.failed(error.localizedDescription))
@@ -1072,8 +1073,28 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         @MainActor
+        private func startAutomaticLockProbeIfNeeded() {
+            let environment = ProcessInfo.processInfo.environment
+            guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1",
+                  let password = environment[OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey],
+                  !password.isEmpty, automaticLockProbe.begin(), let integrationClient else {
+                startAutomaticPauseResumeProbeIfNeeded()
+                return
+            }
+            Task { @MainActor [weak self, weak integrationClient] in
+                do {
+                    // Omarchy's default lock binding is Super+Control+L.
+                    try await integrationClient?.injectKeyChord(modifiers: [125, 29], key: 38)
+                } catch {
+                    self?.phaseChanged(.failed("Guest lock probe failed: \(error.localizedDescription)"))
+                }
+            }
+        }
+
+        @MainActor
         private func handleAutomaticRecoveryReady(_ status: VMOmarchyGuestStatus) {
             startAutomaticCommandSpaceProbeIfNeeded(status)
+            handleAutomaticLockProbeReady(status)
             switch automaticRecoveryStage {
             case .waitingForPostResumeReady:
                 guard status.capabilities.contains("agent-restart-v1"),
@@ -1118,6 +1139,28 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 break
             }
             startAutomaticFullScreenProbeIfNeeded(status)
+        }
+
+        @MainActor
+        private func handleAutomaticLockProbeReady(_ status: VMOmarchyGuestStatus) {
+            switch automaticLockProbe.observe(status) {
+            case .none:
+                break
+            case .submitUnlockSecret:
+                guard let password = ProcessInfo.processInfo.environment[
+                    OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey
+                ], !password.isEmpty, let integrationClient else { return }
+                Task { @MainActor [weak self, weak integrationClient] in
+                    do {
+                        try await integrationClient?.typeUSASCII(password)
+                        try await integrationClient?.injectKeyChord(modifiers: [], key: 28)
+                    } catch {
+                        self?.phaseChanged(.failed("Guest unlock probe failed: \(error.localizedDescription)"))
+                    }
+                }
+            case .completed:
+                startAutomaticPauseResumeProbeIfNeeded()
+            }
         }
 
         @MainActor

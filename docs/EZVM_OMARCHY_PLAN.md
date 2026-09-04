@@ -681,6 +681,13 @@ the VM display is focused. The session event tap must intercept both transitions
 repost them to the VM process, and leave both the App and VM window focused before
 `Diagnostics/command-super.json` is written. Promotion rejects a missing, stale,
 altered, unfocused, or source-revision-mismatched observation.
+The lock transition is actively exercised in an isolated acceptance launch.
+After display integration passes, the Host injects Super+Control+L through the
+authenticated input channel, waits for the Agent to report an inactive desktop,
+submits the ephemeral `EZVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD` without logging
+or persisting it, waits for the desktop to become active again, and only then
+continues to pause/resume and restart recovery. Production launches never read
+or use this acceptance-only secret.
 Full-screen behavior is derived from AppKit lifecycle notifications rather than
 a manual assertion. After the authenticated desktop becomes active, acceptance
 mode asks the actual VM window to enter full screen, waits for
