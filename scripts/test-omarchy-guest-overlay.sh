@@ -18,6 +18,7 @@ grep -qx 'PartOf=graphical-session.target' "$session_unit"
 grep -qx 'WantedBy=graphical-session.target' "$session_unit"
 grep -qx 'NoNewPrivileges=true' "$session_unit"
 grep -qx 'ProtectSystem=strict' "$session_unit"
+grep -qx 'ReadWritePaths=/run/ezvm-agent/sessions' "$session_unit"
 
 if find "$project_root/EZVMOmarchy/GuestOverlay" -type l | grep -q .; then
     echo "Guest Overlay must not contain symbolic links" >&2

@@ -101,12 +101,21 @@ enum OmarchyClipboardAcceptanceProbe {
         // for the unprivileged Session Agent to prove both formats before
         // changing the Host pasteboard; otherwise that first change can be
         // lost during boot even though spice-vdagent appears moments later.
-        try await waitUntil("Guest clipboard capabilities") {
-            let capabilities = client.currentCapabilities
-            return (capabilities.contains("clipboard-agent-text-v1")
-                    && capabilities.contains("clipboard-agent-image-v1"))
-                || (capabilities.contains("clipboard-text-v1")
-                    && capabilities.contains("clipboard-image-v1"))
+        do {
+            try await waitUntil("Guest clipboard capabilities") {
+                let capabilities = client.currentCapabilities
+                return (capabilities.contains("clipboard-agent-text-v1")
+                        && capabilities.contains("clipboard-agent-image-v1"))
+                    || (capabilities.contains("clipboard-text-v1")
+                        && capabilities.contains("clipboard-image-v1"))
+            }
+        } catch {
+            await collectSessionDiagnostics(
+                client: client,
+                guestDirectory: guestDirectory,
+                evidenceFile: probeDirectory.appending(path: "session-diagnostics.txt")
+            )
+            throw error
         }
         try await Task.sleep(for: .seconds(2))
 

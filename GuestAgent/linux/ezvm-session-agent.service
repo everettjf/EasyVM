@@ -10,6 +10,7 @@ Restart=always
 RestartSec=2
 NoNewPrivileges=true
 ProtectSystem=strict
+ReadWritePaths=/run/ezvm-agent/sessions
 PrivateTmp=true
 
 [Install]
