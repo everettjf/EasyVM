@@ -204,6 +204,52 @@ final class EZVMOmarchyTests: XCTestCase {
         )
     }
 
+    func testClipboardActivationRequiresConsentAndReadyAgentSession() {
+        let capabilities = Set(["clipboard-agent-text-v1", "clipboard-agent-image-v1"])
+        XCTAssertTrue(OmarchyClipboardActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: capabilities,
+            desktopSessionActive: true,
+            provisioningPending: false,
+            probeOwnsTransport: false
+        ))
+        XCTAssertFalse(OmarchyClipboardActivationPolicy.shouldRun(
+            enabled: false,
+            capabilities: capabilities,
+            desktopSessionActive: true,
+            provisioningPending: false,
+            probeOwnsTransport: false
+        ))
+        XCTAssertFalse(OmarchyClipboardActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: ["clipboard-agent-text-v1"],
+            desktopSessionActive: true,
+            provisioningPending: false,
+            probeOwnsTransport: false
+        ))
+        XCTAssertFalse(OmarchyClipboardActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: capabilities,
+            desktopSessionActive: false,
+            provisioningPending: false,
+            probeOwnsTransport: false
+        ))
+        XCTAssertFalse(OmarchyClipboardActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: capabilities,
+            desktopSessionActive: true,
+            provisioningPending: true,
+            probeOwnsTransport: false
+        ))
+        XCTAssertFalse(OmarchyClipboardActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: capabilities,
+            desktopSessionActive: true,
+            provisioningPending: false,
+            probeOwnsTransport: true
+        ))
+    }
+
     func testReleaseInfoTemplateCarriesFactoryTrustAndSourceProvenance() throws {
         let testFile = URL(fileURLWithPath: #filePath)
         let template = testFile.deletingLastPathComponent()

@@ -44,6 +44,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
 struct OmarchyVirtualMachineView: View {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
+    @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
     @AppStorage("omarchyMicrophoneEnabled") private var microphoneEnabled = false
     @State private var lifecycle = OmarchyMachineLifecycle()
     @State private var sessionID = UUID()
@@ -73,6 +74,7 @@ struct OmarchyVirtualMachineView: View {
             OmarchyVirtualMachineRepresentable(
                 layout: layout,
                 profile: profile,
+                clipboardEnabled: clipboardEnabled,
                 microphoneEnabled: microphoneEnabled,
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
@@ -222,7 +224,9 @@ struct OmarchyVirtualMachineView: View {
                 } else {
                     Text("Shared folder is not mounted in Omarchy")
                 }
-                if status.capabilities.contains("clipboard-agent-text-v1") {
+                if !clipboardEnabled {
+                    Text("Clipboard sharing is off")
+                } else if status.capabilities.contains("clipboard-agent-text-v1") {
                     Text(status.capabilities.contains("clipboard-agent-image-v1")
                         ? "Authenticated text and image clipboard ready"
                         : "Authenticated text clipboard ready")
@@ -236,6 +240,7 @@ struct OmarchyVirtualMachineView: View {
                 Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
             }
             Divider()
+            Toggle("Share Clipboard", isOn: $clipboardEnabled)
             Toggle("Share Mac Microphone", isOn: microphoneBinding)
             Text(microphoneEnabled
                 ? "Microphone will be available after Omarchy restarts"
@@ -837,6 +842,23 @@ enum OmarchyMicrophonePermissionPolicy {
     }
 }
 
+enum OmarchyClipboardActivationPolicy {
+    static func shouldRun(
+        enabled: Bool,
+        capabilities: Set<String>,
+        desktopSessionActive: Bool,
+        provisioningPending: Bool,
+        probeOwnsTransport: Bool
+    ) -> Bool {
+        enabled
+            && !probeOwnsTransport
+            && desktopSessionActive
+            && !provisioningPending
+            && Set(["clipboard-agent-text-v1", "clipboard-agent-image-v1"])
+                .isSubset(of: capabilities)
+    }
+}
+
 struct OmarchyMachineLifecycle: Equatable {
     var phase: OmarchyVirtualMachineView.Phase = .starting
     private(set) var restartAfterStop = false
@@ -922,6 +944,7 @@ struct OmarchyMachineLifecycle: Equatable {
 private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
+    let clipboardEnabled: Bool
     let microphoneEnabled: Bool
     let sessionID: UUID
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
@@ -939,6 +962,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             sessionID: sessionID,
             layout: layout,
             requiredGuestCapabilities: profile.requiredGuestCapabilities,
+            clipboardEnabled: clipboardEnabled,
             keyboardIntegrationChanged: keyboardIntegrationChanged,
             integrationChanged: integrationChanged,
             sharedFolderProbeChanged: sharedFolderProbeChanged,
@@ -987,6 +1011,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: VZVirtualMachineView, context: Context) {
+        context.coordinator.setClipboardEnabled(clipboardEnabled)
         if let ownerProvisioningSubmission {
             context.coordinator.submitOwnerProvisioning(ownerProvisioningSubmission)
         }
@@ -1002,6 +1027,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let sessionID: UUID
         let layout: VMOmarchyWorkspaceLayout
         let requiredGuestCapabilities: [String]
+        private var clipboardEnabled: Bool
         let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
         let integrationChanged: (VMOmarchyIntegrationState) -> Void
         let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
@@ -1055,6 +1081,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             sessionID: UUID,
             layout: VMOmarchyWorkspaceLayout,
             requiredGuestCapabilities: [String],
+            clipboardEnabled: Bool,
             keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
             integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
             sharedFolderProbeChanged: @escaping (VMOmarchySharedFolderProbeState) -> Void,
@@ -1067,6 +1094,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.sessionID = sessionID
             self.layout = layout
             self.requiredGuestCapabilities = requiredGuestCapabilities
+            self.clipboardEnabled = clipboardEnabled
             self.keyboardIntegrationChanged = keyboardIntegrationChanged
             self.integrationChanged = integrationChanged
             self.sharedFolderProbeChanged = sharedFolderProbeChanged
@@ -1273,13 +1301,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func configureAgentClipboard(for status: VMOmarchyGuestStatus) {
             latestGuestStatus = status
-            guard !clipboardProbeOwnsTransport else {
-                stopAgentClipboard()
-                return
-            }
-            let required = Set(["clipboard-agent-text-v1", "clipboard-agent-image-v1"])
-            guard required.isSubset(of: Set(status.capabilities)),
-                  status.desktopSessionActive, !status.provisioningPending,
+            guard OmarchyClipboardActivationPolicy.shouldRun(
+                enabled: clipboardEnabled,
+                capabilities: Set(status.capabilities),
+                desktopSessionActive: status.desktopSessionActive,
+                provisioningPending: status.provisioningPending,
+                probeOwnsTransport: clipboardProbeOwnsTransport
+            ),
                   let integrationClient else {
                 stopAgentClipboard()
                 return
@@ -1291,6 +1319,17 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             )
             agentClipboardController = controller
             controller.start()
+        }
+
+        @MainActor
+        func setClipboardEnabled(_ enabled: Bool) {
+            guard clipboardEnabled != enabled else { return }
+            clipboardEnabled = enabled
+            guard let latestGuestStatus else {
+                stopAgentClipboard()
+                return
+            }
+            configureAgentClipboard(for: latestGuestStatus)
         }
 
         @MainActor
