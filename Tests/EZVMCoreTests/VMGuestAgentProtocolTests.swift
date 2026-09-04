@@ -3,6 +3,11 @@ import XCTest
 @testable import EZVMCore
 
 final class VMGuestAgentProtocolTests: XCTestCase {
+    func testClipboardLoggingTreatsGuestReadMissesAsIdleState() {
+        XCTAssertFalse(VMOmarchyGuestAgentClient.shouldLogClipboardResult(operation: .clipboardGet))
+        XCTAssertTrue(VMOmarchyGuestAgentClient.shouldLogClipboardResult(operation: .clipboardSet))
+    }
+
     func testLinuxKeyboardTextEncoderProducesBalancedBatches() throws {
         let nonce = UUID().uuidString.lowercased()
         let batches = try VMLinuxKeyboardTextEncoder.batches(

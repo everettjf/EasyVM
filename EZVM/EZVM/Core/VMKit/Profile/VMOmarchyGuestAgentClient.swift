@@ -459,7 +459,7 @@ public final class VMOmarchyGuestAgentClient {
             )
         }
         let result: VMOmarchyClipboardResult = try await request(operation, payload: value)
-        if operation == .clipboardSet || !result.success {
+        if Self.shouldLogClipboardResult(operation: operation) {
             NSLog(
                 "Omarchy clipboard request completed %@ %@ success=%@ message=%@ %@ (%llu bytes)",
                 String(describing: operation), value.mimeType, result.success ? "yes" : "no",
@@ -474,6 +474,14 @@ public final class VMOmarchyGuestAgentClient {
             )
         }
         return result
+    }
+
+    /// A missing Wayland selection is the normal idle state, and the host
+    /// bridge probes both supported MIME types once per tick. Logging every
+    /// unsuccessful read floods diagnostics without adding actionable signal;
+    /// callers still receive and handle the error. Writes remain noteworthy.
+    nonisolated static func shouldLogClipboardResult(operation: VMGuestAgentOperation) -> Bool {
+        operation == .clipboardSet
     }
 
     /// Proves both directions of the live VirtioFS mount without requiring SSH.

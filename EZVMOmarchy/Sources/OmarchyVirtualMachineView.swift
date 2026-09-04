@@ -1286,14 +1286,45 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 ))
                 return
             }
-            guard automaticLockProbe.begin(), let integrationClient else { return }
-            scheduleAutomaticLockProbeTimeout(
-                message: "Omarchy did not enter the lock screen after the injected Super+Control+L chord."
-            )
+            guard automaticLockProbe.begin(), let integrationClient,
+                  let credential = OmarchyAcceptanceUnlockCredential(environment: environment) else {
+                return
+            }
             Task { @MainActor [weak self, weak integrationClient] in
                 do {
-                    // Omarchy's default lock binding is Super+Control+L.
-                    try await integrationClient?.injectKeyChord(modifiers: [125, 29], key: 38)
+                    guard let self, let integrationClient else { return }
+                    try await OmarchyInputDiagnosticsAcceptanceProbe.run(
+                        client: integrationClient,
+                        sharedDirectory: self.layout.shared,
+                        diagnosticsDirectory: self.layout.diagnostics
+                    )
+                    NSApp.activate(ignoringOtherApps: true)
+                    if let machineView = self.machineView,
+                       let window = machineView.window {
+                        window.makeKeyAndOrderFront(nil)
+                        window.makeFirstResponder(machineView)
+                    }
+                    let cycle = try await OmarchyInputDiagnosticsAcceptanceProbe.runObservedLockCycle(
+                        client: integrationClient,
+                        sharedDirectory: self.layout.shared,
+                        credential: credential,
+                        sendLockShortcut: { [weak self] in
+                            // macOS virtual key 37 is L. Command is redirected
+                            // to Guest Super by the production Accessibility
+                            // bridge; Control remains part of the same chord.
+                            self?.keyboardBridge?.runAcceptanceCommandChordProbe(
+                                keyCode: 37,
+                                additionalFlags: .maskControl
+                            ) == true
+                        }
+                    )
+                    guard self.automaticLockProbe.completeObservedCycle() else { return }
+                    NSLog(
+                        "Omarchy observed Guest lock/unlock cycle (%@ -> %@)",
+                        cycle.lockedAt as NSDate,
+                        cycle.unlockedAt as NSDate
+                    )
+                    self.startAutomaticPauseResumeProbeIfNeeded()
                 } catch {
                     self?.phaseChanged(.failed("Guest lock probe failed: \(error.localizedDescription)"))
                 }

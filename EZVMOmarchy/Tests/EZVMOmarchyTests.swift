@@ -1,8 +1,29 @@
+import CoreGraphics
 import XCTest
 import EZVMCore
 @testable import EZVM_Omarchy
 
 final class EZVMOmarchyTests: XCTestCase {
+    func testInputDiagnosticsProbeCapturesHyprlandBindingAndDeviceState() {
+        let script = OmarchyInputDiagnosticsAcceptanceProbe.probeScript(
+            resultPath: "/mnt/ezvm-shared/result.txt"
+        )
+
+        XCTAssertTrue(script.contains("hyprctl binds -j"))
+        XCTAssertTrue(script.contains("hyprctl devices -j"))
+        XCTAssertTrue(script.contains("hyprctl activewindow -j"))
+        XCTAssertTrue(script.contains("pgrep -a hyprlock"))
+        XCTAssertTrue(script.contains("result='/mnt/ezvm-shared/result.txt'"))
+        XCTAssertTrue(script.contains("mv -f -- \"$partial\" \"$result\""))
+
+        let watcher = OmarchyInputDiagnosticsAcceptanceProbe.lockWatcherScript(
+            guestDirectory: "/mnt/ezvm-shared/probe"
+        )
+        XCTAssertTrue(watcher.contains("pgrep -x hyprlock"))
+        XCTAssertTrue(watcher.contains("touch \"$d/locked\""))
+        XCTAssertTrue(watcher.contains("touch \"$d/unlocked\""))
+    }
+
     @MainActor
     func testClipboardProbeWaitsForGuestScriptAndMatchingPasteboardPayloads() {
         let script = OmarchyClipboardAcceptanceProbe.probeScript(
@@ -270,6 +291,31 @@ final class EZVMOmarchyTests: XCTestCase {
         XCTAssertFalse(state.observe(type: .keyDown, keyCode: 49))
         XCTAssertTrue(state.observe(type: .keyUp, keyCode: 49))
         XCTAssertFalse(state.observe(type: .keyUp, keyCode: 49))
+    }
+
+    func testAcceptanceLockChordUsesMacLWithCommandAndControl() {
+        let transitions = OmarchyAcceptanceKeySequence.chord(
+            keyCode: 37,
+            additionalFlags: .maskControl
+        )
+        XCTAssertEqual(transitions.map(\.keyCode), [55, 59, 37, 37, 59, 55])
+        XCTAssertEqual(transitions.map(\.keyDown), [true, true, true, false, false, false])
+        XCTAssertEqual(transitions[0].flags, .maskCommand)
+        XCTAssertEqual(transitions[1].flags, [.maskCommand, .maskControl])
+        XCTAssertEqual(transitions[4].flags, .maskCommand)
+        XCTAssertEqual(transitions[5].flags, [])
+    }
+
+    func testAcceptanceChordReleasesModifiersInReverseOrder() {
+        let transitions = OmarchyAcceptanceKeySequence.chord(
+            keyCode: 49,
+            additionalFlags: [.maskControl, .maskAlternate, .maskShift]
+        )
+        XCTAssertEqual(
+            transitions.map(\.keyCode),
+            [55, 59, 58, 56, 49, 49, 56, 58, 59, 55]
+        )
+        XCTAssertEqual(transitions.last?.flags, [])
     }
 
     func testCommandSuperObservationIsBoundToRuntimeState() throws {

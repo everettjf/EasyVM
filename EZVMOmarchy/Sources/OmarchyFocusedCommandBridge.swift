@@ -36,6 +36,56 @@ struct OmarchyCommandSpaceCaptureState {
     }
 }
 
+struct OmarchyAcceptanceKeyTransition: Equatable {
+    let keyCode: CGKeyCode
+    let keyDown: Bool
+    let flags: CGEventFlags
+}
+
+enum OmarchyAcceptanceKeySequence {
+    static func chord(
+        keyCode: CGKeyCode,
+        additionalFlags: CGEventFlags
+    ) -> [OmarchyAcceptanceKeyTransition] {
+        var heldFlags: CGEventFlags = .maskCommand
+        var transitions = [
+            OmarchyAcceptanceKeyTransition(
+                keyCode: 55,
+                keyDown: true,
+                flags: heldFlags
+            ),
+        ]
+        if additionalFlags.contains(.maskControl) {
+            heldFlags.insert(.maskControl)
+            transitions.append(.init(keyCode: 59, keyDown: true, flags: heldFlags))
+        }
+        if additionalFlags.contains(.maskAlternate) {
+            heldFlags.insert(.maskAlternate)
+            transitions.append(.init(keyCode: 58, keyDown: true, flags: heldFlags))
+        }
+        if additionalFlags.contains(.maskShift) {
+            heldFlags.insert(.maskShift)
+            transitions.append(.init(keyCode: 56, keyDown: true, flags: heldFlags))
+        }
+        transitions.append(.init(keyCode: keyCode, keyDown: true, flags: heldFlags))
+        transitions.append(.init(keyCode: keyCode, keyDown: false, flags: heldFlags))
+        if additionalFlags.contains(.maskShift) {
+            heldFlags.remove(.maskShift)
+            transitions.append(.init(keyCode: 56, keyDown: false, flags: heldFlags))
+        }
+        if additionalFlags.contains(.maskAlternate) {
+            heldFlags.remove(.maskAlternate)
+            transitions.append(.init(keyCode: 58, keyDown: false, flags: heldFlags))
+        }
+        if additionalFlags.contains(.maskControl) {
+            heldFlags.remove(.maskControl)
+            transitions.append(.init(keyCode: 59, keyDown: false, flags: heldFlags))
+        }
+        transitions.append(.init(keyCode: 55, keyDown: false, flags: []))
+        return transitions
+    }
+}
+
 final class OmarchyFocusedCommandBridge {
     private static let syntheticMarker: Int64 = 0x455A_4F4D_4152_4348
     private static let acceptanceMarker: Int64 = 0x455A_4143_4345_5054
@@ -81,9 +131,17 @@ final class OmarchyFocusedCommandBridge {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                guard let self, self.tap == nil else { return }
-                self.installEventTap()
+                self?.start()
             }
+        }
+        guard AXIsProcessTrusted() else {
+            stateChanged(.accessibilityRequired)
+            return
+        }
+        if let tap {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            stateChanged(.enabled)
+            return
         }
         installEventTap()
     }
@@ -156,16 +214,38 @@ final class OmarchyFocusedCommandBridge {
 
     @discardableResult
     func runAcceptanceCommandSpaceProbe() -> Bool {
+        runAcceptanceCommandChordProbe(keyCode: 49)
+    }
+
+    @discardableResult
+    func runAcceptanceCommandChordProbe(
+        keyCode: CGKeyCode,
+        additionalFlags: CGEventFlags = []
+    ) -> Bool {
         guard tap != nil, AXIsProcessTrusted(), focusProbe() else { return false }
-        guard let source = CGEventSource(stateID: .combinedSessionState),
-              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 49, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 49, keyDown: false) else {
-            return false
-        }
-        for event in [keyDown, keyUp] {
-            event.flags = .maskCommand
+        guard let source = CGEventSource(stateID: .combinedSessionState) else { return false }
+        let transitions = OmarchyAcceptanceKeySequence.chord(
+            keyCode: keyCode,
+            additionalFlags: additionalFlags
+        )
+        var events: [CGEvent] = []
+        for transition in transitions {
+            guard let event = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: transition.keyCode,
+                keyDown: transition.keyDown
+            ) else { return false }
+            event.flags = transition.flags
             event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
-            event.post(tap: .cghidEventTap)
+            events.append(event)
+        }
+        // VZ's virtual USB keyboard consumes physical modifier transitions; a
+        // key carrying modifier flags alone is not equivalent to a real chord.
+        // Pace the balanced sequence so every transition reaches AppKit/VZ.
+        for (index, event) in events.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.03) {
+                event.post(tap: .cghidEventTap)
+            }
         }
         return true
     }

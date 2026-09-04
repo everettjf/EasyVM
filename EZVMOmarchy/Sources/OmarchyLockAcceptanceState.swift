@@ -59,4 +59,10 @@ struct OmarchyLockAcceptanceState: Equatable {
             return false
         }
     }
+
+    mutating func completeObservedCycle() -> Bool {
+        guard phase == .waitingForLocked else { return false }
+        phase = .complete
+        return true
+    }
 }
