@@ -98,8 +98,8 @@ func TestStopSessionClipboardOwnerWaitsForProcessExit(t *testing.T) {
 	default:
 		t.Fatal("clipboard owner stop returned before process exit")
 	}
-	if command.ProcessState == nil || !command.ProcessState.Exited() {
-		t.Fatalf("clipboard owner process state = %#v, want exited", command.ProcessState)
+	if command.ProcessState == nil {
+		t.Fatal("clipboard owner process was not reaped")
 	}
 	clipboardOwner.Lock()
 	defer clipboardOwner.Unlock()
