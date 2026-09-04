@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreGraphics
+import UserNotifications
 import XCTest
 import EZVMCore
 @testable import EZVM_Omarchy
@@ -248,6 +249,64 @@ final class EZVMOmarchyTests: XCTestCase {
             provisioningPending: false,
             probeOwnsTransport: true
         ))
+    }
+
+    func testNotificationActivationRequiresConsentCapabilityAndActiveDesktop() {
+        let capabilities = Set(["desktop-notifications-v1"])
+        XCTAssertTrue(OmarchyNotificationActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: capabilities,
+            desktopSessionActive: true,
+            provisioningPending: false
+        ))
+        XCTAssertFalse(OmarchyNotificationActivationPolicy.shouldRun(
+            enabled: false,
+            capabilities: capabilities,
+            desktopSessionActive: true,
+            provisioningPending: false
+        ))
+        XCTAssertFalse(OmarchyNotificationActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: [],
+            desktopSessionActive: true,
+            provisioningPending: false
+        ))
+        XCTAssertFalse(OmarchyNotificationActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: capabilities,
+            desktopSessionActive: false,
+            provisioningPending: false
+        ))
+        XCTAssertFalse(OmarchyNotificationActivationPolicy.shouldRun(
+            enabled: true,
+            capabilities: capabilities,
+            desktopSessionActive: true,
+            provisioningPending: true
+        ))
+    }
+
+    func testNotificationPermissionPolicyNeverEnablesDeniedAccess() {
+        XCTAssertEqual(OmarchyNotificationPermissionPolicy.action(for: .authorized), .enable)
+        XCTAssertEqual(OmarchyNotificationPermissionPolicy.action(for: .provisional), .enable)
+        XCTAssertEqual(OmarchyNotificationPermissionPolicy.action(for: .notDetermined), .request)
+        XCTAssertEqual(OmarchyNotificationPermissionPolicy.action(for: .denied), .openSystemSettings)
+    }
+
+    func testNotificationDeliveryEstablishesBaselineAndDeduplicates() {
+        var state = OmarchyNotificationDeliveryState(bootID: "boot-a")
+        XCTAssertEqual(state.pendingIDs(from: ["old-1", "old-2"]), [])
+        XCTAssertEqual(state.pendingIDs(from: ["old-2", "new-1"]), ["new-1"])
+        XCTAssertEqual(state.pendingIDs(from: ["new-1"]), [])
+        state.complete("new-1", succeeded: true)
+        XCTAssertEqual(state.pendingIDs(from: ["new-1"]), [])
+    }
+
+    func testFailedNotificationDeliveryCanRetry() {
+        var state = OmarchyNotificationDeliveryState(bootID: "boot-a")
+        XCTAssertEqual(state.pendingIDs(from: []), [])
+        XCTAssertEqual(state.pendingIDs(from: ["new-1"]), ["new-1"])
+        state.complete("new-1", succeeded: false)
+        XCTAssertEqual(state.pendingIDs(from: ["new-1"]), ["new-1"])
     }
 
     func testReleaseInfoTemplateCarriesFactoryTrustAndSourceProvenance() throws {

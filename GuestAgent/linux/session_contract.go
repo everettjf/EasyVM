@@ -42,6 +42,7 @@ func validatedSessionCapabilities(values []string) ([]string, bool) {
 	allowed := map[string]bool{
 		"clipboard-text-v1": true, "clipboard-image-v1": true,
 		"clipboard-agent-text-v1": true, "clipboard-agent-image-v1": true,
+		desktopNotificationCapability: true,
 	}
 	set := map[string]bool{}
 	for _, value := range values {

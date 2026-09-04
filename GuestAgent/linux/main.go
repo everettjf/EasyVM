@@ -252,6 +252,17 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 			if err := writeFrame(stream, response); err != nil {
 				return err
 			}
+		case "desktopNotifications":
+			result := proxyDesktopNotifications()
+			payload, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			sentSequence++
+			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
+			if err := writeFrame(stream, response); err != nil {
+				return err
+			}
 		default:
 			return errors.New("unsupported operation")
 		}

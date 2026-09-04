@@ -1,4 +1,5 @@
 import AVFoundation
+import UserNotifications
 import EZVMCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -46,6 +47,7 @@ struct OmarchyVirtualMachineView: View {
     let profile: VMOmarchyProfile
     @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
     @AppStorage("omarchyMicrophoneEnabled") private var microphoneEnabled = false
+    @AppStorage("omarchyNotificationsEnabled") private var notificationsEnabled = false
     @State private var lifecycle = OmarchyMachineLifecycle()
     @State private var sessionID = UUID()
     @State private var keyboardIntegration: OmarchyKeyboardIntegrationState = .accessibilityRequired
@@ -75,6 +77,7 @@ struct OmarchyVirtualMachineView: View {
                 layout: layout,
                 profile: profile,
                 clipboardEnabled: clipboardEnabled,
+                notificationsEnabled: notificationsEnabled,
                 microphoneEnabled: microphoneEnabled,
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
@@ -241,6 +244,10 @@ struct OmarchyVirtualMachineView: View {
             }
             Divider()
             Toggle("Share Clipboard", isOn: $clipboardEnabled)
+            Toggle("Mirror Notifications to macOS", isOn: notificationsBinding)
+            Text(notificationsEnabled
+                ? "Omarchy notifications appear in macOS Notification Center"
+                : "Notification mirroring is off")
             Toggle("Share Mac Microphone", isOn: microphoneBinding)
             Text(microphoneEnabled
                 ? "Microphone will be available after Omarchy restarts"
@@ -307,6 +314,49 @@ struct OmarchyVirtualMachineView: View {
                 requestMicrophoneSharing(enabled)
             }
         )
+    }
+
+    private var notificationsBinding: Binding<Bool> {
+        Binding(
+            get: { notificationsEnabled },
+            set: { enabled in requestNotificationMirroring(enabled) }
+        )
+    }
+
+    private func requestNotificationMirroring(_ enabled: Bool) {
+        guard enabled != notificationsEnabled else { return }
+        guard enabled else {
+            notificationsEnabled = false
+            return
+        }
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            Task { @MainActor in
+                switch OmarchyNotificationPermissionPolicy.action(for: settings.authorizationStatus) {
+                case .enable:
+                    notificationsEnabled = true
+                case .request:
+                    UNUserNotificationCenter.current().requestAuthorization(
+                        options: [.alert, .sound]
+                    ) { granted, _ in
+                        Task { @MainActor in
+                            notificationsEnabled = granted
+                            if !granted { explainDeniedNotificationAccess() }
+                        }
+                    }
+                case .openSystemSettings:
+                    explainDeniedNotificationAccess()
+                }
+            }
+        }
+    }
+
+    private func explainDeniedNotificationAccess() {
+        notificationsEnabled = false
+        notice = UserNotice(
+            title: "Notification Access Is Off",
+            message: "Allow EZVM Omarchy in System Settings → Notifications, then enable mirroring again."
+        )
+        NSWorkspace.shared.open(OmarchyNotificationPermissionPolicy.settingsURL)
     }
 
     private func requestMicrophoneSharing(_ enabled: Bool) {
@@ -945,6 +995,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
     let clipboardEnabled: Bool
+    let notificationsEnabled: Bool
     let microphoneEnabled: Bool
     let sessionID: UUID
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
@@ -963,6 +1014,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             layout: layout,
             requiredGuestCapabilities: profile.requiredGuestCapabilities,
             clipboardEnabled: clipboardEnabled,
+            notificationsEnabled: notificationsEnabled,
             keyboardIntegrationChanged: keyboardIntegrationChanged,
             integrationChanged: integrationChanged,
             sharedFolderProbeChanged: sharedFolderProbeChanged,
@@ -1012,6 +1064,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
     func updateNSView(_ nsView: VZVirtualMachineView, context: Context) {
         context.coordinator.setClipboardEnabled(clipboardEnabled)
+        context.coordinator.setNotificationsEnabled(notificationsEnabled)
         if let ownerProvisioningSubmission {
             context.coordinator.submitOwnerProvisioning(ownerProvisioningSubmission)
         }
@@ -1028,6 +1081,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let layout: VMOmarchyWorkspaceLayout
         let requiredGuestCapabilities: [String]
         private var clipboardEnabled: Bool
+        private var notificationsEnabled: Bool
         let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
         let integrationChanged: (VMOmarchyIntegrationState) -> Void
         let sharedFolderProbeChanged: (VMOmarchySharedFolderProbeState) -> Void
@@ -1044,6 +1098,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var keyboardBridge: OmarchyFocusedCommandBridge?
         private var integrationClient: VMOmarchyGuestAgentClient?
         private var agentClipboardController: OmarchyAgentClipboardController?
+        private var notificationController: OmarchyNotificationController?
         private var latestGuestStatus: VMOmarchyGuestStatus?
         private var clipboardProbeOwnsTransport = false
         private var sharedFolderProbeTask: Task<Void, Never>?
@@ -1082,6 +1137,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             layout: VMOmarchyWorkspaceLayout,
             requiredGuestCapabilities: [String],
             clipboardEnabled: Bool,
+            notificationsEnabled: Bool,
             keyboardIntegrationChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
             integrationChanged: @escaping (VMOmarchyIntegrationState) -> Void,
             sharedFolderProbeChanged: @escaping (VMOmarchySharedFolderProbeState) -> Void,
@@ -1095,6 +1151,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.layout = layout
             self.requiredGuestCapabilities = requiredGuestCapabilities
             self.clipboardEnabled = clipboardEnabled
+            self.notificationsEnabled = notificationsEnabled
             self.keyboardIntegrationChanged = keyboardIntegrationChanged
             self.integrationChanged = integrationChanged
             self.sharedFolderProbeChanged = sharedFolderProbeChanged
@@ -1269,6 +1326,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                     )
                                     self.latestGuestStatus = status
                                     self.configureAgentClipboard(for: status)
+                                    self.configureNotifications(for: status)
                                     self.handleAutomaticRecoveryReady(status)
                                     self.refreshOwnerProvisioningProgressIfNeeded(status)
                                 }
@@ -1276,6 +1334,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                 Task { @MainActor [weak self] in
                                     self?.latestGuestStatus = nil
                                     self?.stopAgentClipboard()
+                                    self?.stopNotifications()
                                     self?.handleAutomaticRecoveryDisconnect()
                                 }
                             case .connecting, .authenticating:
@@ -1336,6 +1395,43 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private func stopAgentClipboard() {
             agentClipboardController?.stop()
             agentClipboardController = nil
+        }
+
+        @MainActor
+        private func configureNotifications(for status: VMOmarchyGuestStatus) {
+            guard OmarchyNotificationActivationPolicy.shouldRun(
+                enabled: notificationsEnabled,
+                capabilities: status.capabilities,
+                desktopSessionActive: status.desktopSessionActive,
+                provisioningPending: status.provisioningPending
+            ), let integrationClient else {
+                stopNotifications()
+                return
+            }
+            guard notificationController == nil else { return }
+            let controller = OmarchyNotificationController(
+                client: integrationClient,
+                bootID: status.bootID
+            )
+            notificationController = controller
+            controller.start()
+        }
+
+        @MainActor
+        func setNotificationsEnabled(_ enabled: Bool) {
+            guard notificationsEnabled != enabled else { return }
+            notificationsEnabled = enabled
+            guard let latestGuestStatus else {
+                stopNotifications()
+                return
+            }
+            configureNotifications(for: latestGuestStatus)
+        }
+
+        @MainActor
+        private func stopNotifications() {
+            notificationController?.stop()
+            notificationController = nil
         }
 
         private func startSharedFolderProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
@@ -1772,6 +1868,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         )
                         self.keyboardBridge?.stop()
                         self.stopAgentClipboard()
+                        self.stopNotifications()
                         self.integrationClient?.virtualMachineDidPause()
                         self.phaseChanged(.paused)
                         if automaticResume {
@@ -1873,6 +1970,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             let clipboardController = agentClipboardController
             agentClipboardController = nil
             Task { @MainActor in clipboardController?.stop() }
+            let notifications = notificationController
+            notificationController = nil
+            Task { @MainActor in notifications?.stop() }
             sharedFolderProbeTask?.cancel()
             sharedFolderProbeTask = nil
             sharedFolderProbePassed = false

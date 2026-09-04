@@ -198,6 +198,21 @@ public struct VMOmarchyClipboardResult: Codable, Equatable, Sendable {
     public let sha256: String?
 }
 
+public struct VMOmarchyDesktopNotification: Codable, Equatable, Sendable {
+    public let id: String
+    public let app: String?
+    public let title: String
+    public let body: String?
+    public let urgency: Int
+    public let timestamp: UInt64
+}
+
+public struct VMOmarchyDesktopNotificationBatch: Codable, Equatable, Sendable {
+    public let success: Bool
+    public let message: String
+    public let notifications: [VMOmarchyDesktopNotification]?
+}
+
 enum VMOmarchyConnectionSuspensionReason: Hashable {
     case hostSleeping
     case virtualMachinePaused
@@ -474,6 +489,24 @@ public final class VMOmarchyGuestAgentClient {
 
     public func captureGuestClipboard(_ value: VMOmarchyClipboardRequest) async throws -> VMOmarchyClipboardResult {
         try await clipboardRequest(.clipboardGet, value: value)
+    }
+
+    public func currentDesktopNotifications() async throws -> [VMOmarchyDesktopNotification] {
+        guard capabilities.contains("desktop-notifications-v1") else {
+            throw CocoaError(.featureUnsupported)
+        }
+        let result: VMOmarchyDesktopNotificationBatch = try await request(
+            .desktopNotifications,
+            payload: [String: String]()
+        )
+        guard result.success else {
+            throw NSError(
+                domain: "EZVMOmarchyNotifications",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+        return result.notifications ?? []
     }
 
     private func clipboardRequest(

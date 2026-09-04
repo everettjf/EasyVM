@@ -33,6 +33,9 @@ func TestSessionRegistrationAllowsOnlyDeclaredDesktopCapabilities(t *testing.T) 
 	if _, ok := validatedSessionCapabilities([]string{"arbitrary-host-command-v1"}); ok {
 		t.Fatal("unknown session capability was accepted")
 	}
+	if actual, ok := validatedSessionCapabilities([]string{desktopNotificationCapability}); !ok || !reflect.DeepEqual(actual, []string{desktopNotificationCapability}) {
+		t.Fatalf("notification capability rejected: %#v %v", actual, ok)
+	}
 	if _, ok := validatedSessionCapabilities([]string{"clipboard-image-v1"}); ok {
 		t.Fatal("image clipboard was accepted without the base text capability")
 	}

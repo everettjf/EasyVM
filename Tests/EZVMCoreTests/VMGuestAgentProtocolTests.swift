@@ -556,8 +556,28 @@ final class VMGuestAgentProtocolTests: XCTestCase {
             .heartbeat, .status, .shutdown, .restart, .restartAgent,
             .uploadStart, .uploadChunk, .uploadCommit, .transferCancel,
             .downloadInfo, .downloadChunk, .input, .ownerProvisioning,
-            .clipboardSet, .clipboardGet,
+            .clipboardSet, .clipboardGet, .desktopNotifications,
         ])
+
+        let notificationBatch = VMOmarchyDesktopNotificationBatch(
+            success: true,
+            message: "ready",
+            notifications: [VMOmarchyDesktopNotification(
+                id: "1000-7.json",
+                app: "Browser",
+                title: "Build complete",
+                body: "The task finished.",
+                urgency: 1,
+                timestamp: 1000
+            )]
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                VMOmarchyDesktopNotificationBatch.self,
+                from: JSONEncoder().encode(notificationBatch)
+            ),
+            notificationBatch
+        )
 
         let clipboardRequest = VMOmarchyClipboardRequest(
             relativePath: ".ezvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt",

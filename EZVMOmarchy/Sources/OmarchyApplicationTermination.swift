@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 import Virtualization
 
 protocol OmarchyTerminableMachine: AnyObject {
@@ -10,7 +11,31 @@ protocol OmarchyTerminableMachine: AnyObject {
 
 extension VZVirtualMachine: OmarchyTerminableMachine {}
 
-final class OmarchyApplicationDelegate: NSObject, NSApplicationDelegate {
+final class OmarchyApplicationDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list, .sound]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard response.notification.request.content.userInfo[
+            "ezvmOmarchyGuestNotification"
+        ] as? Bool == true else { return }
+        await MainActor.run {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first(where: { $0.canBecomeKey })?.makeKeyAndOrderFront(nil)
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }

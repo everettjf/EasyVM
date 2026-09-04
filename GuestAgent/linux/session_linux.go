@@ -227,6 +227,8 @@ func detectSessionCapabilities(uid uint32) []string {
 	}
 	capabilities = append(capabilities,
 		agentClipboardCapabilities(waylandReady, copyAvailable, pasteAvailable)...)
+	capabilities = append(capabilities,
+		notificationCapabilities(waylandReady, desktopNotificationStateAvailable(uid))...)
 	sort.Strings(capabilities)
 	return capabilities
 }

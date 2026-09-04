@@ -45,6 +45,8 @@ Protocol v1 operations are:
 - `transferCancel`: explicit cleanup of either transfer direction
 - `input`: bounded Linux `input_event` batches for the Custom VirGL display
 - `ownerProvisioning`: one-shot delivery of validated Omarchy owner setup data
+- `clipboardSet`, `clipboardGet`: bounded text or PNG transfer through the active desktop Session Agent
+- `desktopNotifications`: bounded, read-only polling of sanitized Omarchy notification snapshots
 
 Status responses advertise additive capabilities. `file-transfer-v1` enables the
 transfer UI. `ssh-addresses-v1` enables validated `ssh://` links and is advertised
@@ -72,6 +74,23 @@ enabled SPICE clipboard configuration; PNG additionally requires the declared
 Agent authenticates its UID with `SO_PEERCRED`, accepts only an allowlist of
 capabilities, and expires the registration after 15 seconds. This channel does
 not accept commands from either side.
+`clipboard-agent-text-v1` and `clipboard-agent-image-v1` use the same
+authenticated Session Agent boundary but move clipboard bytes through the
+VirtioFS staging directory. The Session Agent verifies the exact byte count and
+SHA-256 before publishing a selection and reads it back through Wayland before
+reporting success. The macOS integration is independently disableable.
+`desktop-notifications-v1` is advertised only when an active Wayland Session
+Agent can verify the current user's Omarchy notification-state directory. The
+read-only `desktopNotifications` operation accepts no action payload and returns
+at most 20 current snapshots. The Session Agent accepts only owned, regular,
+bounded snapshot files whose names match Omarchy's notification format; both
+the Session Agent and root proxy sanitize and bound the ID, application, title,
+body, urgency, and timestamp. Click commands, image paths, and other Omarchy
+snapshot fields never cross the boundary. The macOS App establishes an initial
+baseline instead of replaying old notifications, retries failed deliveries,
+and only activates its own window when the user clicks a mirrored notification.
+Mirroring is off by default, independently disableable, and requires macOS
+notification authorization.
 `input-uinput-absolute-v1` is advertised only when the agent also creates a
 separate tablet-style `/dev/uinput` device. A capable host sends
 `EV_ABS/ABS_X` and `EV_ABS/ABS_Y` in the inclusive range `0...32767`, followed

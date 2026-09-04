@@ -79,6 +79,11 @@ func serveClipboardSession(connection *net.UnixConn) {
 	if json.Unmarshal(data, &request) != nil {
 		return
 	}
+	if request.Operation == "desktopNotifications" {
+		encoded, _ := json.Marshal(notificationSessionResponse())
+		_, _ = connection.Write(append(encoded, '\n'))
+		return
+	}
 	result := executeClipboardSessionRequest(request)
 	encoded, _ := json.Marshal(result)
 	_, _ = connection.Write(append(encoded, '\n'))
