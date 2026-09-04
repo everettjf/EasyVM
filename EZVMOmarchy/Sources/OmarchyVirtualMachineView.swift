@@ -1315,7 +1315,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         result.hostViewAfter.width, result.hostViewAfter.height
                     )
                     self.dynamicDisplayProbeChanged(.passed(result))
-                    self.startAutomaticLockProbeIfNeeded()
+                    self.startAutomaticCommandSpaceProbeIfNeeded(self.latestGuestStatus)
                 } catch {
                     NSLog("Omarchy dynamic display round trip failed: %@", error.localizedDescription)
                     self.dynamicDisplayProbeChanged(.failed(error.localizedDescription))
@@ -1406,7 +1406,6 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         @MainActor
         private func handleAutomaticRecoveryReady(_ status: VMOmarchyGuestStatus) {
-            startAutomaticCommandSpaceProbeIfNeeded(status)
             handleAutomaticLockProbeReady(status)
             switch automaticRecoveryStage {
             case .waitingForPostResumeReady:
@@ -1505,13 +1504,36 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         @MainActor
-        private func startAutomaticCommandSpaceProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
+        private func startAutomaticCommandSpaceProbeIfNeeded(_ status: VMOmarchyGuestStatus?) {
             guard ProcessInfo.processInfo.environment[
                 OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", status.desktopSessionActive, !status.provisioningPending,
-                  !automaticCommandSpaceProbeStarted,
-                  keyboardBridge?.runAcceptanceCommandSpaceProbe() == true else { return }
+            ] == "1", let status, status.desktopSessionActive, !status.provisioningPending,
+                  !automaticCommandSpaceProbeStarted else { return }
+            guard keyboardBridge?.runAcceptanceCommandSpaceProbe() == true,
+                  let integrationClient else {
+                phaseChanged(.failed(
+                    "Focused Command+Space acceptance could not reach the Accessibility event tap."
+                ))
+                return
+            }
             automaticCommandSpaceProbeStarted = true
+            Task { @MainActor [weak self, weak integrationClient] in
+                do {
+                    // Command+Space intentionally opens Omarchy Menu. Keep it
+                    // visible long enough for the event-tap observation to be
+                    // committed, then dismiss it before the lock probe begins.
+                    // Otherwise the next acceptance chord and typed secret can
+                    // land in the menu's search field instead of the desktop.
+                    try await Task.sleep(for: .seconds(1))
+                    try await integrationClient?.injectKeyChord(modifiers: [], key: 1)
+                    try await Task.sleep(for: .milliseconds(500))
+                    self?.startAutomaticLockProbeIfNeeded()
+                } catch {
+                    self?.phaseChanged(.failed(
+                        "Focused Command+Space cleanup failed: \(error.localizedDescription)"
+                    ))
+                }
+            }
         }
 
         @MainActor
