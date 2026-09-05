@@ -110,9 +110,11 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         // Lock state APIs can briefly or incorrectly report false after a
         // rejected password. Prove that a normal desktop shortcut and command
         // can actually execute before accepting the cycle as recovered.
-        try await verifyInteractiveDesktop(
+        try await verifyInteractiveDesktopEventually(
             client: client,
-            sharedDirectory: sharedDirectory
+            sharedDirectory: sharedDirectory,
+            attempts: 3,
+            timeoutPerAttempt: .seconds(8)
         )
         let unlockedAt = Date()
         completed = true
@@ -169,6 +171,35 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         try await Task.sleep(for: .seconds(2))
         try await client.typeUSASCII("bash \(guestScript)\n")
         try await waitForFile(resultURL, timeout: timeout)
+    }
+
+    static func verifyInteractiveDesktopEventually(
+        client: VMOmarchyGuestAgentClient,
+        sharedDirectory: URL,
+        attempts: Int,
+        timeoutPerAttempt: Duration,
+        retryDelay: Duration = .seconds(2)
+    ) async throws {
+        precondition(attempts > 0)
+        var finalError: Error?
+        for attempt in 1...attempts {
+            do {
+                try await verifyInteractiveDesktop(
+                    client: client,
+                    sharedDirectory: sharedDirectory,
+                    timeout: timeoutPerAttempt
+                )
+                return
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                finalError = error
+                if attempt < attempts {
+                    try await Task.sleep(for: retryDelay)
+                }
+            }
+        }
+        throw finalError ?? ProbeError.timeout
     }
 
     private static func waitForFile(

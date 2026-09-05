@@ -1718,10 +1718,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     }
                     guard let client else { throw CocoaError(.fileReadNoSuchFile) }
                     do {
-                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                             client: client,
                             sharedDirectory: self.layout.shared,
-                            timeout: .seconds(6)
+                            attempts: 2,
+                            timeoutPerAttempt: .seconds(6)
                         )
                     } catch {
                         guard let credential = OmarchyAcceptanceUnlockCredential(
@@ -1739,9 +1740,12 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         try await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(
                             for: credential.password + "\n"
                         ))
-                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                        try await Task.sleep(for: .seconds(3))
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                             client: client,
-                            sharedDirectory: self.layout.shared
+                            sharedDirectory: self.layout.shared,
+                            attempts: 3,
+                            timeoutPerAttempt: .seconds(8)
                         )
                     }
                     guard let status = self.latestGuestStatus else {
@@ -1835,10 +1839,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         // A reboot may return directly to an already unlocked
                         // desktop. Prove that path before typing a credential;
                         // otherwise the password would leak into an application.
-                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                             client: integrationClient,
                             sharedDirectory: self.layout.shared,
-                            timeout: .seconds(6)
+                            attempts: 2,
+                            timeoutPerAttempt: .seconds(6)
                         )
                     } catch {
                         NSApp.activate(ignoringOtherApps: true)
@@ -1855,9 +1860,12 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         try await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(
                             for: credential.password + "\n"
                         ))
-                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                        try await Task.sleep(for: .seconds(3))
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                             client: integrationClient,
-                            sharedDirectory: self.layout.shared
+                            sharedDirectory: self.layout.shared,
+                            attempts: 3,
+                            timeoutPerAttempt: .seconds(8)
                         )
                     }
                     guard let status = self.latestGuestStatus,

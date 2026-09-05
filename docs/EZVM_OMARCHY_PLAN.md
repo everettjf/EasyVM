@@ -1146,6 +1146,24 @@ keyboard, wait for every scheduled key event, and retry with a second unique
 command. This both avoids credential leakage on an unlocked desktop and still
 handles the secure-lock case discovered by Alpha 41.
 
+### 11.12 Input rebind retry checkpoint (2026-09-04)
+
+The signed `1.0.0-alpha.43` candidate built from revision
+`34b9347a80f7f9bab1b88ce5ca4e8d0ec614d0e7` repeated the empty-workspace
+download and reached the secure lock path after Guest restart. Its virtual USB
+credential submission successfully restored the visible desktop, but the first
+Agent-uinput `Super+Return` command arrived while Hyprland was still rebinding
+the recreated input device. The command did not open a terminal, so the strict
+interactive proof timed out and correctly rejected the candidate.
+
+Interactive proof now retries unique, nonce-scoped terminal commands across the
+short post-unlock input-rebind interval. The pre-unlock phase also makes two
+proof attempts before it is allowed to submit a credential, preventing one
+transient missed shortcut on an already-unlocked desktop from being mistaken
+for a lock screen. After a virtual USB unlock, the harness waits for desktop
+settling and permits three bounded proofs. Every attempt creates and cleans up
+its own shared-folder script and result; no stale result can satisfy a retry.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests
