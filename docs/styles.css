@@ -38,8 +38,11 @@ h1 span { color:var(--blue); background:linear-gradient(90deg,var(--blue),var(--
 .hero-install-step .install-command code { font-size:12px; }
 .hero-install-step .copy-button { margin-left:9px; padding:5px 9px; font-size:12px; }
 .hero-install-step .note { margin:7px 2px 0; font-size:10px; }
-.hero-download-button { width:100%; margin-top:8px; padding:9px 12px; border-color:#ffb15a; background:linear-gradient(100deg,#fff4f8,#ffd5df); color:#351120; }
-.omarchy-direct-download { margin-bottom:2px; border-color:#ffb15a; background:linear-gradient(100deg,#fff4f8,#ffd5df); color:#351120; }
+.omarchy-download-button { gap:8px; padding:8px 13px; border-color:#ff6b9a80; background:linear-gradient(145deg,#32142b,#211329); box-shadow:inset 0 1px #ffb0c72b,0 7px 20px #ff477e1a; color:#ffd9e6; font-size:12px; letter-spacing:.01em; }
+.omarchy-download-button:hover { border-color:#ff8bae; background:linear-gradient(145deg,#481936,#2a1530); box-shadow:inset 0 1px #ffd2df38,0 9px 24px #ff477e2b; color:#fff3f7; }
+.omarchy-download-button span { color:#ff8bae; font-size:14px; line-height:1; }
+.hero-download-button { margin-top:9px; }
+.omarchy-direct-download { margin-bottom:2px; }
 .hero-release-link { display:inline-block; margin-top:14px; font-size:13px; }
 .legacy-release-note { max-width:440px; margin:6px 0 0; color:#647087; font-size:10px; line-height:1.45; }
 .legacy-release-note a { color:#8290a8; text-decoration:underline; text-decoration-color:#8290a866; text-underline-offset:2px; }
