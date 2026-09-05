@@ -3,28 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="EZVM is a native virtual machine app for running macOS and ARM64 Linux on Apple silicon Macs with macOS 27 or later.">
+  <meta name="description" content="Run Omarchy as a dedicated Mac workspace, or create native macOS and ARM64 Linux virtual machines with EZVM.">
   <meta name="theme-color" content="#07152f">
   <meta property="og:title" content="EZVM — Virtual machines, made easy">
-  <meta property="og:description" content="Run macOS and ARM64 Linux on Apple silicon with a focused native app built for macOS 27 and later.">
+  <meta property="og:description" content="Choose EZVM Omarchy for a focused workspace or EZVM for native macOS and ARM64 Linux virtual machines.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://xnu.app/ezvm/">
-  <meta property="og:image" content="https://xnu.app/ezvm/assets/ezvm-linux-macos-running.webp">
+  <meta property="og:image" content="https://xnu.app/ezvm/assets/ezvm-omarchy-rally-car.webp">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
   <link rel="apple-touch-icon" href="assets/ezvm-icon.png">
   <link rel="canonical" href="https://xnu.app/ezvm/">
-  <title>EZVM — Virtual machines, made easy</title>
-  <link rel="stylesheet" href="styles.css?v=4">
-  <link rel="stylesheet" href="copy-command.css">
+  <title>EZVM — Omarchy, macOS, and Linux made easy</title>
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <header class="nav wrap">
     <a class="brand" href="#top" aria-label="EZVM home"><img class="mark" src="assets/ezvm-icon.png" width="36" height="36" alt="">EZVM</a>
     <nav aria-label="Main navigation">
-      <a href="#install">Install</a>
+      <a href="#top">Products</a>
       <a href="#features">Features</a>
-      <a href="#ezvm-omarchy">EZVM Omarchy</a>
       <a href="#systems">Systems</a>
       <a href="https://discord.gg/eGzEaP6TzR">Community</a>
       <a class="button small" href="https://github.com/everettjf/ezvm">GitHub</a>
@@ -32,53 +30,38 @@
   </header>
 
   <main id="top">
-    <section class="hero wrap" id="install">
-      <div class="hero-copy">
-        <p class="eyebrow">Native on Apple silicon · macOS 27+</p>
-        <h1>Virtual machines.<br><span>Made easy.</span></h1>
-        <p class="lead">Use Omarchy as a dedicated Mac workspace, or create and run macOS and ARM64 Linux virtual machines with Apple’s Virtualization framework.</p>
-        <div class="hero-installs" aria-label="Installation options">
-          <a class="hero-install-step popular omarchy-download-card" href="https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip" aria-label="Download EZVM Omarchy">
-            <span class="hero-install-heading"><span class="popular-badge">New</span><strong>EZVM Omarchy</strong><span class="download-arrow" aria-hidden="true">↓</span></span>
-            <span class="download-card-copy">The dedicated Omarchy app for Mac</span>
-            <span class="note">Signed and notarized · Sets up Omarchy on first launch · About 16 GiB free</span>
-          </a>
-          <div class="hero-install-step">
-            <div class="hero-install-heading"><span class="step-number">VM</span><strong>EZVM</strong><span class="step-detail">General virtual machines</span></div>
-            <div class="install-command" role="group" aria-label="Install EZVM with Homebrew"><code>brew install --cask everettjf/tap/ezvm</code><button class="copy-button" type="button" data-copy="brew install --cask everettjf/tap/ezvm" aria-label="Copy EZVM Homebrew installation command">Copy</button></div>
-            <p class="note">Choose this for macOS and general ARM64 Linux VMs</p>
-          </div>
-        </div>
-        <a class="text-link hero-release-link" href="https://github.com/everettjf/ezvm/releases/latest" target="_blank" rel="noopener noreferrer">Or download from GitHub Releases <span aria-hidden="true">→</span></a>
-        <p class="legacy-release-note">Need EZVM for an older macOS version? Previous app releases remain available in <a href="https://github.com/everettjf/ezvm/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>.</p>
-      </div>
-      <figure class="hero-visual">
-        <div class="window" aria-label="EZVM running three virtual machines">
-          <img src="assets/ezvm-linux-macos-running.webp?v=2" width="1666" height="1046" fetchpriority="high" alt="EZVM showing a running Omarchy desktop beside its virtual machine library">
-        </div>
-        <figcaption><strong>Omarchy, ready to use.</strong> Installed and running natively with EZVM.</figcaption>
-      </figure>
-    </section>
+    <section class="split-hero" id="install" aria-label="Choose an EZVM product">
+      <a class="split-product split-omarchy" href="https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip" aria-label="Download EZVM Omarchy">
+        <span class="product-content omarchy-content">
+          <span class="product-kicker">The featured experience</span>
+          <span class="product-title">EZVM <strong>Omarchy</strong></span>
+          <span class="product-copy">Open Omarchy.<br>Start working.</span>
+          <span class="product-action">Download <span aria-hidden="true">↙</span></span>
+          <span class="product-meta">Apple silicon · macOS 27+ · Signed &amp; notarized</span>
+        </span>
+        <span class="ghost-window hot-window" aria-hidden="true"><i></i><i></i><i></i><b>omarchy@ezvm</b><code>super + space</code></span>
+      </a>
 
-    <section class="section omarchy-edition" id="ezvm-omarchy">
-      <div class="wrap roadmap-grid">
-        <div>
-          <p class="eyebrow">New independent app · Alpha preview</p>
-          <h2>Open Omarchy.<br>Not a VM manager.</h2>
-          <p>EZVM Omarchy is a separate, single-purpose macOS app built on the same native core as EZVM. It opens directly into one persistent Omarchy workspace and tunes the Host–Guest experience for daily use.</p>
-          <div class="actions">
-            <a class="text-link omarchy-download-link" href="https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip">Download EZVM Omarchy <span aria-hidden="true">↓</span></a>
-            <a class="text-link" href="https://github.com/everettjf/ezvm/releases/tag/ezvm-omarchy-v1.0.0-alpha.44">Release notes →</a>
-            <a class="text-link" href="todo/EZVM_OMARCHY_TODO.md">View remaining work →</a>
-          </div>
-          <p class="note">Apple silicon · macOS 27+ · Independent community preview · Not affiliated with or endorsed by Omarchy</p>
-        </div>
-        <div class="cards omarchy-feature-list" aria-label="EZVM Omarchy Alpha features">
-          <article><span>⌘</span><h3>Mac muscle memory</h3><p>While the Guest display is focused, Command becomes Linux Super—including Command-Space—then returns to macOS with focus.</p></article>
-          <article><span>↔</span><h3>Integrated workspace</h3><p>Text and PNG clipboard, shared files, dynamic Retina sizing, full screen, and Guest notifications work across the Host boundary.</p></article>
-          <article><span>✓</span><h3>Recovery tested</h3><p>Real-Guest validation covers lock, pause, Agent restart, Guest restart, protected snapshot rollback, signing, and Gatekeeper.</p></article>
-        </div>
+      <a class="split-product split-ezvm" href="#features" aria-label="Explore EZVM for macOS and Linux">
+        <span class="product-content ezvm-content">
+          <span class="product-kicker">The native VM toolkit</span>
+          <span class="product-title">EZVM</span>
+          <span class="product-copy">macOS and Linux.<br>Made easy.</span>
+          <span class="system-list" aria-label="Supported systems"><span>macOS</span><span>Ubuntu</span><span>Fedora</span></span>
+          <span class="product-action">Explore EZVM <span aria-hidden="true">↘</span></span>
+        </span>
+        <span class="ghost-window cool-window" aria-hidden="true"><i></i><i></i><i></i><b>Virtual machines</b><code>Native. Local. Fast.</code></span>
+      </a>
+
+      <div class="hero-rift" aria-hidden="true"></div>
+      <div class="pixel-burst" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
       </div>
+      <div class="hero-car" aria-hidden="true">
+        <span class="car-glow"></span>
+        <img src="assets/ezvm-omarchy-rally-car.webp" width="1536" height="1024" fetchpriority="high" alt="">
+      </div>
+      <div class="hero-choice" aria-hidden="true"><span>Choose your drive</span></div>
     </section>
 
     <section class="strip" aria-label="Core capabilities">
@@ -86,25 +69,6 @@
         <div><strong>Native</strong><span>Virtualization.framework</span></div>
         <div><strong>Focused</strong><span>macOS + ARM64 Linux</span></div>
         <div><strong>Local</strong><span>No account required</span></div>
-      </div>
-    </section>
-
-    <section class="section roadmap" id="omarchy">
-      <div class="wrap roadmap-grid">
-        <div>
-          <p class="eyebrow">One focused workspace</p>
-          <h2>Download one app.<br>Open Omarchy.</h2>
-          <p>There is no separate EZVM installation and no terminal command. Open EZVM Omarchy, complete the native owner setup, and the app downloads, verifies, and creates its persistent Omarchy workspace.</p>
-        </div>
-        <div>
-          <a class="text-link omarchy-download-link" href="https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip">Download EZVM Omarchy <span aria-hidden="true">↓</span></a>
-          <p class="note">Apple silicon · macOS 27+ · About 16 GiB free · No Homebrew required</p>
-          <a class="text-link" href="https://github.com/everettjf/ezvm/releases/tag/ezvm-omarchy-v1.0.0-alpha.44">View release notes and SHA-256 checksum <span aria-hidden="true">→</span></a>
-          <figure class="omarchy-shot">
-            <img src="assets/omarchy-ezvm.png?v=1.0.0" width="1024" height="768" loading="lazy" decoding="async" alt="Omarchy reaching its first-run welcome screen inside an EZVM virtual machine window">
-            <figcaption><strong>Boot-tested on EZVM.</strong> The published sparse image is downloaded, verified, imported, and started as part of every release check.</figcaption>
-          </figure>
-        </div>
       </div>
     </section>
 
@@ -158,7 +122,6 @@
     </section>
   </main>
 
-  <footer class="wrap"><span>EZVM · MIT License</span><span>Built for Apple silicon</span></footer>
-  <script src="copy-command.js"></script>
+  <footer class="wrap"><span>EZVM · MIT License</span><span>Two drives. One native core.</span></footer>
 </body>
 </html>
