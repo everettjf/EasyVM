@@ -78,7 +78,7 @@ struct OmarchyGuestRestartAcceptanceState: Equatable {
 
     enum Action: Equatable {
         case none
-        case submitUnlockSecret
+        case recoverInteractiveDesktop
     }
 
     private(set) var phase: Phase = .idle
@@ -98,7 +98,7 @@ struct OmarchyGuestRestartAcceptanceState: Equatable {
             // alone as interactive recovery; submit through the virtual USB
             // keyboard and require an actual desktop command round trip.
             phase = .waitingForInteractiveProof(bootID: status.bootID)
-            return .submitUnlockSecret
+            return .recoverInteractiveDesktop
         case .idle, .waitingForRestart, .waitingForInteractiveProof, .complete:
             return .none
         }

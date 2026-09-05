@@ -539,7 +539,7 @@ final class EZVMOmarchyTests: XCTestCase {
             provisioningPending: false
         )
         XCTAssertEqual(state.observe(before), .none)
-        XCTAssertEqual(state.observe(lockedAfter), .submitUnlockSecret)
+        XCTAssertEqual(state.observe(lockedAfter), .recoverInteractiveDesktop)
         XCTAssertEqual(state.observe(lockedAfter), .none)
         XCTAssertEqual(state.observe(activeAfter), .none)
         XCTAssertFalse(state.completeInteractiveProof(bootID: "wrong-boot"))
@@ -556,7 +556,7 @@ final class EZVMOmarchyTests: XCTestCase {
             desktopSessionActive: true,
             provisioningPending: false
         )
-        XCTAssertEqual(state.observe(activeAfter), .submitUnlockSecret)
+        XCTAssertEqual(state.observe(activeAfter), .recoverInteractiveDesktop)
         XCTAssertEqual(state.observe(activeAfter), .none)
         XCTAssertTrue(state.completeInteractiveProof(bootID: "boot-after"))
     }
@@ -575,7 +575,7 @@ final class EZVMOmarchyTests: XCTestCase {
             desktopSessionActive: true, provisioningPending: false
         )
 
-        XCTAssertEqual(state.observe(falselyActiveAfter), .submitUnlockSecret)
+        XCTAssertEqual(state.observe(falselyActiveAfter), .recoverInteractiveDesktop)
         XCTAssertEqual(state.observe(falselyActiveAfter), .none)
         XCTAssertEqual(state.observe(interactiveAfter), .none)
         XCTAssertTrue(state.completeInteractiveProof(bootID: "boot-after"))

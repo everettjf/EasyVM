@@ -1125,6 +1125,27 @@ restart and host wake can no longer become green from `desktopSessionActive` or
 Session-Agent capabilities alone. A new signed candidate must repeat those
 transitions and supersede Alpha 41's lifecycle evidence.
 
+### 11.11 Conditional unlock correction checkpoint (2026-09-04)
+
+The signed `1.0.0-alpha.42` candidate built from revision
+`f49e80d89a57304a968ddddefb28133b347b9901` completed another empty-workspace
+public multipart install, owner provisioning, initial lock cycle, pause/resume,
+Agent restart, notification delivery, and exact-source evidence generation. Its
+Guest restart then returned directly to a visible interactive desktop rather
+than a secure lock surface. The recovery probe correctly refused to record a
+successful Guest recovery, but it had unconditionally sent the unlock password
+before attempting its desktop command. That could type a secret into an
+already-unlocked application and caused the subsequent command proof to time
+out. Alpha 42 is therefore also a rejected evidence-discovery candidate.
+
+Guest-restart and host-wake recovery now use the same conditional sequence:
+first execute a unique terminal command and wait for its shared-folder result;
+only if that proof fails may the acceptance harness focus the
+`VZVirtualMachineView`, submit the ephemeral credential through the virtual USB
+keyboard, wait for every scheduled key event, and retry with a second unique
+command. This both avoids credential leakage on an unlocked desktop and still
+handles the secure-lock case discovered by Alpha 41.
+
 ## 12. Test and measurement strategy
 
 ### 12.1 Unit and protocol tests

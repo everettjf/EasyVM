@@ -1732,6 +1732,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             window.makeKeyAndOrderFront(nil)
                             window.makeFirstResponder(machineView)
                         }
+                        try await Task.sleep(for: .milliseconds(300))
                         guard self.keyboardBridge?.runAcceptanceTextInput(
                             credential.password + "\n"
                         ) == true else { throw CocoaError(.featureUnsupported) }
@@ -1808,8 +1809,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 switch guestRestartAcceptanceState.observe(status) {
                 case .none:
                     break
-                case .submitUnlockSecret:
-                    submitGuestRestartUnlockSecret()
+                case .recoverInteractiveDesktop:
+                    recoverGuestRestartInteractiveDesktop()
                 }
             case .idle, .waitingForAgentDisconnect, .waitingForGuestDisconnect, .complete:
                 break
@@ -1818,7 +1819,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         @MainActor
-        private func submitGuestRestartUnlockSecret() {
+        private func recoverGuestRestartInteractiveDesktop() {
             guard let credential = OmarchyAcceptanceUnlockCredential(
                 environment: ProcessInfo.processInfo.environment
             ), let integrationClient, keyboardBridge != nil else {
@@ -1830,23 +1831,35 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             guestRestartUnlockTimeoutTask = Task { @MainActor [weak self, weak integrationClient] in
                 do {
                     guard let self, let integrationClient else { return }
-                    NSApp.activate(ignoringOtherApps: true)
-                    if let machineView = self.machineView, let window = machineView.window {
-                        window.makeKeyAndOrderFront(nil)
-                        window.makeFirstResponder(machineView)
+                    do {
+                        // A reboot may return directly to an already unlocked
+                        // desktop. Prove that path before typing a credential;
+                        // otherwise the password would leak into an application.
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                            client: integrationClient,
+                            sharedDirectory: self.layout.shared,
+                            timeout: .seconds(6)
+                        )
+                    } catch {
+                        NSApp.activate(ignoringOtherApps: true)
+                        if let machineView = self.machineView, let window = machineView.window {
+                            window.makeKeyAndOrderFront(nil)
+                            window.makeFirstResponder(machineView)
+                        }
+                        try await Task.sleep(for: .milliseconds(300))
+                        guard self.keyboardBridge?.runAcceptanceTextInput(
+                            credential.password + "\n"
+                        ) == true else {
+                            throw CocoaError(.featureUnsupported)
+                        }
+                        try await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(
+                            for: credential.password + "\n"
+                        ))
+                        try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
+                            client: integrationClient,
+                            sharedDirectory: self.layout.shared
+                        )
                     }
-                    guard self.keyboardBridge?.runAcceptanceTextInput(
-                        credential.password + "\n"
-                    ) == true else {
-                        throw CocoaError(.featureUnsupported)
-                    }
-                    try await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(
-                        for: credential.password + "\n"
-                    ))
-                    try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktop(
-                        client: integrationClient,
-                        sharedDirectory: self.layout.shared
-                    )
                     guard let status = self.latestGuestStatus,
                           self.guestRestartAcceptanceState.completeInteractiveProof(
                             bootID: status.bootID
