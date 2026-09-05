@@ -30,7 +30,7 @@ Virtualization.framework core as EZVM, but replaces the VM-library workflow
 with Omarchy-focused onboarding, recovery, dynamic display, shared folders,
 text/PNG clipboard, notifications, and focus-scoped Command-to-Super shortcuts.
 
-[Download EZVM Omarchy 1.0.0 Alpha 44 directly](https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip).
+[Download EZVM Omarchy directly](https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip).
 No separate EZVM installation or Homebrew command is required: on first launch,
 the app downloads and verifies its pinned Omarchy Factory image and creates the
 persistent workspace. Allow approximately **16 GiB of free disk space**.

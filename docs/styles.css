@@ -29,8 +29,13 @@ h1 span { color:var(--blue); background:linear-gradient(90deg,var(--blue),var(--
 .hero-installs { display:grid; gap:9px; margin-top:22px; }
 .hero-install-step { min-width:0; padding:10px 11px; border:1px solid var(--line); border-radius:12px; background:linear-gradient(145deg,#101a31,#0a1121); }
 .hero-install-step.popular { border-color:#ff9f1a75; background:radial-gradient(circle at 100% 0,#ff9f1a18,transparent 42%),linear-gradient(145deg,#131b30,#0a1121); box-shadow:0 14px 40px #ff9f1a0a; }
+.omarchy-download-card { display:block; transition:border-color .2s ease,background .2s ease,box-shadow .2s ease,transform .2s ease; }
+.omarchy-download-card:hover { border-color:#ff789e; background:radial-gradient(circle at 100% 0,#ff477e25,transparent 45%),linear-gradient(145deg,#1b1830,#101224); box-shadow:0 14px 36px #ff477e18; transform:translateY(-1px); }
+.omarchy-download-card:focus-visible { outline:2px solid #ff8bae; outline-offset:3px; }
 .hero-install-heading { display:flex; align-items:center; gap:8px; min-width:0; }
 .hero-install-heading strong { font-size:13px; white-space:nowrap; }
+.download-arrow { margin-left:auto; color:#ff8bae; font-size:17px; font-weight:800; line-height:1; }
+.download-card-copy { display:block; margin:9px 1px 0; color:#e8d8e1; font-size:12px; font-weight:650; }
 .step-number { display:grid; flex:0 0 auto; place-items:center; width:19px; height:19px; border-radius:50%; background:var(--text); color:#0a1020; font-size:10px; font-weight:800; }
 .step-detail { margin-left:auto; padding-left:10px; color:#75839b; font-size:10px; white-space:nowrap; }
 .popular-badge { flex:0 0 auto; padding:3px 8px; border:1px solid #ffb54d88; border-radius:999px; background:#ff9f1a1c; color:#ffbd61; font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
@@ -38,11 +43,9 @@ h1 span { color:var(--blue); background:linear-gradient(90deg,var(--blue),var(--
 .hero-install-step .install-command code { font-size:12px; }
 .hero-install-step .copy-button { margin-left:9px; padding:5px 9px; font-size:12px; }
 .hero-install-step .note { margin:7px 2px 0; font-size:10px; }
-.omarchy-download-button { gap:8px; padding:8px 13px; border-color:#ff6b9a80; background:linear-gradient(145deg,#32142b,#211329); box-shadow:inset 0 1px #ffb0c72b,0 7px 20px #ff477e1a; color:#ffd9e6; font-size:12px; letter-spacing:.01em; }
-.omarchy-download-button:hover { border-color:#ff8bae; background:linear-gradient(145deg,#481936,#2a1530); box-shadow:inset 0 1px #ffd2df38,0 9px 24px #ff477e2b; color:#fff3f7; }
-.omarchy-download-button span { color:#ff8bae; font-size:14px; line-height:1; }
-.hero-download-button { margin-top:9px; }
-.omarchy-direct-download { margin-bottom:2px; }
+.omarchy-download-link { display:inline-flex; align-items:center; gap:7px; color:#ffb1c8; }
+.omarchy-download-link:hover { color:#ffe5ed; }
+.omarchy-download-link span { font-size:16px; line-height:1; }
 .hero-release-link { display:inline-block; margin-top:14px; font-size:13px; }
 .legacy-release-note { max-width:440px; margin:6px 0 0; color:#647087; font-size:10px; line-height:1.45; }
 .legacy-release-note a { color:#8290a8; text-decoration:underline; text-decoration-color:#8290a866; text-underline-offset:2px; }
