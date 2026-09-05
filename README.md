@@ -35,6 +35,20 @@ Requires [Homebrew](https://brew.sh) and at least **15 GiB of available disk
 space**. The installer verifies the published checksums before importing the
 image into `~/EZVM Virtual Machines/Omarchy.ezvm`.
 
+### New: EZVM Omarchy
+
+**EZVM Omarchy** is a separate, single-purpose macOS app: open it and continue
+directly into one persistent Omarchy workspace. It uses the same native
+Virtualization.framework core as EZVM, but replaces the VM-library workflow
+with Omarchy-focused onboarding, recovery, dynamic display, shared folders,
+text/PNG clipboard, notifications, and focus-scoped Command-to-Super shortcuts.
+
+[Download the EZVM Omarchy 1.0.0 Alpha 44 preview](https://github.com/everettjf/ezvm/releases/tag/ezvm-omarchy-v1.0.0-alpha.44).
+It is an independent community preview for Apple silicon Macs running macOS 27
+or later—not an Omarchy-endorsed stable release. The remaining Daily Driver
+endurance work is tracked in the
+[EZVM Omarchy follow-up TODO](docs/todo/EZVM_OMARCHY_TODO.md).
+
 EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to create and run macOS and Linux virtual machines with a focused SwiftUI interface. It aims to be dependable, understandable, and useful without becoming a full emulation suite.
 
 > **Project status:** EZVM is Developer ID-signed and Apple-notarized. VM software can affect large disk images, so keep backups of important guests.
@@ -133,6 +147,12 @@ installation leaves no partial machine bundle.
 3. Select the **EZVM** scheme and your Mac as the run destination.
 4. Choose your own development team and bundle identifier if code signing requires it.
 5. Build and run with <kbd>⌘R</kbd>.
+
+To build the independent EZVM Omarchy app instead, open
+`EZVMOmarchy/EZVMOmarchy.xcodeproj` and select the **EZVM Omarchy** scheme. Its
+architecture, product boundaries, image policy, security model, and acceptance
+history are documented in the
+[EZVM Omarchy product plan](docs/EZVM_OMARCHY_PLAN.md).
 
 ### Linux graphics backends
 
