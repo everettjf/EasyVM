@@ -1,7 +1,17 @@
 import Foundation
 
-private enum SoakToolError: Error {
+private enum SoakToolError: LocalizedError {
     case invalidArguments
+    case freshHeartbeatTimedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidArguments:
+            return "Expected: <workspace> <40-character source revision> <duration-seconds> <output>."
+        case .freshHeartbeatTimedOut:
+            return "The App did not publish a fresh soak heartbeat before the baseline timeout."
+        }
+    }
 }
 
 private struct SoakHeartbeat: Codable {
@@ -71,13 +81,36 @@ enum OmarchySoakAcceptanceTool {
             "EZVM_OMARCHY_SOAK_INTERVAL_SECONDS"
         ] ?? "30") ?? 30)
         let maximumAge = max(120, interval * 4)
+        let baselineTimeout = max(1, Int(ProcessInfo.processInfo.environment[
+            "EZVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS"
+        ] ?? "\(maximumAge)") ?? maximumAge)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        // A stopped VM leaves its last atomic heartbeat on disk. Establish a
+        // baseline only after the App publishes a newer heartbeat so a restart
+        // immediately before monitoring cannot bind the run to the old boot.
+        let initialHeartbeat = try? decoder.decode(
+            SoakHeartbeat.self,
+            from: Data(contentsOf: heartbeatURL)
+        )
+        let baselineDeadline = Date().addingTimeInterval(TimeInterval(baselineTimeout))
+        var first: SoakHeartbeat?
+        repeat {
+            if let data = try? Data(contentsOf: heartbeatURL),
+               let candidate = try? decoder.decode(SoakHeartbeat.self, from: data) {
+                if initialHeartbeat == nil || candidate.observedAt > initialHeartbeat!.observedAt {
+                    first = candidate
+                    break
+                }
+            }
+            Thread.sleep(forTimeInterval: TimeInterval(interval))
+        } while Date() < baselineDeadline
+        guard let first else { throw SoakToolError.freshHeartbeatTimedOut }
+
         let started = Date()
         let deadline = started.addingTimeInterval(TimeInterval(duration))
-        var first: SoakHeartbeat?
-        var previousSample: SoakHeartbeat?
-        var sampleCount = 0
+        var previousSample: SoakHeartbeat? = first
+        var sampleCount = 1
         var maximumGap = 0
 
         repeat {
@@ -89,14 +122,10 @@ enum OmarchySoakAcceptanceTool {
                   age >= -5, age <= TimeInterval(maximumAge) else {
                 throw CocoaError(.fileReadCorruptFile)
             }
-            if let baseline = first {
-                guard heartbeat.bootID == baseline.bootID,
-                      heartbeat.agentInstanceID == baseline.agentInstanceID,
-                      heartbeat.guestAgentVersion == baseline.guestAgentVersion else {
-                    throw CocoaError(.fileReadCorruptFile)
-                }
-            } else {
-                first = heartbeat
+            guard heartbeat.bootID == first.bootID,
+                  heartbeat.agentInstanceID == first.agentInstanceID,
+                  heartbeat.guestAgentVersion == first.guestAgentVersion else {
+                throw CocoaError(.fileReadCorruptFile)
             }
             if let previous = previousSample, heartbeat.observedAt > previous.observedAt {
                 guard heartbeat.uptimeSeconds >= previous.uptimeSeconds else {
@@ -108,14 +137,11 @@ enum OmarchySoakAcceptanceTool {
                 )
                 sampleCount += 1
                 previousSample = heartbeat
-            } else if previousSample == nil {
-                previousSample = heartbeat
-                sampleCount = 1
             }
             if Date() < deadline { Thread.sleep(forTimeInterval: TimeInterval(interval)) }
         } while Date() < deadline
 
-        guard let first, let previous = previousSample, sampleCount >= 2,
+        guard let previous = previousSample, sampleCount >= 2,
               maximumGap <= maximumAge else {
             throw CocoaError(.fileReadCorruptFile)
         }

@@ -20,8 +20,21 @@ swift build --package-path "$project_root" --product omarchy-soak-acceptance-too
 bin_dir=$(swift build --package-path "$project_root" --show-bin-path)
 tool="$bin_dir/omarchy-soak-acceptance-tool"
 
+# Leave a valid heartbeat from the previous VM boot on disk. The monitor must
+# wait for the App's next atomic update instead of binding to this stale boot.
+ruby -rjson -rtime -e '
+  value = {
+    schemaVersion: 1, observedAt: Time.now.utc.iso8601,
+    sourceRevision: ARGV.fetch(1), guestAgentVersion: "agent-old",
+    agentInstanceID: "instance-old", bootID: "boot-old", uptimeSeconds: 999,
+    desktopSessionActive: true, provisioningPending: false
+  }
+  File.write(File.join(ARGV.fetch(0), "Diagnostics", "soak-heartbeat.json"), JSON.generate(value))
+' "$work" "$revision"
+
 ruby -rjson -rtime -e '
   root, revision = ARGV
+  sleep 1.2
   8.times do |index|
     value = {
       schemaVersion: 1, observedAt: Time.now.utc.iso8601,
@@ -38,7 +51,8 @@ ruby -rjson -rtime -e '
 ' "$work" "$revision" &
 updater_pid=$!
 sleep 0.2
-EZVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 "$tool" \
+EZVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 \
+EZVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=5 "$tool" \
   "$work" "$revision" 3 "$work/soak-observation.json"
 wait "$updater_pid"
 updater_pid=
@@ -62,7 +76,8 @@ ruby -rjson -rtime -e '
   }
   File.write(File.join(ARGV.fetch(0), "Diagnostics", "soak-heartbeat.json"), JSON.generate(value))
 ' "$work" "$revision"
-if EZVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 "$tool" \
+if EZVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 \
+  EZVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=2 "$tool" \
   "$work" "$revision" 1 "$work/rejected.json" >/dev/null 2>&1; then
   echo 'soak monitor accepted an inactive desktop' >&2
   exit 1

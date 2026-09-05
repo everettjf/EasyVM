@@ -762,6 +762,10 @@ desktop, completed provisioning, and no heartbeat gap above 120 seconds. Only a
 real interval of at least 86,400 seconds with at least one independent sample per
 120 seconds produces `soak-observation.json`; schema-7 promotion binds its digest
 and rejects all legacy hand-authored scenario flags.
+When a previous run has left a valid heartbeat on disk, monitoring first waits
+for a strictly newer atomic heartbeat before starting its timer. This prevents a
+VM restart immediately before the soak from binding the observation to the old
+boot identity; failure to receive that fresh baseline is reported explicitly.
 `cleanInstall` is also derived rather than asserted: the verifier requires the
 transactional workspace `createdAt` to fall inside the acceptance interval,
 the first provisioning-pending observation to follow workspace creation, and
