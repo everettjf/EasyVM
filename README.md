@@ -22,20 +22,7 @@ and notarized app with Homebrew:
 brew install --cask everettjf/tap/ezvm
 ```
 
-### Popular: EZVM + Omarchy
-
-Want a ready-to-run system? This command installs or updates EZVM and imports
-the latest verified Omarchy AArch64 image:
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)"
-```
-
-Requires [Homebrew](https://brew.sh) and at least **15 GiB of available disk
-space**. The installer verifies the published checksums before importing the
-image into `~/EZVM Virtual Machines/Omarchy.ezvm`.
-
-### New: EZVM Omarchy
+### EZVM Omarchy
 
 **EZVM Omarchy** is a separate, single-purpose macOS app: open it and continue
 directly into one persistent Omarchy workspace. It uses the same native
@@ -43,7 +30,11 @@ Virtualization.framework core as EZVM, but replaces the VM-library workflow
 with Omarchy-focused onboarding, recovery, dynamic display, shared folders,
 text/PNG clipboard, notifications, and focus-scoped Command-to-Super shortcuts.
 
-[Download the EZVM Omarchy 1.0.0 Alpha 44 preview](https://github.com/everettjf/ezvm/releases/tag/ezvm-omarchy-v1.0.0-alpha.44).
+[Download EZVM Omarchy 1.0.0 Alpha 44 directly](https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip).
+No separate EZVM installation or Homebrew command is required: on first launch,
+the app downloads and verifies its pinned Omarchy Factory image and creates the
+persistent workspace. Allow approximately **16 GiB of free disk space**.
+
 It is an independent community preview for Apple silicon Macs running macOS 27
 or later—not an Omarchy-endorsed stable release. The remaining Daily Driver
 endurance work is tracked in the
@@ -95,20 +86,14 @@ brew install --cask everettjf/tap/ezvm
 
 Or download the archive from [GitHub Releases](https://github.com/everettjf/ezvm/releases/latest).
 
-### Popular: EZVM + Omarchy in one command
+### EZVM Omarchy
 
-On an Apple Silicon Mac with Homebrew, install or update EZVM and install the
-latest verified Omarchy AArch64 image with one command:
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/everettjf/ezvm/main/scripts/install-omarchy.sh)"
-```
-
-The script verifies the published Omarchy installer against its Release
-checksum and installs the preinstalled image at
-`~/EZVM Virtual Machines/Omarchy.ezvm`. Before downloading, it displays the
-available space on the destination volume and stops unless at least 15 GiB is
-available.
+[Download the dedicated signed and notarized Alpha](https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip),
+open `EZVM Omarchy.app`, and complete the native owner setup. The app handles
+the verified Omarchy image download and persistent workspace automatically.
+The older `scripts/install-omarchy.sh` path remains available for users who
+specifically want Omarchy as a VM inside the general-purpose EZVM app, but it
+is no longer the recommended Omarchy experience.
 
 ![Omarchy reaching its first-run welcome screen inside EZVM](./docs/assets/omarchy-ezvm.png)
 
